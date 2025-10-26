@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'TConduit',
-  description: 'A retro-style data entry page.',
+  description: 'An AI agent that finds relevant talent across the web.',
 };
 
 export default function RootLayout({
