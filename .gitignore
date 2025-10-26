@@ -9,6 +9,11 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+/.idx
+/docs
+docs
+.idx
+node_modules
 
 # testing
 /coverage
