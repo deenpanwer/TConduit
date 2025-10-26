@@ -38,32 +38,16 @@ const AutoResizingTextarea = forwardRef<
   }, [props.value, isOverflowing]);
 
   return (
-    <div className="relative w-full">
-      <textarea
-        ref={internalRef}
-        rows={1}
-        className={cn(
-          "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black",
-          isOverflowing ? "custom-scrollbar pr-6" : "scrollbar-hide",
-          className
-        )}
-        {...props}
-      />
-      {isOverflowing && (
-         <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <div className="absolute bottom-2 right-1.5 cursor-pointer">
-                        <Info className="h-4 w-4 text-gray-400" />
-                    </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>Share your most pressing problem, followed by your contact details below.</p>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+    <textarea
+      ref={internalRef}
+      rows={1}
+      className={cn(
+        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black",
+        isOverflowing ? "custom-scrollbar" : "scrollbar-hide",
+        className
       )}
-    </div>
+      {...props}
+    />
   );
 });
 
@@ -142,7 +126,7 @@ export default function Home() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe your problem, then add your contact details..."
+              placeholder="Write the problem you're facing."
               aria-label="Data input"
               disabled={isLoading}
             />
@@ -159,9 +143,27 @@ export default function Home() {
                 </Tooltip>
             </TooltipProvider>
             </form>
-            <p className="mt-2 text-sm text-black">
-            Tell us your problem. We'll solve it.
-            </p>
+            <div className="mt-2 flex items-center justify-center text-sm text-black">
+                <p>
+                    Also provide your contact details at the end.
+                </p>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="ml-1.5 cursor-pointer">
+                                <Info className="h-4 w-4 text-gray-500" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent align="center" className="text-left">
+                            <p className="font-medium">Example format:</p>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                                <p><span className="font-semibold">Problem:</span> My website is too slow and I'm losing customers.</p>
+                                <p><span className="font-semibold">Contact:</span> email@example.com</p>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </div>
       </div>
       <Toaster />
