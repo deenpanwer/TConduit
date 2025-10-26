@@ -115,12 +115,10 @@ export default function Home() {
   };
   
   return (
-    <main className="flex flex-col min-h-screen bg-white py-10 md:py-20 animate-fade-in px-4">
-        <div className="w-full max-w-lg">
-            <h1 className="font-serif text-3xl md:text-4xl text-black text-left">
-              TRAC
-            </h1>
-        </div>
+    <main className="relative flex flex-col min-h-screen bg-white py-10 md:py-20 animate-fade-in px-4">
+        <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
+          TRAC
+        </h1>
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
