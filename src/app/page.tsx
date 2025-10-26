@@ -102,7 +102,7 @@ export default function Home() {
   };
   
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start bg-white p-4 pt-32">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4">
       <div className="w-full max-w-md text-center">
         <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
