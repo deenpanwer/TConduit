@@ -155,10 +155,10 @@ export default function Home() {
                             </span>
                         </TooltipTrigger>
                         <TooltipContent align="center" className="text-left">
-                            <p className="font-medium">Example format:</p>
+                            <p className="font-medium">Format:</p>
                             <div className="mt-1 text-xs text-muted-foreground">
-                                <p><span className="font-semibold">Problem:</span> My website is too slow and I'm losing customers.</p>
-                                <p><span className="font-semibold">Contact:</span> email@example.com</p>
+                                <p><span className="font-semibold">Problem:</span> Your problem description</p>
+                                <p><span className="font-semibold">Contact:</span> Your email or phone</p>
                             </div>
                         </TooltipContent>
                     </Tooltip>
