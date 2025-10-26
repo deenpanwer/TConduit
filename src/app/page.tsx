@@ -1,16 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
+import { Maximize } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+
+const AutoResizingTextarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => {
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => internalRef.current!);
+
+  useEffect(() => {
+    const textarea = internalRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [props.value]);
+
+  return (
+    <textarea
+      ref={internalRef}
+      rows={1}
+      className={`w-full resize-none overflow-y-hidden border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
+      {...props}
+    />
+  );
+});
+
+AutoResizingTextarea.displayName = 'AutoResizingTextarea';
+
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const isOverflowing = textareaRef.current
+    ? textareaRef.current.scrollWidth > textareaRef.current.clientWidth
+    : false;
+
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
     if (!inputValue.trim() || isLoading) {
       return;
     }
@@ -25,7 +63,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue }],
+          data: { input: inputValue },
         }),
       });
 
@@ -55,26 +93,43 @@ export default function Home() {
       });
     } finally {
       setIsLoading(false);
+      setIsModalOpen(false);
     }
   };
 
+  const handleModalSubmit = () => {
+    handleSubmit();
+  };
+  
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
       <div className="text-center w-full max-w-md">
         <h1 className="text-4xl mb-4 text-black font-serif">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="flex justify-center items-center mb-2">
-          <input
-            type="text"
+        <form onSubmit={handleSubmit} className="flex justify-center items-center mb-2 relative w-full max-w-xs mx-auto">
+          <AutoResizingTextarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="type your number"
             aria-label="Data input"
-            className="border border-black p-1 bg-white text-black w-full max-w-xs"
             disabled={isLoading}
+            className="w-full"
+            style={{overflowX: 'auto', whiteSpace: 'nowrap'}}
           />
-           <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
+          {isOverflowing && !isLoading && (
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="absolute right-10 top-1/2 -translate-y-1/2 p-0.5"
+                aria-label="Enlarge input"
+                >
+                <Maximize className="w-4 h-4 text-gray-500" />
+              </button>
+          )}
+
+           <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black h-[34px]" disabled={isLoading}>
             {isLoading ? "..." : "→"}
           </button>
         </form>
@@ -83,6 +138,26 @@ export default function Home() {
         </p>
       </div>
       <Toaster />
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-black">Edit your entry</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="type your number"
+            className="min-h-[150px] bg-white border border-black text-black"
+            disabled={isLoading}
+          />
+          <div className="flex justify-end">
+             <Button onClick={handleModalSubmit} className="border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
+                {isLoading ? "..." : "Submit"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
