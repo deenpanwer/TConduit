@@ -59,7 +59,9 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
         textarea.addEventListener('scroll', handleScroll);
         window.addEventListener('resize', handleInput);
         return () => {
-            textarea.removeEventListener('scroll', handleScroll);
+            if (textarea) {
+              textarea.removeEventListener('scroll', handleScroll);
+            }
             window.removeEventListener('resize', handleInput);
         }
       }
@@ -72,7 +74,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar pr-2",
+            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar pr-2",
             className
           )}
           {...props}
@@ -86,7 +88,7 @@ AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
     return (
-        <div className="flex h-[42px] w-full items-center justify-between bg-white p-2">
+        <div className="flex h-10 w-full items-center justify-between bg-white p-2">
             <div className="flex items-center gap-2 overflow-hidden">
                 <div className="flex h-full items-center gap-1 shrink-0">
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.3s]"></span>
@@ -210,66 +212,64 @@ export default function Home() {
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
-                    <form onSubmit={handleSubmit} className="mx-auto flex flex-col items-start justify-start">
-                      <div className={cn("relative flex w-full items-start border border-black p-2 bg-white",
-                        listening && "p-0"
-                      )}>
-                        {listening ? (
-                          <VoiceRecordingUI 
-                              onCancel={() => stopRecording(false)}
-                              onAccept={() => stopRecording(true)}
-                              transcript={transcript}
-                          />
-                        ) : (
-                          <>
-                            <div className={cn("relative w-full",
-                                {"fade-top": showTopFade, "fade-bottom": showBottomFade}
-                            )}>
-                                <AutoResizingTextarea
-                                  ref={textareaRef}
-                                  value={inputValue}
-                                  onChange={(e) => setInputValue(e.target.value)}
-                                  onKeyDown={handleKeyDown}
-                                  placeholder="Write the problem you're facing."
-                                  aria-label="Data input"
-                                  disabled={isLoading}
-                                  setShowTopFade={setShowTopFade}
-                                  setShowBottomFade={setShowBottomFade}
-                                />
-                            </div>
-                            <div className="flex flex-col border-l border-black ml-2 pl-2">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button type="submit" className="flex h-[21px] w-[21px] items-center justify-center text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim()}>
-                                                {isLoading ? (
-                                                    <div className="flex space-x-1">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
-                                                    </div>
-                                                ) : <ArrowUp size={18} />}
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Send (Ctrl+Enter)</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button type="button" onClick={startRecording} className="flex h-[21px] w-[21px] items-center justify-center text-black shrink-0" disabled={isLoading}>
-                                                <Mic size={16} />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Voice Input</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                    <form onSubmit={handleSubmit} className="mx-auto flex w-full items-start justify-start gap-2">
+                        <div className={cn("relative flex w-full items-start border border-black p-2 bg-white",
+                          listening && "p-0"
+                        )}>
+                          {listening ? (
+                            <VoiceRecordingUI 
+                                onCancel={() => stopRecording(false)}
+                                onAccept={() => stopRecording(true)}
+                                transcript={transcript}
+                            />
+                          ) : (
+                              <div className={cn("relative w-full",
+                                  {"fade-top": showTopFade, "fade-bottom": showBottomFade}
+                              )}>
+                                  <AutoResizingTextarea
+                                    ref={textareaRef}
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Write the problem you're facing."
+                                    aria-label="Data input"
+                                    disabled={isLoading}
+                                    setShowTopFade={setShowTopFade}
+                                    setShowBottomFade={setShowBottomFade}
+                                  />
+                              </div>
+                          )}
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                            {isLoading ? (
+                                                <div className="flex space-x-1">
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                                </div>
+                                            ) : <ArrowUp size={18} />}
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Send (Ctrl+Enter)</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
+                                            <Mic size={16} />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Voice Input</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
                     </form>
                     <div className="mt-2 flex items-center justify-start text-sm text-black">
                         <p>
