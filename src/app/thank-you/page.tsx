@@ -16,7 +16,7 @@ export default function ThankYouPage() {
             data-ai-hint="futuristic abstract"
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 p-4">
-            <div className="bg-white p-8 text-black rounded-none text-center">
+            <div className="bg-white p-8 text-black rounded-none text-center animate-fade-in">
               <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
               <p className="text-sm sm:text-base md:text-lg">
                 Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
