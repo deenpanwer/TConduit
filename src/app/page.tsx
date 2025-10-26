@@ -21,7 +21,7 @@ export default function Home() {
           "Accept": "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ data: [{ input: inputValue }] }),
+        body: JSON.stringify({ data: { input: inputValue } }),
       });
 
       if (!response.ok) {
@@ -57,7 +57,7 @@ export default function Home() {
         <h1 className="text-4xl mb-4 text-black font-serif">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex items-center">
           <div>
             <input
               type="text"
@@ -67,6 +67,9 @@ export default function Home() {
               aria-label="Data input"
               className="border border-black p-1 bg-white text-black"
             />
+             <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black">
+              →
+            </button>
           </div>
         </form>
       </div>
