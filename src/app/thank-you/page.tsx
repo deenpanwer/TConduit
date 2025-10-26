@@ -19,7 +19,7 @@ export default function ThankYouPage() {
           <div className="bg-white p-8 text-black rounded-none">
             <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Signal Acquired. Processing...</h1>
             <p className="text-sm sm:text-base md:text-lg">
-              Your problem has been ingested by our cognitive engine. We are running multi-dimensional analysis against our network of elite strategists and engineers. A curated shortlist of problem-solvers is being assembled. Stand by for transmission.
+              Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
             </p>
           </div>
         </div>
