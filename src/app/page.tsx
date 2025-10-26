@@ -133,8 +133,14 @@ export default function Home() {
              <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="submit" className="ml-2 h-[42px] border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
-                            {isLoading ? "..." : "→"}
+                        <button type="submit" className="ml-2 flex h-[42px] w-[45px] items-center justify-center border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
+                            {isLoading ? (
+                                <div className="flex space-x-1">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                </div>
+                            ) : "→"}
                         </button>
                     </TooltipTrigger>
                     <TooltipContent>
