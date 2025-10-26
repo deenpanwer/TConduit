@@ -26,6 +26,16 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
     const internalRef = useRef<HTMLTextAreaElement>(null);
     React.useImperativeHandle(ref, () => internalRef.current!);
 
+    const handleInput = () => {
+      const textarea = internalRef.current;
+      if (textarea) {
+        textarea.style.height = "auto";
+        const scrollHeight = textarea.scrollHeight;
+        textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+        handleScroll();
+      }
+    };
+
     const handleScroll = useCallback(() => {
       const textarea = internalRef.current;
       if (textarea) {
@@ -36,20 +46,18 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
     }, [setShowTopFade, setShowBottomFade]);
 
     useEffect(() => {
-      const textarea = internalRef.current;
-      if (textarea) {
-        textarea.style.height = "auto";
-        const scrollHeight = textarea.scrollHeight;
-        textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
-        handleScroll(); 
-      }
-    }, [props.value, handleScroll]);
+        handleInput();
+    }, [props.value]);
 
     useEffect(() => {
       const textarea = internalRef.current;
       if (textarea) {
         textarea.addEventListener('scroll', handleScroll);
-        return () => textarea.removeEventListener('scroll', handleScroll);
+        window.addEventListener('resize', handleInput);
+        return () => {
+            textarea.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('resize', handleInput);
+        }
       }
     }, [handleScroll]);
 
@@ -58,6 +66,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
         <textarea
           ref={internalRef}
           rows={1}
+          onInput={handleInput}
           className={cn(
             "w-full resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar pr-2",
             className
@@ -71,11 +80,11 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
 AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 
-const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: (transcript: string) => void; transcript: string }) => {
+const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
     return (
         <div className="flex h-[42px] w-full items-center justify-between bg-white p-2">
-            <div className="flex items-center gap-2">
-                <div className="flex h-full items-center gap-1">
+            <div className="flex items-center gap-2 overflow-hidden">
+                <div className="flex h-full items-center gap-1 shrink-0">
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.3s]"></span>
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.15s]"></span>
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black"></span>
@@ -86,7 +95,7 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
                 <button onClick={onCancel} className="p-2 text-black hover:bg-gray-100">
                     <X size={20} />
                 </button>
-                <button onClick={() => onAccept(transcript)} className="p-2 text-black hover:bg-gray-100">
+                <button onClick={onAccept} className="p-2 text-black hover:bg-gray-100">
                     <Check size={20} />
                 </button>
             </div>
@@ -104,6 +113,7 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const finalTranscriptRef = useRef('');
 
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
@@ -113,22 +123,26 @@ export default function Home() {
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
 
-        recognitionRef.current.onresult = (event) => {
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
             let finalTranscript = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
                     finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
                 }
             }
-            setTranscript(prev => prev + finalTranscript);
+            finalTranscriptRef.current += finalTranscript;
+            setTranscript(finalTranscriptRef.current + interimTranscript);
         };
 
-        recognitionRef.current.onerror = (event) => {
+        recognition.onerror = (event) => {
             console.error('Speech recognition error', event.error);
             toast({
               variant: "destructive",
@@ -137,12 +151,15 @@ export default function Home() {
             });
             stopRecording(false);
         };
+        
+        recognitionRef.current = recognition;
     }
   }, [toast]);
 
   const startRecording = () => {
     if (recognitionRef.current) {
         setTranscript('');
+        finalTranscriptRef.current = '';
         setIsRecording(true);
         recognitionRef.current.start();
     } else {
@@ -159,9 +176,10 @@ export default function Home() {
         recognitionRef.current.stop();
         setIsRecording(false);
         if (shouldAccept) {
-            setInputValue(prev => prev ? `${prev}\n${transcript}` : transcript);
+            setInputValue(prev => prev ? `${prev}\n${finalTranscriptRef.current}` : finalTranscriptRef.current);
         }
         setTranscript('');
+        finalTranscriptRef.current = '';
     }
   };
 
