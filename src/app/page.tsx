@@ -5,35 +5,38 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const MAX_TEXTAREA_HEIGHT = 200; // The textarea will grow up to this height
+const MAX_TEXTAREA_HEIGHT = 200;
 
 const AutoResizingTextarea = forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
 >(({ className, ...props }, ref) => {
   const internalRef = useRef<HTMLTextAreaElement>(null);
-  
-  // This combines the forwarded ref with our internal ref
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
   React.useImperativeHandle(ref, () => internalRef.current!);
 
   useEffect(() => {
     const textarea = internalRef.current;
     if (textarea) {
-      // Temporarily shrink the textarea to calculate the real scroll height
+      const isCurrentlyOverflowing = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT;
+      if (isCurrentlyOverflowing !== isOverflowing) {
+        setIsOverflowing(isCurrentlyOverflowing);
+      }
+
       textarea.style.height = "auto";
       const scrollHeight = textarea.scrollHeight;
-
-      // Set the height, but cap it at MAX_TEXTAREA_HEIGHT
       textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
     }
-  }, [props.value]);
+  }, [props.value, isOverflowing]);
 
   return (
     <textarea
       ref={internalRef}
       rows={1}
       className={cn(
-        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black max-w-xs custom-scrollbar",
+        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black max-w-xs",
+        isOverflowing ? "custom-scrollbar" : "scrollbar-hide",
         className
       )}
       {...props}
@@ -99,7 +102,7 @@ export default function Home() {
   };
   
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4">
+    <main className="flex min-h-screen flex-col items-center justify-start bg-white p-4 pt-32">
       <div className="w-full max-w-md text-center">
         <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
