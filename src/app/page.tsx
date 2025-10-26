@@ -26,6 +26,13 @@ const AutoResizingTextarea = forwardRef<
       
       // Set height to scrollHeight but not exceeding max height
       textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+
+      // Only show scrollbar if content overflows
+      if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+        textarea.style.overflowY = 'scroll';
+      } else {
+        textarea.style.overflowY = 'hidden';
+      }
     }
   }, [props.value]);
 
@@ -33,8 +40,8 @@ const AutoResizingTextarea = forwardRef<
     <textarea
       ref={internalRef}
       rows={1}
-      className={`w-full resize-none overflow-y-auto border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
-      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
+      className={`w-full resize-none border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
+      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px`, overflowY: 'hidden' }}
       {...props}
     />
   );
