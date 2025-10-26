@@ -141,13 +141,13 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className={isOverflowing ? "pr-8 pb-8" : "pr-2"}
+              className={isOverflowing ? "pr-8" : "pr-2"}
             />
             {isOverflowing && !isLoading && (
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="absolute right-2 bottom-2 bg-white p-0.5"
+                  className="absolute right-2 bottom-2 p-0.5"
                   aria-label="Enlarge input"
                   >
                   <Maximize className="h-4 w-4 text-gray-500" />
