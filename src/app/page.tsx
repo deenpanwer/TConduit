@@ -251,7 +251,7 @@ export default function Home() {
                           )}
                         </div>
                          {!listening && (
-                            <div className="flex items-end gap-2">
+                            <div className="flex h-10 items-end gap-2">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
