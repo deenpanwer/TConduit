@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const MAX_TEXTAREA_HEIGHT = 200;
+const MAX_TEXTAREA_HEIGHT = 300;
 
 const AutoResizingTextarea = forwardRef<
   HTMLTextAreaElement,
@@ -35,7 +35,7 @@ const AutoResizingTextarea = forwardRef<
       ref={internalRef}
       rows={1}
       className={cn(
-        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black max-w-xs",
+        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black",
         isOverflowing ? "custom-scrollbar" : "scrollbar-hide",
         className
       )}
@@ -45,7 +45,6 @@ const AutoResizingTextarea = forwardRef<
 });
 
 AutoResizingTextarea.displayName = 'AutoResizingTextarea';
-
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
@@ -103,28 +102,29 @@ export default function Home() {
   
   return (
     <main className="relative min-h-screen bg-white">
-      <div className="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 text-center">
+      <div className="absolute top-1/2 left-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 text-center">
         <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="mx-auto flex max-w-xs items-start justify-center">
-          <div className="relative w-full">
-            <AutoResizingTextarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="type your number"
-              aria-label="Data input"
-              disabled={isLoading}
-            />
-          </div>
-
-           <button type="submit" className="ml-2 h-[42px] border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
-            {isLoading ? "..." : "→"}
-          </button>
-        </form>
-        <p className="mt-2 text-sm text-black">
-          Please provide your relevant contact information.
-        </p>
+        <div className="pt-4">
+            <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-center">
+            <div className="relative w-full">
+                <AutoResizingTextarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="type your number"
+                aria-label="Data input"
+                disabled={isLoading}
+                />
+            </div>
+            <button type="submit" className="ml-2 h-[42px] border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
+                {isLoading ? "..." : "→"}
+            </button>
+            </form>
+            <p className="mt-2 text-sm text-black">
+            Please provide your relevant contact information.
+            </p>
+        </div>
       </div>
       <Toaster />
     </main>
