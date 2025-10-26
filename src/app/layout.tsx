@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { PHProvider } from './providers';
 
 export const metadata: Metadata = {
-  title: 'TConduit',
+  title: 'TRAC',
   description: 'An AI agent that finds relevant talent across the web.',
 };
 

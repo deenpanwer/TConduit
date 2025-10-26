@@ -116,12 +116,12 @@ export default function Home() {
   
   return (
     <main className="flex items-center justify-center min-h-screen bg-white py-10 md:py-20 animate-fade-in">
-      <div className="w-full max-w-lg text-center px-4">
-        <h1 className="font-serif text-3xl md:text-4xl mb-4 text-black">
-          TConduit
+      <div className="w-full max-w-lg px-4">
+        <h1 className="font-serif text-3xl md:text-4xl mb-4 text-black text-left">
+          TRAC
         </h1>
         <div className="pt-4">
-            <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-center">
+            <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-start">
             <AutoResizingTextarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -149,7 +149,7 @@ export default function Home() {
                 </Tooltip>
             </TooltipProvider>
             </form>
-            <div className="mt-2 flex items-center justify-center text-sm text-black">
+            <div className="mt-2 flex items-center justify-start text-sm text-black">
                 <p>
                     Also provide your contact details at the end.
                 </p>
