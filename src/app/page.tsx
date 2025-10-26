@@ -87,15 +87,25 @@ AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 
 const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [transcript]);
+
     return (
-        <div className="flex h-10 w-full items-center justify-between bg-white p-2">
-            <div className="flex items-center gap-2 overflow-hidden">
-                <div className="flex h-full items-center gap-1 shrink-0">
+        <div className="flex h-auto min-h-[40px] w-full items-center justify-between bg-white p-2">
+            <div className="flex items-start gap-2 overflow-hidden w-full">
+                <div className="flex h-full items-center gap-1 shrink-0 pt-1">
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.3s]"></span>
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.15s]"></span>
                     <span className="h-4 w-1 animate-pulse rounded-full bg-black"></span>
                 </div>
-                <p className="text-sm text-gray-600 truncate">{transcript || "Listening..."}</p>
+                <div ref={scrollRef} className="text-sm text-gray-600 w-full max-h-[80px] overflow-y-auto custom-scrollbar">
+                    {transcript || "Listening..."}
+                </div>
             </div>
             <div className="flex items-center">
                 <button onClick={onCancel} className="p-2 text-black hover:bg-gray-100">
@@ -240,36 +250,38 @@ export default function Home() {
                               </div>
                           )}
                         </div>
-                        <div className="flex items-start gap-2">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
-                                            {isLoading ? (
-                                                <div className="flex space-x-1">
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
-                                                </div>
-                                            ) : <ArrowUp size={18} />}
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Send (Ctrl+Enter)</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
-                                            <Mic size={16} />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Voice Input</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
+                         {!listening && (
+                            <div className="flex items-start gap-2">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
+                                                <Mic size={16} />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Voice Input</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                                {isLoading ? (
+                                                    <div className="flex space-x-1">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                                    </div>
+                                                ) : <ArrowUp size={18} />}
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Send (Ctrl+Enter)</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                        )}
                     </form>
                     <div className="mt-2 flex items-center justify-start text-sm text-black">
                         <p>
