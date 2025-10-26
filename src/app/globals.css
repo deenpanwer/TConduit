@@ -10,4 +10,22 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  /* Custom scrollbar styles for our classic theme */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: black;
+    border-radius: 0;
+    border: 1px solid white;
+  }
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: black white;
+  }
 }

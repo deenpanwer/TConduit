@@ -40,7 +40,7 @@ const AutoResizingTextarea = forwardRef<
       rows={1}
       className={cn(
         "w-full resize-none border border-black p-1 bg-white text-black max-w-xs",
-        "overflow-y-hidden",
+        "custom-scrollbar pr-2 pb-8",
         className
       )}
       style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
@@ -141,7 +141,6 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className={cn(isOverflowing ? "pr-8" : "pr-2", "scrollbar-hide")}
             />
             {isOverflowing && !isLoading && (
                 <button
@@ -174,7 +173,7 @@ export default function Home() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="type your number"
-            className="min-h-[150px] bg-white border border-black text-black"
+            className="min-h-[150px] bg-white border border-black text-black custom-scrollbar"
             disabled={isLoading}
           />
           <div className="flex justify-end">
