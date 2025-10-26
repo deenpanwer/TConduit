@@ -58,7 +58,6 @@
     scrollbar-width: none; /* Firefox */
   }
 
-  /* Custom scrollbar styles for our classic theme */
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -67,22 +66,37 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: gray;
+    background-color: #ccc;
     border-radius: 4px;
-    border: 1px solid white;
+    border: 2px solid white;
   }
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: gray white;
+    scrollbar-color: #ccc white;
   }
-  .animate-pulse-dot {
-    animation: pulse-dot 1.4s infinite ease-in-out both;
+
+  .fade-top::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to bottom, white, transparent);
+    pointer-events: none;
+    z-index: 1;
   }
-  .animate-pulse-dot:nth-child(1) {
-    animation-delay: -0.32s;
-  }
-  .animate-pulse-dot:nth-child(2) {
-    animation-delay: -0.16s;
+
+  .fade-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to top, white, transparent);
+    pointer-events: none;
+    z-index: 1;
   }
 
   @keyframes pulse-dot {
