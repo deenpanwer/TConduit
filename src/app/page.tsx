@@ -92,7 +92,7 @@ export default function Home() {
       }
       
       setInputValue("");
-      router.push('/success');
+      router.push('/thank-you');
 
     } catch (error) {
       console.error(error);
