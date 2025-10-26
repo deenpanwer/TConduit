@@ -127,12 +127,12 @@ export default function Home() {
   };
   
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
-      <div className="text-center w-full max-w-md">
-        <h1 className="text-4xl mb-4 text-black font-serif">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4">
+      <div className="w-full max-w-md text-center">
+        <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="flex justify-center items-start mb-2 relative w-full max-w-xs mx-auto">
+        <form onSubmit={handleSubmit} className="mx-auto flex max-w-xs items-start justify-center">
           <div className="relative w-full">
             <AutoResizingTextarea
               ref={textareaRef}
@@ -141,25 +141,25 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className="pr-8" // Add padding to the right to not have text under the icon
+              className={isOverflowing ? "pr-8 pb-8" : "pr-2"}
             />
             {isOverflowing && !isLoading && (
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="absolute right-1 bottom-1 p-0.5 bg-white"
+                  className="absolute right-1 bottom-1 bg-white p-0.5"
                   aria-label="Enlarge input"
                   >
-                  <Maximize className="w-4 h-4 text-gray-500" />
+                  <Maximize className="h-4 w-4 text-gray-500" />
                 </button>
             )}
           </div>
 
-           <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black h-[34px]" disabled={isLoading}>
+           <button type="submit" className="ml-2 h-[34px] border border-black bg-white px-2 py-1 text-black" disabled={isLoading}>
             {isLoading ? "..." : "→"}
           </button>
         </form>
-        <p className="text-sm text-black mt-2">
+        <p className="mt-2 text-sm text-black">
           Please provide your relevant contact information.
         </p>
       </div>
@@ -178,7 +178,7 @@ export default function Home() {
             disabled={isLoading}
           />
           <div className="flex justify-end">
-             <Button onClick={handleModalSubmit} className="border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
+             <Button onClick={handleModalSubmit} className="border border-black bg-white px-2 py-1 text-black" disabled={isLoading}>
                 {isLoading ? "..." : "Submit"}
             </Button>
           </div>
