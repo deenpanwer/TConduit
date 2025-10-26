@@ -6,13 +6,16 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!inputValue.trim()) {
+    if (!inputValue.trim() || isLoading) {
       return;
     }
+
+    setIsLoading(true);
 
     try {
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
@@ -21,7 +24,9 @@ export default function Home() {
           "Accept": "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ data: { input: inputValue } }),
+        body: JSON.stringify({
+          data: [{ input: inputValue }],
+        }),
       });
 
       if (!response.ok) {
@@ -48,6 +53,8 @@ export default function Home() {
         title: "Uh oh! Something went wrong.",
         description: message,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -66,9 +73,10 @@ export default function Home() {
               placeholder="type here"
               aria-label="Data input"
               className="border border-black p-1 bg-white text-black"
+              disabled={isLoading}
             />
-             <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black">
-              →
+             <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
+              {isLoading ? "..." : "→"}
             </button>
           </div>
         </form>
