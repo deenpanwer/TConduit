@@ -21,7 +21,7 @@ export default function Home() {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ entry: inputValue }),
+        body: JSON.stringify({ data: [{ entry: inputValue }] }),
       });
 
       if (!response.ok) {
