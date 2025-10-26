@@ -101,8 +101,8 @@ export default function Home() {
   };
   
   return (
-    <main className="relative min-h-screen bg-white">
-      <div className="absolute top-1/2 left-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 text-center">
+    <main className="flex items-center justify-center min-h-screen bg-white py-20">
+      <div className="w-full max-w-lg text-center">
         <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
         </h1>
