@@ -26,7 +26,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: { entry: inputValue },
+          data: [{ entry: inputValue }],
         }),
       });
 
@@ -42,6 +42,10 @@ export default function Home() {
       }
       
       setInputValue("");
+      toast({
+        title: "Success!",
+        description: "Your data has been submitted.",
+      });
     } catch (error) {
       console.error(error);
       toast({
