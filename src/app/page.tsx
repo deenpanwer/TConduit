@@ -59,28 +59,28 @@ export default function Home() {
   };
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-white">
-      <div className="text-center">
+    <main className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
+      <div className="text-center w-full max-w-md">
         <h1 className="text-4xl mb-4 text-black font-serif">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="flex items-center">
-          <div>
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="type your number"
-              aria-label="Data input"
-              className="border border-black p-1 bg-white text-black"
-              disabled={isLoading}
-            />
-             <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
-              {isLoading ? "..." : "→"}
-            </button>
-          </div>
+        <form onSubmit={handleSubmit} className="flex justify-center items-center">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="type your number"
+            aria-label="Data input"
+            className="border border-black p-1 bg-white text-black flex-grow sm:flex-grow-0"
+            disabled={isLoading}
+          />
+           <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
+            {isLoading ? "..." : "→"}
+          </button>
         </form>
-        <p className="text-sm text-black mt-2">please add you contact number</p>
+        <p className="text-sm text-black mt-2">
+          Please enter your contact number to connect with us.
+        </p>
       </div>
       <Toaster />
     </main>
