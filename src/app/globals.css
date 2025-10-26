@@ -20,12 +20,12 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: black;
+    background-color: gray;
     border-radius: 0;
     border: 1px solid white;
   }
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: black white;
+    scrollbar-color: gray white;
   }
 }
