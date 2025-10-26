@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, forwardRef } from "react";
+import { useRouter } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
@@ -90,10 +92,8 @@ export default function Home() {
       }
       
       setInputValue("");
-      toast({
-        title: "Success!",
-        description: "Your message has been sent. We'll be in touch.",
-      });
+      router.push('/success');
+
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "An unknown error occurred.";
