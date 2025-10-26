@@ -18,7 +18,7 @@ export default function Home() {
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
         headers: {
-          Accept: "application/json",
+          "Accept": "application/json",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ data: [{ entry: inputValue }] }),
