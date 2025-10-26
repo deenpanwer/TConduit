@@ -74,7 +74,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar",
+            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar p-2",
             className
           )}
           {...props}
@@ -223,7 +223,7 @@ export default function Home() {
             <div className="w-full max-w-lg">
                 <div className="pt-4">
                     <form onSubmit={handleSubmit} className="mx-auto flex w-full items-end justify-start gap-2">
-                        <div className={cn("relative flex w-full items-start border border-black p-2 bg-white",
+                        <div className={cn("relative flex w-full items-start border border-black bg-white",
                           listening && "p-0"
                         )}>
                           {listening ? (
