@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
+const MAX_TEXTAREA_HEIGHT = 150; // 150px
+
 const AutoResizingTextarea = forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
@@ -18,8 +20,12 @@ const AutoResizingTextarea = forwardRef<
   useEffect(() => {
     const textarea = internalRef.current;
     if (textarea) {
+      // Temporarily shrink to get the correct scrollHeight
       textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      const scrollHeight = textarea.scrollHeight;
+      
+      // Set height to scrollHeight but not exceeding max height
+      textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
     }
   }, [props.value]);
 
@@ -27,7 +33,8 @@ const AutoResizingTextarea = forwardRef<
     <textarea
       ref={internalRef}
       rows={1}
-      className={`w-full resize-none overflow-y-hidden border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
+      className={`w-full resize-none overflow-y-auto border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
+      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
       {...props}
     />
   );
@@ -44,7 +51,7 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOverflowing = textareaRef.current
-    ? textareaRef.current.scrollHeight > textareaRef.current.clientHeight && textareaRef.current.clientHeight < 150
+    ? textareaRef.current.scrollHeight > MAX_TEXTAREA_HEIGHT
     : false;
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
