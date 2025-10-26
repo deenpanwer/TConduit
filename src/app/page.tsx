@@ -64,14 +64,14 @@ export default function Home() {
         <h1 className="text-4xl mb-4 text-black font-serif">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="flex justify-center items-center">
+        <form onSubmit={handleSubmit} className="flex justify-center items-center mb-2">
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="type your number"
             aria-label="Data input"
-            className="border border-black p-1 bg-white text-black flex-grow sm:flex-grow-0"
+            className="border border-black p-1 bg-white text-black w-full max-w-xs"
             disabled={isLoading}
           />
            <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black" disabled={isLoading}>
@@ -79,7 +79,7 @@ export default function Home() {
           </button>
         </form>
         <p className="text-sm text-black mt-2">
-          Please enter your contact number to connect with us.
+          Please provide your relevant contact information.
         </p>
       </div>
       <Toaster />
