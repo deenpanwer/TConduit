@@ -119,7 +119,7 @@ export default function Home() {
         <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
           TRAC
         </h1>
-        <div className="flex-grow flex items-center justify-center">
+        <div className="flex-grow flex items-start justify-center pt-20">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
                     <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-start">
