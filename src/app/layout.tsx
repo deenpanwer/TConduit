@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'RetroSheet',
+  title: 'Kaayf',
   description: 'A retro-style data entry page.',
 };
 
@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="font-serif">
         {children}
       </body>
     </html>

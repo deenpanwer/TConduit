@@ -43,10 +43,10 @@ export default function Home() {
   };
 
   return (
-    <main>
-      <div>
-        <h1>
-          RetroSheet
+    <main className="flex flex-col items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-4xl mb-4">
+          Kaayf
         </h1>
         <form onSubmit={handleSubmit}>
           <div>
@@ -56,6 +56,7 @@ export default function Home() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="type here"
               aria-label="Data input"
+              className="border border-black p-1"
             />
           </div>
         </form>
