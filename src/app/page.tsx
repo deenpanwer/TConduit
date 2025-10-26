@@ -40,9 +40,10 @@ const AutoResizingTextarea = forwardRef<
       rows={1}
       className={cn(
         "w-full resize-none border border-black p-1 bg-white text-black max-w-xs pr-8",
+        "overflow-y-hidden",
         className
       )}
-      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px`, overflowY: 'hidden' }}
+      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
       {...props}
     />
   );
@@ -58,9 +59,18 @@ export default function Home() {
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isOverflowing = textareaRef.current
-    ? textareaRef.current.scrollHeight > MAX_TEXTAREA_HEIGHT
-    : false;
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const isCurrentlyOverflowing = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT;
+      if(isCurrentlyOverflowing !== isOverflowing) {
+        setIsOverflowing(isCurrentlyOverflowing);
+      }
+    }
+  }, [inputValue, isOverflowing]);
+
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
@@ -136,7 +146,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="absolute right-1 top-1 p-0.5"
+                  className="absolute right-1 top-1 p-0.5 bg-white"
                   aria-label="Enlarge input"
                   >
                   <Maximize className="w-4 h-4 text-gray-500" />
