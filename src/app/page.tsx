@@ -147,7 +147,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="absolute right-1 bottom-1 bg-white p-0.5"
+                  className="absolute right-2 bottom-2 bg-white p-0.5"
                   aria-label="Enlarge input"
                   >
                   <Maximize className="h-4 w-4 text-gray-500" />
