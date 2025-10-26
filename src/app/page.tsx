@@ -1,28 +1,29 @@
 "use client";
 
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useRef, useEffect, forwardRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Maximize } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const MAX_TEXTAREA_HEIGHT = 150; // 150px
+const MAX_TEXTAREA_HEIGHT = 200; // The textarea will grow up to this height
 
 const AutoResizingTextarea = forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement>
 >(({ className, ...props }, ref) => {
   const internalRef = useRef<HTMLTextAreaElement>(null);
-  useImperativeHandle(ref, () => internalRef.current!);
+  
+  // This combines the forwarded ref with our internal ref
+  React.useImperativeHandle(ref, () => internalRef.current!);
 
   useEffect(() => {
     const textarea = internalRef.current;
     if (textarea) {
+      // Temporarily shrink the textarea to calculate the real scroll height
       textarea.style.height = "auto";
       const scrollHeight = textarea.scrollHeight;
+
+      // Set the height, but cap it at MAX_TEXTAREA_HEIGHT
       textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
     }
   }, [props.value]);
@@ -32,8 +33,7 @@ const AutoResizingTextarea = forwardRef<
       ref={internalRef}
       rows={1}
       className={cn(
-        "w-full resize-none border border-black p-1 bg-white text-black max-w-xs custom-scrollbar",
-        "overflow-y-auto",
+        "w-full resize-none overflow-y-auto border border-black p-2 bg-white text-black max-w-xs custom-scrollbar",
         className
       )}
       {...props}
@@ -47,22 +47,7 @@ AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const [isOverflowing, setIsOverflowing] = useState(false);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      const isCurrentlyOverflowing = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT;
-      if (isCurrentlyOverflowing !== isOverflowing) {
-        setIsOverflowing(isCurrentlyOverflowing);
-      }
-    }
-  }, [inputValue, isOverflowing]);
-
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
@@ -110,12 +95,7 @@ export default function Home() {
       });
     } finally {
       setIsLoading(false);
-      setIsModalOpen(false);
     }
-  };
-
-  const handleModalSubmit = () => {
-    handleSubmit();
   };
   
   return (
@@ -127,27 +107,15 @@ export default function Home() {
         <form onSubmit={handleSubmit} className="mx-auto flex max-w-xs items-start justify-center">
           <div className="relative w-full">
             <AutoResizingTextarea
-              ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className={isOverflowing ? 'pr-8' : ''}
             />
-            {isOverflowing && (
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="absolute bottom-1 right-1 p-0.5"
-                  aria-label="Enlarge input"
-                  >
-                  <Maximize className="h-4 w-4 text-gray-500" />
-                </button>
-            )}
           </div>
 
-           <button type="submit" className="ml-2 h-[34px] border border-black bg-white px-2 py-1 text-black" disabled={isLoading}>
+           <button type="submit" className="ml-2 h-[42px] border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
             {isLoading ? "..." : "→"}
           </button>
         </form>
@@ -156,26 +124,6 @@ export default function Home() {
         </p>
       </div>
       <Toaster />
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="bg-white">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-black">Edit your entry</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="type your number"
-            className="min-h-[150px] bg-white border border-black text-black custom-scrollbar"
-            disabled={isLoading}
-          />
-          <div className="flex justify-end">
-             <Button onClick={handleModalSubmit} className="border border-black bg-white px-2 py-1 text-black" disabled={isLoading}>
-                {isLoading ? "..." : "Submit"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }
