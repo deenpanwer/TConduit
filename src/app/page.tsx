@@ -34,8 +34,8 @@ const AutoResizingTextarea = forwardRef<
       rows={1}
       className={cn(
         "w-full resize-none border border-black p-1 bg-white text-black max-w-xs",
-        "custom-scrollbar pr-2",
-        isOverflowing ? "pb-8" : "",
+        "pr-2",
+        isOverflowing ? "pb-8 custom-scrollbar" : "",
         className
       )}
       {...props}
