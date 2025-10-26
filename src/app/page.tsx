@@ -44,7 +44,7 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOverflowing = textareaRef.current
-    ? textareaRef.current.scrollWidth > textareaRef.current.clientWidth
+    ? textareaRef.current.scrollHeight > textareaRef.current.clientHeight && textareaRef.current.clientHeight < 150
     : false;
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -63,7 +63,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: { input: inputValue },
+          data: [{ input: inputValue }],
         }),
       });
 
@@ -107,27 +107,28 @@ export default function Home() {
         <h1 className="text-4xl mb-4 text-black font-serif">
           Kaayf
         </h1>
-        <form onSubmit={handleSubmit} className="flex justify-center items-center mb-2 relative w-full max-w-xs mx-auto">
-          <AutoResizingTextarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="type your number"
-            aria-label="Data input"
-            disabled={isLoading}
-            className="w-full"
-            style={{overflowX: 'auto', whiteSpace: 'nowrap'}}
-          />
-          {isOverflowing && !isLoading && (
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="absolute right-10 top-1/2 -translate-y-1/2 p-0.5"
-                aria-label="Enlarge input"
-                >
-                <Maximize className="w-4 h-4 text-gray-500" />
-              </button>
-          )}
+        <form onSubmit={handleSubmit} className="flex justify-center items-start mb-2 relative w-full max-w-xs mx-auto">
+          <div className="relative w-full">
+            <AutoResizingTextarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="type your number"
+              aria-label="Data input"
+              disabled={isLoading}
+              className="w-full"
+            />
+            {isOverflowing && !isLoading && (
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="absolute right-1 top-1 p-0.5"
+                  aria-label="Enlarge input"
+                  >
+                  <Maximize className="w-4 h-4 text-gray-500" />
+                </button>
+            )}
+          </div>
 
            <button type="submit" className="ml-2 border border-black px-2 py-1 bg-white text-black h-[34px]" disabled={isLoading}>
             {isLoading ? "..." : "→"}
