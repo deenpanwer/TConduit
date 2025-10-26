@@ -115,9 +115,9 @@ export default function Home() {
   };
   
   return (
-    <main className="flex items-center justify-center min-h-screen bg-white py-20 animate-fade-in">
-      <div className="w-full max-w-lg text-center">
-        <h1 className="font-serif text-4xl mb-4 text-black">
+    <main className="flex items-center justify-center min-h-screen bg-white py-10 md:py-20 animate-fade-in">
+      <div className="w-full max-w-lg text-center px-4">
+        <h1 className="font-serif text-3xl md:text-4xl mb-4 text-black">
           TConduit
         </h1>
         <div className="pt-4">
@@ -133,7 +133,7 @@ export default function Home() {
              <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="submit" className="ml-2 flex h-[42px] w-[45px] items-center justify-center border border-black bg-white px-3 py-1 text-black" disabled={isLoading}>
+                        <button type="submit" className="ml-2 flex h-[42px] w-[45px] items-center justify-center border border-black bg-white px-3 py-1 text-black shrink-0" disabled={isLoading}>
                             {isLoading ? (
                                 <div className="flex space-x-1">
                                     <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
