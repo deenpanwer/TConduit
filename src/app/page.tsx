@@ -141,7 +141,7 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className={isOverflowing ? "pr-8" : "pr-2"}
+              className={cn(isOverflowing ? "pr-8" : "pr-2", "scrollbar-hide")}
             />
             {isOverflowing && !isLoading && (
                 <button
