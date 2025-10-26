@@ -115,7 +115,7 @@ export default function Home() {
   };
   
   return (
-    <main className="flex items-center justify-center min-h-screen bg-white py-20">
+    <main className="flex items-center justify-center min-h-screen bg-white py-20 animate-fade-in">
       <div className="w-full max-w-lg text-center">
         <h1 className="font-serif text-4xl mb-4 text-black">
           Kaayf
