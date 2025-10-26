@@ -39,7 +39,7 @@ const AutoResizingTextarea = forwardRef<
       ref={internalRef}
       rows={1}
       className={cn(
-        "w-full resize-none border border-black p-1 bg-white text-black max-w-xs pr-8",
+        "w-full resize-none border border-black p-1 bg-white text-black max-w-xs",
         "overflow-y-hidden",
         className
       )}
@@ -141,12 +141,13 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
+              className="pr-8"
             />
             {isOverflowing && !isLoading && (
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="absolute right-1 top-1 p-0.5 bg-white"
+                  className="absolute right-1 bottom-1 p-0.5 bg-white"
                   aria-label="Enlarge input"
                   >
                   <Maximize className="w-4 h-4 text-gray-500" />
