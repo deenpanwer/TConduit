@@ -12,6 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+
 
 const MAX_TEXTAREA_HEIGHT = 200;
 
@@ -110,77 +112,37 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const finalTranscriptRef = useRef('');
-
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+  
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onresult = (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
-            }
-            finalTranscriptRef.current += finalTranscript;
-            setTranscript(finalTranscriptRef.current + interimTranscript);
-        };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error', event.error);
-            toast({
-              variant: "destructive",
-              title: "Voice Error",
-              description: `Speech recognition error: ${event.error}`,
-            });
-            stopRecording(false);
-        };
-        
-        recognitionRef.current = recognition;
-    }
-  }, [toast]);
-
   const startRecording = () => {
-    if (recognitionRef.current) {
-        setTranscript('');
-        finalTranscriptRef.current = '';
-        setIsRecording(true);
-        recognitionRef.current.start();
-    } else {
-        toast({
-          variant: "destructive",
-          title: "Not Supported",
-          description: "Voice recognition is not supported in your browser.",
-        });
+    if (!browserSupportsSpeechRecognition) {
+      toast({
+        variant: "destructive",
+        title: "Not Supported",
+        description: "Voice recognition is not supported in your browser.",
+      });
+      return;
     }
+    resetTranscript();
+    SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
 
   const stopRecording = (shouldAccept: boolean) => {
-    if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        setIsRecording(false);
-        if (shouldAccept) {
-            setInputValue(prev => prev ? `${prev}\n${finalTranscriptRef.current}` : finalTranscriptRef.current);
-        }
-        setTranscript('');
-        finalTranscriptRef.current = '';
+    SpeechRecognition.stopListening();
+    if (shouldAccept) {
+        setInputValue(prev => prev ? `${prev}\n${transcript}` : transcript);
     }
+    resetTranscript();
   };
 
 
@@ -248,9 +210,9 @@ export default function Home() {
                 <div className="pt-4">
                     <form onSubmit={handleSubmit} className="mx-auto flex flex-col items-start justify-start">
                       <div className={cn("relative flex w-full items-start border border-black p-2 bg-white",
-                        isRecording && "p-0"
+                        listening && "p-0"
                       )}>
-                        {isRecording ? (
+                        {listening ? (
                           <VoiceRecordingUI 
                               onCancel={() => stopRecording(false)}
                               onAccept={() => stopRecording(true)}
