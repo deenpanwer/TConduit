@@ -7,6 +7,7 @@ import { Maximize } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const MAX_TEXTAREA_HEIGHT = 150; // 150px
 
@@ -20,14 +21,11 @@ const AutoResizingTextarea = forwardRef<
   useEffect(() => {
     const textarea = internalRef.current;
     if (textarea) {
-      // Temporarily shrink to get the correct scrollHeight
       textarea.style.height = "auto";
       const scrollHeight = textarea.scrollHeight;
       
-      // Set height to scrollHeight but not exceeding max height
       textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
 
-      // Only show scrollbar if content overflows
       if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
         textarea.style.overflowY = 'scroll';
       } else {
@@ -40,7 +38,10 @@ const AutoResizingTextarea = forwardRef<
     <textarea
       ref={internalRef}
       rows={1}
-      className={`w-full resize-none border border-black p-1 bg-white text-black max-w-xs pr-8 ${className || ''}`}
+      className={cn(
+        "w-full resize-none border border-black p-1 bg-white text-black max-w-xs pr-8",
+        className
+      )}
       style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px`, overflowY: 'hidden' }}
       {...props}
     />
@@ -130,7 +131,6 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className="w-full"
             />
             {isOverflowing && !isLoading && (
                 <button
