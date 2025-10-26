@@ -17,7 +17,7 @@ export default function ThankYouPage() {
         />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg p-4 sm:p-6 md:p-8">
           <div className="bg-white p-8 text-black rounded-none">
-            <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Signal Acquired. Processing...</h1>
+            <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
             <p className="text-sm sm:text-base md:text-lg">
               Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
             </p>
