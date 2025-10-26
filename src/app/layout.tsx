@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/react";
+import { PHProvider } from './providers';
 
 export const metadata: Metadata = {
   title: 'TConduit',
@@ -14,10 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-serif">
-        {children}
-        <Analytics />
-      </body>
+      <PHProvider>
+        <body className="font-serif">
+          {children}
+          <Analytics />
+        </body>
+      </PHProvider>
     </html>
   );
 }
