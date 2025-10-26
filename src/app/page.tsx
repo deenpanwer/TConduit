@@ -43,7 +43,7 @@ export default function Home() {
       setInputValue("");
       toast({
         title: "Success!",
-        description: "Your data has been submitted.",
+        description: "Thank you for providing your contact number.",
       });
     } catch (error) {
       console.error(error);
@@ -70,7 +70,7 @@ export default function Home() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="type here"
+              placeholder="type your number"
               aria-label="Data input"
               className="border border-black p-1 bg-white text-black"
               disabled={isLoading}
@@ -80,6 +80,7 @@ export default function Home() {
             </button>
           </div>
         </form>
+        <p className="text-sm text-black mt-2">please add you contact number</p>
       </div>
       <Toaster />
     </main>
