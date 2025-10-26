@@ -13,8 +13,8 @@ const MAX_TEXTAREA_HEIGHT = 150; // 150px
 
 const AutoResizingTextarea = forwardRef<
   HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement>
->(({ className, ...props }, ref) => {
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { isOverflowing: boolean }
+>(({ className, isOverflowing, ...props }, ref) => {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => internalRef.current!);
 
@@ -25,12 +25,6 @@ const AutoResizingTextarea = forwardRef<
       const scrollHeight = textarea.scrollHeight;
       
       textarea.style.height = `${Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
-
-      if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
-        textarea.style.overflowY = 'scroll';
-      } else {
-        textarea.style.overflowY = 'hidden';
-      }
     }
   }, [props.value]);
 
@@ -40,10 +34,10 @@ const AutoResizingTextarea = forwardRef<
       rows={1}
       className={cn(
         "w-full resize-none border border-black p-1 bg-white text-black max-w-xs",
-        "custom-scrollbar pr-2 pb-8",
+        "custom-scrollbar pr-2",
+        isOverflowing ? "pb-8" : "",
         className
       )}
-      style={{ maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
       {...props}
     />
   );
@@ -141,8 +135,9 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
+              isOverflowing={isOverflowing}
             />
-            {isOverflowing && !isLoading && (
+            {isOverflowing && (
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
