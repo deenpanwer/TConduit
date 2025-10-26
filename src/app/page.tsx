@@ -115,64 +115,68 @@ export default function Home() {
   };
   
   return (
-    <main className="flex items-center justify-center min-h-screen bg-white py-10 md:py-20 animate-fade-in">
-      <div className="w-full max-w-lg px-4">
-        <h1 className="font-serif text-3xl md:text-4xl mb-4 text-black text-left">
-          TRAC
-        </h1>
-        <div className="pt-4">
-            <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-start">
-            <AutoResizingTextarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Write the problem you're facing."
-              aria-label="Data input"
-              disabled={isLoading}
-            />
-             <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button type="submit" className="ml-2 flex h-[42px] w-[45px] items-center justify-center border border-black bg-white px-3 py-1 text-black shrink-0" disabled={isLoading}>
-                            {isLoading ? (
-                                <div className="flex space-x-1">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
-                                </div>
-                            ) : "→"}
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Send (Ctrl+Enter)</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-            </form>
-            <div className="mt-2 flex items-center justify-start text-sm text-black">
-                <p>
-                    Also provide your contact details at the end.
-                </p>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span className="ml-1.5 cursor-pointer">
-                                <Info className="h-4 w-4 text-gray-500" />
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent align="center" className="text-left">
-                            <p className="font-medium">Format:</p>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                                <p><span className="font-semibold">Problem:</span> Your problem description</p>
-                                <p><span className="font-semibold">Contact:</span> Your email or phone</p>
-                            </div>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+    <main className="flex flex-col min-h-screen bg-white py-10 md:py-20 animate-fade-in px-4">
+        <div className="w-full max-w-lg">
+            <h1 className="font-serif text-3xl md:text-4xl text-black text-left">
+              TRAC
+            </h1>
+        </div>
+        <div className="flex-grow flex items-center justify-center">
+            <div className="w-full max-w-lg">
+                <div className="pt-4">
+                    <form onSubmit={handleSubmit} className="mx-auto flex items-start justify-start">
+                    <AutoResizingTextarea
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Write the problem you're facing."
+                      aria-label="Data input"
+                      disabled={isLoading}
+                    />
+                     <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <button type="submit" className="ml-2 flex h-[42px] w-[45px] items-center justify-center border border-black bg-white px-3 py-1 text-black shrink-0" disabled={isLoading}>
+                                    {isLoading ? (
+                                        <div className="flex space-x-1">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                            <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                            <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                        </div>
+                                    ) : "→"}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Send (Ctrl+Enter)</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    </form>
+                    <div className="mt-2 flex items-center justify-start text-sm text-black">
+                        <p>
+                            Also provide your contact details at the end.
+                        </p>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="ml-1.5 cursor-pointer">
+                                        <Info className="h-4 w-4 text-gray-500" />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent align="center" className="text-left">
+                                    <p className="font-medium">Format:</p>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                        <p><span className="font-semibold">Problem:</span> Your problem description</p>
+                                        <p><span className="font-semibold">Contact:</span> Your email or phone</p>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                </div>
             </div>
         </div>
-      </div>
-      <Toaster />
+        <Toaster />
     </main>
   );
 }
