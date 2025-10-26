@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { Maximize } from "lucide-react";
@@ -141,7 +141,7 @@ export default function Home() {
               placeholder="type your number"
               aria-label="Data input"
               disabled={isLoading}
-              className="pr-8"
+              className="pr-8" // Add padding to the right to not have text under the icon
             />
             {isOverflowing && !isLoading && (
                 <button
