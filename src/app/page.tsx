@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Info, Mic, ArrowUp, X, Check } from "lucide-react";
+import { Info, Mic, ArrowRight, X, Check } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -251,7 +251,7 @@ export default function Home() {
                           )}
                         </div>
                          {!listening && (
-                            <div className="flex items-start gap-2">
+                            <div className="flex items-end gap-2">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -269,10 +269,12 @@ export default function Home() {
                                         <TooltipTrigger asChild>
                                             <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
                                                 {isLoading ? (
-                                                    <div className="flex space-x-1">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-black animate-pulse-dot"></span>
+                                                    <div className="flex items-center justify-center space-x-1">
+                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
+                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
+                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
                                                     </div>
-                                                ) : <ArrowUp size={18} />}
+                                                ) : <ArrowRight size={18} />}
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent>
