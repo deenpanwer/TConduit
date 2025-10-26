@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Kaayf',
+  title: 'TConduit',
   description: 'A retro-style data entry page.',
 };
 
