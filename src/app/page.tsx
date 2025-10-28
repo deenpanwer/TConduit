@@ -348,6 +348,11 @@ export default function Home() {
                                     </Tooltip>
                                 </TooltipProvider>
                                 <div className="relative">
+                                     {deviceType.current === 'Desktop' && !isInputFocused && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md whitespace-nowrap">
+                                            <p>Send (Ctrl+Enter)</p>
+                                        </div>
+                                    )}
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -366,11 +371,6 @@ export default function Home() {
                                             </TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
-                                    {deviceType.current === 'Desktop' && !isInputFocused && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md whitespace-nowrap">
-                                            <p>Send (Ctrl+Enter)</p>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -404,3 +404,4 @@ export default function Home() {
     </main>
   );
 }
+
