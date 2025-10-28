@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Info, Mic, ArrowRight, X, Check } from "lucide-react";
+import { format } from "date-fns";
 import {
   Tooltip,
   TooltipContent,
@@ -169,6 +170,9 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const now = new Date();
+      const formattedTime = format(now, "PPpp");
+
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
         headers: {
@@ -176,7 +180,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue }],
+          data: [{ input: inputValue, time: formattedTime }],
         }),
       });
 
