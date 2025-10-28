@@ -172,13 +172,14 @@ export default function Home() {
     try {
       const now = new Date();
       const formattedTime = format(now, "PPpp");
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      let location = "Unknown";
+      let country = "Unknown";
       try {
-        const locationResponse = await fetch("http://ip-api.com/json");
+        const locationResponse = await fetch("https://ip-api.com/json");
         const locationData = await locationResponse.json();
         if (locationData.status === 'success') {
-          location = `${locationData.city}, ${locationData.countryCode}`;
+          country = locationData.country;
         }
       } catch (locationError) {
         console.error("Could not fetch location", locationError);
@@ -192,7 +193,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue, time: formattedTime, location: location }],
+          data: [{ input: inputValue, time: formattedTime, country: country, timezone: timezone }],
         }),
       });
 
