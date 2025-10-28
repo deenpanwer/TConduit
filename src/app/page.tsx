@@ -379,7 +379,7 @@ export default function Home() {
                                         <Info className="h-4 w-4 text-gray-500" />
                                     </span>
                                 </TooltipTrigger>
-                                <TooltipContent align="center" className="text-left">
+                                <TooltipContent align="start" className="text-left max-w-xs sm:max-w-sm">
                                     <p className="font-medium">Example Submission:</p>
                                     <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
                                         <p className="font-mono">I've been talking to B2B decision-makers and heads of departments, showing them demos, but it's still not clicking.</p>
@@ -397,5 +397,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
