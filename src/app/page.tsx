@@ -173,6 +173,18 @@ export default function Home() {
       const now = new Date();
       const formattedTime = format(now, "PPpp");
 
+      let location = "Unknown";
+      try {
+        const locationResponse = await fetch("http://ip-api.com/json");
+        const locationData = await locationResponse.json();
+        if (locationData.status === 'success') {
+          location = `${locationData.city}, ${locationData.countryCode}`;
+        }
+      } catch (locationError) {
+        console.error("Could not fetch location", locationError);
+      }
+
+
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
         headers: {
@@ -180,7 +192,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue, time: formattedTime }],
+          data: [{ input: inputValue, time: formattedTime, location: location }],
         }),
       });
 
