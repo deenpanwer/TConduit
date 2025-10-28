@@ -127,7 +127,7 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keyboardUsed: false });
+  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0 });
   const pageLoadTime = useRef<number>(0);
   const referrer = useRef<string>("");
   const deviceType = useRef<string>("");
@@ -188,11 +188,15 @@ export default function Home() {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const timeToSubmit = ((Date.now() - pageLoadTime.current) / 1000).toFixed(2) + " seconds";
 
-      let interactionMethod = "Keyboard";
-      if (interactionState.voiceUsed && interactionState.keyboardUsed) {
+      let interactionMethod = "";
+      const keyboardUsed = interactionState.keystrokes > 0;
+
+      if (interactionState.voiceUsed && keyboardUsed) {
         interactionMethod = "Voice & Keyboard";
       } else if (interactionState.voiceUsed) {
         interactionMethod = "Voice";
+      } else if (keyboardUsed) {
+        interactionMethod = `Keyboard (${interactionState.keystrokes} keystrokes)`;
       }
 
 
@@ -245,7 +249,7 @@ export default function Home() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
     if (e.target.value) {
-      setInteractionState(prev => ({...prev, keyboardUsed: true}));
+      setInteractionState(prev => ({...prev, keystrokes: prev.keystrokes + 1}));
     }
   };
 
