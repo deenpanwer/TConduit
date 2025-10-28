@@ -347,24 +347,31 @@ export default function Home() {
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip open={deviceType.current === 'Desktop' && !isInputFocused}>
-                                        <TooltipTrigger asChild>
-                                            <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
-                                                {isLoading ? (
-                                                    <div className="flex items-center justify-center space-x-1">
-                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
-                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
-                                                        <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
-                                                    </div>
-                                                ) : <ArrowRight size={18} />}
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
+                                <div className="relative">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                                    {isLoading ? (
+                                                        <div className="flex items-center justify-center space-x-1">
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
+                                                        </div>
+                                                    ) : <ArrowRight size={18} />}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Send (Ctrl+Enter)</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    {deviceType.current === 'Desktop' && !isInputFocused && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 whitespace-nowrap">
                                             <p>Send (Ctrl+Enter)</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </form>
