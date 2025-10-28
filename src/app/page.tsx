@@ -322,7 +322,7 @@ export default function Home() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handlePaste}
-                                    placeholder="Write the problem you're facing."
+                                    placeholder="Problem which is stopping your growth"
                                     aria-label="Data input"
                                     disabled={isLoading}
                                     setShowTopFade={setShowTopFade}
@@ -368,7 +368,7 @@ export default function Home() {
                     </form>
                     <div className="mt-2 flex items-center justify-start text-sm text-black">
                         <p>
-                            Also provide your contact details at the end.
+                            Include your contact email, and our AI agent will deliver a list of vetted experts directly to your inbox.
                         </p>
                         <TooltipProvider>
                             <Tooltip>
@@ -378,10 +378,11 @@ export default function Home() {
                                     </span>
                                 </TooltipTrigger>
                                 <TooltipContent align="center" className="text-left">
-                                    <p className="font-medium">Format:</p>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        <p><span className="font-semibold">Problem:</span> Your problem description</p>
-                                        <p><span className="font-semibold">Contact:</span> Your email or phone</p>
+                                    <p className="font-medium">Example Submission:</p>
+                                    <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
+                                        <p className="font-mono">What's stopping us from growing faster is finding qualified leads for our niche software product.</p>
+                                        <br/>
+                                        <p className="font-mono">My email is example@email.com</p>
                                     </div>
                                 </TooltipContent>
                             </Tooltip>
@@ -394,3 +395,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
