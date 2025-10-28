@@ -169,22 +169,34 @@ export default function Home() {
 
     setIsLoading(true);
 
+    let country = "Unknown";
+    try {
+      const locationResponse = await fetch("https://ip-api.com/json");
+      if (!locationResponse.ok) {
+        // Throw an error to be caught by the catch block
+        throw new Error(`Location fetch failed with status: ${locationResponse.status}`);
+      }
+      const locationData = await locationResponse.json();
+      if (locationData.status === 'success') {
+        country = locationData.country;
+      } else {
+        throw new Error("Location API did not return success.");
+      }
+    } catch (locationError) {
+      console.error("Could not fetch location:", locationError);
+      toast({
+        variant: "destructive",
+        title: "Location Fetch Failed",
+        description: "Could not retrieve your location. This may be due to an ad-blocker or network restrictions.",
+      });
+      setIsLoading(false);
+      return; // Stop execution
+    }
+
     try {
       const now = new Date();
       const formattedTime = format(now, "PPpp");
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      let country = "Unknown";
-      try {
-        const locationResponse = await fetch("https://ip-api.com/json");
-        const locationData = await locationResponse.json();
-        if (locationData.status === 'success') {
-          country = locationData.country;
-        }
-      } catch (locationError) {
-        console.error("Could not fetch location", locationError);
-      }
-
 
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
