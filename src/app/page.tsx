@@ -192,7 +192,7 @@ export default function Home() {
       const keyboardUsed = interactionState.keystrokes > 0;
 
       if (interactionState.voiceUsed && keyboardUsed) {
-        interactionMethod = "Voice & Keyboard";
+        interactionMethod = `Voice & Keyboard (${interactionState.keystrokes} keystrokes)`;
       } else if (interactionState.voiceUsed) {
         interactionMethod = "Voice";
       } else if (keyboardUsed) {
@@ -359,4 +359,3 @@ export default function Home() {
     </main>
   );
 }
-
