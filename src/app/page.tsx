@@ -169,30 +169,6 @@ export default function Home() {
 
     setIsLoading(true);
 
-    let country = "Unknown";
-    try {
-      const locationResponse = await fetch("https://ip-api.com/json");
-      if (!locationResponse.ok) {
-        // Throw an error to be caught by the catch block
-        throw new Error(`Location fetch failed with status: ${locationResponse.status}`);
-      }
-      const locationData = await locationResponse.json();
-      if (locationData.status === 'success') {
-        country = locationData.country;
-      } else {
-        throw new Error("Location API did not return success.");
-      }
-    } catch (locationError) {
-      console.error("Could not fetch location:", locationError);
-      toast({
-        variant: "destructive",
-        title: "Location Fetch Failed",
-        description: "Could not retrieve your location. This may be due to an ad-blocker or network restrictions.",
-      });
-      setIsLoading(false);
-      return; // Stop execution
-    }
-
     try {
       const now = new Date();
       const formattedTime = format(now, "PPpp");
@@ -205,7 +181,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue, time: formattedTime, country: country, timezone: timezone }],
+          data: [{ input: inputValue, time: formattedTime, timezone: timezone }],
         }),
       });
 
