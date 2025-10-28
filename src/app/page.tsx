@@ -127,6 +127,12 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keyboardUsed: false });
+  const pageLoadTime = useRef<number>(0);
+  const referrer = useRef<string>("");
+  const deviceType = useRef<string>("");
+
+
   const {
     transcript,
     listening,
@@ -138,6 +144,12 @@ export default function Home() {
   const [showBottomFade, setShowBottomFade] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    pageLoadTime.current = Date.now();
+    referrer.current = document.referrer || "direct";
+    deviceType.current = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
+  }, []);
+
 
   const startRecording = () => {
     if (!browserSupportsSpeechRecognition) {
@@ -148,6 +160,7 @@ export default function Home() {
       });
       return;
     }
+    setInteractionState(prev => ({ ...prev, voiceUsed: true }));
     resetTranscript();
     SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
@@ -173,6 +186,15 @@ export default function Home() {
       const now = new Date();
       const formattedTime = format(now, "PPpp");
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const timeToSubmit = ((Date.now() - pageLoadTime.current) / 1000).toFixed(2) + " seconds";
+
+      let interactionMethod = "Keyboard";
+      if (interactionState.voiceUsed && interactionState.keyboardUsed) {
+        interactionMethod = "Voice & Keyboard";
+      } else if (interactionState.voiceUsed) {
+        interactionMethod = "Voice";
+      }
+
 
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
@@ -181,7 +203,15 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          data: [{ input: inputValue, time: formattedTime, timezone: timezone }],
+          data: [{ 
+            input: inputValue, 
+            time: formattedTime, 
+            timezone: timezone,
+            referrer: referrer.current,
+            timeToSubmit: timeToSubmit,
+            deviceType: deviceType.current,
+            interactionMethod: interactionMethod,
+          }],
         }),
       });
 
@@ -209,6 +239,13 @@ export default function Home() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    if (e.target.value) {
+      setInteractionState(prev => ({...prev, keyboardUsed: true}));
     }
   };
 
@@ -244,7 +281,7 @@ export default function Home() {
                                   <AutoResizingTextarea
                                     ref={textareaRef}
                                     value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     placeholder="Write the problem you're facing."
                                     aria-label="Data input"
@@ -318,3 +355,4 @@ export default function Home() {
     </main>
   );
 }
+
