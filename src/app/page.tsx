@@ -126,7 +126,6 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0, pasted: false });
   const pageLoadTime = useRef<number>(0);
@@ -323,7 +322,6 @@ export default function Home() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handlePaste}
-                                    onFocus={() => setIsInputFocused(true)}
                                     placeholder="Why aren't you growing faster?"
                                     aria-label="Data input"
                                     disabled={isLoading}
@@ -348,11 +346,6 @@ export default function Home() {
                                     </Tooltip>
                                 </TooltipProvider>
                                 <div className="relative">
-                                     {deviceType.current === 'Desktop' && !isInputFocused && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md whitespace-nowrap">
-                                            <p>Send (Ctrl+Enter)</p>
-                                        </div>
-                                    )}
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -404,4 +397,3 @@ export default function Home() {
     </main>
   );
 }
-
