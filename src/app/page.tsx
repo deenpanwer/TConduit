@@ -322,7 +322,7 @@ export default function Home() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handlePaste}
-                                    placeholder="Problem which is stopping your growth"
+                                    placeholder="Why aren't you growing faster?"
                                     aria-label="Data input"
                                     disabled={isLoading}
                                     setShowTopFade={setShowTopFade}
@@ -368,7 +368,7 @@ export default function Home() {
                     </form>
                     <div className="mt-2 flex items-center justify-start text-sm text-black">
                         <p>
-                            Include your contact email, and our AI agent will deliver a list of vetted experts directly to your inbox.
+                           Include your email, and our AI agent will connect you with the most competent individual on the internet to solve your problem.
                         </p>
                         <TooltipProvider>
                             <Tooltip>
@@ -380,7 +380,7 @@ export default function Home() {
                                 <TooltipContent align="center" className="text-left">
                                     <p className="font-medium">Example Submission:</p>
                                     <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
-                                        <p className="font-mono">What's stopping us from growing faster is finding qualified leads for our niche software product.</p>
+                                        <p className="font-mono">I've been talking to B2B decision-makers and heads of departments, showing them demos, but it's still not clicking.</p>
                                         <br/>
                                         <p className="font-mono">My email is example@email.com</p>
                                     </div>
@@ -396,4 +396,5 @@ export default function Home() {
   );
 }
 
+    
     
