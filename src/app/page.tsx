@@ -348,7 +348,7 @@ export default function Home() {
                                     </Tooltip>
                                 </TooltipProvider>
                                 <TooltipProvider>
-                                    <Tooltip open={deviceType.current === 'Desktop' && !isInputFocused ? undefined : false}>
+                                    <Tooltip open={deviceType.current === 'Desktop' && !isInputFocused}>
                                         <TooltipTrigger asChild>
                                             <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
                                                 {isLoading ? (
