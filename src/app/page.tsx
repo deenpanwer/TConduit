@@ -127,11 +127,12 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0 });
+  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0, pasted: false });
   const pageLoadTime = useRef<number>(0);
+  const pageLoadEnd = useRef<number>(0);
   const referrer = useRef<string>("");
   const deviceType = useRef<string>("");
-
+  const networkType = useRef<string>("");
 
   const {
     transcript,
@@ -148,6 +149,22 @@ export default function Home() {
     pageLoadTime.current = Date.now();
     referrer.current = document.referrer || "direct";
     deviceType.current = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
+    
+    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    networkType.current = connection ? connection.effectiveType : 'unknown';
+    
+    const handleLoad = () => {
+        if(performance.timing.domInteractive && performance.timing.navigationStart) {
+            pageLoadEnd.current = (performance.timing.domInteractive - performance.timing.navigationStart) / 1000;
+        }
+    };
+
+    window.addEventListener('load', handleLoad);
+
+    return () => {
+      window.removeEventListener('load', handleLoad);
+    };
+
   }, []);
 
 
@@ -173,6 +190,14 @@ export default function Home() {
     resetTranscript();
   };
 
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Morning';
+    if (hour >= 12 && hour < 17) return 'Afternoon';
+    if (hour >= 17 && hour < 21) return 'Evening';
+    return 'Night';
+  }
+
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
@@ -197,8 +222,9 @@ export default function Home() {
         interactionMethod = "Voice";
       } else if (keyboardUsed) {
         interactionMethod = `Keyboard (${interactionState.keystrokes} keystrokes)`;
+      } else if (interactionState.pasted) {
+        interactionMethod = "Paste";
       }
-
 
       const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
@@ -215,6 +241,10 @@ export default function Home() {
             timeToSubmit: timeToSubmit,
             deviceType: deviceType.current,
             interactionMethod: interactionMethod,
+            network: networkType.current,
+            pageLoadTime: pageLoadEnd.current > 0 ? `${pageLoadEnd.current.toFixed(2)}s` : 'N/A',
+            timeOfDay: getTimeOfDay(),
+            pastedContent: interactionState.pasted,
           }],
         }),
       });
@@ -252,6 +282,10 @@ export default function Home() {
       setInteractionState(prev => ({...prev, keystrokes: prev.keystrokes + 1}));
     }
   };
+  
+  const handlePaste = () => {
+    setInteractionState(prev => ({...prev, pasted: true}));
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -287,6 +321,7 @@ export default function Home() {
                                     value={inputValue}
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
+                                    onPaste={handlePaste}
                                     placeholder="Write the problem you're facing."
                                     aria-label="Data input"
                                     disabled={isLoading}
