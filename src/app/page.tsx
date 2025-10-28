@@ -367,7 +367,7 @@ export default function Home() {
                                         </Tooltip>
                                     </TooltipProvider>
                                     {deviceType.current === 'Desktop' && !isInputFocused && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 whitespace-nowrap">
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md whitespace-nowrap">
                                             <p>Send (Ctrl+Enter)</p>
                                         </div>
                                     )}
@@ -404,5 +404,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
