@@ -299,8 +299,8 @@ export default function Home() {
 
   
   return (
-    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in">
-      <div className='flex-grow flex flex-col justify-center px-4 pb-40'>
+    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in pb-20">
+      <div className='flex-grow flex flex-col justify-center px-4'>
         <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
           TRAC
         </h1>
