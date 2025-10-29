@@ -8,7 +8,7 @@ import { ContactForm } from "@/components/ContactForm";
 export default function ThankYouPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4 font-serif">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-none border border-black">
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-none border border-black">
         <Image
           src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
           alt="Abstract background"
@@ -17,7 +17,7 @@ export default function ThankYouPage() {
           className="absolute inset-0 z-0"
           data-ai-hint="futuristic abstract"
         />
-        <div className="relative z-10 bg-white/80 backdrop-blur-sm p-8 m-4 sm:m-8 text-black text-center animate-fade-in">
+        <div className="relative z-10 bg-white/80 backdrop-blur-sm p-8 m-4 md:m-16 text-black text-center animate-fade-in">
           <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
           <p className="text-sm sm:text-base md:text-lg mb-6">
             Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
