@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -32,22 +31,39 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
   const [entries, setEntries] = useState<ProblemEntry[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const page = parseInt(searchParams.get('page') || String(initialPage), 10);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
         const response = await fetch('/api/problems');
         if (!response.ok) {
-          throw new Error('Failed to fetch problems');
+          if (response.status === 404) {
+            setError('The problems.csv file was not found.');
+          } else {
+            throw new Error('Failed to fetch problems');
+          }
+          setEntries([]);
+          setTotalPages(0);
+          setLoading(false);
+          return;
         }
         const csvText = await response.text();
         Papa.parse<ProblemEntry>(csvText, {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
+            if (results.errors.length) {
+              console.error('CSV parsing errors:', results.errors);
+              setError('Failed to parse the CSV file.');
+              setEntries([]);
+              setLoading(false);
+              return;
+            }
             const validEntries = results.data.filter(entry => entry.Email && entry.Problem);
             setEntries(validEntries);
             setTotalPages(Math.ceil(validEntries.length / ITEMS_PER_PAGE));
@@ -55,12 +71,14 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
           },
           error: (error) => {
             console.error('CSV parsing error:', error);
+            setError('An error occurred while parsing the CSV file.');
             setEntries([]);
             setLoading(false);
           }
         });
       } catch (error) {
         console.error(error);
+        setError('An error occurred while fetching the problems data.');
         setEntries([]);
         setLoading(false);
       }
@@ -103,10 +121,15 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
               <div className="p-4 text-center">
                 <p>Loading problems...</p>
               </div>
+            ) : error ? (
+              <div className="p-4 text-center text-red-600">
+                <p>{error}</p>
+                {error.includes('not found') && <p>Please add it at <code className="bg-gray-100 p-1 text-xs">src/lib/data/problems.csv</code></p>}
+              </div>
             ) : currentEntries.length > 0 ? (
               currentEntries.map((entry, index) => (
                 <div
-                  key={index}
+                  key={`${entry.Email}-${index}`}
                   className="grid grid-cols-1 md:grid-cols-3 border-b border-black last:border-b-0"
                 >
                   <div className="p-3 font-mono text-sm break-words border-b border-black md:border-b-0 md:border-r">

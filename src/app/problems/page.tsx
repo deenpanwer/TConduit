@@ -1,52 +1,12 @@
 'use server';
 
-import { promises as fs } from 'fs';
-import path from 'path';
-import { notFound } from 'next/navigation';
 import ProblemsClientPage from './ProblemsClientPage';
-
-export type ProblemEntry = {
-  Email: string;
-  Problem: string;
-};
-
-async function getProblems(): Promise<ProblemEntry[]> {
-  const filePath = path.join(process.cwd(), 'src', 'lib', 'data', 'problems.csv');
-  try {
-    // Using fs.promises.readFile which is available in Node.js environment on the server
-    await fs.access(filePath);
-    return [{ Email: 'dummy', Problem: 'dummy' }]; // Return dummy data if file exists, client will fetch
-  } catch (error) {
-    console.warn('problems.csv not found, displaying empty page.');
-    return [];
-  }
-}
 
 export default async function ProblemsPage({
   searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const problems = await getProblems();
-
-  if (problems.length === 0) {
-    return (
-      <div className="bg-white min-h-screen font-serif text-black p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <header className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold">Problems</h1>
-            <p className="text-sm md:text-base mt-2">A log of submissions from around the world.</p>
-          </header>
-          <main>
-            <div className="border border-black p-4 text-center">
-              <p>No problems file found. Please add it at <code className="bg-gray-100 p-1 text-xs">src/lib/data/problems.csv</code>.</p>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   const page = parseInt(typeof searchParams.page === 'string' ? searchParams.page : '1', 10);
   
   return <ProblemsClientPage initialPage={page} />;
