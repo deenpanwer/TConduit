@@ -76,7 +76,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-400 focus:outline-none custom-scrollbar p-2",
+            "w-full h-10 resize-none bg-transparent text-black focus:outline-none custom-scrollbar p-2",
             className
           )}
           {...props}
@@ -415,6 +415,7 @@ export default function Home() {
             <div className="md:border-t md:border-gray-200">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
+                    {/* <p>Connecting the world's problems to the world's experts.</p> */}
                     <p>© 2025 TRAC. All rights reserved.</p>
                     </div>
                     <div className="relative bg-gray-100 py-3 px-4">
@@ -438,4 +439,5 @@ export default function Home() {
   );
 }
 
+    
     
