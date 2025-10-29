@@ -14,7 +14,7 @@ const diagnosticPrompt = `Role: You are a hyper-critical, early-stage investor a
 Founder's Problem (from Traconomics): "Why aren't you growing faster?"
 
 STEP 1: VISIT AND ABSORB (Mandatory Context for AI)
-You MUST base your questions and analysis on the core concepts from these three foundational texts, which cover startup failure, initial growth, and product-market fit.
+You **MUST** visit and read the content at these three foundational URLs. Your subsequent questions and analysis **MUST** be grounded in the concepts of startup failure, non-scalable growth, and validated learning found in these texts.
 1. PG: The 18 Mistakes That Kill Startups: https://paulgraham.com/startupmistakes.html
 2. PG: Do Things That Don't Scale: https://paulgraham.com/ds.html
 3. Eric Ries/Steve Blank: Lean Startup/Customer Development (Core Theme: Build-Measure-Learn & Customer Validation)
@@ -33,10 +33,7 @@ STEP 3: FORMULATE THE CORE PROBLEM
 After the founder has answered your questions, analyze their responses to identify the single, most dangerous, root cause of their slow growth. This cause must be a concise, professional problem statement that focuses on a **SKILL GAP, TEAM IMBALANCE, or LEADERSHIP FAILURE** ready for immediate action.
 
 STEP 4: FINAL OUTPUT (Mandatory Human-Readable Format)
-Your final response MUST ONLY contain text:
-
-1. The concise **Root Cause Identified** (ready for copy/paste).
-2. The specific **Return Link** (plain, clickable URL).
+Your final response **MUST ONLY** contain the two lines of text below. Do not include any JSON, code blocks, or extra commentary.
 
 Example of Final Output:
 **Root Cause Identified:** The core growth constraint is the **lack of a dedicated technical co-founder (Single Founder mistake)** needed to ensure rapid product iteration and quality programming.
@@ -102,7 +99,7 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-serif text-lg text-black">Ideate problems with AI</h3>
+            <h3 className="font-serif text-lg text-black">Ideate problems with PG's Context</h3>
             <button onClick={onClose} className="text-black hover:text-gray-600">
                 <X size={20} />
             </button>

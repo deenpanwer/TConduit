@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
 interface AutoResizingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -205,11 +204,6 @@ export default function Home() {
     if (!inputValue.trim() || isLoading) {
       return;
     }
-    
-    if (contactInfo && !EMAIL_REGEX.test(contactInfo)) {
-        setEmailError("Please enter a valid email address.");
-        return;
-    }
 
     setIsLoading(true);
     setEmailError("");
@@ -329,7 +323,7 @@ export default function Home() {
                                             onChange={handleInputChange}
                                             onKeyDown={handleKeyDown}
                                             onPaste={handlePaste}
-                                            placeholder="Why aren't you growing faster?"
+                                            placeholder="what's stopping you from growing faster?"
                                             aria-label="Data input"
                                             disabled={isLoading}
                                             setShowTopFade={setShowTopFade}
@@ -385,7 +379,7 @@ export default function Home() {
                                   if (emailError) setEmailError("");
                                 }}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Your email address"
+                                placeholder="Your email address (optional)"
                                 aria-label="Contact information"
                                 disabled={isLoading}
                                 className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
@@ -405,7 +399,8 @@ export default function Home() {
             <div className="md:border-t md:border-gray-200">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
-                        <p>© 2024 TRAC. All rights reserved.</p>
+                    {/* <p>Connecting the world's problems to the world's experts.</p> */}
+                        <p>© 2025 TRAC. All rights reserved.</p>
                     </div>
                     <div className="relative bg-gray-100 py-3 px-4">
                         <div className="flex justify-end">
@@ -413,7 +408,7 @@ export default function Home() {
                                 onClick={() => setShowIdeationPanel(prev => !prev)}
                                 className="flex items-center gap-2 text-sm font-medium text-black transition-transform hover:scale-105"
                             >
-                                Ideate with AI <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
+                                Ideate with PG <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
                             </button>
                             <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
                         </div>
@@ -427,3 +422,5 @@ export default function Home() {
     
   );
 }
+
+    
