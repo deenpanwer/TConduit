@@ -64,14 +64,14 @@ const aiTools = [
       icon: (
         <img src="/grok.svg" alt="Grok" className="w-6 h-6" />
       ),
-      url: `https://x.com/search?q=${encodeURIComponent(diagnosticPrompt)}`,
+      url: `https://grok.x.ai/?q=${encodeURIComponent(diagnosticPrompt)}`,
     },
     {
-      name: 'Claude',
+      name: 'Gemini',
       icon: (
-        <img src="/claude.svg" alt="Claude" className="w-6 h-6" />
+        <img src="/gemini.svg" alt="Gemini" className="w-6 h-6" />
       ),
-      url: 'https://claude.ai',
+      url: 'https://gemini.google.com/',
     },
 ];
 
