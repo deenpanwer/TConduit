@@ -3,7 +3,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ContactForm } from "@/components/ContactForm";
 
 export default function ThankYouPage() {
   return (
@@ -22,7 +21,6 @@ export default function ThankYouPage() {
           <p className="text-sm sm:text-base md:text-lg mb-6">
             Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
           </p>
-          <ContactForm />
         </div>
       </div>
       <div className="mt-8">
@@ -36,3 +34,5 @@ export default function ThankYouPage() {
     </main>
   );
 }
+
+    

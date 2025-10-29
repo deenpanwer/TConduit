@@ -5,7 +5,7 @@ import 'regenerator-runtime/runtime';
 import React, { useState, useRef, useEffect, forwardRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Info, Mic, ArrowRight, X, Check, ChevronUp } from "lucide-react";
+import { Mic, ArrowRight, X, Check, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import {
   Tooltip,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { IdeationPanel } from '@/components/IdeationPanel';
+import { Input } from "@/components/ui/input";
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -122,6 +123,7 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
@@ -231,6 +233,7 @@ export default function Home() {
         body: JSON.stringify({
           data: [{ 
             input: inputValue, 
+            contact_info: contactInfo,
             time: formattedTime, 
             timezone: timezone,
             referrer: referrer.current,
@@ -257,6 +260,7 @@ export default function Home() {
       }
       
       setInputValue("");
+      setContactInfo("");
       router.push('/thank-you');
 
     } catch (error) {
@@ -277,7 +281,7 @@ export default function Home() {
     setInteractionState(prev => ({...prev, pasted: true}));
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
@@ -295,7 +299,7 @@ export default function Home() {
             <div className="w-full max-w-lg">
                 <div className="pt-4">
                     <form onSubmit={handleSubmit} className="mx-auto flex w-full items-end justify-start gap-2">
-                        <div className={cn("relative flex w-full items-center self-auto border border-black bg-white",
+                        <div className={cn("relative flex w-full flex-col items-center self-auto border border-black bg-white",
                           listening && "p-0"
                         )}>
                           {listening ? (
@@ -305,26 +309,38 @@ export default function Home() {
                                 transcript={transcript}
                             />
                           ) : (
-                              <div className={cn("relative w-full",
-                                  {"fade-top": showTopFade, "fade-bottom": showBottomFade}
-                              )}>
-                                  <AutoResizingTextarea
-                                    ref={textareaRef}
-                                    value={inputValue}
-                                    onChange={handleInputChange}
+                              <div className="w-full">
+                                  <Input
+                                    type="text"
+                                    value={contactInfo}
+                                    onChange={(e) => setContactInfo(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    onPaste={handlePaste}
-                                    placeholder="Why aren't you growing faster?"
-                                    aria-label="Data input"
+                                    placeholder="Email or Phone Number"
+                                    aria-label="Contact information"
                                     disabled={isLoading}
-                                    setShowTopFade={setShowTopFade}
-                                    setShowBottomFade={setShowBottomFade}
+                                    className="h-10 w-full rounded-none border-0 border-b border-black bg-transparent px-2 focus-visible:ring-0"
                                   />
+                                  <div className={cn("relative w-full",
+                                      {"fade-top": showTopFade, "fade-bottom": showBottomFade}
+                                  )}>
+                                      <AutoResizingTextarea
+                                        ref={textareaRef}
+                                        value={inputValue}
+                                        onChange={handleInputChange}
+                                        onKeyDown={handleKeyDown}
+                                        onPaste={handlePaste}
+                                        placeholder="Why aren't you growing faster?"
+                                        aria-label="Data input"
+                                        disabled={isLoading}
+                                        setShowTopFade={setShowTopFade}
+                                        setShowBottomFade={setShowBottomFade}
+                                      />
+                                  </div>
                               </div>
                           )}
                         </div>
                          {!listening && (
-                            <div className="flex h-10 items-center gap-2">
+                            <div className="flex h-full items-center gap-2 self-end">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
