@@ -198,12 +198,26 @@ export default function Home() {
     return 'Night';
   }
 
+  const validateEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (!inputValue.trim() || isLoading) {
       return;
     }
+
+    if (!contactInfo.trim()) {
+      setEmailError("Email address is required.");
+      return;
+    }
+    if (!validateEmail(contactInfo)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
 
     setIsLoading(true);
     setEmailError("");
@@ -379,7 +393,7 @@ export default function Home() {
                                   if (emailError) setEmailError("");
                                 }}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Your email address (optional)"
+                                placeholder="Your email address"
                                 aria-label="Contact information"
                                 disabled={isLoading}
                                 className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
