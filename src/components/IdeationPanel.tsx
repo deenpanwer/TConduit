@@ -27,24 +27,14 @@ const aiTools = [
     {
       name: 'Grok',
       icon: (
-        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-          <path
-            d="M16.551 15.333h-5.277L8.33 18.277h8.889l-2.945-2.944m-2.176-6.19h5.278l2.944-2.944H8.33l2.222 2.944m-2.222 0H3.056l-3.055 3.056v8.888L8.89 24v-8.889H3.056l3.055-3.055m8.889 0h5.278l3.055-3.055V2.778L15.444 0v8.889h5.834l-3.056 3.056"
-            fill="currentColor"
-          ></path>
-        </svg>
+        <img src="/grok.svg" alt="Grok" className="w-6 h-6" />
       ),
       url: `https://x.com/search?q=${encodeURIComponent("What are the most common reasons a startup's growth stalls?")}`,
     },
     {
       name: 'Claude',
       icon: (
-        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-          <path
-            d="M17.625 12C17.625 15.1065 15.1065 17.625 12 17.625C8.8935 17.625 6.375 15.1065 6.375 12C6.375 8.8935 8.8935 6.375 12 6.375C15.1065 6.375 17.625 8.8935 17.625 12Z"
-            fill="currentColor"
-          ></path>
-        </svg>
+        <img src="/claude.svg" alt="Claude" className="w-6 h-6" />
       ),
       url: 'https://claude.ai',
     },
