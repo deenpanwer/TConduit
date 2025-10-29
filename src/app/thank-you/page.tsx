@@ -8,24 +8,21 @@ import { ContactForm } from "@/components/ContactForm";
 export default function ThankYouPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4 font-serif">
-      <div className="w-full max-w-4xl">
-        <div className="relative aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg shadow-lg">
-          <Image
-            src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
-            alt="Abstract background"
-            fill
-            className="object-cover"
-            data-ai-hint="futuristic abstract"
-          />
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-4">
-            <div className="bg-white p-8 text-black rounded-none text-center animate-fade-in w-full max-w-md">
-              <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
-              <p className="text-sm sm:text-base md:text-lg mb-6">
-                Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
-              </p>
-              <ContactForm />
-            </div>
-          </div>
+      <div className="relative w-full max-w-lg overflow-hidden rounded-none border border-black">
+        <Image
+          src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
+          alt="Abstract background"
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 z-0"
+          data-ai-hint="futuristic abstract"
+        />
+        <div className="relative z-10 bg-white/80 backdrop-blur-sm p-8 m-4 sm:m-8 text-black text-center animate-fade-in">
+          <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
+          <p className="text-sm sm:text-base md:text-lg mb-6">
+            Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
+          </p>
+          <ContactForm />
         </div>
       </div>
       <div className="mt-8">
