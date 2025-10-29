@@ -76,7 +76,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-10 resize-none bg-transparent text-black focus:outline-none custom-scrollbar p-2",
+            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-500 focus:outline-none custom-scrollbar p-2",
             className
           )}
           {...props}
@@ -363,7 +363,7 @@ export default function Home() {
                                     className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
                                 />
                                 {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
-                                <p className="mt-2 text-xs text-gray-500">
+                                <p className="mt-2 text-xs text-gray-700">
                                   Our agent will send profiles of relevant experts to this email.
                                 </p>
                             </div>
