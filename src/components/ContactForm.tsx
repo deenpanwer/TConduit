@@ -11,9 +11,10 @@ import { Toaster } from "@/components/ui/toaster";
 export function ContactForm() {
   const [contactInfo, setContactInfo] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactInfo.trim()) {
       toast({
@@ -23,13 +24,45 @@ export function ContactForm() {
       });
       return;
     }
-    // For now, we'll just log it and show a success state.
-    console.log("Contact Info Submitted:", contactInfo);
-    setSubmitted(true);
-    toast({
-      title: "Information Received",
-      description: "We will be in touch shortly.",
-    });
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          data: [{ 
+            contact_info: contactInfo,
+            time: new Date().toISOString(),
+          }],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit contact information.");
+      }
+
+      setSubmitted(true);
+      toast({
+        title: "Information Received",
+        description: "We will be in touch shortly.",
+      });
+
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({
+        variant: "destructive",
+        title: "Uh oh! Something went wrong.",
+        description: message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (submitted) {
@@ -53,10 +86,11 @@ export function ContactForm() {
             value={contactInfo}
             onChange={(e) => setContactInfo(e.target.value)}
             className="rounded-none"
+            disabled={isLoading}
           />
         </div>
-        <Button type="submit" className="w-full rounded-none">
-          Submit
+        <Button type="submit" className="w-full rounded-none" disabled={isLoading}>
+          {isLoading ? "Submitting..." : "Submit"}
         </Button>
       </form>
       <Toaster />
