@@ -2,6 +2,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type IdeationPanelProps = {
   isOpen: boolean;
@@ -54,18 +55,18 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-20 bg-black/50 md:bg-transparent md:absolute md:bottom-12 md:right-0 md:inset-auto" 
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div 
-        className="fixed bottom-0 left-0 right-0 bg-white p-6 shadow-lg md:absolute md:bottom-0 md:w-full md:max-w-lg md:rounded-lg"
+        className="relative bg-white p-6 shadow-lg rounded-lg w-full max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
           <h3 className="font-serif text-xl md:text-2xl text-black mb-4 text-center">Ideate problems with AI</h3>
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
               <X size={20} />
           </button>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {aiTools.map((tool) => (
                   <a
                       key={tool.name}
