@@ -5,23 +5,16 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { Toaster } from "@/components/ui/toaster";
 
 export function ContactForm() {
   const [contactInfo, setContactInfo] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactInfo.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Contact info is required.",
-        description: "Please enter an email or phone number.",
-      });
+      console.error("Contact info is required.");
       return;
     }
 
@@ -47,19 +40,9 @@ export function ContactForm() {
       }
 
       setSubmitted(true);
-      toast({
-        title: "Information Received",
-        description: "We will be in touch shortly.",
-      });
 
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : "An unknown error occurred.";
-      toast({
-        variant: "destructive",
-        title: "Uh oh! Something went wrong.",
-        description: message,
-      });
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +76,8 @@ export function ContactForm() {
           {isLoading ? "Submitting..." : "Submit"}
         </Button>
       </form>
-      <Toaster />
     </>
   );
 }
+
+    

@@ -4,8 +4,6 @@
 import 'regenerator-runtime/runtime';
 import React, { useState, useRef, useEffect, forwardRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Info, Mic, ArrowRight, X, Check, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
@@ -125,7 +123,6 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
 
@@ -173,11 +170,7 @@ export default function Home() {
 
   const startRecording = () => {
     if (!browserSupportsSpeechRecognition) {
-      toast({
-        variant: "destructive",
-        title: "Not Supported",
-        description: "Voice recognition is not supported in your browser.",
-      });
+      console.error("Voice recognition is not supported in your browser.");
       return;
     }
     setInteractionState(prev => ({ ...prev, voiceUsed: true }));
@@ -268,12 +261,6 @@ export default function Home() {
 
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : "An unknown error occurred.";
-      toast({
-        variant: "destructive",
-        title: "Uh oh! Something went wrong.",
-        description: message,
-      });
     } finally {
       setIsLoading(false);
     }
@@ -307,7 +294,7 @@ export default function Home() {
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
-                    <form onSubmit={handleSubmit} className="mx-auto flex w-full items-stretch justify-start gap-2">
+                    <form onSubmit={handleSubmit} className="mx-auto flex w-full items-end justify-start gap-2">
                         <div className={cn("relative flex w-full items-center self-auto border border-black bg-white",
                           listening && "p-0"
                         )}>
@@ -337,7 +324,7 @@ export default function Home() {
                           )}
                         </div>
                          {!listening && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex h-10 items-center gap-2">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -399,8 +386,8 @@ export default function Home() {
             </div>
         </footer>
 
-        <Toaster />
     </main>
   );
 }
 
+    
