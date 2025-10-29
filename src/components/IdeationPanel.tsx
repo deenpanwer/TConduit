@@ -53,9 +53,15 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative text-center" onClick={(e) => e.stopPropagation()}>
-          <h3 className="font-serif text-xl md:text-2xl text-black mb-4">Ideate problems with AI</h3>
+    <div 
+      className="fixed inset-0 z-20 bg-black/50 md:bg-transparent md:absolute md:bottom-12 md:right-0 md:inset-auto" 
+      onClick={onClose}
+    >
+      <div 
+        className="fixed bottom-0 left-0 right-0 bg-white p-6 shadow-lg md:absolute md:bottom-0 md:w-full md:max-w-lg md:rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+          <h3 className="font-serif text-xl md:text-2xl text-black mb-4 text-center">Ideate problems with AI</h3>
           <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
               <X size={20} />
           </button>
