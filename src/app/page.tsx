@@ -347,62 +347,64 @@ export default function Home() {
                           )}
                         </div>
                         
-                        <div className="mt-4">
-                            <Input
-                                type="email"
-                                value={contactInfo}
-                                onChange={(e) => {
-                                  setContactInfo(e.target.value);
-                                  if (emailError) setEmailError("");
-                                }}
-                                onKeyDown={handleKeyDown}
-                                placeholder="Your email address"
-                                aria-label="Contact information"
-                                disabled={isLoading}
-                                className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
-                            />
-                            {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
-                            <p className="mt-2 text-xs text-gray-500">
-                              Our agent will send profiles of relevant experts to this email.
-                            </p>
-                        </div>
-                        
-                        {!listening && (
-                            <div className="mt-4 flex h-full items-center justify-end gap-2 self-end w-full">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
-                                                <Mic size={16} />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Voice Input</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <div className="relative">
+                        <div className="mt-4 flex items-start gap-2">
+                            <div className="flex-grow">
+                                <Input
+                                    type="email"
+                                    value={contactInfo}
+                                    onChange={(e) => {
+                                      setContactInfo(e.target.value);
+                                      if (emailError) setEmailError("");
+                                    }}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Your email address"
+                                    aria-label="Contact information"
+                                    disabled={isLoading}
+                                    className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
+                                />
+                                {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
+                                <p className="mt-2 text-xs text-gray-500">
+                                  Our agent will send profiles of relevant experts to this email.
+                                </p>
+                            </div>
+                            
+                            {!listening && (
+                                <div className="flex h-full items-center justify-end gap-2 self-start shrink-0">
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
-                                                    {isLoading ? (
-                                                        <div className="flex items-center justify-center space-x-1">
-                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
-                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
-                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
-                                                        </div>
-                                                    ) : <ArrowRight size={18} />}
+                                                <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
+                                                    <Mic size={16} />
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                <p>Send (Ctrl+Enter)</p>
+                                                <p>Voice Input</p>
                                             </TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
+                                    <div className="relative">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                                        {isLoading ? (
+                                                            <div className="flex items-center justify-center space-x-1">
+                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
+                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
+                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
+                                                            </div>
+                                                        ) : <ArrowRight size={18} />}
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Send (Ctrl+Enter)</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </form>
                 </div>
             </div>
@@ -435,7 +437,5 @@ export default function Home() {
     
   );
 }
-
-    
 
     
