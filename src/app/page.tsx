@@ -295,7 +295,7 @@ export default function Home() {
   };
   
   return (
-    <main className="relative flex flex-col min-h-screen bg-white py-10 md:py-20 animate-fade-in px-4">
+    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in px-4">
         <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
           TRAC
         </h1>
@@ -368,29 +368,31 @@ export default function Home() {
                             </div>
                         )}
                     </form>
-                    <div className="mt-2 flex items-center justify-start text-sm text-black">
-                        <p>
-                           Include your email, and our AI agent will connect you with the most competent individual on the internet to solve your problem.
-                        </p>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="ml-1.5 cursor-pointer">
-                                        <Info className="h-4 w-4 text-gray-500" />
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent align="start" className="text-left max-w-xs sm:max-w-sm">
-                                    <p className="font-medium">Example Submission:</p>
-                                    <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
-                                        <p className="font-mono">I've been talking to B2B decision-makers and heads of departments, showing them demos, but it's still not clicking.</p>
-                                        <br/>
-                                        <p className="font-mono">My email is example@email.com</p>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
                 </div>
+            </div>
+        </div>
+        <div className="pb-8 px-4 w-full max-w-lg mx-auto">
+            <div className="flex items-center justify-center text-sm text-black">
+                <p>
+                    Include your email, and our AI agent will connect you with the most competent individual on the internet to solve your problem.
+                </p>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="ml-1.5 cursor-pointer">
+                                <Info className="h-4 w-4 text-gray-500" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent align="start" className="text-left max-w-xs sm:max-w-sm">
+                            <p className="font-medium">Example Submission:</p>
+                            <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
+                                <p className="font-mono">we’ve been reaching out to b2b decision-makers and showing product demos, but conversion still feels stuck founders aren’t “getting it” yet. i want feedback on how to position the value prop better.</p>
+                                <br/>
+                                <p className="font-mono">my email: founder@example.com</p>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
         </div>
         <Toaster />
