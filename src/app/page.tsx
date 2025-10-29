@@ -308,7 +308,7 @@ export default function Home() {
             <div className="w-full max-w-lg">
                 <div className="pt-4">
                     <form onSubmit={handleSubmit} className="mx-auto flex w-full items-end justify-start gap-2">
-                        <div className={cn("relative flex w-full items-start border border-black bg-white",
+                        <div className={cn("relative flex w-full items-start self-stretch border border-black bg-white",
                           listening && "p-0"
                         )}>
                           {listening ? (
@@ -403,3 +403,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
