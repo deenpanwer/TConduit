@@ -64,7 +64,7 @@ const aiTools = [
       icon: (
         <img src="/grok.svg" alt="Grok" className="w-6 h-6" />
       ),
-      url: `https://grok.x.ai/?q=${encodeURIComponent(diagnosticPrompt)}`,
+      url: `https://grok.com/`,
     },
     {
       name: 'Gemini',
