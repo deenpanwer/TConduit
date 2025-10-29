@@ -147,6 +147,7 @@ export default function Home() {
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -299,7 +300,7 @@ export default function Home() {
 
   
   return (
-    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in px-4">
+    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in px-4 pb-20">
       <div className='flex-grow flex flex-col justify-center'>
         <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
           TRAC
@@ -327,6 +328,7 @@ export default function Home() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handlePaste}
+                                    onFocus={() => setIsInputFocused(true)}
                                     placeholder="Why aren't you growing faster?"
                                     aria-label="Data input"
                                     disabled={isLoading}
@@ -391,7 +393,7 @@ export default function Home() {
                         </TooltipTrigger>
                         <TooltipContent align="start" className="text-left max-w-xs sm:max-w-sm">
                             <p className="font-medium">Example Submission:</p>
-                            <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2 rounded">
+                            <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2">
                                 <p className="font-mono">we’ve been reaching out to b2b decision-makers and showing product demos, but conversion still feels stuck founders aren’t “getting it” yet. i want feedback on how to position the value prop better.</p>
                                 <br/>
                                 <p className="font-mono">my email: founder@example.com</p>
@@ -415,3 +417,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
