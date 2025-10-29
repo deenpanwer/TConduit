@@ -60,7 +60,7 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-16 right-4 z-10 w-full max-w-xs sm:max-w-sm border border-black bg-white p-4 shadow-lg animate-fade-in">
+    <div className="absolute bottom-full right-0 z-10 w-full max-w-xs sm:max-w-sm border border-black bg-white p-4 shadow-lg animate-fade-in mb-2">
         <div className="flex justify-between items-center mb-4">
             <h3 className="font-serif text-lg text-black">Ideate problems with AI</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">

@@ -147,7 +147,6 @@ export default function Home() {
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
 
   useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -300,8 +299,8 @@ export default function Home() {
 
   
   return (
-    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in px-4 pb-20">
-      <div className='flex-grow flex flex-col justify-center'>
+    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in">
+      <div className='flex-grow flex flex-col justify-center px-4 pb-40'>
         <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
           TRAC
         </h1>
@@ -328,7 +327,6 @@ export default function Home() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onPaste={handlePaste}
-                                    onFocus={() => setIsInputFocused(true)}
                                     placeholder="Why aren't you growing faster?"
                                     aria-label="Data input"
                                     disabled={isLoading}
@@ -379,43 +377,29 @@ export default function Home() {
             </div>
         </div>
       </div>
-        <div className="pb-8 px-4 w-full max-w-lg mx-auto">
-            <div className="flex items-center justify-center text-sm text-black">
-                <p>
-                    Include your email, and our AI agent will connect you with the most competent individual on the internet to solve your problem.
-                </p>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span className="ml-1.5 cursor-pointer">
-                                <Info className="h-4 w-4 text-gray-500" />
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent align="start" className="text-left max-w-xs sm:max-w-sm">
-                            <p className="font-medium">Example Submission:</p>
-                            <div className="mt-1 text-xs text-muted-foreground bg-gray-100 p-2">
-                                <p className="font-mono">we’ve been reaching out to b2b decision-makers and showing product demos, but conversion still feels stuck founders aren’t “getting it” yet. i want feedback on how to position the value prop better.</p>
-                                <br/>
-                                <p className="font-mono">my email: founder@example.com</p>
-                            </div>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+      
+      <footer className="fixed bottom-0 left-0 right-0 z-10 bg-gray-100 text-black text-sm">
+            <div className="md:border-t md:border-gray-200">
+                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
+                    <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
+                        <p>Connecting the world's problems to the world's experts.</p>
+                    </div>
+                    <div className="relative bg-gray-100 py-3 px-4">
+                        <div className="flex justify-end">
+                             <button
+                                onClick={() => setShowIdeationPanel(prev => !prev)}
+                                className="flex items-center gap-2 text-sm font-medium text-black transition-transform hover:scale-105"
+                            >
+                                Ideate with AI <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
+                            </button>
+                            <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
-
-        <button
-            onClick={() => setShowIdeationPanel(prev => !prev)}
-            className="fixed bottom-4 right-4 z-20 flex items-center gap-2 border border-black bg-white px-4 py-2 text-sm font-medium text-black shadow-lg transition-transform hover:scale-105"
-        >
-            Ideate problems <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
-        </button>
+        </footer>
 
         <Toaster />
     </main>
   );
 }
-
-    
