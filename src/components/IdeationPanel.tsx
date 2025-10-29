@@ -71,7 +71,7 @@ const aiTools = [
       icon: (
         <img src="/gemini.svg" alt="Gemini" className="w-6 h-6" />
       ),
-      url: 'https://gemini.google.com/',
+      url: `https://gemini.google.com/?q=${encodeURIComponent(diagnosticPrompt)}`,
     },
 ];
 
