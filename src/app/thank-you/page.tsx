@@ -8,7 +8,7 @@ import { ContactForm } from "@/components/ContactForm";
 export default function ThankYouPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white p-4 font-serif">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-none border border-black">
+      <div className="relative w-full max-w-4xl rounded-none border border-black overflow-hidden">
         <Image
           src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
           alt="Abstract background"
