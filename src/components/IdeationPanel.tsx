@@ -12,21 +12,14 @@ const aiTools = [
     {
       name: 'ChatGPT',
       icon: (
-        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-          <path
-            d="M22.2819 9.8211a5.9841 5.9841 0 0 0-.5157-2.4313 6.0242 6.0242 0 0 0-4.4965-3.2848 6.0125 6.0125 0 0 0-5.9922 1.9566 6.0047 6.0047 0 0 0-5.4674-1.9324c-2.1121 0-3.991.933-5.2217 2.476C-1.8722 9.5317.5898 14.0733 4.0189 16.321a5.9841 5.9841 0 0 0 2.4313.5157 6.0242 6.0242 0 0 0 4.4965-3.2848 6.0125 6.0125 0 0 0 5.9922-1.9566 6.0047 6.0047 0 0 0 5.4674 1.9324c2.1121 0 3.991-.933 5.2217-2.476.2577-.33.474-.6902.639-1.0708a5.9922 5.9922 0 0 0-.689-5.1594zM4.524 14.155a3.8663 3.8663 0 0 1-2.903-2.1102c-.8222-1.4243-.13-3.2385 1.2943-4.0607a3.8663 3.8663 0 0 1 4.0607 1.2943c.8222 1.4243.13 3.2385-1.2943 4.0607-1.4243.8222-3.2385.13-4.0607-1.2943.0028.005.005.0096.0028.015zm4.881-5.9922a3.8663 3.8663 0 0 1 2.903 2.1102c.8222 1.4243.13 3.2385-1.2943 4.0607a3.8663 3.8663 0 0 1-4.0607-1.2943c-.8222-1.4243-.13-3.2385 1.2943-4.0607-1.4215-.825-3.2328-.1357-4.055.015zm4.8863 5.9922a3.8663 3.8663 0 0 1-2.903-2.1102c-.8222-1.4243-.13-3.2385 1.2943-4.0607a3.8663 3.8663 0 0 1 4.0607 1.2943c.8222 1.4243.13 3.2385-1.2943 4.0607a3.8663 3.8663 0 0 1-1.1574.1841z"
-            fill="currentColor"
-          ></path>
-        </svg>
+        <img src="https://cdn.brandfetch.io/idR3duQxYl/theme/dark/symbol.svg?c=1dxbfHSJFAPEGdCLU4o5B" alt="ChatGPT" className="w-6 h-6" />
       ),
       url: `https://chatgpt.com/?q=${encodeURIComponent("What are the most common reasons a startup's growth stalls?")}`,
     },
     {
       name: 'Perplexity',
       icon: (
-        <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6">
-          <path d="M12 12V0h12v12h-3.375v3.375H12v-3.375zm0 0v12H0V12h3.375V8.625H12V12z" fill="currentColor"></path>
-        </svg>
+        <img src="https://cdn.brandfetch.io/idNdawywEZ/w/800/h/800/theme/dark/idgTrPQ4JH.png?c=1dxbfHSJFAPEGdCLU4o5B" alt="Perplexity" className="w-6 h-6" />
       ),
       url: `https://www.perplexity.ai/?q=${encodeURIComponent("What are the most common reasons a startup's growth stalls?")}`,
     },
@@ -60,7 +53,7 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="absolute bottom-full right-0 z-10 w-full max-w-xs sm:max-w-sm border border-black bg-white p-4 shadow-lg animate-fade-in mb-2">
+    <div className="absolute bottom-12 right-0 z-10 w-full max-w-xs sm:max-w-sm border border-black bg-white p-4 shadow-lg animate-fade-in md:bottom-12 md:right-0">
         <div className="flex justify-between items-center mb-4">
             <h3 className="font-serif text-lg text-black">Ideate problems with AI</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
