@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Papa from 'papaparse';
+import { cn } from '@/lib/utils';
 
 type ProblemEntry = {
   Email: string;
@@ -24,6 +25,80 @@ const maskEmail = (email: string) => {
 };
 
 const ITEMS_PER_PAGE = 10;
+
+const shuffleArray = (array: any[]) => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
+
+const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: number, totalPages: number, onPageChange: (page: number) => void }) => {
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 10) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
+  const pageNumbers = getPageNumbers();
+
+  return (
+    <div className="flex items-center justify-center space-x-2 md:space-x-4">
+      {currentPage > 1 && (
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          className="px-2 py-1 text-sm text-black hover:underline"
+        >
+          Previous
+        </button>
+      )}
+
+      {pageNumbers.map((page, index) =>
+        typeof page === 'number' ? (
+          <button
+            key={index}
+            onClick={() => onPageChange(page)}
+            className={cn(
+              "px-3 py-1 text-sm border border-transparent",
+              currentPage === page
+                ? "border-black text-black font-bold"
+                : "text-black hover:underline"
+            )}
+          >
+            {page}
+          </button>
+        ) : (
+          <span key={index} className="px-3 py-1 text-sm text-black">
+            {page}
+          </span>
+        )
+      )}
+
+      {currentPage < totalPages && (
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          className="px-2 py-1 text-sm text-black hover:underline"
+        >
+          Next
+        </button>
+      )}
+    </div>
+  );
+};
+
 
 export default function ProblemsClientPage({ initialPage }: { initialPage: number }) {
   const router = useRouter();
@@ -65,8 +140,9 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
               return;
             }
             const validEntries = results.data.filter(entry => entry.Email && entry.Problem);
-            setEntries(validEntries);
-            setTotalPages(Math.ceil(validEntries.length / ITEMS_PER_PAGE));
+            const shuffledEntries = shuffleArray(validEntries);
+            setEntries(shuffledEntries);
+            setTotalPages(Math.ceil(shuffledEntries.length / ITEMS_PER_PAGE));
             setLoading(false);
           },
           error: (error) => {
@@ -87,15 +163,9 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
     fetchData();
   }, []);
 
-  const handlePrevious = () => {
-    if (page > 1) {
-      router.push(`/problems?page=${page - 1}`);
-    }
-  };
-
-  const handleNext = () => {
-    if (page < totalPages) {
-      router.push(`/problems?page=${page + 1}`);
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      router.push(`/problems?page=${newPage}`);
     }
   };
 
@@ -149,25 +219,13 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
             )}
           </div>
           
-          {totalPages > 1 && (
-             <div className="flex justify-between items-center mt-6">
-                <button
-                    onClick={handlePrevious}
-                    disabled={page <= 1}
-                    className="border border-black bg-white px-4 py-2 text-black transition-colors hover:bg-black hover:text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                >
-                    Previous
-                </button>
-                <span className="text-sm">
-                    Page {page} of {totalPages}
-                </span>
-                <button
-                    onClick={handleNext}
-                    disabled={page >= totalPages}
-                    className="border border-black bg-white px-4 py-2 text-black transition-colors hover:bg-black hover:text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                >
-                    Next
-                </button>
+          {!loading && !error && totalPages > 1 && (
+             <div className="flex justify-center items-center mt-8">
+                <Pagination 
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
             </div>
           )}
         </main>
