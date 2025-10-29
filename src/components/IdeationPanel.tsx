@@ -53,28 +53,28 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="absolute bottom-full right-0 z-10 w-full border border-black bg-white p-4 shadow-lg animate-fade-in md:bottom-12 md:right-0 md:w-full md:max-w-xs sm:max-w-sm">
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="font-serif text-lg text-black">Ideate problems with AI</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-            </button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {aiTools.map((tool) => (
-                <a
-                    key={tool.name}
-                    href={tool.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 border border-black p-3 text-sm font-medium text-black transition-colors hover:bg-gray-50"
-                >
-                    {tool.icon}
-                    <span>{tool.name}</span>
-                </a>
-            ))}
-        </div>
-        <p className="mt-4 text-center text-xs text-gray-400">Prompts open in third-party AI tools.</p>
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative text-center" onClick={(e) => e.stopPropagation()}>
+          <h3 className="font-serif text-xl md:text-2xl text-black mb-4">Ideate problems with AI</h3>
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <X size={20} />
+          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {aiTools.map((tool) => (
+                  <a
+                      key={tool.name}
+                      href={tool.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-3 border border-gray-200 rounded-lg p-3 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+                  >
+                      {tool.icon}
+                      <span>{tool.name}</span>
+                  </a>
+              ))}
+          </div>
+          <p className="mt-4 text-center text-xs text-gray-400">Prompts open in third-party AI tools.</p>
+      </div>
     </div>
   );
 }
