@@ -307,8 +307,8 @@ export default function Home() {
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
-                    <form onSubmit={handleSubmit} className="mx-auto flex w-full items-end justify-start gap-2">
-                        <div className={cn("relative flex w-full items-start self-stretch border border-black bg-white",
+                    <form onSubmit={handleSubmit} className="mx-auto flex w-full items-stretch justify-start gap-2">
+                        <div className={cn("relative flex w-full items-center self-auto border border-black bg-white",
                           listening && "p-0"
                         )}>
                           {listening ? (
@@ -337,7 +337,7 @@ export default function Home() {
                           )}
                         </div>
                          {!listening && (
-                            <div className="flex h-10 items-end gap-2">
+                            <div className="flex items-center gap-2">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -404,4 +404,3 @@ export default function Home() {
   );
 }
 
-    
