@@ -392,7 +392,7 @@ export default function Home() {
                             />
                             {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
                             <p className="mt-2 text-xs text-gray-500">
-                              We'll use this email to send you reports from the agent. For phone contact, please specify in the problem description.
+                              Our agent will send profiles of relevant experts to this email.
                             </p>
                         </div>
                     </form>
