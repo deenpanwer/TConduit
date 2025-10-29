@@ -54,32 +54,50 @@ export function IdeationPanel({ isOpen, onClose }: IdeationPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+    <div
+      className="md:absolute md:bottom-full md:right-0 md:mb-2 md:w-96"
+      onClick={(e) => {
+        // Allow clicks inside the panel on desktop
+        if (window.innerWidth >= 768) {
+          e.stopPropagation();
+        }
+      }}
     >
+      {/* Mobile overlay */}
       <div 
-        className="relative bg-white p-6 shadow-lg rounded-lg w-full max-w-md mx-4"
+        className="fixed inset-0 bg-black/30 md:hidden"
+        onClick={onClose}
+      ></div>
+
+      <div 
+        className={cn(
+            "fixed bottom-0 left-0 right-0 z-20 bg-white p-4 text-black shadow-lg",
+            "md:relative md:rounded-none md:border md:border-black"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-          <h3 className="font-serif text-xl md:text-2xl text-black mb-4 text-center">Ideate problems with AI</h3>
-          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-              <X size={20} />
-          </button>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-serif text-lg text-black">Ideate problems with AI</h3>
+            <button onClick={onClose} className="text-black hover:text-gray-600">
+                <X size={20} />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
               {aiTools.map((tool) => (
                   <a
                       key={tool.name}
                       href={tool.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 border border-gray-200 rounded-lg p-3 text-sm font-medium text-black transition-colors hover:bg-gray-50"
+                      className="flex items-center justify-center gap-3 border border-black rounded-none p-3 text-sm font-medium text-black transition-colors hover:bg-gray-100"
                   >
                       {tool.icon}
                       <span>{tool.name}</span>
                   </a>
               ))}
           </div>
+
           <p className="mt-4 text-center text-xs text-gray-400">Prompts open in third-party AI tools.</p>
       </div>
     </div>
