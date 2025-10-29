@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 
 interface AutoResizingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -125,6 +127,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [contactInfo, setContactInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
 
@@ -202,8 +205,14 @@ export default function Home() {
     if (!inputValue.trim() || isLoading) {
       return;
     }
+    
+    if (contactInfo && !EMAIL_REGEX.test(contactInfo)) {
+        setEmailError("Please enter a valid email address.");
+        return;
+    }
 
     setIsLoading(true);
+    setEmailError("");
 
     try {
       const now = new Date();
@@ -310,17 +319,7 @@ export default function Home() {
                             />
                           ) : (
                               <div className="w-full">
-                                  <Input
-                                    type="text"
-                                    value={contactInfo}
-                                    onChange={(e) => setContactInfo(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="Email or Phone Number"
-                                    aria-label="Contact information"
-                                    disabled={isLoading}
-                                    className="h-10 w-full rounded-none border-0 border-b border-black bg-transparent px-2 focus-visible:ring-0"
-                                  />
-                                  <div className={cn("relative w-full",
+                                  <div className={cn("relative w-full border-b border-black",
                                       {"fade-top": showTopFade, "fade-bottom": showBottomFade}
                                   )}>
                                       <AutoResizingTextarea
@@ -336,6 +335,19 @@ export default function Home() {
                                         setShowBottomFade={setShowBottomFade}
                                       />
                                   </div>
+                                  <Input
+                                    type="email"
+                                    value={contactInfo}
+                                    onChange={(e) => {
+                                      setContactInfo(e.target.value);
+                                      if (emailError) setEmailError("");
+                                    }}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Email for agent reports"
+                                    aria-label="Contact information"
+                                    disabled={isLoading}
+                                    className="h-10 w-full rounded-none border-0 bg-transparent px-2 focus-visible:ring-0"
+                                  />
                               </div>
                           )}
                         </div>
@@ -376,6 +388,10 @@ export default function Home() {
                             </div>
                         )}
                     </form>
+                    {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
+                    <p className="mt-2 text-xs text-gray-500">
+                      For phone number contact, please specify in the problem description above.
+                    </p>
                 </div>
             </div>
         </div>
