@@ -22,7 +22,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'TRAC',
+  title: 'TRAC | Google for Hiring',
   description: 'An AI agent that finds relevant talent across the web.',
 };
 
@@ -33,6 +33,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)}>
+        <head>
+          <link rel="icon" href="/1.svg" />
+        </head>
         <body className="font-sans">
           {children}
           <Toaster />
