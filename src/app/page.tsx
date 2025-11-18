@@ -497,7 +497,7 @@ export default function Home() {
             <div className="container mx-auto px-4 py-4">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
-                      <p>© 2024 TRAC. All rights reserved.</p>
+                      <p>Google for Hiring</p>
                     </div>
                     <div className="relative py-3 px-4">
                         <div className="flex justify-center md:justify-end">
