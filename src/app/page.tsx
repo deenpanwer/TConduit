@@ -362,7 +362,6 @@ export default function Home() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
-        <p className="text-muted-foreground text-sm">Google for Hiring</p>
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>
@@ -392,9 +391,12 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="animate-fade-in">
-                      <h2 className="text-center text-4xl md:text-5xl font-medium mb-8 text-foreground leading-tight">
+                      <h2 className="text-center text-4xl md:text-5xl font-medium mb-4 text-foreground leading-tight">
                         What's stopping you from growing faster?
                       </h2>
+                      <p className="text-center text-muted-foreground mb-8">
+                        please be specific that helps us find better candidates for you
+                      </p>
                       <form onSubmit={handleSubmit} className="mx-auto w-full space-y-4">
                           <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-secondary/30 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/50",
                             listening && "p-0"
