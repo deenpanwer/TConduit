@@ -180,7 +180,7 @@ export default function Home() {
       if (isDeleting) {
         if (placeholder.length > basePlaceholder.length) {
           setPlaceholder(prev => prev.slice(0, -1));
-          timeout = setTimeout(type, 10);
+          timeout = setTimeout(type, 20);
         } else {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
@@ -191,14 +191,14 @@ export default function Home() {
         if (charIndex < currentProblem.length) {
           setPlaceholder(prev => basePlaceholder + currentProblem.substring(0, charIndex + 1));
           setCharIndex(prev => prev + 1);
-          timeout = setTimeout(type, 20);
+          timeout = setTimeout(type, 50);
         } else {
           timeout = setTimeout(() => setIsDeleting(true), 2000);
         }
       }
     };
 
-    timeout = setTimeout(type, 500);
+    timeout = setTimeout(type, 100);
 
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, problemIndex, placeholder.length, hasInteracted]);
@@ -219,6 +219,20 @@ export default function Home() {
 
     window.addEventListener('load', handleLoad);
 
+    if (document.referrer) {
+      try {
+        const referrerUrl = new URL(document.referrer);
+        if (referrerUrl.hostname === window.location.hostname) {
+          setHasInteracted(true);
+          setInputValue("I need someone to ");
+          textareaRef.current?.focus();
+        }
+      } catch (e) {
+        // Invalid URL
+      }
+    }
+
+
     return () => {
       window.removeEventListener('load', handleLoad);
     };
@@ -234,24 +248,14 @@ export default function Home() {
     setHasInteracted(true);
     setInteractionState(prev => ({ ...prev, voiceUsed: true }));
     resetTranscript();
-    const prefix = "I need someone to ";
-    if (!inputValue.trim()) {
-      setInputValue(prefix);
-    }
+    setInputValue("");
     SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
 
   const stopRecording = (shouldAccept: boolean) => {
     SpeechRecognition.stopListening();
     if (shouldAccept) {
-        const prefix = "I need someone to ";
-        const currentTranscript = transcript.trim();
-        setInputValue(prev => {
-          if (prev === prefix) {
-            return `${prefix}${currentTranscript}`;
-          }
-          return prev ? `${prev} ${currentTranscript}` : `${prefix}${currentTranscript}`;
-        });
+        setInputValue(transcript.trim());
     }
     resetTranscript();
   };
@@ -422,6 +426,10 @@ export default function Home() {
                           setContactInfo("");
                           setIsSubmitted(false);
                           setHasInteracted(false);
+                          setProblemIndex(0);
+                          setCharIndex(0);
+                          setIsDeleting(false);
+                          setPlaceholder(basePlaceholder);
                         }}
                         variant="outline"
                         size="lg"
@@ -561,3 +569,7 @@ export default function Home() {
     
   );
 }
+
+    
+
+    
