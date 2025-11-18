@@ -310,9 +310,13 @@ export default function Home() {
   return (
     <main className="relative flex flex-col min-h-screen bg-white animate-fade-in pb-20">
       <div className='flex-grow flex flex-col justify-center px-4'>
-        <h1 className="absolute top-4 left-4 font-poppins font-bold text-3xl md:text-4xl text-black">
-          TRAC
-        </h1>
+        <div className="absolute top-4 left-4">
+          <h1 className="font-poppins font-bold text-3xl md:text-4xl text-black">
+            TRAC
+          </h1>
+          <p className="text-gray-500 text-sm md:text-base">Google for Hiring</p>
+        </div>
+
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
@@ -348,97 +352,102 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in">
-                        <div className={cn("relative flex w-full flex-col items-center self-auto border border-black bg-white",
-                          listening && "p-0"
-                        )}>
-                          {listening ? (
-                            <VoiceRecordingUI 
-                                onCancel={() => stopRecording(false)}
-                                onAccept={() => stopRecording(true)}
-                                transcript={transcript}
-                            />
-                          ) : (
-                              <div className="w-full">
-                                  <div className={cn("relative w-full",
-                                      {"fade-top": showTopFade, "fade-bottom": showBottomFade}
-                                  )}>
-                                      <AutoResizingTextarea
-                                        ref={textareaRef}
-                                        value={inputValue}
-                                        onChange={handleInputChange}
-                                        onKeyDown={handleKeyDown}
-                                        onPaste={handlePaste}
-                                        placeholder="what's stopping you from growing faster?"
-                                        aria-label="Data input"
-                                        disabled={isLoading}
-                                        setShowTopFade={setShowTopFade}
-                                        setShowBottomFade={setShowBottomFade}
-                                      />
-                                  </div>
-                              </div>
-                          )}
-                        </div>
-                        
-                        <div className="mt-4 flex items-start gap-2">
-                            <div className="flex-grow">
-                                <Input
-                                    type="email"
-                                    value={contactInfo}
-                                    onChange={(e) => {
-                                      setContactInfo(e.target.value);
-                                      if (emailError) setEmailError("");
-                                    }}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="Your email address"
-                                    aria-label="Contact information"
-                                    disabled={isLoading}
-                                    className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
-                                />
-                                {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
-                                <p className="mt-2 text-xs text-gray-700">
-                                  Our agent will send profiles of relevant experts to this email.
-                                </p>
-                            </div>
-                            
-                            {!listening && (
-                                <div className="flex h-full items-center justify-end gap-2 self-start shrink-0">
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
-                                                    <Mic size={16} />
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Voice Input</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                    <div className="relative">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <button type="submit" className="flex h-10 items-center justify-center border border-black px-4 text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
-                                                        {isLoading ? (
-                                                            <div className="flex items-center justify-center space-x-1">
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
-                                                            </div>
-                                                        ) : 'Submit'}
-                                                    </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Send (Ctrl+Enter)</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                    <>
+                      <h2 className="text-center text-xl md:text-2xl font-serif mb-4 text-black">
+                        What's stopping you from growing faster?
+                      </h2>
+                      <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in">
+                          <div className={cn("relative flex w-full flex-col items-center self-auto border border-black bg-white",
+                            listening && "p-0"
+                          )}>
+                            {listening ? (
+                              <VoiceRecordingUI 
+                                  onCancel={() => stopRecording(false)}
+                                  onAccept={() => stopRecording(true)}
+                                  transcript={transcript}
+                              />
+                            ) : (
+                                <div className="w-full">
+                                    <div className={cn("relative w-full",
+                                        {"fade-top": showTopFade, "fade-bottom": showBottomFade}
+                                    )}>
+                                        <AutoResizingTextarea
+                                          ref={textareaRef}
+                                          value={inputValue}
+                                          onChange={handleInputChange}
+                                          onKeyDown={handleKeyDown}
+                                          onPaste={handlePaste}
+                                          placeholder="Describe your problem here..."
+                                          aria-label="Data input"
+                                          disabled={isLoading}
+                                          setShowTopFade={setShowTopFade}
+                                          setShowBottomFade={setShowBottomFade}
+                                        />
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </form>
+                          </div>
+                          
+                          <div className="mt-4 flex items-start gap-2">
+                              <div className="flex-grow">
+                                  <Input
+                                      type="email"
+                                      value={contactInfo}
+                                      onChange={(e) => {
+                                        setContactInfo(e.target.value);
+                                        if (emailError) setEmailError("");
+                                      }}
+                                      onKeyDown={handleKeyDown}
+                                      placeholder="Your email address"
+                                      aria-label="Contact information"
+                                      disabled={isLoading}
+                                      className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
+                                  />
+                                  {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
+                                  <p className="mt-2 text-xs text-gray-700">
+                                    Our agent will send profiles of relevant experts to this email.
+                                  </p>
+                              </div>
+                              
+                              {!listening && (
+                                  <div className="flex h-full items-center justify-end gap-2 self-start shrink-0">
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                  <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
+                                                      <Mic size={16} />
+                                                  </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                  <p>Voice Input</p>
+                                              </TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                      <div className="relative">
+                                          <TooltipProvider>
+                                              <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                      <button type="submit" className="flex h-10 items-center justify-center border border-black px-4 text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                                          {isLoading ? (
+                                                              <div className="flex items-center justify-center space-x-1">
+                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
+                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
+                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
+                                                              </div>
+                                                          ) : 'Submit'}
+                                                      </button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                      <p>Send (Ctrl+Enter)</p>
+                                                  </TooltipContent>
+                                              </Tooltip>
+                                          </TooltipProvider>
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                      </form>
+                    </>
                   )}
                 </div>
             </div>
@@ -471,3 +480,5 @@ export default function Home() {
     
   );
 }
+
+    
