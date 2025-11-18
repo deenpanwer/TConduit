@@ -2,7 +2,7 @@
 "use client";
 
 import 'regenerator-runtime/runtime';
-import React, { useState, useRef, useEffect, forwardRef, useCallback } from "react";
+import React, from "react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,9 +29,9 @@ interface AutoResizingTextareaProps extends React.TextareaHTMLAttributes<HTMLTex
   setShowBottomFade: (show: boolean) => void;
 }
 
-const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
+const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
   ({ className, setShowTopFade, setShowBottomFade, ...props }, ref) => {
-    const internalRef = useRef<HTMLTextAreaElement>(null);
+    const internalRef = React.useRef<HTMLTextAreaElement>(null);
     React.useImperativeHandle(ref, () => internalRef.current!);
 
     const handleInput = () => {
@@ -44,7 +44,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
       }
     };
 
-    const handleScroll = useCallback(() => {
+    const handleScroll = React.useCallback(() => {
       const textarea = internalRef.current;
       if (textarea) {
         const { scrollTop, scrollHeight, clientHeight } = textarea;
@@ -53,11 +53,11 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
       }
     }, [setShowTopFade, setShowBottomFade]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         handleInput();
     }, [props.value]);
 
-    useEffect(() => {
+    React.useEffect(() => {
       const textarea = internalRef.current;
       if (textarea) {
         textarea.addEventListener('scroll', handleScroll);
@@ -78,7 +78,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-10 resize-none bg-transparent text-black placeholder-gray-500 focus:outline-none custom-scrollbar p-2",
+            "w-full h-10 resize-none bg-transparent placeholder-gray-500 focus:outline-none custom-scrollbar p-2",
             className
           )}
           {...props}
@@ -91,9 +91,9 @@ AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 
 const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -137,26 +137,26 @@ const basePlaceholder = "I need someone to ";
 
 
 export default function Home() {
-  const [inputValue, setInputValue] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [inputValue, setInputValue] = React.useState("");
+  const [contactInfo, setContactInfo] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [emailError, setEmailError] = React.useState("");
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
   const router = useRouter();
-  const [showIdeationPanel, setShowIdeationPanel] = useState(false);
+  const [showIdeationPanel, setShowIdeationPanel] = React.useState(false);
 
-  const [placeholder, setPlaceholder] = useState(basePlaceholder);
-  const [problemIndex, setProblemIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [placeholder, setPlaceholder] = React.useState(basePlaceholder);
+  const [problemIndex, setProblemIndex] = React.useState(0);
+  const [charIndex, setCharIndex] = React.useState(0);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
 
-  const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0, pasted: false });
-  const pageLoadTime = useRef<number>(0);
-  const pageLoadEnd = useRef<number>(0);
-  const referrer = useRef<string>("");
-  const deviceType = useRef<string>("");
-  const networkType = useRef<string>("");
+  const [interactionState, setInteractionState] = React.useState({ voiceUsed: false, keystrokes: 0, pasted: false });
+  const pageLoadTime = React.useRef<number>(0);
+  const pageLoadEnd = React.useRef<number>(0);
+  const referrer = React.useRef<string>("");
+  const deviceType = React.useRef<string>("");
+  const networkType = React.useRef<string>("");
 
   const {
     transcript,
@@ -165,40 +165,45 @@ export default function Home() {
     browserSupportsSpeechRecognition
   } = useSpeechRecognition();
   
-  const [showTopFade, setShowTopFade] = useState(false);
-  const [showBottomFade, setShowBottomFade] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showTopFade, setShowTopFade] = React.useState(false);
+  const [showBottomFade, setShowBottomFade] = React.useState(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    const currentProblem = placeholderProblems[problemIndex];
+    let timeout: NodeJS.Timeout;
+
     const type = () => {
-      const currentProblem = placeholderProblems[problemIndex];
-      let timeout: NodeJS.Timeout;
-
-      if (!isDeleting && charIndex < currentProblem.length) {
-        setPlaceholder(prev => prev + currentProblem.charAt(charIndex));
-        setCharIndex(charIndex + 1);
-        timeout = setTimeout(type, 50);
-      } else if (isDeleting && placeholder.length > basePlaceholder.length) {
-        setPlaceholder(prev => prev.substring(0, prev.length - 1));
-        timeout = setTimeout(type, 30);
-      } else if (!isDeleting && charIndex === currentProblem.length) {
-        setIsDeleting(true);
-        timeout = setTimeout(type, 2000); // Pause at end of sentence
-      } else if (isDeleting && placeholder.length === basePlaceholder.length) {
-        setIsDeleting(false);
-        setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
-        setCharIndex(0);
-        timeout = setTimeout(type, 500); // Pause before new sentence
+      if (isDeleting) {
+        if (placeholder.length > basePlaceholder.length) {
+          setPlaceholder(prev => prev.slice(0, -1));
+          timeout = setTimeout(type, 30);
+        } else {
+          setIsDeleting(false);
+          setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
+          setCharIndex(0);
+        }
+      } else {
+        if (charIndex < currentProblem.length) {
+          setPlaceholder(prev => prev + currentProblem.charAt(charIndex));
+          setCharIndex(prev => prev + 1);
+          timeout = setTimeout(type, 50);
+        } else {
+          timeout = setTimeout(() => setIsDeleting(true), 2000);
+        }
       }
-
-      return () => clearTimeout(timeout);
     };
 
-    const typingTimeout = setTimeout(type, 1000); // Initial delay
-    return () => clearTimeout(typingTimeout);
-  }, [charIndex, problemIndex, isDeleting, placeholder]);
+    if (!isDeleting && charIndex === 0) {
+      timeout = setTimeout(type, 500); // Pause before new sentence
+    } else {
+      timeout = setTimeout(type, isDeleting ? 30 : 50);
+    }
 
-  useEffect(() => {
+    return () => clearTimeout(timeout);
+  }, [charIndex, isDeleting, placeholder, problemIndex]);
+
+  React.useEffect(() => {
     pageLoadTime.current = Date.now();
     referrer.current = document.referrer || "direct";
     deviceType.current = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
@@ -526,6 +531,8 @@ export default function Home() {
     
   );
 }
+
+    
 
     
 
