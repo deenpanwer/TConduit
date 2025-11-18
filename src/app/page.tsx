@@ -18,6 +18,7 @@ import {
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
+import { Button } from '@/components/ui/button';
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -78,7 +79,7 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-10 resize-none bg-transparent placeholder-gray-500 focus:outline-none custom-scrollbar p-2",
+            "w-full h-12 resize-none bg-transparent placeholder-gray-500 focus:outline-none custom-scrollbar p-3",
             className
           )}
           {...props}
@@ -100,24 +101,24 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
   }, [transcript]);
 
     return (
-        <div className="flex h-auto min-h-[40px] w-full items-center justify-between bg-white p-2">
+        <div className="flex h-auto min-h-[48px] w-full items-center justify-between p-3">
             <div className="flex items-start gap-2 overflow-hidden w-full">
                 <div className="flex h-full items-center gap-1 shrink-0 pt-1">
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.3s]"></span>
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-black [animation-delay:-0.15s]"></span>
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-black"></span>
+                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
+                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
+                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary"></span>
                 </div>
-                <div ref={scrollRef} className="text-sm text-gray-600 w-full max-h-[80px] overflow-y-auto custom-scrollbar">
+                <div ref={scrollRef} className="text-sm text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar">
                     {transcript || "Listening..."}
                 </div>
             </div>
             <div className="flex items-center">
-                <button onClick={onCancel} className="p-2 text-black hover:bg-gray-100">
+                <Button onClick={onCancel} variant="ghost" size="icon">
                     <X size={20} />
-                </button>
-                <button onClick={onAccept} className="p-2 text-black hover:bg-gray-100">
+                </Button>
+                <Button onClick={onAccept} variant="ghost" size="icon">
                     <Check size={20} />
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -182,10 +183,11 @@ export default function Home() {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
           setCharIndex(0);
+          timeout = setTimeout(type, 500);
         }
       } else {
         if (charIndex < currentProblem.length) {
-          setPlaceholder(prev => prev + currentProblem.charAt(charIndex));
+          setPlaceholder(prev => basePlaceholder + currentProblem.substring(0, charIndex + 1));
           setCharIndex(prev => prev + 1);
           timeout = setTimeout(type, 50);
         } else {
@@ -194,14 +196,10 @@ export default function Home() {
       }
     };
 
-    if (!isDeleting && charIndex === 0) {
-      timeout = setTimeout(type, 500); // Pause before new sentence
-    } else {
-      timeout = setTimeout(type, isDeleting ? 30 : 50);
-    }
+    timeout = setTimeout(type, 500);
 
     return () => clearTimeout(timeout);
-  }, [charIndex, isDeleting, placeholder, problemIndex]);
+  }, [charIndex, isDeleting, problemIndex]);
 
   React.useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -359,56 +357,45 @@ export default function Home() {
 
   
   return (
-    <main className="relative flex flex-col min-h-screen bg-white animate-fade-in pb-20">
+    <main className="relative flex flex-col min-h-screen bg-background animate-fade-in pb-20 font-sans">
       <div className='flex-grow flex flex-col justify-center px-4'>
         <div className="absolute top-4 left-4">
-          <h1 className="font-poppins font-bold text-3xl md:text-4xl text-black">
+          <h1 className="font-poppins font-bold text-3xl md:text-4xl text-foreground">
             TRAC
           </h1>
-          <p className="text-gray-500 text-sm md:text-base">Google for Hiring</p>
+          <p className="text-muted-foreground text-sm md:text-base">Google for Hiring</p>
         </div>
 
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
                   {isSubmitted ? (
-                    <div className="animate-fade-in">
-                      <div className="relative w-full max-w-4xl rounded-none border border-black overflow-hidden">
-                        <Image
-                          src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
-                          alt="Abstract background"
-                          layout="fill"
-                          objectFit="cover"
-                          className="absolute inset-0 z-0"
-                          data-ai-hint="futuristic abstract"
-                        />
-                        <div className="relative z-10 bg-white/80 backdrop-blur-sm p-8 m-4 md:m-16 text-black text-center">
-                          <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
-                          <p className="text-sm sm:text-base md:text-lg mb-6">
-                            Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
-                          </p>
-                        </div>
+                    <div className="animate-fade-in text-center">
+                      <div className="inline-block bg-secondary p-4 rounded-full mb-4">
+                        <Check className="text-primary" size={48} />
                       </div>
-                      <div className="mt-8 text-center">
-                        <button
-                          onClick={() => {
-                            setInputValue("");
-                            setContactInfo("");
-                            setIsSubmitted(false);
-                          }}
-                          className="inline-block border border-black bg-white px-6 py-2 text-black transition-colors hover:bg-black hover:text-white"
-                        >
-                          Submit Another Problem
-                        </button>
-                      </div>
+                      <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Thank You</h1>
+                      <p className="text-muted-foreground text-sm sm:text-base md:text-lg mb-6 max-w-md mx-auto">
+                        Our agent is scouring the net to find the right fit to solve your problem. We'll be in touch.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setInputValue("");
+                          setContactInfo("");
+                          setIsSubmitted(false);
+                        }}
+                        variant="outline"
+                      >
+                        Submit Another Problem
+                      </Button>
                     </div>
                   ) : (
                     <>
-                      <h2 className="text-center text-xl md:text-2xl font-serif mb-4 text-black">
+                      <h2 className="text-center text-xl md:text-2xl font-bold mb-6 text-foreground">
                         What's stopping you from growing faster?
                       </h2>
-                      <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in">
-                          <div className={cn("relative flex w-full flex-col items-center self-auto border border-black bg-white",
+                      <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in space-y-4">
+                          <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-card rounded-lg shadow-sm",
                             listening && "p-0"
                           )}>
                             {listening ? (
@@ -439,7 +426,7 @@ export default function Home() {
                             )}
                           </div>
                           
-                          <div className="mt-4 flex items-start gap-2">
+                          <div className="flex items-start gap-2">
                               <div className="flex-grow">
                                   <Input
                                       type="email"
@@ -452,10 +439,10 @@ export default function Home() {
                                       placeholder="Your email address"
                                       aria-label="Contact information"
                                       disabled={isLoading}
-                                      className="h-10 w-full rounded-none border-black bg-transparent px-2 focus-visible:ring-0"
+                                      className="h-12 w-full rounded-lg"
                                   />
                                   {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
-                                  <p className="mt-2 text-xs text-gray-700">
+                                  <p className="mt-2 text-xs text-muted-foreground">
                                     Our agent will send profiles of relevant experts to this email.
                                   </p>
                               </div>
@@ -465,35 +452,33 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                  <button type="button" onClick={startRecording} className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0" disabled={isLoading || listening}>
-                                                      <Mic size={16} />
-                                                  </button>
+                                                <Button type="button" onClick={startRecording} variant="outline" size="icon" className="h-12 w-12" disabled={isLoading || listening}>
+                                                  <Mic size={20} />
+                                                </Button>
                                               </TooltipTrigger>
                                               <TooltipContent>
                                                   <p>Voice Input</p>
                                               </TooltipContent>
                                           </Tooltip>
                                       </TooltipProvider>
-                                      <div className="relative">
-                                          <TooltipProvider>
-                                              <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                      <button type="submit" className="flex h-10 items-center justify-center border border-black px-4 text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
-                                                          {isLoading ? (
-                                                              <div className="flex items-center justify-center space-x-1">
-                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
-                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
-                                                                  <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
-                                                              </div>
-                                                          ) : 'Submit'}
-                                                      </button>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                      <p>Send (Ctrl+Enter)</p>
-                                                  </TooltipContent>
-                                              </Tooltip>
-                                          </TooltipProvider>
-                                      </div>
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button type="submit" className="h-12" disabled={isLoading || !inputValue.trim() || listening}>
+                                                    {isLoading ? (
+                                                        <div className="flex items-center justify-center space-x-1">
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.15s]"></span>
+                                                            <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground"></span>
+                                                        </div>
+                                                    ) : 'Submit'}
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                  <p>Send (Ctrl+Enter)</p>
+                                              </TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
                                   </div>
                               )}
                           </div>
@@ -505,17 +490,17 @@ export default function Home() {
         </div>
       </div>
       
-      <footer className="fixed bottom-0 left-0 right-0 z-10 bg-gray-100 text-black text-sm">
-            <div className="md:border-t md:border-gray-200">
+      <footer className="fixed bottom-0 left-0 right-0 z-10 text-sm">
+            <div className="container mx-auto px-4 py-4 md:border-t">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
-                    <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
+                    <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
                       <p>© 2025 TRAC. All rights reserved.</p>
                     </div>
-                    <div className="relative bg-gray-100 py-3 px-4">
-                        <div className="flex justify-end">
+                    <div className="relative py-3 px-4">
+                        <div className="flex justify-center md:justify-end">
                              <button
                                 onClick={() => setShowIdeationPanel(prev => !prev)}
-                                className="flex items-center gap-2 text-sm font-medium text-black transition-transform hover:scale-105"
+                                className="flex items-center gap-2 text-sm font-medium text-foreground transition-transform hover:scale-105"
                             >
                                 Ideate with PG <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
                             </button>
@@ -531,11 +516,3 @@ export default function Home() {
     
   );
 }
-
-    
-
-    
-
-    
-
-    
