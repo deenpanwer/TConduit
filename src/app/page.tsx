@@ -431,7 +431,7 @@ export default function Home() {
                         please be specific that helps us find better candidates for you
                       </p>
                       <form onSubmit={handleSubmit} className="mx-auto w-full space-y-4">
-                          <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-secondary/30 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/50",
+                          <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-secondary/30 rounded-2xl shadow-md focus-within:ring-2 focus-within:ring-primary/50",
                             listening && "p-0"
                           )}>
                             {listening ? (
@@ -477,7 +477,7 @@ export default function Home() {
                                       placeholder="Your email address"
                                       aria-label="Contact information"
                                       disabled={isLoading}
-                                      className="h-14 w-full rounded-2xl bg-secondary/30 text-base shadow-sm"
+                                      className="h-14 w-full rounded-2xl bg-secondary/30 text-base shadow-md"
                                   />
                                   {emailError && <p className="mt-2 text-sm text-red-500">{emailError}</p>}
                                   <p className="mt-2 text-xs text-muted-foreground">
@@ -490,7 +490,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl shadow-sm" disabled={isLoading || listening}>
+                                                <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl shadow-md" disabled={isLoading || listening}>
                                                   <Mic />
                                                 </Button>
                                               </TooltipTrigger>
@@ -502,7 +502,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-sm" disabled={isLoading || !inputValue.trim() || listening}>
+                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-md" disabled={isLoading || !inputValue.trim() || listening}>
                                                     {isLoading ? (
                                                         <div className="flex items-center justify-center space-x-1">
                                                             <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
@@ -554,6 +554,8 @@ export default function Home() {
     
   );
 }
+
+    
 
     
 
