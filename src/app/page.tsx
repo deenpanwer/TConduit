@@ -123,6 +123,14 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
     );
 };
 
+const placeholderSentences = [
+    "Find a growth marketer for a new SaaS product.",
+    "I need a UX designer to redesign my mobile app.",
+    "Hire a smart contract developer for a DeFi project.",
+    "Looking for a fractional CFO for a Series A startup.",
+    "We need a team of data scientists to build a recommendation engine."
+];
+
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("");
@@ -132,6 +140,11 @@ export default function Home() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
+
+  const [placeholder, setPlaceholder] = useState('');
+  const [sentenceIndex, setSentenceIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const [interactionState, setInteractionState] = useState({ voiceUsed: false, keystrokes: 0, pasted: false });
@@ -151,6 +164,35 @@ export default function Home() {
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const type = () => {
+      const currentSentence = placeholderSentences[sentenceIndex];
+      let timeout: NodeJS.Timeout;
+
+      if (!isDeleting && charIndex < currentSentence.length) {
+        setPlaceholder(prev => prev + currentSentence.charAt(charIndex));
+        setCharIndex(charIndex + 1);
+        timeout = setTimeout(type, 50);
+      } else if (isDeleting && charIndex > 0) {
+        setPlaceholder(prev => prev.substring(0, prev.length - 1));
+        setCharIndex(charIndex - 1);
+        timeout = setTimeout(type, 30);
+      } else if (!isDeleting && charIndex === currentSentence.length) {
+        setIsDeleting(true);
+        timeout = setTimeout(type, 2000); // Pause at end of sentence
+      } else if (isDeleting && charIndex === 0) {
+        setIsDeleting(false);
+        setSentenceIndex((prevIndex) => (prevIndex + 1) % placeholderSentences.length);
+        timeout = setTimeout(type, 500); // Pause before new sentence
+      }
+
+      return () => clearTimeout(timeout);
+    };
+
+    const typingTimeout = setTimeout(type, 1000); // Initial delay
+    return () => clearTimeout(typingTimeout);
+  }, [charIndex, sentenceIndex, isDeleting]);
 
   useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -377,7 +419,7 @@ export default function Home() {
                                           onChange={handleInputChange}
                                           onKeyDown={handleKeyDown}
                                           onPaste={handlePaste}
-                                          placeholder="Describe your problem here..."
+                                          placeholder={placeholder}
                                           aria-label="Data input"
                                           disabled={isLoading}
                                           setShowTopFade={setShowTopFade}
@@ -458,7 +500,7 @@ export default function Home() {
             <div className="md:border-t md:border-gray-200">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
-                    <p>© 2025 TRAC. All rights reserved.</p>
+                      <p>© 2025 TRAC. All rights reserved.</p>
                     </div>
                     <div className="relative bg-gray-100 py-3 px-4">
                         <div className="flex justify-end">
@@ -480,5 +522,7 @@ export default function Home() {
     
   );
 }
+
+    
 
     
