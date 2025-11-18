@@ -387,7 +387,7 @@ export default function Home() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
-        <Image src="/1.png" alt="Logo" width={40} height={40} className="rounded-full opacity-80" />
+        <Image src="/1.png" alt="Logo" width={40} height={40} className="rounded-full invert" />
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>
@@ -547,3 +547,5 @@ export default function Home() {
     
   );
 }
+
+    
