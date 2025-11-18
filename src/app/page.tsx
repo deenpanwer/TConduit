@@ -457,7 +457,7 @@ export default function Home() {
                                           disabled={isLoading}
                                           setShowTopFade={setShowTopFade}
                                           setShowBottomFade={setShowBottomFade}
-                                          className="h-20 md:h-14"
+                                          className="h-24 md:h-14"
                                         />
                                     </div>
                                 </div>
