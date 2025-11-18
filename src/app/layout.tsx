@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn('dark', poppins.variable, inter.variable)}>
+    <html lang="en" className={cn(poppins.variable, inter.variable)}>
         <body className="font-sans">
           {children}
           <Toaster />
