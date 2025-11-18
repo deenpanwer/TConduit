@@ -178,25 +178,25 @@ export default function Home() {
       if (isDeleting) {
         if (placeholder.length > basePlaceholder.length) {
           setPlaceholder(prev => prev.slice(0, -1));
-          timeout = setTimeout(type, 15);
+          timeout = setTimeout(type, 10);
         } else {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
           setCharIndex(0);
-          timeout = setTimeout(type, 250);
+          timeout = setTimeout(type, 100);
         }
       } else {
         if (charIndex < currentProblem.length) {
           setPlaceholder(prev => basePlaceholder + currentProblem.substring(0, charIndex + 1));
           setCharIndex(prev => prev + 1);
-          timeout = setTimeout(type, 25);
+          timeout = setTimeout(type, 15);
         } else {
-          timeout = setTimeout(() => setIsDeleting(true), 1000);
+          timeout = setTimeout(() => setIsDeleting(true), 500);
         }
       }
     };
 
-    timeout = setTimeout(type, 250);
+    timeout = setTimeout(type, 100);
 
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, problemIndex, placeholder.length]);
@@ -519,5 +519,7 @@ export default function Home() {
     
   );
 }
+
+    
 
     
