@@ -383,10 +383,11 @@ export default function Home() {
   
   return (
     <main className="relative flex flex-col min-h-screen bg-background animate-fade-in pb-20 font-sans">
-      <header className="absolute top-6 left-6 flex items-baseline gap-3">
+      <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
+        <Image src="/1.png" alt="Logo" width={40} height={40} />
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>

@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)}>
         <head>
-          <link rel="icon" href="/1.svg" />
+          <link rel="icon" href="/1.png" />
         </head>
         <body className="font-sans">
           {children}
