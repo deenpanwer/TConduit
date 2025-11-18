@@ -14,6 +14,7 @@ export default {
         headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
         serif: ['Times New Roman', 'serif'],
+        poppins: ['var(--font-poppins)', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',

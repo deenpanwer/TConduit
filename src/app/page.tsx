@@ -4,8 +4,10 @@
 import 'regenerator-runtime/runtime';
 import React, { useState, useRef, useEffect, forwardRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from 'next/image';
+import Link from 'next/link';
 import { cn } from "@/lib/utils";
-import { Mic, ArrowRight, X, Check, ChevronUp } from "lucide-react";
+import { Mic, X, Check, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import {
   Tooltip,
@@ -127,6 +129,7 @@ export default function Home() {
   const [contactInfo, setContactInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
 
@@ -276,9 +279,7 @@ export default function Home() {
         throw new Error(errorMessage);
       }
       
-      setInputValue("");
-      setContactInfo("");
-      router.push('/thank-you');
+      setIsSubmitted(true);
 
     } catch (error) {
       console.error(error);
@@ -309,13 +310,45 @@ export default function Home() {
   return (
     <main className="relative flex flex-col min-h-screen bg-white animate-fade-in pb-20">
       <div className='flex-grow flex flex-col justify-center px-4'>
-        <h1 className="absolute top-4 left-4 font-serif text-3xl md:text-4xl text-black">
+        <h1 className="absolute top-4 left-4 font-poppins font-bold text-3xl md:text-4xl text-black">
           TRAC
         </h1>
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-lg">
                 <div className="pt-4">
-                    <form onSubmit={handleSubmit} className="mx-auto w-full">
+                  {isSubmitted ? (
+                    <div className="animate-fade-in">
+                      <div className="relative w-full max-w-4xl rounded-none border border-black overflow-hidden">
+                        <Image
+                          src="https://images.pexels.com/photos/17483850/pexels-photo-17483850.png"
+                          alt="Abstract background"
+                          layout="fill"
+                          objectFit="cover"
+                          className="absolute inset-0 z-0"
+                          data-ai-hint="futuristic abstract"
+                        />
+                        <div className="relative z-10 bg-white/80 backdrop-blur-sm p-8 m-4 md:m-16 text-black text-center">
+                          <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl">Thank You</h1>
+                          <p className="text-sm sm:text-base md:text-lg mb-6">
+                            Our agent is scouring the net to find the right fit to solve your problem. We'll inform you.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-8 text-center">
+                        <button
+                          onClick={() => {
+                            setInputValue("");
+                            setContactInfo("");
+                            setIsSubmitted(false);
+                          }}
+                          className="inline-block border border-black bg-white px-6 py-2 text-black transition-colors hover:bg-black hover:text-white"
+                        >
+                          Submit Another Problem
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in">
                         <div className={cn("relative flex w-full flex-col items-center self-auto border border-black bg-white",
                           listening && "p-0"
                         )}>
@@ -386,14 +419,14 @@ export default function Home() {
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <button type="submit" className="flex h-10 w-10 items-center justify-center border border-black text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
+                                                    <button type="submit" className="flex h-10 items-center justify-center border border-black px-4 text-black shrink-0 disabled:opacity-50" disabled={isLoading || !inputValue.trim() || listening}>
                                                         {isLoading ? (
                                                             <div className="flex items-center justify-center space-x-1">
                                                                 <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.3s]"></span>
                                                                 <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black [animation-delay:-0.15s]"></span>
                                                                 <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-black"></span>
                                                             </div>
-                                                        ) : <ArrowRight size={18} />}
+                                                        ) : 'Submit'}
                                                     </button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
@@ -406,6 +439,7 @@ export default function Home() {
                             )}
                         </div>
                     </form>
+                  )}
                 </div>
             </div>
         </div>
@@ -415,7 +449,6 @@ export default function Home() {
             <div className="md:border-t md:border-gray-200">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="bg-gray-100 py-3 px-4 text-center md:text-left border-t border-black md:border-none">
-                    {/* <p>Connecting the world's problems to the world's experts.</p> */}
                     <p>© 2025 TRAC. All rights reserved.</p>
                     </div>
                     <div className="relative bg-gray-100 py-3 px-4">
@@ -438,6 +471,3 @@ export default function Home() {
     
   );
 }
-
-    
-    
