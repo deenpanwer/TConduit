@@ -178,7 +178,7 @@ export default function Home() {
       if (isDeleting) {
         if (placeholder.length > basePlaceholder.length) {
           setPlaceholder(prev => prev.slice(0, -1));
-          timeout = setTimeout(type, 5); // Faster deleting
+          timeout = setTimeout(type, 10); // Faster deleting
         } else {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
@@ -191,7 +191,7 @@ export default function Home() {
           setCharIndex(prev => prev + 1);
           timeout = setTimeout(type, 10); // Faster typing
         } else {
-          timeout = setTimeout(() => setIsDeleting(true), 200); // Faster pause before deleting
+          timeout = setTimeout(() => setIsDeleting(true), 2000); // Faster pause before deleting
         }
       }
     };
@@ -519,6 +519,8 @@ export default function Home() {
     
   );
 }
+
+    
 
     
 
