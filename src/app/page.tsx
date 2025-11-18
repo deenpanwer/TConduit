@@ -2,7 +2,7 @@
 "use client";
 
 import 'regenerator-runtime/runtime';
-import React, from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image';
 import Link from 'next/link';
@@ -79,7 +79,7 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-12 resize-none bg-transparent placeholder-gray-500 focus:outline-none custom-scrollbar p-3",
+            "w-full h-14 resize-none bg-transparent placeholder:text-muted-foreground focus:outline-none custom-scrollbar p-4 text-base",
             className
           )}
           {...props}
@@ -101,23 +101,23 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
   }, [transcript]);
 
     return (
-        <div className="flex h-auto min-h-[48px] w-full items-center justify-between p-3">
-            <div className="flex items-start gap-2 overflow-hidden w-full">
-                <div className="flex h-full items-center gap-1 shrink-0 pt-1">
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
-                    <span className="h-4 w-1 animate-pulse rounded-full bg-primary"></span>
+        <div className="flex h-auto min-h-[56px] w-full items-center justify-between p-4">
+            <div className="flex items-start gap-3 overflow-hidden w-full">
+                <div className="flex h-full items-center gap-1.5 shrink-0 pt-1">
+                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
+                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
+                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary"></span>
                 </div>
-                <div ref={scrollRef} className="text-sm text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar">
+                <div ref={scrollRef} className="text-base text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar">
                     {transcript || "Listening..."}
                 </div>
             </div>
             <div className="flex items-center">
                 <Button onClick={onCancel} variant="ghost" size="icon">
-                    <X size={20} />
+                    <X />
                 </Button>
                 <Button onClick={onAccept} variant="ghost" size="icon">
-                    <Check size={20} />
+                    <Check />
                 </Button>
             </div>
         </div>
@@ -199,7 +199,7 @@ export default function Home() {
     timeout = setTimeout(type, 500);
 
     return () => clearTimeout(timeout);
-  }, [charIndex, isDeleting, problemIndex]);
+  }, [charIndex, isDeleting, problemIndex, placeholder.length]);
 
   React.useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -358,24 +358,24 @@ export default function Home() {
   
   return (
     <main className="relative flex flex-col min-h-screen bg-background animate-fade-in pb-20 font-sans">
-      <div className='flex-grow flex flex-col justify-center px-4'>
-        <div className="absolute top-4 left-4">
-          <h1 className="font-poppins font-bold text-3xl md:text-4xl text-foreground">
-            TRAC
-          </h1>
-          <p className="text-muted-foreground text-sm md:text-base">Google for Hiring</p>
-        </div>
+      <header className="absolute top-6 left-6 flex items-baseline gap-3">
+        <h1 className="font-poppins font-bold text-2xl text-foreground">
+          TRAC
+        </h1>
+        <p className="text-muted-foreground text-sm">Google for Hiring</p>
+      </header>
 
+      <div className='flex-grow flex flex-col justify-center px-4'>
         <div className="flex-grow flex items-center justify-center">
-            <div className="w-full max-w-lg">
+            <div className="w-full max-w-2xl">
                 <div className="pt-4">
                   {isSubmitted ? (
                     <div className="animate-fade-in text-center">
-                      <div className="inline-block bg-secondary p-4 rounded-full mb-4">
+                      <div className="inline-block bg-secondary p-4 rounded-full mb-6">
                         <Check className="text-primary" size={48} />
                       </div>
-                      <h1 className="mb-4 text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Thank You</h1>
-                      <p className="text-muted-foreground text-sm sm:text-base md:text-lg mb-6 max-w-md mx-auto">
+                      <h1 className="mb-4 text-3xl font-bold text-foreground">Thank You</h1>
+                      <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
                         Our agent is scouring the net to find the right fit to solve your problem. We'll be in touch.
                       </p>
                       <Button
@@ -385,17 +385,18 @@ export default function Home() {
                           setIsSubmitted(false);
                         }}
                         variant="outline"
+                        size="lg"
                       >
                         Submit Another Problem
                       </Button>
                     </div>
                   ) : (
-                    <>
-                      <h2 className="text-center text-xl md:text-2xl font-bold mb-6 text-foreground">
+                    <div className="animate-fade-in">
+                      <h2 className="text-center text-4xl md:text-5xl font-medium mb-8 text-foreground leading-tight">
                         What's stopping you from growing faster?
                       </h2>
-                      <form onSubmit={handleSubmit} className="mx-auto w-full animate-fade-in space-y-4">
-                          <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-card rounded-lg shadow-sm",
+                      <form onSubmit={handleSubmit} className="mx-auto w-full space-y-4">
+                          <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-secondary/30 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/50",
                             listening && "p-0"
                           )}>
                             {listening ? (
@@ -426,7 +427,7 @@ export default function Home() {
                             )}
                           </div>
                           
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-start gap-4 pt-2">
                               <div className="flex-grow">
                                   <Input
                                       type="email"
@@ -439,9 +440,9 @@ export default function Home() {
                                       placeholder="Your email address"
                                       aria-label="Contact information"
                                       disabled={isLoading}
-                                      className="h-12 w-full rounded-lg"
+                                      className="h-14 w-full rounded-2xl bg-secondary/30 text-base"
                                   />
-                                  {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
+                                  {emailError && <p className="mt-2 text-sm text-red-500">{emailError}</p>}
                                   <p className="mt-2 text-xs text-muted-foreground">
                                     Our agent will send profiles of relevant experts to this email.
                                   </p>
@@ -452,8 +453,8 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="button" onClick={startRecording} variant="outline" size="icon" className="h-12 w-12" disabled={isLoading || listening}>
-                                                  <Mic size={20} />
+                                                <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl" disabled={isLoading || listening}>
+                                                  <Mic />
                                                 </Button>
                                               </TooltipTrigger>
                                               <TooltipContent>
@@ -464,7 +465,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="submit" className="h-12" disabled={isLoading || !inputValue.trim() || listening}>
+                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6" disabled={isLoading || !inputValue.trim() || listening}>
                                                     {isLoading ? (
                                                         <div className="flex items-center justify-center space-x-1">
                                                             <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
@@ -483,7 +484,7 @@ export default function Home() {
                               )}
                           </div>
                       </form>
-                    </>
+                    </div>
                   )}
                 </div>
             </div>
@@ -491,10 +492,10 @@ export default function Home() {
       </div>
       
       <footer className="fixed bottom-0 left-0 right-0 z-10 text-sm">
-            <div className="container mx-auto px-4 py-4 md:border-t">
+            <div className="container mx-auto px-4 py-4">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
-                      <p>© 2025 TRAC. All rights reserved.</p>
+                      <p>© 2024 TRAC. All rights reserved.</p>
                     </div>
                     <div className="relative py-3 px-4">
                         <div className="flex justify-center md:justify-end">
