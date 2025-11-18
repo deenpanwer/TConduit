@@ -123,13 +123,17 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
     );
 };
 
-const placeholderSentences = [
-    "Find a growth marketer for a new SaaS product.",
-    "I need a UX designer to redesign my mobile app.",
-    "Hire a smart contract developer for a DeFi project.",
-    "Looking for a fractional CFO for a Series A startup.",
-    "We need a team of data scientists to build a recommendation engine."
+const placeholderProblems = [
+    "design a landing page that converts.",
+    "write a cold email sequence that gets replies.",
+    "manage our social media presence.",
+    "build a financial model for fundraising.",
+    "find our first 100 paying customers.",
+    "create a pitch deck that investors will love.",
+    "automate our user onboarding process.",
+    "handle our customer support inquiries."
 ];
+const basePlaceholder = "I need someone to ";
 
 
 export default function Home() {
@@ -141,8 +145,8 @@ export default function Home() {
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = useState(false);
 
-  const [placeholder, setPlaceholder] = useState('');
-  const [sentenceIndex, setSentenceIndex] = useState(0);
+  const [placeholder, setPlaceholder] = useState(basePlaceholder);
+  const [problemIndex, setProblemIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -167,23 +171,23 @@ export default function Home() {
 
   useEffect(() => {
     const type = () => {
-      const currentSentence = placeholderSentences[sentenceIndex];
+      const currentProblem = placeholderProblems[problemIndex];
       let timeout: NodeJS.Timeout;
 
-      if (!isDeleting && charIndex < currentSentence.length) {
-        setPlaceholder(prev => prev + currentSentence.charAt(charIndex));
+      if (!isDeleting && charIndex < currentProblem.length) {
+        setPlaceholder(prev => prev + currentProblem.charAt(charIndex));
         setCharIndex(charIndex + 1);
         timeout = setTimeout(type, 50);
-      } else if (isDeleting && charIndex > 0) {
+      } else if (isDeleting && placeholder.length > basePlaceholder.length) {
         setPlaceholder(prev => prev.substring(0, prev.length - 1));
-        setCharIndex(charIndex - 1);
         timeout = setTimeout(type, 30);
-      } else if (!isDeleting && charIndex === currentSentence.length) {
+      } else if (!isDeleting && charIndex === currentProblem.length) {
         setIsDeleting(true);
         timeout = setTimeout(type, 2000); // Pause at end of sentence
-      } else if (isDeleting && charIndex === 0) {
+      } else if (isDeleting && placeholder.length === basePlaceholder.length) {
         setIsDeleting(false);
-        setSentenceIndex((prevIndex) => (prevIndex + 1) % placeholderSentences.length);
+        setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
+        setCharIndex(0);
         timeout = setTimeout(type, 500); // Pause before new sentence
       }
 
@@ -192,7 +196,7 @@ export default function Home() {
 
     const typingTimeout = setTimeout(type, 1000); // Initial delay
     return () => clearTimeout(typingTimeout);
-  }, [charIndex, sentenceIndex, isDeleting]);
+  }, [charIndex, problemIndex, isDeleting, placeholder]);
 
   useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -522,6 +526,8 @@ export default function Home() {
     
   );
 }
+
+    
 
     
 
