@@ -150,6 +150,7 @@ export default function Home() {
   const [problemIndex, setProblemIndex] = React.useState(0);
   const [charIndex, setCharIndex] = React.useState(0);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [hasInteracted, setHasInteracted] = React.useState(false);
 
 
   const [interactionState, setInteractionState] = React.useState({ voiceUsed: false, keystrokes: 0, pasted: false });
@@ -171,6 +172,8 @@ export default function Home() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
+    if (hasInteracted) return;
+
     const currentProblem = placeholderProblems[problemIndex];
     let timeout: NodeJS.Timeout;
 
@@ -178,28 +181,28 @@ export default function Home() {
       if (isDeleting) {
         if (placeholder.length > basePlaceholder.length) {
           setPlaceholder(prev => prev.slice(0, -1));
-          timeout = setTimeout(type, 10); // Faster deleting
+          timeout = setTimeout(type, 10);
         } else {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
           setCharIndex(0);
-          timeout = setTimeout(type, 50); // Faster pause
+          timeout = setTimeout(type, 50);
         }
       } else {
         if (charIndex < currentProblem.length) {
           setPlaceholder(prev => basePlaceholder + currentProblem.substring(0, charIndex + 1));
           setCharIndex(prev => prev + 1);
-          timeout = setTimeout(type, 10); // Faster typing
+          timeout = setTimeout(type, 10);
         } else {
-          timeout = setTimeout(() => setIsDeleting(true), 2000); // Faster pause before deleting
+          timeout = setTimeout(() => setIsDeleting(true), 2000);
         }
       }
     };
 
-    timeout = setTimeout(type, 0); // Start immediately
+    timeout = setTimeout(type, 0);
 
     return () => clearTimeout(timeout);
-  }, [charIndex, isDeleting, problemIndex, placeholder.length]);
+  }, [charIndex, isDeleting, problemIndex, placeholder.length, hasInteracted]);
 
   React.useEffect(() => {
     pageLoadTime.current = Date.now();
@@ -229,15 +232,27 @@ export default function Home() {
       console.error("Voice recognition is not supported in your browser.");
       return;
     }
+    setHasInteracted(true);
     setInteractionState(prev => ({ ...prev, voiceUsed: true }));
     resetTranscript();
+    const prefix = "I need someone to ";
+    if (!inputValue.startsWith(prefix)) {
+      setInputValue(prefix);
+    }
     SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
 
   const stopRecording = (shouldAccept: boolean) => {
     SpeechRecognition.stopListening();
     if (shouldAccept) {
-        setInputValue(prev => prev ? `${prev}\n${transcript}` : transcript);
+        const prefix = "I need someone to ";
+        const currentTranscript = transcript.trim();
+        setInputValue(prev => {
+          if (prev === prefix) {
+            return `${prefix}${currentTranscript}`;
+          }
+          return prev ? `${prev} ${currentTranscript}` : `${prefix}${currentTranscript}`;
+        });
     }
     resetTranscript();
   };
@@ -343,8 +358,18 @@ export default function Home() {
       setInteractionState(prev => ({...prev, keystrokes: prev.keystrokes + 1}));
     }
   };
+
+  const handleFocus = () => {
+    if (!hasInteracted) {
+      setHasInteracted(true);
+      setInputValue("I need someone to ");
+    }
+  };
   
   const handlePaste = () => {
+    if (!hasInteracted) {
+        setHasInteracted(true);
+    }
     setInteractionState(prev => ({...prev, pasted: true}));
   };
 
@@ -382,6 +407,7 @@ export default function Home() {
                           setInputValue("");
                           setContactInfo("");
                           setIsSubmitted(false);
+                          setHasInteracted(false);
                         }}
                         variant="outline"
                         size="lg"
@@ -416,9 +442,10 @@ export default function Home() {
                                           ref={textareaRef}
                                           value={inputValue}
                                           onChange={handleInputChange}
+                                          onFocus={handleFocus}
                                           onKeyDown={handleKeyDown}
                                           onPaste={handlePaste}
-                                          placeholder={placeholder}
+                                          placeholder={hasInteracted ? '' : placeholder}
                                           aria-label="Data input"
                                           disabled={isLoading}
                                           setShowTopFade={setShowTopFade}
@@ -519,6 +546,8 @@ export default function Home() {
     
   );
 }
+
+    
 
     
 
