@@ -391,7 +391,7 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="animate-fade-in">
-                      <h2 className="text-center text-4xl md:text-5xl font-medium mb-4 text-foreground leading-tight">
+                      <h2 className="text-center text-4xl md:text-5xl font-medium mb-4 text-foreground leading-tight font-playfair">
                         What's stopping you from growing faster?
                       </h2>
                       <p className="text-center text-muted-foreground mb-8">

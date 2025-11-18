@@ -10,9 +10,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
-        serif: ['Times New Roman', 'serif'],
+        sans: ['var(--font-montserrat)', 'sans-serif'],
         poppins: ['var(--font-poppins)', 'sans-serif'],
+        playfair: ['var(--font-playfair)', 'serif'],
       },
       colors: {
         background: 'hsl(var(--background))',

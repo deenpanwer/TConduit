@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Analytics } from "@vercel/analytics/react";
-import { Poppins, Inter } from 'next/font/google';
+import { Poppins, Montserrat, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 
@@ -11,10 +11,15 @@ const poppins = Poppins({
   variable: '--font-poppins',
 });
 
-const inter = Inter({
+const montserrat = Montserrat({
   subsets: ['latin'],
-  variable: '--font-inter',
-})
+  variable: '--font-montserrat',
+});
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+});
 
 export const metadata: Metadata = {
   title: 'TRAC',
@@ -27,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(poppins.variable, inter.variable)}>
+    <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)}>
         <body className="font-sans">
           {children}
           <Toaster />
