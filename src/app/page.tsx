@@ -4,7 +4,6 @@
 import 'regenerator-runtime/runtime';
 import React from "react";
 import { useRouter } from "next/navigation";
-import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
 import { Mic, X, Check, ChevronUp } from "lucide-react";
@@ -387,7 +386,19 @@ export default function Home() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
-        <Image src="/1.png" alt="Logo" width={40} height={40} className="rounded-full invert" />
+        <svg
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="rounded-full"
+        >
+            <path
+                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"
+                fill="black"
+            />
+        </svg>
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>
@@ -547,5 +558,3 @@ export default function Home() {
     
   );
 }
-
-    
