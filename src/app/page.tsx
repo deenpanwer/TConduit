@@ -78,7 +78,7 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
           rows={1}
           onInput={handleInput}
           className={cn(
-            "w-full h-14 resize-none bg-transparent placeholder:text-muted-foreground focus:outline-none custom-scrollbar p-4 text-base",
+            "w-full resize-none bg-transparent placeholder:text-muted-foreground focus:outline-none custom-scrollbar p-4 text-base",
             className
           )}
           {...props}
@@ -185,20 +185,20 @@ export default function Home() {
           setIsDeleting(false);
           setProblemIndex((prevIndex) => (prevIndex + 1) % placeholderProblems.length);
           setCharIndex(0);
-          timeout = setTimeout(type, 50);
+          timeout = setTimeout(type, 500);
         }
       } else {
         if (charIndex < currentProblem.length) {
           setPlaceholder(prev => basePlaceholder + currentProblem.substring(0, charIndex + 1));
           setCharIndex(prev => prev + 1);
-          timeout = setTimeout(type, 10);
+          timeout = setTimeout(type, 20);
         } else {
           timeout = setTimeout(() => setIsDeleting(true), 2000);
         }
       }
     };
 
-    timeout = setTimeout(type, 0);
+    timeout = setTimeout(type, 500);
 
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, problemIndex, placeholder.length, hasInteracted]);
@@ -235,7 +235,7 @@ export default function Home() {
     setInteractionState(prev => ({ ...prev, voiceUsed: true }));
     resetTranscript();
     const prefix = "I need someone to ";
-    if (!inputValue.startsWith(prefix)) {
+    if (!inputValue.trim()) {
       setInputValue(prefix);
     }
     SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
@@ -464,6 +464,7 @@ export default function Home() {
                                           disabled={isLoading}
                                           setShowTopFade={setShowTopFade}
                                           setShowBottomFade={setShowBottomFade}
+                                          className="h-20 md:h-14"
                                         />
                                     </div>
                                 </div>
