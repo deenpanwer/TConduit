@@ -390,21 +390,6 @@ export default function Home() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
-        <svg
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path
-                d="M12 2L9.4 9.4L2 12L9.4 14.6L12 22L14.6 14.6L22 12L14.6 9.4L12 2Z"
-                fill="currentColor"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-            />
-        </svg>
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>
@@ -492,7 +477,7 @@ export default function Home() {
                                       placeholder="Your email address"
                                       aria-label="Contact information"
                                       disabled={isLoading}
-                                      className="h-14 w-full rounded-2xl bg-secondary/30 text-base"
+                                      className="h-14 w-full rounded-2xl bg-secondary/30 text-base shadow-sm"
                                   />
                                   {emailError && <p className="mt-2 text-sm text-red-500">{emailError}</p>}
                                   <p className="mt-2 text-xs text-muted-foreground">
@@ -505,7 +490,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl" disabled={isLoading || listening}>
+                                                <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl shadow-sm" disabled={isLoading || listening}>
                                                   <Mic />
                                                 </Button>
                                               </TooltipTrigger>
@@ -517,7 +502,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6" disabled={isLoading || !inputValue.trim() || listening}>
+                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-sm" disabled={isLoading || !inputValue.trim() || listening}>
                                                     {isLoading ? (
                                                         <div className="flex items-center justify-center space-x-1">
                                                             <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
