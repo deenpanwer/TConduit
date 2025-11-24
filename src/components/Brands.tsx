@@ -3,6 +3,7 @@
 
 import React from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
 
 type Brand = {
@@ -22,7 +23,9 @@ const brands: Brand[] = [
 ];
 
 export function Brands() {
-  const [emblaRef] = useEmblaCarousel({ loop: true, align: 'start', drag: 'free' });
+  const [emblaRef] = useEmblaCarousel({ loop: true, align: 'start' }, [
+    Autoplay({ playOnInit: true, delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })
+  ]);
 
   return (
     <div className="mt-16 w-full">
@@ -40,11 +43,11 @@ export function Brands() {
       >
         <div className="flex">
           {[...brands, ...brands].map((brand, index) => (
-            <div key={`${brand.name}-${index}`} className="flex-shrink-0 flex-grow-0 basis-1/4 md:basis-1/6 lg:basis-[12.5%] w-48 flex justify-center items-center">
+            <div key={`${brand.name}-${index}`} className="flex-shrink-0 flex-grow-0 basis-1/4 md:basis-1/6 lg:basis-[12.5%] flex justify-center items-center px-4">
               <img
                 src={brand.logoUrl}
                 alt={brand.name}
-                className="h-6 object-contain grayscale brightness-0"
+                className="h-5 object-contain grayscale brightness-0"
               />
             </div>
           ))}
