@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import 'regenerator-runtime/runtime';
@@ -18,6 +19,7 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
+import { Brands } from '@/components/Brands';
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -404,13 +406,13 @@ export default function Home() {
 
   const handleFocus = () => {
     if (!inputValue) {
-      setHasInteracted(false);
-      setInputValue("");
+      setInputValue("I need someone to ");
     }
   };
 
   const handleBlur = () => {
-     if (!inputValue && !listening) {
+     if (inputValue === "I need someone to ") {
+       setInputValue("");
        setHasInteracted(false);
      }
   }
@@ -568,6 +570,7 @@ export default function Home() {
                               )}
                           </div>
                       </form>
+                      <Brands />
                     </div>
                   )}
                 </div>
@@ -607,4 +610,3 @@ export default function Home() {
     
 
     
-
