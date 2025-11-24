@@ -400,6 +400,14 @@ export default function Home() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground hidden md:block">10,000+ freelancers have joined</p>
+          <Link href="/join">
+            <Button variant="outline" className="h-8 animate-shake">
+              Join the Network
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className='flex-grow flex flex-col justify-center px-4'>
@@ -573,3 +581,4 @@ export default function Home() {
     
 
     
+
