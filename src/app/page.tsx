@@ -92,20 +92,24 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
 AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 
-const SoundWave = () => {
+const SoundWave = ({ isListening }: { isListening: boolean }) => {
   const barsRef = React.useRef<(HTMLDivElement | null)[]>([]);
 
   React.useEffect(() => {
-    barsRef.current.forEach(bar => {
-      if (bar) {
-        bar.style.animationDuration = `${Math.random() * (0.7 - 0.2) + 0.2}s`;
-      }
-    });
-  }, []);
+    if (isListening) {
+      barsRef.current.forEach(bar => {
+        if (bar) {
+          bar.style.animationDuration = `${Math.random() * (0.7 - 0.2) + 0.2}s`;
+        }
+      });
+    }
+  }, [isListening]);
 
   const numBars = 30;
 
   const getBarClass = (index: number) => {
+    if (!isListening) return 'bar-still';
+
     if (index < 3 || index >= numBars - 3) {
       return 'bar-sm';
     }
@@ -129,7 +133,7 @@ const SoundWave = () => {
 };
 
 
-const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
+const VoiceRecordingUI = ({ onCancel, onAccept, transcript, isListening }: { onCancel: () => void; onAccept: () => void; transcript: string; isListening: boolean; }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -141,7 +145,7 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
     return (
         <div className="flex h-auto min-h-[56px] w-full items-center justify-between p-4">
             <div className="flex items-center gap-3 overflow-hidden w-full">
-                <SoundWave />
+                <SoundWave isListening={isListening} />
                 <div ref={scrollRef} className="text-base text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar pl-2">
                     {transcript || "Listening..."}
                 </div>
@@ -406,7 +410,7 @@ export default function Home() {
 
   const handleFocus = () => {
     if (!inputValue) {
-      setInputValue("I need someone to ");
+      // setInputValue("I need someone to ");
     }
   };
 
@@ -487,6 +491,7 @@ export default function Home() {
                                   onCancel={() => stopRecording(false)}
                                   onAccept={() => stopRecording(true)}
                                   transcript={transcript}
+                                  isListening={listening}
                               />
                             ) : (
                                 <div className="w-full">
@@ -610,3 +615,4 @@ export default function Home() {
     
 
     
+
