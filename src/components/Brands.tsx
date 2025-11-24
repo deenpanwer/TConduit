@@ -2,8 +2,6 @@
 'use client';
 
 import React from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
 
 type Brand = {
@@ -12,21 +10,17 @@ type Brand = {
 };
 
 const brands: Brand[] = [
-    { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idgF9FqCgW/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Anduril', logoUrl: 'https://cdn.brandfetch.io/idl2KxqxdU/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'DoorDash', logoUrl: 'https://cdn.brandfetch.io/idrVhdDocf/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Applied Intuition', logoUrl: 'https://cdn.brandfetch.io/idlgUl599B/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Amplitude', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Ramp', logoUrl: 'https://cdn.brandfetch.io/idWQ_FWEk6/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Cursor', logoUrl: 'https://cdn.brandfetch.io/ideKwS9dxx/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Helion', logoUrl: 'https://cdn.brandfetch.io/idbTWCiXhC/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idgF9FqCgW/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Anduril', logoUrl: 'https://cdn.brandfetch.io/idl2KxqxdU/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'DoorDash', logoUrl: 'https://cdn.brandfetch.io/idrVhdDocf/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Applied Intuition', logoUrl: 'https://cdn.brandfetch.io/idlgUl599B/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Amplitude', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Ramp', logoUrl: 'https://cdn.brandfetch.io/idWQ_FWEk6/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Cursor', logoUrl: 'https://cdn.brandfetch.io/ideKwS9dxx/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Helion', logoUrl: 'https://cdn.brandfetch.io/idbTWCiXhC/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
 ];
 
 export function Brands() {
-  const [emblaRef] = useEmblaCarousel({ loop: true, align: 'start' }, [
-    Autoplay({ playOnInit: true, delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })
-  ]);
-
   return (
     <div className="mt-16 w-full">
       <div className="relative border-t">
@@ -39,11 +33,10 @@ export function Brands() {
         style={{
             maskImage: 'linear-gradient(to right, transparent, black 20%, black 80%, transparent)'
         }}
-        ref={emblaRef}
       >
-        <div className="flex">
+        <div className="flex w-max animate-[scroll-x_30s_linear_infinite]">
           {[...brands, ...brands].map((brand, index) => (
-            <div key={`${brand.name}-${index}`} className="flex-shrink-0 flex-grow-0 basis-1/4 md:basis-1/6 lg:basis-[12.5%] flex justify-center items-center px-4">
+            <div key={`${brand.name}-${index}`} className="flex w-48 flex-shrink-0 items-center justify-center px-4">
               <img
                 src={brand.logoUrl}
                 alt={brand.name}

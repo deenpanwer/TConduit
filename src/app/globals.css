@@ -138,4 +138,12 @@
     transition: height 0.1s ease-out, opacity 0.1s ease-out;
   }
 
+  @keyframes scroll-x {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
 }
