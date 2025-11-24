@@ -20,6 +20,7 @@ import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { Brands } from '@/components/Brands';
+import { SoundWave } from '@/components/SoundWave';
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -90,47 +91,6 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
   }
 );
 AutoResizingTextarea.displayName = 'AutoResizingTextarea';
-
-
-const SoundWave = ({ isListening }: { isListening: boolean }) => {
-  const barsRef = React.useRef<(HTMLDivElement | null)[]>([]);
-
-  React.useEffect(() => {
-    if (isListening) {
-      barsRef.current.forEach(bar => {
-        if (bar) {
-          bar.style.animationDuration = `${Math.random() * (0.7 - 0.2) + 0.2}s`;
-        }
-      });
-    }
-  }, [isListening]);
-
-  const numBars = 30;
-
-  const getBarClass = (index: number) => {
-    if (!isListening) return 'bar-still';
-
-    if (index < 7 || index >= numBars - 7) {
-      return 'bar-sm';
-    }
-    if (index < 12 || index >= numBars - 12) {
-      return 'bar-md';
-    }
-    return 'bar-lg';
-  };
-
-  return (
-    <div className="sound-wave">
-      {[...Array(numBars)].map((_, i) => (
-        <div
-          key={i}
-          ref={el => (barsRef.current[i] = el)}
-          className={cn('bar', getBarClass(i))}
-        />
-      ))}
-    </div>
-  );
-};
 
 
 const VoiceRecordingUI = ({ onCancel, onAccept, transcript, isListening }: { onCancel: () => void; onAccept: () => void; transcript: string; isListening: boolean; }) => {
@@ -613,3 +573,4 @@ export default function Home() {
     
 
     
+
