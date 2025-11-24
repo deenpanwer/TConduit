@@ -43,6 +43,12 @@ const nextConfig: NextConfig = {
         hostname: 'images.pexels.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.brandfetch.io',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
