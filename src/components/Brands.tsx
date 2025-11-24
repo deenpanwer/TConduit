@@ -10,11 +10,10 @@ type Brand = {
 };
 
 const brands: Brand[] = [
-  { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idIcp04lnM/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Stripe', logoUrl: 'https://cdn.worldvectorlogo.com/logos/stripe-3.svg' },
   { name: 'Anduril', logoUrl: 'https://cdn.brandfetch.io/idl2KxqxdU/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-  { name: 'DoorDash', logoUrl: 'https://cdn.brandfetch.io/idrVhdDocf/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'DoorDash', logoUrl: 'https://cdn.worldvectorlogo.com/logos/doordash-1.svg' },
   { name: 'Applied Intuition', logoUrl: 'https://cdn.brandfetch.io/idlgUl599B/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-  { name: 'Amplitude', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'Ramp', logoUrl: 'https://cdn.brandfetch.io/idWQ_FWEk6/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'Cursor', logoUrl: 'https://cdn.brandfetch.io/ideKwS9dxx/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'Helion', logoUrl: 'https://cdn.brandfetch.io/idbTWCiXhC/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
