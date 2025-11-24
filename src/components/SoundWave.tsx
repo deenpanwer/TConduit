@@ -8,13 +8,12 @@ type SoundWaveProps = {
 };
 
 export const SoundWave = ({ isListening }: SoundWaveProps) => {
-  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number>(0);
-  const [barHeights, setBarHeights] = useState(new Uint8Array(30));
+  const [barHeights, setBarHeights] = useState<number[]>([]);
 
   useEffect(() => {
     const setupAudio = async () => {
@@ -29,19 +28,24 @@ export const SoundWave = ({ isListening }: SoundWaveProps) => {
           sourceRef.current = source;
           
           const analyser = context.createAnalyser();
-          analyser.fftSize = 64; // Determines the number of data points
+          analyser.fftSize = 64;
           analyserRef.current = analyser;
           
           source.connect(analyser);
           
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          setBarHeights(dataArray);
 
           const animate = () => {
             if (analyserRef.current) {
-              const newData = new Uint8Array(analyserRef.current.frequencyBinCount);
-              analyserRef.current.getByteFrequencyData(newData);
-              setBarHeights(newData);
+              analyserRef.current.getByteFrequencyData(dataArray);
+              
+              const halfLength = Math.floor(dataArray.length / 2);
+              const leftHalf = Array.from(dataArray.slice(0, halfLength));
+              const rightHalf = [...leftHalf].reverse();
+              const mirroredData = [...rightHalf, ...leftHalf];
+
+              const scaledData = mirroredData.map(value => (value / 255) * 100);
+              setBarHeights(scaledData);
             }
             animationFrameRef.current = requestAnimationFrame(animate);
           };
@@ -65,7 +69,7 @@ export const SoundWave = ({ isListening }: SoundWaveProps) => {
           audioContextRef.current.close();
           audioContextRef.current = null;
         }
-        setBarHeights(new Uint8Array(30)); // Reset heights
+        setBarHeights([]); // Reset heights
       }
     };
 
@@ -82,22 +86,21 @@ export const SoundWave = ({ isListening }: SoundWaveProps) => {
     };
   }, [isListening]);
 
-
-  const numBars = 30;
+  const numBars = 32;
 
   return (
     <div className="sound-wave">
       {[...Array(numBars)].map((_, i) => {
-        const height = isListening ? (barHeights[i] / 255) * 100 : 5; // Scale height, 5px when silent
+        const height = isListening ? (barHeights[i] || 0) : 5; 
         const opacity = isListening ? 0.5 + (height / 100) * 0.5 : 0.35;
         return (
           <div
             key={i}
-            ref={el => (barsRef.current[i] = el)}
             className="bar"
             style={{
-                height: `${Math.max(5, height)}px`, // Minimum height of 5px
-                opacity: `${opacity}`
+                height: `${Math.max(5, height)}px`,
+                opacity: `${opacity}`,
+                transition: 'height 0.1s ease-out, opacity 0.1s ease-out',
             }}
           />
         );
