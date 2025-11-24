@@ -39,7 +39,7 @@ export function Brands() {
               <img
                 src={brand.logoUrl}
                 alt={brand.name}
-                className="h-5 w-auto object-contain grayscale brightness-0 invert"
+                className="h-5 w-auto object-contain grayscale brightness-0"
               />
             </div>
           ))}
