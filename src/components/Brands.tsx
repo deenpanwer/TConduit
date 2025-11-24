@@ -1,5 +1,8 @@
 
+'use client';
+
 import React from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
 import { cn } from '@/lib/utils';
 
 type Brand = {
@@ -19,13 +22,13 @@ const brands: Brand[] = [
 ];
 
 export function Brands() {
-  const allBrands = [...brands, ...brands];
+  const [emblaRef] = useEmblaCarousel({ loop: true, align: 'start', drag: 'free' });
 
   return (
     <div className="mt-16 w-full">
       <div className="relative border-t">
         <p className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2 text-xs text-muted-foreground">
-          trusted and used by these teams
+          Trusted by teams at
         </p>
       </div>
       <div
@@ -33,14 +36,15 @@ export function Brands() {
         style={{
             maskImage: 'linear-gradient(to right, transparent, black 20%, black 80%, transparent)'
         }}
+        ref={emblaRef}
       >
-        <div className="flex animate-[scroll-x_30s_linear_infinite]">
-          {allBrands.map((brand, index) => (
-            <div key={`${brand.name}-${index}`} className="flex-shrink-0 w-48 flex justify-center items-center">
-              <img 
-                src={brand.logoUrl} 
-                alt={brand.name} 
-                className="h-8 object-contain grayscale brightness-0"
+        <div className="flex">
+          {[...brands, ...brands].map((brand, index) => (
+            <div key={`${brand.name}-${index}`} className="flex-shrink-0 flex-grow-0 basis-1/4 md:basis-1/6 lg:basis-[12.5%] w-48 flex justify-center items-center">
+              <img
+                src={brand.logoUrl}
+                alt={brand.name}
+                className="h-6 object-contain grayscale brightness-0"
               />
             </div>
           ))}
