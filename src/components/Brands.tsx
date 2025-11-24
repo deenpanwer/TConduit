@@ -25,7 +25,7 @@ export function Brands() {
     <div className="mt-16 w-full">
       <div className="relative border-t">
         <p className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2 text-xs text-muted-foreground">
-          Teams from Stripe, Anduril, DoorDash, Applied Intuition, Amplitude, Ramp, Cursor, and Helion have used it.
+          trusted and used by these teams
         </p>
       </div>
       <div
@@ -40,7 +40,7 @@ export function Brands() {
               <img 
                 src={brand.logoUrl} 
                 alt={brand.name} 
-                className="h-8 object-contain"
+                className="h-8 object-contain grayscale brightness-0"
               />
             </div>
           ))}
