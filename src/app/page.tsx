@@ -367,8 +367,8 @@ export default function Home() {
   };
 
   const handleFocus = () => {
-    if (!inputValue) {
-      // The animation will continue until user starts typing
+    if (inputValue === "") {
+        // The animation will continue until user starts typing
     }
   };
 
@@ -573,4 +573,3 @@ export default function Home() {
     
 
     
-

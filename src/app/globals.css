@@ -131,67 +131,15 @@
   }
 
   .sound-wave {
-    @apply flex h-10 items-center justify-center;
+    @apply flex items-center justify-center gap-px;
+    height: 40px;
+    width: 100px;
   }
   
   .sound-wave .bar {
     background: hsl(var(--primary));
-    margin: 0 1.5px;
-    width: 3px;
-    transition: height 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    width: 2px;
+    transition: height 0.1s ease-out, opacity 0.1s ease-out;
   }
 
-  .sound-wave .bar-still {
-    height: 5px;
-    opacity: 0.35;
-  }
-  
-  .sound-wave .bar-sm, .sound-wave .bar-md, .sound-wave .bar-lg {
-    animation-iteration-count: infinite;
-    animation-timing-function: ease-in-out;
-    animation-direction: alternate;
-  }
-
-  .sound-wave .bar-sm {
-     animation-name: wave-sm;
-  }
-  .sound-wave .bar-md {
-    animation-name: wave-md;
-  }
-  .sound-wave .bar-lg {
-    animation-name: wave-lg;
-  }
-}
-
-@keyframes wave-sm {
-  0% {
-    opacity: 0.35;
-    height: 5px;
-  }
-  100% {
-    opacity: 1;
-    height: 20px;
-  }
-}
-
-@keyframes wave-md {
-  0% {
-    opacity: 0.35;
-    height: 10px;
-  }
-  100% {
-    opacity: 1;
-    height: 35px;
-  }
-}
-
-@keyframes wave-lg {
-  0% {
-    opacity: 0.35;
-    height: 10px;
-  }
-  100% {
-    opacity: 1;
-    height: 50px;
-  }
 }
