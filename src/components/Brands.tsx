@@ -40,7 +40,7 @@ export function Brands() {
               <img
                 src={brand.logoUrl}
                 alt={brand.name}
-                className="h-5 object-contain grayscale brightness-0"
+                className="h-5 w-full object-contain grayscale brightness-0"
               />
             </div>
           ))}
