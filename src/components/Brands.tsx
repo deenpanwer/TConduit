@@ -8,13 +8,14 @@ type Brand = {
 };
 
 const brands: Brand[] = [
-    { name: 'Flexport', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Ramp', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Verkada', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Perplexity', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Quora', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Brex', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
-    { name: 'Gemini', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idgF9FqCgW/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Anduril', logoUrl: 'https://cdn.brandfetch.io/idl2KxqxdU/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'DoorDash', logoUrl: 'https://cdn.brandfetch.io/idrVhdDocf/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Applied Intuition', logoUrl: 'https://cdn.brandfetch.io/idlgUl599B/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Amplitude', logoUrl: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Ramp', logoUrl: 'https://cdn.brandfetch.io/idWQ_FWEk6/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Cursor', logoUrl: 'https://cdn.brandfetch.io/ideKwS9dxx/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+    { name: 'Helion', logoUrl: 'https://cdn.brandfetch.io/idbTWCiXhC/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
 ];
 
 export function Brands() {
@@ -24,7 +25,7 @@ export function Brands() {
     <div className="mt-16 w-full">
       <div className="relative border-t">
         <p className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2 text-xs text-muted-foreground">
-          TRUSTED BY
+          Teams from Stripe, Anduril, DoorDash, Applied Intuition, Amplitude, Ramp, Cursor, and Helion have used it.
         </p>
       </div>
       <div
@@ -33,38 +34,16 @@ export function Brands() {
             maskImage: 'linear-gradient(to right, transparent, black 20%, black 80%, transparent)'
         }}
       >
-        <div className="flex animate-[scroll-x_20s_linear_infinite]">
+        <div className="flex animate-[scroll-x_30s_linear_infinite]">
           {allBrands.map((brand, index) => (
             <div key={`${brand.name}-${index}`} className="flex-shrink-0 w-48 flex justify-center items-center">
               <img 
                 src={brand.logoUrl} 
                 alt={brand.name} 
-                className="h-8 object-contain transition-all duration-300"
-                style={{
-                  filter: 'grayscale(100%)',
-                  maskImage: 'linear-gradient(to right, black, white 50%, black)',
-                }}
+                className="h-8 object-contain"
               />
             </div>
           ))}
-        </div>
-         <div 
-          className="absolute inset-0"
-          style={{
-            maskImage: 'linear-gradient(to right, black 5%, transparent, transparent, transparent, black 95%)'
-          }}
-        >
-            <div className="flex animate-[scroll-x_20s_linear_infinite]">
-              {allBrands.map((brand, index) => (
-                <div key={`${brand.name}-${index}-color`} className="flex-shrink-0 w-48 flex justify-center items-center">
-                  <img 
-                    src={brand.logoUrl} 
-                    alt={brand.name} 
-                    className="h-8 object-contain"
-                  />
-                </div>
-              ))}
-            </div>
         </div>
       </div>
     </div>
