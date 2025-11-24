@@ -10,7 +10,7 @@ type Brand = {
 };
 
 const brands: Brand[] = [
-  { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idgF9FqCgW/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
+  { name: 'Stripe', logoUrl: 'https://cdn.brandfetch.io/idIcp04lnM/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'Anduril', logoUrl: 'https://cdn.brandfetch.io/idl2KxqxdU/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'DoorDash', logoUrl: 'https://cdn.brandfetch.io/idrVhdDocf/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
   { name: 'Applied Intuition', logoUrl: 'https://cdn.brandfetch.io/idlgUl599B/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B' },
