@@ -90,6 +90,43 @@ const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingT
 AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 
+const SoundWave = () => {
+  const barsRef = React.useRef<(HTMLDivElement | null)[]>([]);
+
+  React.useEffect(() => {
+    barsRef.current.forEach(bar => {
+      if (bar) {
+        bar.style.animationDuration = `${Math.random() * (0.7 - 0.2) + 0.2}s`;
+      }
+    });
+  }, []);
+
+  const numBars = 30;
+
+  const getBarClass = (index: number) => {
+    if (index < 3 || index >= numBars - 3) {
+      return 'bar-sm';
+    }
+    if (index < 7 || index >= numBars - 7) {
+      return 'bar-md';
+    }
+    return '';
+  };
+
+  return (
+    <div className="sound-wave">
+      {[...Array(numBars)].map((_, i) => (
+        <div
+          key={i}
+          ref={el => (barsRef.current[i] = el)}
+          className={cn('bar', getBarClass(i))}
+        />
+      ))}
+    </div>
+  );
+};
+
+
 const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => void; onAccept: () => void; transcript: string }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -101,13 +138,9 @@ const VoiceRecordingUI = ({ onCancel, onAccept, transcript }: { onCancel: () => 
 
     return (
         <div className="flex h-auto min-h-[56px] w-full items-center justify-between p-4">
-            <div className="flex items-start gap-3 overflow-hidden w-full">
-                <div className="flex h-full items-center gap-1.5 shrink-0 pt-1">
-                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.3s]"></span>
-                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary [animation-delay:-0.15s]"></span>
-                    <span className="h-5 w-1 animate-pulse rounded-full bg-primary"></span>
-                </div>
-                <div ref={scrollRef} className="text-base text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center gap-3 overflow-hidden w-full">
+                <SoundWave />
+                <div ref={scrollRef} className="text-base text-muted-foreground w-full max-h-[80px] overflow-y-auto custom-scrollbar pl-2">
                     {transcript || "Listening..."}
                 </div>
             </div>
@@ -256,6 +289,8 @@ export default function Home() {
     SpeechRecognition.stopListening();
     if (shouldAccept) {
         setInputValue(transcript.trim());
+    } else {
+        setInputValue("I need someone to ");
     }
     resetTranscript();
   };
@@ -356,18 +391,29 @@ export default function Home() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    if (e.target.value) {
+    const { value } = e.target;
+    if (!hasInteracted && value) {
+      setHasInteracted(true);
+    }
+    setInputValue(value);
+    
+    if (value) {
       setInteractionState(prev => ({...prev, keystrokes: prev.keystrokes + 1}));
     }
   };
 
   const handleFocus = () => {
-    if (!hasInteracted) {
-      setHasInteracted(true);
-      setInputValue("I need someone to ");
+    if (!inputValue) {
+      setHasInteracted(false);
+      setInputValue("");
     }
   };
+
+  const handleBlur = () => {
+     if (!inputValue && !listening) {
+       setHasInteracted(false);
+     }
+  }
   
   const handlePaste = () => {
     if (!hasInteracted) {
@@ -450,6 +496,7 @@ export default function Home() {
                                           value={inputValue}
                                           onChange={handleInputChange}
                                           onFocus={handleFocus}
+                                          onBlur={handleBlur}
                                           onKeyDown={handleKeyDown}
                                           onPaste={handlePaste}
                                           placeholder={hasInteracted ? '' : placeholder}
@@ -457,7 +504,7 @@ export default function Home() {
                                           disabled={isLoading}
                                           setShowTopFade={setShowTopFade}
                                           setShowBottomFade={setShowBottomFade}
-                                          className="h-24 md:h-14"
+                                          className="h-20 md:h-14"
                                         />
                                     </div>
                                 </div>
@@ -532,7 +579,7 @@ export default function Home() {
             <div className="container mx-auto px-4 py-4">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
-                      <p>Google for Hiring</p>
+                      <p>Google for Hiring freelancer</p>
                     </div>
                     <div className="relative py-3 px-4">
                         <div className="flex justify-center md:justify-end">
@@ -560,3 +607,4 @@ export default function Home() {
     
 
     
+

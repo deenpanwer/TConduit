@@ -129,4 +129,61 @@
     from { opacity: 0; }
     to { opacity: 1; }
   }
+
+  .sound-wave {
+    @apply flex h-14 items-center justify-center;
+  }
+  
+  .sound-wave .bar {
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+    animation-direction: alternate;
+    background: hsl(var(--primary));
+    margin: 0 1.5px;
+    height: 15px;
+    width: 3px;
+    animation-name: wave-lg;
+  }
+
+  .sound-wave .bar-md {
+    animation-name: wave-md;
+  }
+
+  .sound-wave .bar-sm {
+     animation-name: wave-sm;
+  }
+
+}
+
+@keyframes wave-sm {
+  0% {
+    opacity: 0.35;
+    height: 5px;
+  }
+  100% {
+    opacity: 1;
+    height: 20px;
+  }
+}
+
+@keyframes wave-md {
+  0% {
+    opacity: 0.35;
+    height: 10px;
+  }
+  100% {
+    opacity: 1;
+    height: 35px;
+  }
+}
+
+@keyframes wave-lg {
+  0% {
+    opacity: 0.35;
+    height: 10px;
+  }
+  100% {
+    opacity: 1;
+    height: 50px;
+  }
 }
