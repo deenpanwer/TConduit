@@ -110,13 +110,13 @@ const SoundWave = ({ isListening }: { isListening: boolean }) => {
   const getBarClass = (index: number) => {
     if (!isListening) return 'bar-still';
 
-    if (index < 3 || index >= numBars - 3) {
+    if (index < 7 || index >= numBars - 7) {
       return 'bar-sm';
     }
-    if (index < 7 || index >= numBars - 7) {
+    if (index < 12 || index >= numBars - 12) {
       return 'bar-md';
     }
-    return '';
+    return 'bar-lg';
   };
 
   return (
@@ -295,8 +295,6 @@ export default function Home() {
     SpeechRecognition.stopListening();
     if (shouldAccept) {
         setInputValue(transcript.trim());
-    } else {
-        setInputValue("I need someone to ");
     }
     resetTranscript();
   };
@@ -410,7 +408,7 @@ export default function Home() {
 
   const handleFocus = () => {
     if (!inputValue) {
-      // setInputValue("I need someone to ");
+      // The animation will continue until user starts typing
     }
   };
 
@@ -615,4 +613,3 @@ export default function Home() {
     
 
     
-
