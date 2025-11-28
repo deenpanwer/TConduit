@@ -99,7 +99,11 @@ export default {
         'scroll-x': {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-50%)' },
-        }
+        },
+        'grid': {
+          '0%': { transform: 'translate(0, 0)' },
+          '100%': { transform: 'translate(-32px, -32px)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -107,6 +111,7 @@ export default {
         'fade-in': 'fade-in 0.5s ease-out',
         'pulse-dot': 'pulse-dot 1.2s infinite ease-in-out',
         'scroll-x': 'scroll-x 30s linear infinite',
+        'grid': 'grid 10s linear infinite',
       },
     },
   },
