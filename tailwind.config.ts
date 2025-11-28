@@ -100,7 +100,7 @@ export default {
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-50%)' },
         },
-        'grid': {
+        grid: {
           '0%': { transform: 'translate(0, 0)' },
           '100%': { transform: 'translate(-32px, -32px)' },
         },
@@ -111,7 +111,7 @@ export default {
         'fade-in': 'fade-in 0.5s ease-out',
         'pulse-dot': 'pulse-dot 1.2s infinite ease-in-out',
         'scroll-x': 'scroll-x 30s linear infinite',
-        'grid': 'grid 10s linear infinite',
+        grid: 'grid 10s linear infinite',
       },
     },
   },
