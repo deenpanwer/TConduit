@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { AnimatedGrid } from '@/components/AnimatedGrid';
 
 export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(120); // 120 seconds = 2 minutes
@@ -26,8 +27,9 @@ export default function TestPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-sans">
-      <div className="w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl">
+    <main className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4 font-sans overflow-hidden">
+       <AnimatedGrid />
+      <div className="relative z-10 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl">
         <div className="flex flex-col space-y-1.5 p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">

@@ -165,4 +165,13 @@
   .animate-shake:hover {
     animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
   }
+
+  @keyframes grid {
+    0% {
+      transform: translate(0, 0);
+    }
+    100% {
+      transform: translate(-32px, -32px);
+    }
+  }
 }
