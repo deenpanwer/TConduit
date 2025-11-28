@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
 export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(120); // 120 seconds = 2 minutes
@@ -25,31 +26,43 @@ export default function TestPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center font-sans">
-      <div className="w-full max-w-lg">
-        <div className="mb-6 flex items-center justify-center space-x-2">
-            <span className="h-3 w-3 animate-pulse-dot rounded-full bg-primary [animation-delay:-0.3s]"></span>
-            <span className="h-3 w-3 animate-pulse-dot rounded-full bg-primary [animation-delay:-0.15s]"></span>
-            <span className="h-3 w-3 animate-pulse-dot rounded-full bg-primary"></span>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-sans">
+      <div className="w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div className="flex flex-col space-y-1.5 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <div className="flex items-center justify-center space-x-1">
+                    <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary [animation-delay:-0.3s]"></span>
+                    <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary [animation-delay:-0.15s]"></span>
+                    <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary"></span>
+                </div>
+              </div>
+              <h1 className="font-playfair text-2xl font-medium text-foreground">
+                Agent is initializing...
+              </h1>
+            </div>
+            <div className="text-lg font-medium text-red-500">
+              {formatTime(timeLeft)}
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6 pt-0">
+            <p className="text-muted-foreground">
+                Our AI agent is now analyzing your request, preparing to scour the web for top-tier talent, and identifying candidates with the precise skills to solve your problem. Once approved, you can sit back as the most competent freelancer is found for you.
+            </p>
         </div>
 
-        <h1 className="mb-4 font-playfair text-4xl font-medium text-foreground md:text-5xl">
-          Agent is initializing...
-        </h1>
-
-        <p className="mb-8 text-muted-foreground">
-          Our AI agent is now analyzing your request, preparing to scour the web for top-tier talent, and identifying candidates with the precise skills to solve your problem. Once approved, you can sit back as the most competent freelancer is found for you.
-        </p>
-
-        <div className="mb-10 text-lg font-medium text-red-500">
-          {formatTime(timeLeft)}
+        <div className="flex items-center p-6 pt-0 justify-end">
+             <Link href="/">
+                <Button variant="outline">
+                    Cancel and Go Back
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+            </Link>
         </div>
 
-        <Link href="/">
-          <Button variant="outline" size="lg">
-            Cancel and Go Back
-          </Button>
-        </Link>
       </div>
     </main>
   );
