@@ -27,7 +27,7 @@ export default function TestPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-sans">
-      <div className="w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div className="w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl">
         <div className="flex flex-col space-y-1.5 p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -38,11 +38,11 @@ export default function TestPage() {
                     <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary"></span>
                 </div>
               </div>
-              <h1 className="font-playfair text-2xl font-medium text-foreground">
+              <h1 className="font-sans text-2xl font-medium text-foreground">
                 Agent is initializing...
               </h1>
             </div>
-            <div className="text-lg font-medium text-red-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border text-lg font-medium text-red-500">
               {formatTime(timeLeft)}
             </div>
           </div>
