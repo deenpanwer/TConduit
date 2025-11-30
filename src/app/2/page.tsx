@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
 import { StarryBackground } from '@/components/StarryBackground';
 import { cn } from '@/lib/utils';
-import { StackedCard } from '@/components/StackedCard';
 
 const problems = [
   "my reels don't look as good as theirs",
@@ -15,34 +14,34 @@ const problems = [
   "our pitch deck isn't impressive enough for investors",
 ];
 
-const allSkills = [
-  'GPT-4 Vision API',
-  'Reels Editing',
-  'B2B Lead Gen',
-  'Financial Modeling',
-  'Go-to-Market Strategy',
-  'UX/UI Design',
-  'Smart Contract Audits',
+const solvedProblems = [
+    { title: "Video Editor for Viral TikTok", time: "2 hours ago" },
+    { title: "Growth Hacker for SaaS Waitlist", time: "5 hours ago" },
+    { title: "Smart Contract Audit", time: "yesterday" },
+    { title: "B2B Lead Gen Specialist", time: "3 days ago" },
 ];
+
 
 export default function GrokPage() {
   const [placeholder, setPlaceholder] = useState('');
   const [problemIndex, setProblemIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [currentProblem, setCurrentProblem] = useState(solvedProblems[0]);
+  const [problemIdx, setProblemIdx] = useState(0);
+
 
   useEffect(() => {
     if (isInputFocused) return;
 
-    const currentProblem = problems[problemIndex];
+    const currentProblemText = problems[problemIndex];
     let timeout: NodeJS.Timeout;
 
     const type = () => {
       if (isDeleting) {
         if (charIndex > 0) {
-          setPlaceholder(currentProblem.substring(0, charIndex - 1));
+          setPlaceholder(currentProblemText.substring(0, charIndex - 1));
           setCharIndex(charIndex - 1);
           timeout = setTimeout(type, 30);
         } else {
@@ -50,8 +49,8 @@ export default function GrokPage() {
           setProblemIndex((prev) => (prev + 1) % problems.length);
         }
       } else {
-        if (charIndex < currentProblem.length) {
-          setPlaceholder(currentProblem.substring(0, charIndex + 1));
+        if (charIndex < currentProblemText.length) {
+          setPlaceholder(currentProblemText.substring(0, charIndex + 1));
           setCharIndex(charIndex + 1);
           timeout = setTimeout(type, 60);
         } else {
@@ -64,19 +63,18 @@ export default function GrokPage() {
 
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, problemIndex, isInputFocused]);
-
+  
   useEffect(() => {
-    setDisplayedSkills(allSkills);
     const interval = setInterval(() => {
-      setDisplayedSkills(prevSkills => {
-        const newSkills = [...prevSkills];
-        const first = newSkills.shift();
-        if (first) newSkills.push(first);
-        return newSkills;
-      });
-    }, 3000);
+        setProblemIdx(prev => (prev + 1) % solvedProblems.length);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+      setCurrentProblem(solvedProblems[problemIdx]);
+  }, [problemIdx]);
+
 
   return (
     <div className="bg-black min-h-screen text-neutral-300 font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
@@ -87,7 +85,7 @@ export default function GrokPage() {
 
       <main className="flex-grow flex flex-col items-center justify-center w-full -mt-24">
         <div className="text-center mb-8">
-          <h1 className="font-playfair text-5xl md:text-6xl text-white">
+          <h1 className="font-playfair text-5xl md:text-6xl text-white tracking-wide">
             TracHire
             <sup className="text-xl md:text-2xl text-neutral-400 ml-2">v0.1</sup>
           </h1>
@@ -111,14 +109,22 @@ export default function GrokPage() {
           </div>
         </div>
         
-        <div className="mt-12 h-24 flex items-center justify-center">
-            <StackedCard items={displayedSkills} />
+        <div className="mt-8 h-24 flex items-center justify-center">
+            <div className="w-full max-w-md rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/0 shadow-lg backdrop-blur-sm p-4">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <p className="text-white font-semibold">{currentProblem.title}</p>
+                        <p className="text-neutral-400 text-sm">New problem solved by Trac</p>
+                    </div>
+                    <p className="text-neutral-500 text-xs whitespace-nowrap">{currentProblem.time}</p>
+                </div>
+            </div>
         </div>
       </main>
 
       <footer className="text-center w-full pb-4">
         <p className="text-sm text-neutral-500 font-normal">Freelancers Available</p>
-        <p className="text-3xl font-medium text-white tracking-wider">11,497</p>
+        <p className="text-3xl font-semibold text-white tracking-wider">11,497</p>
       </footer>
     </div>
   );
