@@ -80,15 +80,8 @@ export default function GrokPage() {
   return (
     <div className="bg-black min-h-screen text-neutral-300 font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
       <StarryBackground />
-      <header className="flex justify-end w-full">
-        <div className="flex items-center gap-4">
-          <button className="text-neutral-400 hover:text-white transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
-          </button>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-            KK
-          </div>
-        </div>
+      <header className="flex justify-end w-full h-8">
+        {/* Header content removed as requested */}
       </header>
 
       <main className="flex-grow flex flex-col items-center justify-center w-full -mt-24">
