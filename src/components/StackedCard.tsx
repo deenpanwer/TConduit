@@ -15,19 +15,18 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
       <AnimatePresence>
         {displayItems.map((item, index) => {
           const isTop = index === displayItems.length - 1;
-          const isSecond = index === displayItems.length - 2;
 
           return (
             <motion.div
               key={item}
               className="absolute w-full h-full rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/0 shadow-lg backdrop-blur-sm"
               initial={{
-                scale: isTop ? 1 : 1 - (displayItems.length - 1 - index) * 0.05,
+                scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
                 opacity: isTop ? 1 : 0.8,
               }}
               animate={{
-                scale: isTop ? 1 : 1 - (displayItems.length - 1 - index) * 0.05,
+                scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
                 opacity: isTop ? 1 : 0.8,
               }}
@@ -37,7 +36,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
                 transition: { duration: 0.3, ease: 'easeIn' },
               }}
               transition={{
-                duration: 0.3,
+                duration: 0.5,
                 ease: 'easeInOut',
               }}
               style={{

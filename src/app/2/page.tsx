@@ -31,8 +31,11 @@ export default function GrokPage() {
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   useEffect(() => {
+    if (isInputFocused) return;
+
     const currentProblem = problems[problemIndex];
     let timeout: NodeJS.Timeout;
 
@@ -60,7 +63,7 @@ export default function GrokPage() {
     timeout = setTimeout(type, isDeleting ? 30 : 150);
 
     return () => clearTimeout(timeout);
-  }, [charIndex, isDeleting, problemIndex]);
+  }, [charIndex, isDeleting, problemIndex, isInputFocused]);
 
   useEffect(() => {
     setDisplayedSkills(allSkills);
@@ -92,10 +95,14 @@ export default function GrokPage() {
 
         <div className="w-full max-w-3xl relative">
           <div className="relative">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10" size={20} />
+            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10">
+                <Search size={20} />
+            </div>
             <input
               type="text"
-              placeholder={placeholder}
+              placeholder={isInputFocused ? '' : placeholder}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
               className="bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-0 focus:border-neutral-700 transition-shadow shadow-lg backdrop-blur-sm"
             />
             <button className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-neutral-800/80 hover:bg-neutral-700/80 rounded-full flex items-center justify-center transition-colors">
@@ -104,7 +111,7 @@ export default function GrokPage() {
           </div>
         </div>
         
-        <div className="mt-12 h-48 flex items-center justify-center">
+        <div className="mt-12 h-24 flex items-center justify-center">
             <StackedCard items={displayedSkills} />
         </div>
       </main>
