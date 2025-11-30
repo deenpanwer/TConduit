@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
 import { StarryBackground } from '@/components/StarryBackground';
 import { cn } from '@/lib/utils';
@@ -36,19 +36,21 @@ export default function GrokPage() {
   const [isContentVisible, setIsContentVisible] = useState(false);
 
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-        setCurrentProblems(prev => {
-            const newProblems = [...prev];
-            const first = newProblems.shift();
-            if (first) {
-                newProblems.push(first);
-            }
-            return newProblems;
-        });
-    }, 5000);
-    return () => clearInterval(interval);
+  const shuffleProblems = useCallback(() => {
+    setCurrentProblems(prev => {
+        const newProblems = [...prev];
+        const first = newProblems.shift();
+        if (first) {
+            newProblems.push(first);
+        }
+        return newProblems;
+    });
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(shuffleProblems, 5000);
+    return () => clearInterval(interval);
+  }, [shuffleProblems]);
 
 
   useEffect(() => {
