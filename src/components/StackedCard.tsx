@@ -19,7 +19,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
           return (
             <motion.div
               key={item}
-              className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-900/50 shadow-lg backdrop-blur-sm flex items-center justify-center p-4 transition-colors"
+              className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-900/50 shadow-lg backdrop-blur-sm flex items-center justify-center p-4"
               initial={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
@@ -46,7 +46,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
                  <div className="flex justify-between items-start w-full">
                     <div>
                         <p className="text-white font-semibold">{item}</p>
-                        <p className="text-neutral-400 text-sm">New problem solved by Trac</p>
+                        <p className="text-neutral-400 text-sm">Matched with a vetted specialist.</p>
                     </div>
                     <p className="text-neutral-500 text-xs whitespace-nowrap">2 hours ago</p>
                 </div>

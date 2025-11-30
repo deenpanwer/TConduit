@@ -33,6 +33,8 @@ export default function GrokPage() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [currentProblems, setCurrentProblems] = useState(solvedProblems);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [isContentVisible, setIsContentVisible] = useState(false);
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -50,9 +52,12 @@ export default function GrokPage() {
 
 
   useEffect(() => {
-    // Animate footer in
+    const contentTimer = setTimeout(() => setIsContentVisible(true), 100);
     const footerTimer = setTimeout(() => setIsFooterVisible(true), 300);
-    return () => clearTimeout(footerTimer);
+    return () => {
+      clearTimeout(contentTimer);
+      clearTimeout(footerTimer);
+    }
   }, []);
 
   useEffect(() => {
@@ -95,8 +100,8 @@ export default function GrokPage() {
       </header>
 
       <main className="flex-grow flex flex-col items-center justify-center w-full -mt-24">
-        <div className="text-center mb-8">
-          <h1 className="font-playfair text-5xl md:text-6xl text-neutral-300 tracking-wide">
+        <div className={cn("text-center mb-8 transition-opacity duration-500", isContentVisible ? "opacity-100" : "opacity-0")}>
+          <h1 className="font-serif text-5xl md:text-6xl text-neutral-300 tracking-wide">
             TracHire
             <sup className="text-xl md:text-2xl text-neutral-400 ml-2">v0.1</sup>
           </h1>
@@ -111,7 +116,7 @@ export default function GrokPage() {
               type="text"
               onFocus={() => setIsInputFocused(true)}
               onBlur={() => setIsInputFocused(false)}
-              className="bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-0 focus:border-neutral-700 transition-shadow shadow-lg backdrop-blur-sm"
+              className={cn("bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-0 focus:border-neutral-700 transition-all duration-500 shadow-lg backdrop-blur-sm", isContentVisible ? "opacity-100" : "opacity-0")}
             />
              <div
               className={cn(
@@ -121,12 +126,12 @@ export default function GrokPage() {
             >
               {placeholder}
             </div>
-            <button className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-neutral-800/80 hover:bg-neutral-700/80 rounded-full flex items-center justify-center transition-colors">
+            <button className={cn("absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-neutral-800/80 hover:bg-neutral-700/80 rounded-full flex items-center justify-center transition-colors duration-500", isContentVisible ? "opacity-100" : "opacity-0")}>
               <ArrowUp size={20} className="text-white" />
             </button>
           </div>
           
-          <div className="mt-8 h-24 flex items-center justify-center">
+          <div className={cn("mt-8 h-24 flex items-center justify-center transition-opacity duration-500 delay-200", isContentVisible ? "opacity-100" : "opacity-0")}>
                <StackedCard items={currentProblems} />
           </div>
         </div>
