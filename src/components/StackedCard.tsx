@@ -23,16 +23,16 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
               initial={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
-                opacity: 1,
+                opacity: isTop ? 1 : 0.7,
               }}
               animate={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
-                opacity: 1,
+                opacity: isTop ? 1 : 0.7,
                 zIndex: index,
               }}
               exit={{
-                y: -30,
+                y: -40,
                 opacity: 0,
                 transition: { duration: 0.3, ease: 'easeIn' },
               }}
