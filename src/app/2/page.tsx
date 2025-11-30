@@ -13,6 +13,9 @@ const problems = [
   "we need to build a financial model for fundraising",
   "I can't find our first 100 paying customers",
   "our pitch deck isn't impressive enough for investors",
+  "we need a smart contract auditor",
+  "I need to automate my customer onboarding",
+  "our conversion rate is too low",
 ];
 
 const solvedProblems = [
@@ -21,7 +24,10 @@ const solvedProblems = [
     "Smart Contract Audit",
     "B2B Lead Gen Specialist",
     "Conversion Rate Optimization Expert",
-    "Pitch Deck Designer for Seed Round"
+    "Pitch Deck Designer for Seed Round",
+    "AI Chatbot Developer",
+    "UX/UI Designer for Mobile App",
+    "SEO Content Strategist"
 ];
 
 
