@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
 import { StarryBackground } from '@/components/StarryBackground';
 import { cn } from '@/lib/utils';
+import { StackedCard } from '@/components/StackedCard';
 
 const problems = [
   "my reels don't look as good as theirs",
@@ -15,10 +16,12 @@ const problems = [
 ];
 
 const solvedProblems = [
-    { title: "Video Editor for Viral TikTok", time: "2 hours ago" },
-    { title: "Growth Hacker for SaaS Waitlist", time: "5 hours ago" },
-    { title: "Smart Contract Audit", time: "yesterday" },
-    { title: "B2B Lead Gen Specialist", time: "3 days ago" },
+    "Video Editor for Viral TikTok",
+    "Growth Hacker for SaaS Waitlist",
+    "Smart Contract Audit",
+    "B2B Lead Gen Specialist",
+    "Conversion Rate Optimization Expert",
+    "Pitch Deck Designer for Seed Round"
 ];
 
 
@@ -28,8 +31,21 @@ export default function GrokPage() {
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [currentProblem, setCurrentProblem] = useState(solvedProblems[0]);
-  const [problemIdx, setProblemIdx] = useState(0);
+  const [currentProblems, setCurrentProblems] = useState(solvedProblems);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+        setCurrentProblems(prev => {
+            const newProblems = [...prev];
+            const first = newProblems.shift();
+            if (first) {
+                newProblems.push(first);
+            }
+            return newProblems;
+        });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
 
   useEffect(() => {
@@ -64,18 +80,6 @@ export default function GrokPage() {
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, problemIndex, isInputFocused]);
   
-  useEffect(() => {
-    const interval = setInterval(() => {
-        setProblemIdx(prev => (prev + 1) % solvedProblems.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-      setCurrentProblem(solvedProblems[problemIdx]);
-  }, [problemIdx]);
-
-
   return (
     <div className="bg-black min-h-screen text-neutral-300 font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
       <StarryBackground />
@@ -110,15 +114,7 @@ export default function GrokPage() {
         </div>
         
         <div className="mt-8 h-24 flex items-center justify-center">
-            <div className="w-full max-w-md rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/0 shadow-lg backdrop-blur-sm p-4">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-white font-semibold">{currentProblem.title}</p>
-                        <p className="text-neutral-400 text-sm">New problem solved by Trac</p>
-                    </div>
-                    <p className="text-neutral-500 text-xs whitespace-nowrap">{currentProblem.time}</p>
-                </div>
-            </div>
+             <StackedCard items={currentProblems} />
         </div>
       </main>
 
