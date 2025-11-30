@@ -19,15 +19,15 @@ const problems = [
 ];
 
 const solvedProblems = [
-    "Video Editor for Viral TikTok",
-    "Growth Hacker for SaaS Waitlist",
-    "Smart Contract Audit",
-    "B2B Lead Gen Specialist",
-    "Conversion Rate Optimization Expert",
-    "Pitch Deck Designer for Seed Round",
-    "AI Chatbot Developer",
-    "UX/UI Designer for Mobile App",
-    "SEO Content Strategist"
+    { title: "Video Editor for Viral TikTok", time: "2 hours ago" },
+    { title: "Growth Hacker for SaaS Waitlist", time: "5 hours ago" },
+    { title: "Smart Contract Audit", time: "1 day ago" },
+    { title: "B2B Lead Gen Specialist", time: "3 minutes ago" },
+    { title: "Conversion Rate Optimization Expert", time: "8 hours ago" },
+    { title: "Pitch Deck Designer for Seed Round", time: "yesterday" },
+    { title: "AI Chatbot Developer", time: "15 minutes ago" },
+    { title: "UX/UI Designer for Mobile App", time: "4 hours ago" },
+    { title: "SEO Content Strategist", time: "3 days ago" }
 ];
 
 

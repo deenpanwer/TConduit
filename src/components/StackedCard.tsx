@@ -3,8 +3,13 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
+interface CardItem {
+  title: string;
+  time: string;
+}
+
 interface StackedCardProps {
-  items: string[];
+  items: CardItem[];
 }
 
 export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
@@ -18,7 +23,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
 
           return (
             <motion.div
-              key={`${item}-${index}`}
+              key={`${item.title}-${index}`}
               className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-950 shadow-lg backdrop-blur-sm flex items-center justify-center p-4"
               initial={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
@@ -46,10 +51,10 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
               {isTop && (
                  <div className="flex justify-between items-start w-full">
                     <div>
-                        <p className="text-white font-semibold">{item}</p>
+                        <p className="text-white font-semibold">{item.title}</p>
                         <p className="text-neutral-400 text-sm">Matched with a vetted specialist.</p>
                     </div>
-                    <p className="text-neutral-500 text-xs whitespace-nowrap">2 hours ago</p>
+                    <p className="text-neutral-500 text-xs whitespace-nowrap">{item.time}</p>
                 </div>
               )}
             </motion.div>
