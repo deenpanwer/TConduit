@@ -32,6 +32,7 @@ export default function GrokPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [currentProblems, setCurrentProblems] = useState(solvedProblems);
+  const [isFooterVisible, setIsFooterVisible] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -47,6 +48,12 @@ export default function GrokPage() {
     return () => clearInterval(interval);
   }, []);
 
+
+  useEffect(() => {
+    // Animate footer in
+    const footerTimer = setTimeout(() => setIsFooterVisible(true), 300);
+    return () => clearTimeout(footerTimer);
+  }, []);
 
   useEffect(() => {
     if (isInputFocused) return;
@@ -97,16 +104,23 @@ export default function GrokPage() {
 
         <div className="w-full max-w-3xl">
           <div className="relative">
-            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10">
+             <div className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10">
                 <Search size={20} />
             </div>
             <input
               type="text"
-              placeholder={isInputFocused ? '' : placeholder}
               onFocus={() => setIsInputFocused(true)}
               onBlur={() => setIsInputFocused(false)}
               className="bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-0 focus:border-neutral-700 transition-shadow shadow-lg backdrop-blur-sm"
             />
+             <div
+              className={cn(
+                "absolute left-14 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none transition-all duration-300",
+                isInputFocused ? "opacity-0 -translate-y-8" : "opacity-100"
+              )}
+            >
+              {placeholder}
+            </div>
             <button className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-neutral-800/80 hover:bg-neutral-700/80 rounded-full flex items-center justify-center transition-colors">
               <ArrowUp size={20} className="text-white" />
             </button>
@@ -118,7 +132,7 @@ export default function GrokPage() {
         </div>
       </main>
 
-      <footer className="text-center w-full pb-4">
+      <footer className={cn("text-center w-full pb-4 transition-opacity duration-700", isFooterVisible ? "opacity-100" : "opacity-0")}>
         <p className="text-sm text-neutral-500 font-normal">Freelancers Available</p>
         <p className="text-3xl font-semibold text-neutral-300 tracking-wider">11,497</p>
       </footer>
