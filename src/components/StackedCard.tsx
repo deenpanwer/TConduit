@@ -19,7 +19,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
           return (
             <motion.div
               key={item}
-              className="absolute w-full h-full rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-white/0 shadow-lg backdrop-blur-sm flex items-center justify-center p-4"
+              className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-900/50 shadow-lg backdrop-blur-sm flex items-center justify-center p-4 transition-colors"
               initial={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
@@ -40,6 +40,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
                 duration: 0.5,
                 ease: 'easeInOut',
               }}
+              whileHover={isTop ? { backgroundColor: 'rgba(55, 55, 55, 0.5)' } : {}}
             >
               {isTop && (
                  <div className="flex justify-between items-start w-full">

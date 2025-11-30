@@ -89,7 +89,7 @@ export default function GrokPage() {
 
       <main className="flex-grow flex flex-col items-center justify-center w-full -mt-24">
         <div className="text-center mb-8">
-          <h1 className="font-playfair text-5xl md:text-6xl text-white tracking-wide">
+          <h1 className="font-playfair text-5xl md:text-6xl text-neutral-300 tracking-wide">
             TracHire
             <sup className="text-xl md:text-2xl text-neutral-400 ml-2">v0.1</sup>
           </h1>
@@ -120,7 +120,7 @@ export default function GrokPage() {
 
       <footer className="text-center w-full pb-4">
         <p className="text-sm text-neutral-500 font-normal">Freelancers Available</p>
-        <p className="text-3xl font-semibold text-white tracking-wider">11,497</p>
+        <p className="text-3xl font-semibold text-neutral-300 tracking-wider">11,497</p>
       </footer>
     </div>
   );
