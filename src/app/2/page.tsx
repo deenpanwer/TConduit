@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
 import { StarryBackground } from '@/components/StarryBackground';
-import { cn } from '@/lib/utils';
 
 const problems = [
   "my reels don't look as good as theirs",
@@ -76,10 +75,10 @@ export default function GrokPage() {
       </header>
 
       <main className="flex-grow flex flex-col items-center justify-center w-full -mt-16">
-        <div className="text-center mb-6">
+        <div className="text-center mb-8">
           <h1 className="font-playfair text-5xl md:text-6xl text-white">
             TracHire
-            <sup className="text-xl md:text-2xl text-neutral-400 ml-1">v0.1</sup>
+            <sup className="text-xl md:text-2xl text-neutral-400 ml-2">v0.1</sup>
           </h1>
         </div>
 
@@ -89,9 +88,9 @@ export default function GrokPage() {
             <input
               type="text"
               placeholder={placeholder}
-              className="bg-neutral-900 border border-neutral-700 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-14 pl-12 pr-14 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow shadow-lg"
+              className="bg-neutral-900 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-14 pl-12 pr-14 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow shadow-lg"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-neutral-700 hover:bg-neutral-600 rounded-full flex items-center justify-center transition-colors">
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-neutral-800 hover:bg-neutral-700 rounded-full flex items-center justify-center transition-colors">
               <ArrowUp size={20} className="text-white" />
             </button>
           </div>
