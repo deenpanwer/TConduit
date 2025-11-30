@@ -19,7 +19,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({ items }) => {
           return (
             <motion.div
               key={`${item}-${index}`}
-              className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-900/50 shadow-lg backdrop-blur-sm flex items-center justify-center p-4"
+              className="absolute w-full h-full rounded-xl border border-white/10 bg-neutral-950 shadow-lg backdrop-blur-sm flex items-center justify-center p-4"
               initial={{
                 scale: 1 - (displayItems.length - 1 - index) * 0.05,
                 y: (displayItems.length - 1 - index) * 12,
