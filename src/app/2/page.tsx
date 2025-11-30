@@ -81,7 +81,7 @@ export default function GrokPage() {
   }, [charIndex, isDeleting, problemIndex, isInputFocused]);
   
   return (
-    <div className="bg-black min-h-screen text-neutral-300 font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
+    <div className="bg-neutral-950 min-h-screen text-neutral-300 font-sans flex flex-col justify-between p-4 sm:p-6 md:p-8">
       <StarryBackground />
       <header className="flex justify-end w-full h-8">
         {/* Header content removed as requested */}
@@ -95,7 +95,7 @@ export default function GrokPage() {
           </h1>
         </div>
 
-        <div className="w-full max-w-3xl relative">
+        <div className="w-full max-w-3xl">
           <div className="relative">
             <div className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10">
                 <Search size={20} />
@@ -111,10 +111,10 @@ export default function GrokPage() {
               <ArrowUp size={20} className="text-white" />
             </button>
           </div>
-        </div>
-        
-        <div className="mt-8 h-24 flex items-center justify-center">
-             <StackedCard items={currentProblems} />
+          
+          <div className="mt-8 h-24 flex items-center justify-center">
+               <StackedCard items={currentProblems} />
+          </div>
         </div>
       </main>
 
