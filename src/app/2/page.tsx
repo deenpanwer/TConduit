@@ -146,8 +146,8 @@ export default function GrokPage() {
       </main>
 
       <footer className={cn("text-center w-full pb-4 transition-opacity duration-700", isFooterVisible ? "opacity-100" : "opacity-0")}>
-        <p className="text-sm text-neutral-500 font-normal">Freelancers Available</p>
-        <p className="text-3xl font-semibold text-neutral-300 tracking-wider">11,497</p>
+        <p className="text-sm text-neutral-500 font-normal">Freelancers signed up</p>
+        <p className="text-3xl font-normal text-neutral-300 tracking-wider">11,497</p>
       </footer>
     </div>
   );
