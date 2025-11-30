@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
 import { StarryBackground } from '@/components/StarryBackground';
 import { cn } from '@/lib/utils';
+import { StackedCard } from '@/components/StackedCard';
 
 const problems = [
   "my reels don't look as good as theirs",
@@ -15,20 +16,14 @@ const problems = [
 ];
 
 const allSkills = [
-    'GPT-4 Vision API', 
-    'Reels Editing', 
-    'B2B Lead Gen', 
-    'Financial Modeling',
-    'Go-to-Market Strategy',
-    'UX/UI Design',
-    'Smart Contract Audits'
+  'GPT-4 Vision API',
+  'Reels Editing',
+  'B2B Lead Gen',
+  'Financial Modeling',
+  'Go-to-Market Strategy',
+  'UX/UI Design',
+  'Smart Contract Audits',
 ];
-
-const SkillTag = ({ text }: { text: string }) => (
-  <div className="bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-neutral-300 backdrop-blur-sm animate-fade-in">
-    {text}
-  </div>
-);
 
 export default function GrokPage() {
   const [placeholder, setPlaceholder] = useState('');
@@ -68,12 +63,15 @@ export default function GrokPage() {
   }, [charIndex, isDeleting, problemIndex]);
 
   useEffect(() => {
-    const shuffleSkills = () => {
-        const shuffled = [...allSkills].sort(() => 0.5 - Math.random());
-        setDisplayedSkills(shuffled.slice(0, 3));
-    }
-    shuffleSkills();
-    const interval = setInterval(shuffleSkills, 3000);
+    setDisplayedSkills(allSkills);
+    const interval = setInterval(() => {
+      setDisplayedSkills(prevSkills => {
+        const newSkills = [...prevSkills];
+        const first = newSkills.shift();
+        if (first) newSkills.push(first);
+        return newSkills;
+      });
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -94,11 +92,11 @@ export default function GrokPage() {
 
         <div className="w-full max-w-3xl relative">
           <div className="relative">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-500 z-10" size={20} />
             <input
               type="text"
               placeholder={placeholder}
-              className="bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-shadow shadow-lg backdrop-blur-sm"
+              className="bg-neutral-900/50 border border-neutral-800 text-white placeholder:text-neutral-500 text-base rounded-full w-full h-16 pl-14 pr-16 py-2 focus:outline-none focus:ring-0 focus:border-neutral-700 transition-shadow shadow-lg backdrop-blur-sm"
             />
             <button className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 bg-neutral-800/80 hover:bg-neutral-700/80 rounded-full flex items-center justify-center transition-colors">
               <ArrowUp size={20} className="text-white" />
@@ -106,13 +104,8 @@ export default function GrokPage() {
           </div>
         </div>
         
-        <div className="mt-8">
-            <p className="text-sm text-neutral-500 mb-4 text-center">Trending Expertise</p>
-            <div className="flex justify-center items-center gap-3">
-                {displayedSkills.map(skill => (
-                    <SkillTag key={skill} text={skill} />
-                ))}
-            </div>
+        <div className="mt-12 h-48 flex items-center justify-center">
+            <StackedCard items={displayedSkills} />
         </div>
       </main>
 
