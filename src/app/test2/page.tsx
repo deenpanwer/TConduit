@@ -60,7 +60,7 @@ const Test2Page = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const [reasoningContent, setReasoningContent] = useState("");
-  const [isStreaming, setIsStreaming] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [isReasoningOpen, setIsReasoningOpen] = useState(true);
   const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
   const [tokens, setTokens] = useState<string[]>([]);
@@ -85,15 +85,15 @@ const Test2Page = () => {
     setReasoningContent("");
     setCurrentTokenIndex(0);
     setIsStreaming(true);
+    setShowPlan(false);
   }, [chunkIntoTokens]);
 
   useEffect(() => {
     if (!isStreaming || currentTokenIndex >= tokens.length) {
-        if (isStreaming) {
-            setIsStreaming(false);
-            setTimeout(() => setShowPlan(true), 2000); 
-        }
-        return;
+      if (isStreaming) {
+        setIsStreaming(false);
+      }
+      return;
     }
 
     const timer = setTimeout(() => {
@@ -103,6 +103,16 @@ const Test2Page = () => {
 
     return () => clearTimeout(timer);
   }, [isStreaming, currentTokenIndex, tokens]);
+  
+  useEffect(() => {
+    if (!isStreaming && tokens.length > 0 && currentTokenIndex >= tokens.length) {
+      const timer = setTimeout(() => {
+        setShowPlan(true);
+      }, 500); 
+      return () => clearTimeout(timer);
+    }
+  }, [isStreaming, tokens, currentTokenIndex]);
+
 
   useEffect(() => {
     if (stage === "stage2") {
@@ -189,8 +199,9 @@ const Test2Page = () => {
                 </Reasoning>
 
                 <AnimatePresence>
-                  {!showPlan && <PlanSkeleton />}
-                  {showPlan && (
+                  {!showPlan ? (
+                     isStreaming || (!isStreaming && !showPlan) ? <PlanSkeleton /> : null
+                  ) : (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
