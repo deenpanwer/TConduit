@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -67,6 +68,16 @@ const Test2Page = () => {
   const [showPlan, setShowPlan] = useState(false);
 
   const [peopleCount, setPeopleCount] = useState(0);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setTheme(savedTheme);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
 
   const chunkIntoTokens = useCallback((text: string): string[] => {
     const tokens: string[] = [];
@@ -300,3 +311,5 @@ const Test2Page = () => {
 };
 
 export default Test2Page;
+
+    
