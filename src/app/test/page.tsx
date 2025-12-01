@@ -136,8 +136,8 @@ export default function TestPage() {
             </section>
 
             <footer className="flex flex-col md:flex-row gap-4 p-6 pt-0"> {/* Adjusted padding */}
-                <Button size="lg" className="w-full md:w-auto flex-grow">
-                    CONFIRM & LAUNCH AGENT
+                <Button size="lg" asChild className="w-full md:w-auto flex-grow">
+                    <Link href="/test/start">CONFIRM & LAUNCH AGENT</Link>
                 </Button>
                 <Button variant="outline" size="lg" className="w-full md:w-auto">
                     STOP & EDIT PROMPT
