@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { Poppins, Montserrat, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
+import { ThemeProvider } from '@/components/theme-provider';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -32,14 +33,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)}>
+    <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)} suppressHydrationWarning>
         <head>
           
         </head>
         <body className="font-sans">
-          {children}
-          <Toaster />
-          <Analytics />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+            <Analytics />
+          </ThemeProvider>
         </body>
     </html>
   );

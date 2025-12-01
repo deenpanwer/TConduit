@@ -27,6 +27,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { nanoid } from "nanoid";
+import { useTheme } from "next-themes";
 
 const reasoningSteps = [
   "Let me think step by step.",
@@ -57,8 +58,9 @@ const PlanSkeleton = () => (
 
 const Test2Page = () => {
   const [stage, setStage] = useState("stage1");
-  const [theme, setTheme] = useState("light");
   const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const { theme, setTheme } = useTheme();
 
   const [reasoningContent, setReasoningContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -68,16 +70,6 @@ const Test2Page = () => {
   const [showPlan, setShowPlan] = useState(false);
 
   const [peopleCount, setPeopleCount] = useState(0);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
 
   const chunkIntoTokens = useCallback((text: string): string[] => {
     const tokens: string[] = [];
@@ -153,7 +145,6 @@ const Test2Page = () => {
   };
 
   return (
-    <div className={`${theme}`}>
       <div className="flex h-screen bg-background text-foreground">
         {/* Side Strip */}
         <div
@@ -306,10 +297,7 @@ const Test2Page = () => {
           </AnimatePresence>
         </main>
       </div>
-    </div>
   );
 };
 
 export default Test2Page;
-
-    
