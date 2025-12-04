@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { nanoid } from "nanoid";
 import { useTheme } from "next-themes";
 
@@ -61,6 +62,11 @@ const Test2Page = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [reasoningContent, setReasoningContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -68,8 +74,6 @@ const Test2Page = () => {
   const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
   const [tokens, setTokens] = useState<string[]>([]);
   const [showPlan, setShowPlan] = useState(false);
-
-  const [peopleCount, setPeopleCount] = useState(0);
 
   const chunkIntoTokens = useCallback((text: string): string[] => {
     const tokens: string[] = [];
@@ -95,6 +99,8 @@ const Test2Page = () => {
     if (!isStreaming || currentTokenIndex >= tokens.length) {
       if (isStreaming) {
         setIsStreaming(false);
+        // Add a delay before showing the plan
+        setTimeout(() => setShowPlan(true), 500);
       }
       return;
     }
@@ -119,26 +125,12 @@ const Test2Page = () => {
 
   useEffect(() => {
     if (stage === "stage2") {
-      const interval = setInterval(() => {
-        setPeopleCount((prev) => {
-          const newCount = prev + 4;
-          if (newCount >= 100) {
-            clearInterval(interval);
-            setTimeout(() => setStage("stage3"), 2000);
-            return 100;
-          }
-          return newCount;
-        });
-      }, 500);
-      return () => clearInterval(interval);
+      const timer = setTimeout(() => {
+        setStage("stage3");
+      }, 14000);
+      return () => clearTimeout(timer);
     }
   }, [stage]);
-
-  const tasks: { key: string; value: ReactNode }[] = [
-    { key: nanoid(), value: `Looking at ${peopleCount} people` },
-    { key: nanoid(), value: "Filtering candidates..." },
-    { key: nanoid(), value: "Ranking candidates..." },
-  ];
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
@@ -155,16 +147,24 @@ const Test2Page = () => {
               <div
                 className={`font-bold text-2xl ${isCollapsed ? "hidden" : ""}`}
               >
-                Talent
+                Trac
               </div>
-              <div className="font-bold text-2xl">T</div>
-            </div>
-            <div className="mt-8">
-              <div className="w-10 h-10 bg-muted rounded-full mx-auto"></div>
+              <div className="font-bold text-2xl">
+              <img
+                src="/1.png"
+                alt="Trac Logo"
+                className="w-8 h-8"
+              />
+              </div>
             </div>
 
             <div className="flex-grow"></div>
             <div className="flex flex-col items-center">
+              <div className="mb-4">
+                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-lg font-semibold">
+                  <img src="/1.png" alt="Profile" className="w-full h-full rounded-full object-cover" />
+                </div>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -172,9 +172,11 @@ const Test2Page = () => {
               >
                 {isCollapsed ? <ChevronsRight /> : <ChevronsLeft />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                {theme === "light" ? <Moon /> : <Sun />}
-              </Button>
+              {mounted && (
+                <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                  {theme === "light" ? <Moon /> : <Sun />}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -270,9 +272,7 @@ const Test2Page = () => {
                 <Task className="w-full">
                   <TaskTrigger title="Finding Candidates" />
                   <TaskContent>
-                    {tasks.map((task) => (
-                      <TaskItem key={task.key}>{task.value}</TaskItem>
-                    ))}
+                    <SocialScan2 />
                   </TaskContent>
                 </Task>
               </motion.div>

@@ -1,9 +1,9 @@
 
-
 "use client";
 
 import 'regenerator-runtime/runtime';
 import React from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
@@ -19,8 +19,9 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
-import { Brands } from '@/components/Brands';
 import { SoundWave } from '@/components/SoundWave';
+
+const Brands = dynamic(() => import('@/components/Brands').then(mod => mod.Brands), { ssr: false });
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -575,9 +576,5 @@ export default function Home() {
     
   );
 }
-
-    
-
-    
 
     
