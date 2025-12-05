@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
-import { Mic, X, Check, ChevronUp } from "lucide-react";
+import { Mic, X, Check, ChevronUp, Search } from "lucide-react"; // Added Search icon
 import { format } from "date-fns";
 import {
   Tooltip,
@@ -20,6 +20,13 @@ import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { SoundWave } from '@/components/SoundWave';
+import { createClient } from '@supabase/supabase-js'; // Import Supabase client
+import { embedText } from './actions'; // Import the Server Action
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const Brands = dynamic(() => import('@/components/Brands').then(mod => mod.Brands), { ssr: false });
 
@@ -141,7 +148,7 @@ export default function Home() {
   const [contactInfo, setContactInfo] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [emailError, setEmailError] = React.useState("");
-  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
   const router = useRouter();
   const [showIdeationPanel, setShowIdeationPanel] = React.useState(false);
 
@@ -346,7 +353,8 @@ export default function Home() {
         throw new Error(errorMessage);
       }
       
-      setIsSubmitted(true);
+      sessionStorage.setItem('geminiInputValue', inputValue);
+      router.push('/test2');
 
     } catch (error) {
       console.error(error);
@@ -415,33 +423,6 @@ export default function Home() {
         <div className="flex-grow flex items-center justify-center">
             <div className="w-full max-w-2xl">
                 <div className="pt-4">
-                  {isSubmitted ? (
-                    <div className="animate-fade-in text-center">
-                      <div className="inline-block bg-secondary p-4 rounded-full mb-6">
-                        <Check className="text-primary" size={48} />
-                      </div>
-                      <h1 className="mb-4 text-3xl font-bold text-foreground">Thank You</h1>
-                      <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                        Our agent is scouring the net to find the right fit to solve your problem. We'll be in touch.
-                      </p>
-                      <Button
-                        onClick={() => {
-                          setInputValue("");
-                          setContactInfo("");
-                          setIsSubmitted(false);
-                          setHasInteracted(false);
-                          setProblemIndex(0);
-                          setCharIndex(0);
-                          setIsDeleting(false);
-                          setPlaceholder(basePlaceholder);
-                        }}
-                        variant="outline"
-                        size="lg"
-                      >
-                        Submit Another Problem
-                      </Button>
-                    </div>
-                  ) : (
                     <div className="animate-fade-in">
                       <h2 className="text-center text-4xl md:text-5xl font-medium mb-4 text-foreground leading-tight font-playfair">
                         What's stopping you from growing faster?
@@ -544,7 +525,6 @@ export default function Home() {
                       </form>
                       <Brands />
                     </div>
-                  )}
                 </div>
             </div>
         </div>

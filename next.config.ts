@@ -49,6 +49,12 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.brandfetch.io',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fiverr-res.cloudinary.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

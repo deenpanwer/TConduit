@@ -26,18 +26,12 @@ import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { processQueryWithGemini } from '@/app/actions';
 import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { nanoid } from "nanoid";
 import { useTheme } from "next-themes";
-
-const reasoningSteps = [
-  "Let me think step by step.",
-  "\n\nThe user wants to find the two most talented frontend engineers.",
-  "\n\nI need to define a plan to achieve this.",
-  "\n\n1. Search for candidates on popular platforms.",
-  "\n\n2. Filter candidates based on their skills and experience.",
-  "\n\n3. Rank the filtered candidates to find the top two.",
-].join("");
+import ProfileCard from "@/components/ProfileCard";
+import { SiGithub, SiLinkedin, SiDribbble } from "@icons-pack/react-simple-icons";
 
 const PlanSkeleton = () => (
   <div className="mt-4 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-sm p-6">
@@ -64,16 +58,51 @@ const Test2Page = () => {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // Gemini output states
+  const [geminiReasoning, setGeminiReasoning] = useState("");
+  const [geminiPlanContent, setGeminiPlanContent] = useState<string[]>([]); // Array for bullet points
+  const [geminiFormalizedQuery, setGeminiFormalizedQuery] = useState("");
+  const [isGeminiLoading, setIsGeminiLoading] = useState(true); // Loading state for Gemini call
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Effect to fetch Gemini output
+  useEffect(() => {
+    const fetchGeminiOutput = async () => {
+      setIsGeminiLoading(true);
+      const storedInputValue = sessionStorage.getItem('geminiInputValue');
+      if (storedInputValue) {
+        try {
+          const result = await processQueryWithGemini(storedInputValue);
+          setGeminiReasoning(result.reasoning);
+          // Assuming plan_content is a markdown list, parse it into an array
+          const parsedPlan = result.plan_content.split('\n').filter((line: string) => line.startsWith('*')).map((line: string) => line.substring(1).trim());
+          setGeminiPlanContent(parsedPlan);
+          setGeminiFormalizedQuery(result.formalizedQuery);
+        } catch (error) {
+          console.error("Failed to get Gemini output:", error);
+          setGeminiReasoning("Error generating reasoning.");
+          setGeminiPlanContent(["Error generating plan."]);
+          setGeminiFormalizedQuery("Error");
+        }
+      } else {
+        setGeminiReasoning("No problem statement provided.");
+        setGeminiPlanContent(["Please go back and submit a problem."]);
+        setGeminiFormalizedQuery("No input");
+      }
+      setIsGeminiLoading(false);
+    };
+
+    fetchGeminiOutput();
+  }, []); // Run once on component mount
+
   const [reasoningContent, setReasoningContent] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isReasoningOpen, setIsReasoningOpen] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(true);
+  const [showPlan, setShowPlan] = useState(false);
   const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
   const [tokens, setTokens] = useState<string[]>([]);
-  const [showPlan, setShowPlan] = useState(false);
 
   const chunkIntoTokens = useCallback((text: string): string[] => {
     const tokens: string[] = [];
@@ -86,21 +115,21 @@ const Test2Page = () => {
     return tokens;
   }, []);
 
+  // Update effect to use geminiReasoning once it's available
   useEffect(() => {
-    const tokenizedSteps = chunkIntoTokens(reasoningSteps);
-    setTokens(tokenizedSteps);
-    setReasoningContent("");
-    setCurrentTokenIndex(0);
-    setIsStreaming(true);
-    setShowPlan(false);
-  }, [chunkIntoTokens]);
+    if (geminiReasoning && !isGeminiLoading) {
+      const tokenizedSteps = chunkIntoTokens(geminiReasoning);
+      setTokens(tokenizedSteps);
+      setReasoningContent("");
+      setCurrentTokenIndex(0);
+      setIsStreaming(true);
+    }
+  }, [geminiReasoning, isGeminiLoading, chunkIntoTokens]);
 
   useEffect(() => {
     if (!isStreaming || currentTokenIndex >= tokens.length) {
       if (isStreaming) {
         setIsStreaming(false);
-        // Add a delay before showing the plan
-        setTimeout(() => setShowPlan(true), 500);
       }
       return;
     }
@@ -135,6 +164,37 @@ const Test2Page = () => {
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
+  
+  const tasks: { key: string; value: ReactNode }[] = [
+    { key: nanoid(), value: `Searching "${geminiFormalizedQuery}"` },
+    {
+      key: nanoid(),
+      value: (
+        <span className="inline-flex items-center gap-1">
+          <SiLinkedin className="size-4" />
+          <span>Scanning 52 LinkedIn profiles</span>
+        </span>
+      ),
+    },
+    {
+      key: nanoid(),
+      value: (
+        <span className="inline-flex items-center gap-1">
+          <SiGithub className="size-4" />
+          <span>Analyzing 12 GitHub repositories</span>
+        </span>
+      ),
+    },
+    {
+        key: nanoid(),
+        value: (
+          <span className="inline-flex items-center gap-1">
+            <SiDribbble className="size-4" />
+            <span>Reviewing 24 Dribbble portfolios</span>
+          </span>
+        ),
+      },
+  ];
 
   return (
       <div className="flex h-screen bg-background text-foreground">
@@ -144,11 +204,7 @@ const Test2Page = () => {
         >
           <div className="p-4 flex flex-col h-full">
             <div className="flex items-center justify-between">
-              <div
-                className={`font-bold text-2xl ${isCollapsed ? "hidden" : ""}`}
-              >
-                Trac
-              </div>
+              {!isCollapsed && <div className="font-bold text-2xl">Trac</div>}
               <div className="font-bold text-2xl">
               <img
                 src="/1.png"
@@ -192,72 +248,66 @@ const Test2Page = () => {
                 exit={{ opacity: 0 }}
                 className="w-full max-w-2xl"
               >
-                <Reasoning
-                  className="w-full"
-                  isStreaming={isStreaming}
-                  open={isReasoningOpen}
-                  onOpenChange={setIsReasoningOpen}
-                >
-                  <ReasoningTrigger />
-                  <ReasoningContent>{reasoningContent}</ReasoningContent>
-                </Reasoning>
-
-                <AnimatePresence>
-                  {!showPlan ? (
-                     isStreaming || (!isStreaming && !showPlan) ? <PlanSkeleton /> : null
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                {isGeminiLoading ? (
+                  <PlanSkeleton />
+                ) : (
+                  <>
+                    <Reasoning
+                      className="w-full"
+                      isStreaming={isStreaming}
                     >
-                      <Plan className="mt-4" defaultOpen={true}>
-                        <PlanHeader>
-                          <div>
-                            <div className="mb-4 flex items-center gap-2">
-                              <FileText className="size-4" />
-                              <PlanTitle>Find Top Frontend Engineers</PlanTitle>
-                            </div>
-                            <PlanDescription>
-                              A plan to find the two most talented frontend
-                              engineers for our new project.
-                            </PlanDescription>
-                          </div>
-                          <PlanTrigger />
-                        </PlanHeader>
-                        <PlanContent>
-                          <div className="space-y-4 text-sm">
-                            <div>
-                              <h3 className="mb-2 font-semibold">Key Steps</h3>
-                              <ul className="list-inside list-disc space-y-1">
-                                <li>
-                                  Search for candidates on popular platforms.
-                                </li>
-                                <li>
-                                  Filter candidates based on their skills and
-                                  experience.
-                                </li>
-                                <li>
-                                  Rank the filtered candidates to find the top
-                                  two.
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        </PlanContent>
-                        <PlanFooter className="justify-end">
-                          <PlanAction>
-                            <Button
-                              size="sm"
-                              onClick={() => setStage("stage2")}
-                            >
-                              Start Hiring <kbd className="font-mono">⌘↩</kbd>
-                            </Button>
-                          </PlanAction>
-                        </PlanFooter>
-                      </Plan>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <ReasoningTrigger />
+                      <ReasoningContent>{reasoningContent}</ReasoningContent>
+                    </Reasoning>
+
+                    <AnimatePresence>
+                      {showPlan && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.2 }}
+                        >
+                          <Plan className="mt-4" defaultOpen={true}>
+                            <PlanHeader>
+                              <div>
+                                <div className="mb-4 flex items-center gap-2">
+                                  <FileText className="size-4" />
+                                  <PlanTitle>{geminiFormalizedQuery}</PlanTitle>
+                                </div>
+                                <PlanDescription>
+                                  {geminiReasoning}
+                                </PlanDescription>
+                              </div>
+                              <PlanTrigger />
+                            </PlanHeader>
+                            <PlanContent>
+                              <div className="space-y-4 text-sm">
+                                <div>
+                                  <h3 className="mb-2 font-semibold">Key Steps</h3>
+                                  <ul className="list-inside list-disc space-y-1">
+                                    {geminiPlanContent.map((step, index) => (
+                                      <li key={index}>{step}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </PlanContent>
+                            <PlanFooter className="justify-end">
+                              <PlanAction>
+                                <Button
+                                  size="sm"
+                                  onClick={() => setStage("stage2")}
+                                >
+                                  Start Hiring <kbd className="font-mono">⌘↩</kbd>
+                                </Button>
+                              </PlanAction>
+                            </PlanFooter>
+                          </Plan>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
               </motion.div>
             )}
 
@@ -272,7 +322,9 @@ const Test2Page = () => {
                 <Task className="w-full">
                   <TaskTrigger title="Finding Candidates" />
                   <TaskContent>
-                    <SocialScan2 />
+                    {tasks.map((task) => (
+                        <TaskItem key={task.key}>{task.value}</TaskItem>
+                    ))}
                   </TaskContent>
                 </Task>
               </motion.div>
@@ -284,14 +336,68 @@ const Test2Page = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-full flex gap-8"
+                className="w-full flex flex-row items-start justify-center max-w-5xl gap-8"
               >
-                <div className="flex-1 h-96 bg-card border rounded-lg p-4">
-                  Profile 1
+                <div className="flex flex-col items-start space-y-6 p-4 rounded-lg bg-gray-800 text-white shadow-lg">
+                  <h3 className="text-xl font-bold mb-2">Performance Barometers</h3>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-lg font-semibold">Agency:</span>
+                    <div className="w-32 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-white">{85}%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-lg font-semibold">Competence:</span>
+                    <div className="w-32 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-white">{92}%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 h-96 bg-card border rounded-lg p-4">
-                  Profile 2
-                </div>
+
+                <ProfileCard
+                  name={"Ibrahim"}
+                  title={"Make Your Dream Come True with a Professional Website Developer!"}
+                  description={"Looking for a high-performing Website Development service that will truly represent your brand? I’m a professional Full Stack Website Developer with years of experience crafting modern,scalable websites that not only look great but perform flawlessly across all devices."}
+                  imageUrl={"https://fiverr-res.cloudinary.com/image/upload/f_auto,q_auto,t_profile_original/v1/attachments/profile/photo/cae22dc07b3de50d59364ad00cb904e7-1733032799131/57124dfb-dcde-43e7-bf4f-ddbaed230ad9.png"}
+                  skills={[
+                    "Custom Websites",
+                    "Full stack web development",
+                    "MEAN stack",
+                    "Express.js",
+                    "Web developer",
+                    "Website copywriter",
+                    "Website analytics expert",
+                    "Website migration expert",
+                    "Website consultant",
+                    "Website editor",
+                    "Custom website developer",
+                    "Website designer",
+                    "Website developer",
+                    "Full stack web developer",
+                    "Front-end web developer",
+                    "Back-end developer",
+                    "Node.js expert",
+                    "Express.js expert",
+                    "MongoDB expert",
+                    "Next.js developer",
+                    "PHP Laravel developer",
+                    "PHP developer",
+                    "Laravel developer",
+                    "MySQL database developer",
+                    "React expert",
+                    "Dashboards developer",
+                    "MEAN stack expert",
+                    "Web designer",
+                    "JavaScript ES6 developer",
+                    "Html5 expert"
+                  ]}
+                  rating={4.9}
+                  numReviews={368}
+                  sellerLevel={"Level 2"}
+                  averageResponseTime={"Average response time: 1 hour"}
+                  email={"ibrahim3571@gmail.com"}
+                  phone={"+880 709-920-1"}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -301,3 +407,5 @@ const Test2Page = () => {
 };
 
 export default Test2Page;
+
+    
