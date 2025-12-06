@@ -31,7 +31,7 @@ import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { nanoid } from "nanoid";
 import { useTheme } from "next-themes";
 import ProfileCard from "@/components/ProfileCard";
-import { SiGithub, SiLinkedin, SiDribbble } from "@icons-pack/react-simple-icons";
+import { SiGithub, SiLinkedIn, SiDribbble } from "@icons-pack/react-simple-icons";
 
 const PlanSkeleton = () => (
   <div className="mt-4 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-sm p-6">
@@ -171,7 +171,7 @@ const Test2Page = () => {
       key: nanoid(),
       value: (
         <span className="inline-flex items-center gap-1">
-          <SiLinkedin className="size-4" />
+          <SiLinkedIn className="size-4" />
           <span>Scanning 52 LinkedIn profiles</span>
         </span>
       ),
