@@ -1,6 +1,8 @@
+
 'use server';
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { runFlow } from '@genkit-ai/flow';
 import { geminiSearchFlow } from '@/ai/flows/gemini-search-flow';
 
 // Initialize Google Generative AI
@@ -26,7 +28,8 @@ export async function embedText(text: string): Promise<number[] | null> {
 
 export async function processQueryWithGemini(problemStatement: string) {
   try {
-    const result = await geminiSearchFlow({ problemStatement });
+    // Use runFlow to execute the Genkit flow
+    const result = await runFlow(geminiSearchFlow, { problemStatement });
     return result;
   } catch (error) {
     console.error("Error processing query with Gemini flow:", error);
