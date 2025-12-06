@@ -99,7 +99,7 @@ const Test2Page = () => {
   }, []); // Run once on component mount
 
   const [reasoningContent, setReasoningContent] = useState("");
-  const [isStreaming, setIsStreaming] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
   const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
   const [tokens, setTokens] = useState<string[]>([]);
@@ -407,5 +407,3 @@ const Test2Page = () => {
 };
 
 export default Test2Page;
-
-    
