@@ -1,5 +1,6 @@
 'use server';
 
+import { Suspense } from 'react';
 import ProblemsClientPage from './ProblemsClientPage';
 
 export default async function ProblemsPage({
@@ -9,5 +10,9 @@ export default async function ProblemsPage({
 }) {
   const page = parseInt(typeof searchParams.page === 'string' ? searchParams.page : '1', 10);
   
-  return <ProblemsClientPage initialPage={page} />;
+  return (
+    <Suspense fallback={<div>Loading problems...</div>}>
+      <ProblemsClientPage initialPage={page} />
+    </Suspense>
+  );
 }
