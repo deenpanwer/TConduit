@@ -374,9 +374,9 @@ export default function Home() {
       
       const planData = await planResponse.json();
       sessionStorage.setItem('generatedPlanData', JSON.stringify(planData));
-      sessionStorage.setItem('userQueryForPlan', inputValue);
-      // --- End Custom API call logic ---
-
+      sessionStorage.setItem('userQueryForPlan', planData.final_query);
+      
+      sessionStorage.setItem('userEmail', contactInfo); // Store the user's email
       sessionStorage.setItem('geminiInputValue', inputValue); // Keep original behavior
       router.push('/test2');
 

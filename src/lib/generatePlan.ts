@@ -13,6 +13,7 @@ export const GeneratePlanOutputSchema = z.object({
   description: z.string().describe('A brief description of the plan.'),
   keySteps: z.array(z.string()).describe('An array of actionable steps in the plan.'),
   rawReasoning: z.string().describe('The AI\'s detailed reasoning process.'),
+  final_query: z.string().describe('A concise keyword or phrase for semantic search based on the user query.'),
 });
 
 export type PlanData = z.infer<typeof GeneratePlanOutputSchema>;
@@ -25,11 +26,11 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
     throw new Error('GEMINI_API_KEY is not set. Please set it in your environment variables.');
   }
 
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; 
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; // this is the only working model 2.5
 
   const prompt = `You are an AI assistant specialized in generating freelancer acquisition plans. Based on the user's query, your task is to identify the type of freelancer they need and provide an action plan for leveraging digital search and scraping to find, vet, and qualify that freelancer.
 
-    Your response should be structured in JSON with four main fields: 'title', 'description', 'keySteps' (an array of strings), and 'rawReasoning'.
+    Your response should be structured in JSON with five main fields: 'title', 'description', 'keySteps' (an array of strings), 'rawReasoning', and 'final_query'.
     
     For 'rawReasoning': Provide a brief, 2-3 sentence reasoning process. Each sentence should represent a line of thought and be separated by a newline character '\\n\\n'. Focus on how you interpreted the user's request to identify the freelancer's role and the strategy of using digital search/scraping to find them.
     
@@ -37,7 +38,9 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
     
     For 'description': Provide a brief, 1-2 sentence summary of the plan for finding and vetting freelancers.
     
-    For 'keySteps': Provide 5-7 actionable steps for identifying, searching for, and evaluating the desired freelancer.
+    For 'keySteps': Provide 2-3 actionable steps for identifying, searching for, and evaluating the desired freelancer.
+
+    For 'final_query': Based on the user's request, provide a concise 2-4 word keyword phrase that best represents the core skill of the freelancer needed. This will be used for a semantic search to find candidates. For example, if the user query is "my reels dont look liek my competitors", a good final_query would be "professional video editor".
 
     User Query: ${userQuery}
 
@@ -48,12 +51,10 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
       "description": "A focused plan to define search parameters, conduct digital discovery, and vet top video editing freelancers.",
       "keySteps": [
         "Interpret user query to define specific freelancer skills and experience.",
-        "Establish detailed search criteria for web scraping and digital platforms.",
-        "Execute targeted digital searches on freelance platforms and professional networks.",
         "Collect and analyze potential freelancer profiles based on defined criteria.",
-        "Review portfolios and verify past project experience of shortlisted candidates.",
-        "Prepare a summary of top qualified freelancers for user review."
-      ]
+        "Review portfolios and verify past project experience of shortlisted candidates."
+      ],
+      "final_query": "professional video editor"
     }`;
 
   const requestBody = {

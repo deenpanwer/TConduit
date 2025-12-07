@@ -5,6 +5,7 @@ import { Poppins, Montserrat, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const poppins = Poppins({
   subsets: ['latin'],

@@ -4,20 +4,20 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Star } from "lucide-react";
-import { useState } from "react"; // Import useState
+import { useState } from "react";
 
 interface ProfileCardProps {
-  name: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  skills: string[];
-  rating: number;
-  numReviews: number;
-  sellerLevel: string;
-  averageResponseTime: string;
-  email: string;
-  phone: string;
+  name?: string | null;
+  title?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  skills?: string[] | null;
+  rating?: number | null;
+  numReviews?: number | null;
+  sellerLevel?: string | null;
+  averageResponseTime?: string | null;
+  email?: string | null;
+  phone?: string | null;
 }
 
 const MAX_SKILLS_DISPLAY = 7;
@@ -38,12 +38,13 @@ const ProfileCard = ({
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [showContact, setShowContact] = useState(false);
 
-  const displayedSkills = showAllSkills ? skills : skills.slice(0, MAX_SKILLS_DISPLAY);
-  const hasMoreSkills = skills.length > MAX_SKILLS_DISPLAY;
+  const safeSkills = skills ?? [];
+  const displayedSkills = showAllSkills ? safeSkills : safeSkills.slice(0, MAX_SKILLS_DISPLAY);
+  const hasMoreSkills = safeSkills.length > MAX_SKILLS_DISPLAY;
 
-  const renderStars = (rating: number) => {
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
+  const renderStars = (ratingValue: number) => {
+    const fullStars = Math.floor(ratingValue);
+    const hasHalfStar = ratingValue % 1 !== 0;
     const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
 
     return (
@@ -67,21 +68,21 @@ const ProfileCard = ({
       className="bg-card border rounded-lg p-6 flex flex-col items-center text-center shadow-lg h-full max-w-lg mx-auto relative overflow-hidden"
     >
       <Image
-        src={imageUrl}
-        alt={name}
+        src={imageUrl ?? '/default-avatar.png'} // Provide a default image
+        alt={name ?? 'Profile picture'}
         width={96}
         height={96}
         className="rounded-full mb-4 object-cover"
       />
-      <h3 className="text-2xl font-bold text-card-foreground mb-1">{name}</h3>
-      <p className="text-md text-muted-foreground mb-2 px-4">{title}</p>
+      <h3 className="text-2xl font-bold text-card-foreground mb-1">{name ?? 'Unknown Name'}</h3>
+      <p className="text-md text-muted-foreground mb-2 px-4">{title ?? 'No title provided'}</p>
       <div className="flex items-center mb-2">
-        {renderStars(rating)}
-        <span className="ml-2 text-sm text-gray-500">({numReviews} reviews)</span>
+        {renderStars(rating ?? 0)}
+        <span className="ml-2 text-sm text-gray-500">({numReviews ?? 0} reviews)</span>
       </div>
-      <p className="text-sm text-gray-500 mb-2">{sellerLevel}</p>
-      <p className="text-sm text-gray-500 mb-4">{averageResponseTime}</p>
-      <p className="text-sm text-gray-500 mb-4 flex-grow">{description}</p>
+      <p className="text-sm text-gray-500 mb-2">{sellerLevel ?? 'N/A'}</p>
+      <p className="text-sm text-gray-500 mb-4">{averageResponseTime ?? 'N/A'}</p>
+      <p className="text-sm text-gray-500 mb-4 flex-grow">{description ?? 'No description.'}</p>
 
       {/* Skills Section */}
       <div className="flex flex-wrap justify-center gap-2 mb-4">
@@ -114,8 +115,8 @@ const ProfileCard = ({
           transition={{ duration: 0.3 }}
           className="text-sm text-gray-700 dark:text-gray-300 space-y-1 mb-4"
         >
-          <p><strong>Email:</strong> {email}</p>
-          <p><strong>Phone:</strong> {phone}</p>
+          <p><strong>Email:</strong> {email ?? 'Not available'}</p>
+          <p><strong>Phone:</strong> {phone ?? 'Not available'}</p>
         </motion.div>
       )}
 

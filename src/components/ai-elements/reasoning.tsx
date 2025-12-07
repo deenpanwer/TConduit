@@ -179,7 +179,9 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown {...props}>{children}</Streamdown>
+      <div className="space-y-2 border-muted border-l-2 pl-4">
+        <Streamdown {...props}>{children}</Streamdown>
+      </div>
     </CollapsibleContent>
   )
 );
