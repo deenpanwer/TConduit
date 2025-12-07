@@ -26,30 +26,13 @@ import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { processQueryWithGemini } from '@/app/actions';
 import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { nanoid } from "nanoid";
 import { useTheme } from "next-themes";
 import ProfileCard from "@/components/ProfileCard";
-import { SiGithub, SiLinkedin, SiDribbble } from "@icons-pack/react-simple-icons";
+import { SiGithub, SiLinkerd, SiDribbble } from "@icons-pack/react-simple-icons";
 
-const PlanSkeleton = () => (
-  <div className="mt-4 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-    <div className="flex items-center justify-between">
-      <div className="h-6 w-3/4 bg-muted rounded-md animate-pulse"></div>
-      <div className="h-8 w-8 bg-muted rounded-md animate-pulse"></div>
-    </div>
-    <div className="mt-4 h-4 w-1/2 bg-muted rounded-md animate-pulse"></div>
-    <div className="mt-8 space-y-4">
-      <div className="h-4 w-full bg-muted rounded-md animate-pulse"></div>
-      <div className="h-4 w-full bg-muted rounded-md animate-pulse"></div>
-      <div className="h-4 w-3/4 bg-muted rounded-md animate-pulse"></div>
-    </div>
-    <div className="mt-8 flex justify-end">
-        <div className="h-9 w-20 bg-muted rounded-md animate-pulse"></div>
-    </div>
-  </div>
-);
+import PlanSkeleton from "@/components/ai-elements/PlanSkeleton";
 
 const Test2Page = () => {
   const [stage, setStage] = useState("stage1");
@@ -58,97 +41,80 @@ const Test2Page = () => {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Gemini output states
-  const [geminiReasoning, setGeminiReasoning] = useState("");
-  const [geminiPlanContent, setGeminiPlanContent] = useState<string[]>([]); // Array for bullet points
-  const [geminiFormalizedQuery, setGeminiFormalizedQuery] = useState("");
-  const [isGeminiLoading, setIsGeminiLoading] = useState(true); // Loading state for Gemini call
+  // Data from Genkit via sessionStorage
+  const [planData, setPlanData] = useState<PlanData | null>(null);
+  const [userQuery, setUserQuery] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Effect to fetch Gemini output
-  useEffect(() => {
-    const fetchGeminiOutput = async () => {
-      setIsGeminiLoading(true);
-      const storedInputValue = sessionStorage.getItem('geminiInputValue');
-      if (storedInputValue) {
-        try {
-          const result = await processQueryWithGemini(storedInputValue);
-          setGeminiReasoning(result.reasoning);
-          setGeminiPlanContent(result.plan_content); // This is now an array
-          setGeminiFormalizedQuery(result.formalizedQuery);
-        } catch (error) {
-          console.error("Failed to get Gemini output:", error);
-          setGeminiReasoning("Error generating reasoning.");
-          setGeminiPlanContent(["Error generating plan."]);
-          setGeminiFormalizedQuery("Error");
-        }
-      } else {
-        setGeminiReasoning("No problem statement provided.");
-        setGeminiPlanContent(["Please go back and submit a problem."]);
-        setGeminiFormalizedQuery("No input");
-      }
-      setIsGeminiLoading(false);
-    };
-
-    fetchGeminiOutput();
-  }, []); // Run once on component mount
-
-  const [reasoningContent, setReasoningContent] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [showPlan, setShowPlan] = useState(false);
+  // Streaming states for Reasoning component
+  const [content, setContent] = useState("");
+  const [isStreamingReasoning, setIsStreamingReasoning] = useState(false);
   const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
   const [tokens, setTokens] = useState<string[]>([]);
 
+  // Type definition for PlanData, matching Genkit flow output
+  interface PlanData {
+    title: string;
+    description: string;
+    keySteps: string[];
+    rawReasoning: string;
+  }
+
+  // Function to chunk text into fake tokens of 3-4 characters
   const chunkIntoTokens = useCallback((text: string): string[] => {
     const tokens: string[] = [];
     let i = 0;
     while (i < text.length) {
-      const chunkSize = Math.floor(Math.random() * 2) + 3;
+      const chunkSize = Math.floor(Math.random() * 2) + 3; // Random size between 3-4
       tokens.push(text.slice(i, i + chunkSize));
       i += chunkSize;
     }
     return tokens;
   }, []);
 
-  // Update effect to use geminiReasoning once it's available
+  // Load plan data from session storage on mount
   useEffect(() => {
-    if (geminiReasoning && !isGeminiLoading) {
-      const tokenizedSteps = chunkIntoTokens(geminiReasoning);
-      setTokens(tokenizedSteps);
-      setReasoningContent("");
-      setCurrentTokenIndex(0);
-      setIsStreaming(true);
+    if (typeof window !== 'undefined') {
+      const storedPlanData = sessionStorage.getItem('generatedPlanData');
+      const storedUserQuery = sessionStorage.getItem('userQueryForPlan');
+      if (storedPlanData) {
+        const parsedPlanData: PlanData = JSON.parse(storedPlanData); // Declare parsedPlanData
+        // Keep \n\n as is, let Streamdown handle it.
+        setPlanData(parsedPlanData);
+      }
+      if (storedUserQuery) {
+        setUserQuery(storedUserQuery);
+      }
     }
-  }, [geminiReasoning, isGeminiLoading, chunkIntoTokens]);
+  }, []);
 
+  // Initialize streaming when planData and rawReasoning are available
   useEffect(() => {
-    if (!isStreaming || currentTokenIndex >= tokens.length) {
-      if (isStreaming) {
-        setIsStreaming(false);
+    if (planData && planData.rawReasoning) {
+      const tokenizedSteps = chunkIntoTokens(planData.rawReasoning);
+      setTokens(tokenizedSteps);
+      setContent("");
+      setCurrentTokenIndex(0);
+      setIsStreamingReasoning(true);
+    }
+  }, [planData, chunkIntoTokens]);
+
+
+  // Stream content token by token
+  useEffect(() => {
+    if (!isStreamingReasoning || currentTokenIndex >= tokens.length) {
+      if (isStreamingReasoning) {
+        setIsStreamingReasoning(false); // Stop streaming when all tokens are displayed
       }
       return;
     }
 
     const timer = setTimeout(() => {
-      setReasoningContent((prev) => prev + tokens[currentTokenIndex]);
+      setContent((prev) => prev + tokens[currentTokenIndex]);
       setCurrentTokenIndex((prev) => prev + 1);
-    }, 25);
+    }, 25); // Faster interval since we're streaming smaller chunks
 
     return () => clearTimeout(timer);
-  }, [isStreaming, currentTokenIndex, tokens]);
-  
-  useEffect(() => {
-    if (!isStreaming && tokens.length > 0 && currentTokenIndex >= tokens.length) {
-      const timer = setTimeout(() => {
-        setShowPlan(true);
-      }, 500); 
-      return () => clearTimeout(timer);
-    }
-  }, [isStreaming, tokens, currentTokenIndex]);
-
+  }, [isStreamingReasoning, currentTokenIndex, tokens]);
 
   useEffect(() => {
     if (stage === "stage2") {
@@ -163,36 +129,7 @@ const Test2Page = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
   
-  const tasks: { key: string; value: ReactNode }[] = [
-    { key: nanoid(), value: `Searching "${geminiFormalizedQuery}"` },
-    {
-      key: nanoid(),
-      value: (
-        <span className="inline-flex items-center gap-1">
-          <SiLinkedin className="size-4" />
-          <span>Scanning 52 LinkedIn profiles</span>
-        </span>
-      ),
-    },
-    {
-      key: nanoid(),
-      value: (
-        <span className="inline-flex items-center gap-1">
-          <SiGithub className="size-4" />
-          <span>Analyzing 12 GitHub repositories</span>
-        </span>
-      ),
-    },
-    {
-        key: nanoid(),
-        value: (
-          <span className="inline-flex items-center gap-1">
-            <SiDribbble className="size-4" />
-            <span>Reviewing 24 Dribbble portfolios</span>
-          </span>
-        ),
-      },
-  ];
+
 
   return (
       <div className="flex h-screen bg-background text-foreground">
@@ -246,35 +183,38 @@ const Test2Page = () => {
                 exit={{ opacity: 0 }}
                 className="w-full max-w-2xl"
               >
-                {isGeminiLoading ? (
-                  <PlanSkeleton />
-                ) : (
+                {planData ? (
                   <>
                     <Reasoning
                       className="w-full"
-                      isStreaming={isStreaming}
+                      isStreaming={isStreamingReasoning}
                     >
                       <ReasoningTrigger />
-                      <ReasoningContent>{reasoningContent}</ReasoningContent>
+                      <ReasoningContent>{content}</ReasoningContent>
                     </Reasoning>
 
                     <AnimatePresence>
-                      {showPlan && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: 0.2 }}
-                        >
-                          <Plan className="mt-4" defaultOpen={true}>
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        {isStreamingReasoning ? (
+                          <PlanSkeleton />
+                        ) : (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.2, duration: 0.5 }} // Added duration for smoother appearance
+                          >
+                            <Plan className="mt-4" defaultOpen={true}>
                             <PlanHeader>
                               <div>
                                 <div className="mb-4 flex items-center gap-2">
                                   <FileText className="size-4" />
-                                  <PlanTitle>{geminiFormalizedQuery}</PlanTitle>
+                                  <PlanTitle>{planData.title}</PlanTitle>
                                 </div>
-                                <PlanDescription>
-                                  {geminiReasoning}
-                                </PlanDescription>
+                                <PlanDescription>{planData.description}</PlanDescription>
                               </div>
                               <PlanTrigger />
                             </PlanHeader>
@@ -283,7 +223,7 @@ const Test2Page = () => {
                                 <div>
                                   <h3 className="mb-2 font-semibold">Key Steps</h3>
                                   <ul className="list-inside list-disc space-y-1">
-                                    {geminiPlanContent.map((step, index) => (
+                                    {planData.keySteps.map((step, index) => (
                                       <li key={index}>{step}</li>
                                     ))}
                                   </ul>
@@ -300,11 +240,13 @@ const Test2Page = () => {
                                 </Button>
                               </PlanAction>
                             </PlanFooter>
-                          </Plan>
-                        </motion.div>
-                      )}
+                                                      </Plan>
+                                                    </motion.div>                        )}
+                      </motion.div>
                     </AnimatePresence>
                   </>
+                ) : (
+                  <PlanSkeleton /> // Show skeleton while planData is loading from session storage
                 )}
               </motion.div>
             )}
@@ -320,9 +262,7 @@ const Test2Page = () => {
                 <Task className="w-full">
                   <TaskTrigger title="Finding Candidates" />
                   <TaskContent>
-                    {tasks.map((task) => (
-                        <TaskItem key={task.key}>{task.value}</TaskItem>
-                    ))}
+                    <SocialScan2 />
                   </TaskContent>
                 </Task>
               </motion.div>

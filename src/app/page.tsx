@@ -3,11 +3,10 @@
 
 import 'regenerator-runtime/runtime';
 import React from "react";
-import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
-import { Mic, X, Check, ChevronUp, Search } from "lucide-react"; // Added Search icon
+import { Mic, X, Check, ChevronUp } from "lucide-react"; // Added Search icon
 import { format } from "date-fns";
 import {
   Tooltip,
@@ -19,16 +18,8 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
+import { Brands } from '@/components/Brands';
 import { SoundWave } from '@/components/SoundWave';
-import { createClient } from '@supabase/supabase-js'; // Import Supabase client
-import { embedText } from './actions'; // Import the Server Action
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-const Brands = dynamic(() => import('@/components/Brands').then(mod => mod.Brands), { ssr: false });
 
 
 const MAX_TEXTAREA_HEIGHT = 200;
@@ -282,6 +273,8 @@ export default function Home() {
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
+    // setEmailError(""); // This line should be removed to preserve email validation errors
+
     if (!inputValue.trim() || isLoading) {
       return;
     }
@@ -295,11 +288,10 @@ export default function Home() {
       return;
     }
 
-
     setIsLoading(true);
-    setEmailError("");
 
     try {
+      // --- Original sheetdb.io submission logic ---
       const now = new Date();
       const formattedTime = format(now, "PPpp");
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -318,7 +310,7 @@ export default function Home() {
         interactionMethod = "Paste";
       }
 
-      const response = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
+      const sheetdbResponse = await fetch("https://sheetdb.io/api/v1/q1xovvwyyhvv0", {
         method: "POST",
         headers: {
           "Accept": "application/json",
@@ -342,24 +334,56 @@ export default function Home() {
         }),
       });
 
-      if (!response.ok) {
-        let errorMessage = "Failed to submit data. Please try again.";
+      if (!sheetdbResponse.ok) {
+        let errorMessage = "Failed to submit data to SheetDB. Please try again.";
         try {
-            const errorData = await response.json();
+            const errorData = await sheetdbResponse.json();
             errorMessage = errorData.error || errorMessage;
         } catch (jsonError) {
-            errorMessage = response.statusText || errorMessage;
+            errorMessage = sheetdbResponse.statusText || errorMessage;
         }
-        throw new Error(errorMessage);
+        console.error(errorMessage); // Log the error, but don't show to user
+        setIsLoading(false); // Ensure loading state is reset
+        return; 
+      }
+      // --- End original sheetdb.io submission logic ---
+
+      // --- Custom API call logic ---
+      const planResponse = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userQuery: inputValue,
+        }),
+      });
+
+      if (!planResponse.ok) {
+        let errorMessage = "Failed to generate plan. Please try again.";
+        try {
+            const errorData = await planResponse.json();
+            errorMessage = errorData.details || errorMessage;
+        } catch (jsonError) {
+            errorMessage = planResponse.statusText || errorMessage;
+        }
+        console.error(errorMessage); // Log the error, but don't show to user
+        setIsLoading(false); // Ensure loading state is reset
+        return; 
       }
       
-      sessionStorage.setItem('geminiInputValue', inputValue);
+      const planData = await planResponse.json();
+      sessionStorage.setItem('generatedPlanData', JSON.stringify(planData));
+      sessionStorage.setItem('userQueryForPlan', inputValue);
+      // --- End Custom API call logic ---
+
+      sessionStorage.setItem('geminiInputValue', inputValue); // Keep original behavior
       router.push('/test2');
 
     } catch (error) {
-      console.error(error);
+      console.error(error); // Log the error, but don't show to user
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Ensure loading state is reset even for unexpected errors
     }
   };
 
@@ -398,7 +422,7 @@ export default function Home() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
-      handleSubmit();
+      handleSubmit(); // Call handleSubmit directly
     }
   };
 
@@ -504,7 +528,7 @@ export default function Home() {
                                       <TooltipProvider>
                                           <Tooltip>
                                               <TooltipTrigger asChild>
-                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-md" disabled={isLoading || !inputValue.trim() || listening}>
+                                                <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-md" disabled={isLoading || !inputValue.trim() || !contactInfo.trim() || emailError !== "" || listening}>
                                                     {isLoading ? (
                                                         <div className="flex items-center justify-center space-x-1">
                                                             <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
@@ -534,7 +558,7 @@ export default function Home() {
             <div className="container mx-auto px-4 py-4">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
-                      <p>Google for Hiring freelancer</p>
+                      <p>Google for Hiring Freelancer</p>
                     </div>
                     <div className="relative py-3 px-4">
                         <div className="flex justify-center md:justify-end">
@@ -550,11 +574,7 @@ export default function Home() {
                 </div>
             </div>
         </footer>
-
-    </main>
-
-    
+    </main> 
   );
 }
 
-    

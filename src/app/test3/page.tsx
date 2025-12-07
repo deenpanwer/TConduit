@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Copy, Send } from 'lucide-react';
+import { Check, Copy, Send, X } from 'lucide-react';
 import { calculateScores } from '@/lib/scoring';
 import { createClient } from '@supabase/supabase-js';
 import { embedText } from '@/app/actions'; // Import the Server Action
@@ -444,6 +444,13 @@ export default function Test3Page() {
     setUploadMessage(null); // Clear previous messages
   };
 
+  const handleClear = () => {
+    setImageUrlInput('');
+    setRawInput('');
+    setTransformedOutput(null);
+    setUploadMessage(null);
+  };
+
   const handleSendToSupabase = async () => {
     if (!transformedOutput || !transformedOutput.profile || !transformedOutput.profile.username) {
       setUploadMessage("Error: No transformed data or username available to send.");
@@ -533,7 +540,16 @@ export default function Test3Page() {
             onChange={handleImageUrlChange}
           />
         </div>
-        <h2 className="text-xl font-bold mb-4 text-white">Raw Fiverr Profile HTML</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-white">Raw Fiverr Profile HTML</h2>
+          <button
+            onClick={handleClear}
+            className="p-1.5 rounded-md bg-gray-600 text-gray-300 hover:bg-gray-500 hover:text-white transition-colors"
+            title="Clear inputs"
+          >
+            <X size={16} />
+          </button>
+        </div>
         <textarea
           className="flex-grow p-2 border border-gray-600 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-gray-700 text-gray-100 placeholder-gray-400"
           placeholder="Paste raw Fiverr HTML here..."
@@ -591,3 +607,5 @@ export default function Test3Page() {
     </div>
   );
 }
+
+    
