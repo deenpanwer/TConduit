@@ -24,7 +24,7 @@ import {
 } from "@/components/ai-elements/task";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { FileText, Moon, Sun, ChevronsLeft, ChevronsRight, Pencil } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { useTheme } from "next-themes";
@@ -85,11 +85,14 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 }
 
 
-const Test2Page = () => {
+const SearchPage = () => {
   const [stage, setStage] = useState("stage1");
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [competencyScore, setCompetencyScore] = useState(0); // Initial score
   const [agencyScore, setAgencyScore] = useState(0); // Initial score
+  const [isEditing, setIsEditing] = useState(false);
+  const [markdown, setMarkdown] = useState('');
+
 
   const { theme, setTheme } = useTheme();
 
@@ -122,6 +125,44 @@ const Test2Page = () => {
     }
     return tokens;
   }, []);
+
+    const planToMarkdown = (data: any) => {
+        if (!data) return '';
+        const steps = data.keySteps.map((step: string) => `* ${step}`).join('\n');
+        return `# ${data.title}\n\n${data.description}\n\n### Key Steps\n${steps}`;
+    };
+
+    const markdownToPlan = (markdown: string) => {
+        const lines = markdown.split('\n');
+
+        const title = lines.find(line => line.startsWith('# '))?.substring(2).trim() || '';
+
+        const titleIndex = lines.findIndex(line => line.startsWith('# '));
+        const stepsIndex = lines.findIndex(line => line.startsWith('### Key Steps'));
+
+        const description = lines
+            .slice(titleIndex + 1, stepsIndex)
+            .join('\n')
+            .trim();
+
+        const keySteps = lines
+            .slice(stepsIndex + 1)
+            .filter(line => line.startsWith('* '))
+            .map(line => line.substring(2).trim());
+
+        return { title, description, keySteps };
+    };
+
+    const handleEdit = () => {
+        setMarkdown(planToMarkdown(planData));
+        setIsEditing(true);
+    };
+
+    const handleSave = () => {
+        const newPlanData = markdownToPlan(markdown);
+        setPlanData({ ...planData, ...newPlanData });
+        setIsEditing(false);
+    };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -283,6 +324,7 @@ const Test2Page = () => {
     return (
       <div className="flex h-screen bg-background text-foreground">
         {/* Side Strip */}
+        {/*
         <div
           className={`bg-card border-r transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"}`}
         >
@@ -318,6 +360,7 @@ const Test2Page = () => {
             </div>
           </div>
         </div>
+        */}
 
         {/* Main Content */}
         <main className="flex-1 p-8 flex items-center justify-center">
@@ -354,41 +397,66 @@ const Test2Page = () => {
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2, duration: 0.5 }}
                           >
-                            <Plan className="mt-4" defaultOpen={true}>
-                            <PlanHeader>
-                              <div>
-                                <div className="mb-4 flex items-center gap-2">
-                                  <FileText className="size-4" />
-                                  <PlanTitle>{planData.title}</PlanTitle>
-                                </div>
-                                <PlanDescription>{planData.description}</PlanDescription>
-                              </div>
-                              <PlanTrigger />
-                            </PlanHeader>
-                            <PlanContent>
-                              <div className="space-y-4 text-sm">
-                                <div>
-                                  <h3 className="mb-2 font-semibold">Key Steps</h3>
-                                  <ul className="list-inside list-disc space-y-1">
-                                    {planData.keySteps.map((step: string, index: number) => (
-                                      <li key={index}>{step}</li>
-                                    ))}
-                                  </ul>
+                            {isEditing ? (
+                              <div className="w-full mt-4 p-4 border rounded-lg bg-card shadow-sm">
+                                <h3 className="text-lg font-semibold mb-4">Edit Plan (Markdown)</h3>
+                                <textarea
+                                  value={markdown}
+                                  onChange={(e) => setMarkdown(e.target.value)}
+                                  className="w-full h-96 p-4 border rounded-lg bg-background font-mono text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                />
+                                <div className="flex justify-end gap-2 mt-4">
+                                  <Button onClick={() => setIsEditing(false)} variant="ghost">Cancel</Button>
+                                  <Button onClick={handleSave}>Save Changes</Button>
                                 </div>
                               </div>
-                            </PlanContent>
-                            <PlanFooter className="justify-end">
-                              <PlanAction>
-                                <Button
-                                  size="sm"
-                                  onClick={() => setStage("stage2")}
-                                >
-                                  Start Hiring <kbd className="font-mono">⌘↩</kbd>
-                                </Button>
-                              </PlanAction>
-                            </PlanFooter>
-                                                      </Plan>
-                                                    </motion.div>                        )}
+                            ) : (
+                              <Plan className="mt-4" defaultOpen={true}>
+                                <PlanHeader>
+                                  <div>
+                                    <div className="mb-4 flex items-center gap-2">
+                                      <FileText className="size-4" />
+                                      <PlanTitle>{planData.title}</PlanTitle>
+                                    </div>
+                                    <PlanDescription>{planData.description}</PlanDescription>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <PlanTrigger />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={handleEdit}
+                                      className="ml-2"
+                                    >
+                                      <Pencil className="size-4" />
+                                    </Button>
+                                  </div>
+                                </PlanHeader>
+                                <PlanContent>
+                                  <div className="space-y-4 text-sm">
+                                    <div>
+                                      <h3 className="mb-2 font-semibold">Key Steps</h3>
+                                      <ul className="list-inside list-disc space-y-1">
+                                        {planData.keySteps.map((step: string, index: number) => (
+                                          <li key={index}>{step}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </PlanContent>
+                                <PlanFooter className="justify-end">
+                                  <PlanAction>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => setStage("stage2")}
+                                    >
+                                      Start Hiring <kbd className="font-mono">⌘↩</kbd>
+                                    </Button>
+                                  </PlanAction>
+                                </PlanFooter>
+                              </Plan>
+                            )}
+                          </motion.div>                        )}
                       </motion.div>
                     </AnimatePresence>
                   </>
@@ -456,5 +524,5 @@ const Test2Page = () => {
   );
 };
 
-export default Test2Page;
+export default SearchPage;
 

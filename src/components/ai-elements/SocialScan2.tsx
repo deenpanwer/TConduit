@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback, Fragment } from "react";
@@ -74,9 +75,9 @@ const SocialScan2 = () => {
       if (item.type === "social") {
         let count;
         if (item.id === "fiver" || item.id === "upwork") {
-          count = generateRandomCount(14, 45);
+          count = generateRandomCount(90, 450);
         } else { // github, linkedin, twitter
-          count = generateRandomCount(4, 25);
+          count = generateRandomCount(45, 200);
         }
         return { ...item, count };
       }

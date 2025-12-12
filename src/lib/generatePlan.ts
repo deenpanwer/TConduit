@@ -28,33 +28,35 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
 
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; // this is the only working model 2.5
 
-  const prompt = `You are an AI assistant specialized in generating freelancer acquisition plans. Based on the user's query, your task is to identify the type of freelancer they need and provide an action plan for leveraging digital search and scraping to find, vet, and qualify that freelancer.
+  const prompt = `You are a hiring agent AI. Your goal is to understand a user's hiring need and formulate a profile of the ideal candidate. This profile will be used to find the best talent. The user can then review and edit this profile.
 
-    Your response should be structured in JSON with five main fields: 'title', 'description', 'keySteps' (an array of strings), 'rawReasoning', and 'final_query'.
+    Based on the user's query, generate a JSON response with five fields: 'title', 'description', 'keySteps', 'rawReasoning', and 'final_query'.
     
-    For 'rawReasoning': Provide a brief, 2-3 sentence reasoning process. Each sentence should represent a line of thought and be separated by a newline character '\\n\\n'. Focus on how you interpreted the user's request to identify the freelancer's role and the strategy of using digital search/scraping to find them.
+    The tone of your response should be consultative and suggestive, as if you are proposing a candidate profile. Frame it as "Based on what you've said, here's the type of person I think we should look for."
     
-    For 'title': Provide a very concise title for the freelancer acquisition plan.
+    For 'rawReasoning': In 2-3 short sentences separated by '\\n\\n', explain your thought process. How did you interpret the user's informal request and translate it into a professional job profile?
     
-    For 'description': Provide a brief, 1-2 sentence summary of the plan for finding and vetting freelancers.
+    For 'title': Create a clear and professional job title for the ideal candidate. For example, "Senior Product Designer" or "Growth-Oriented Marketing Lead".
     
-    For 'keySteps': Provide 2-3 actionable steps for identifying, searching for, and evaluating the desired freelancer.
+    For 'description': Write a 1-2 sentence summary of this ideal candidate. What are their core responsibilities and qualifications? This should read like a summary of a job description (plus that spicific third key step from example).
+    
+    For 'keySteps': Reframe this as "Key Qualifications". List 1-2 essential skills, experiences, or qualifications we should look for in this candidate. These should be specific and verifiable (e.g., "Proven experience with React and TypeScript," not "Good at coding") and super short.
 
-    For 'final_query': Based on the user's request, provide a concise 2-4 word keyword phrase that best represents the core skill of the freelancer needed. This will be used for a semantic search to find candidates. For example, if the user query is "my reels dont look liek my competitors", a good final_query would be "professional video editor".
+    For 'final_query': Provide a concise 2-4 word keyword phrase representing the core of the candidate profile. This will be used for a semantic search. For example, if the user wants someone to "make my website look better," a good final_query would be "UI/UX web designer".
 
     User Query: ${userQuery}
 
     Example JSON Response:
     {
-      "rawReasoning": "The user is looking to hire a 'video editor'.\\n\\nI will identify key criteria and leverage digital search to discover suitable freelancers.\\n\\nThe plan focuses on effective search and qualification of candidates.",
-      "title": "Find & Qualify a Video Editor",
-      "description": "A focused plan to define search parameters, conduct digital discovery, and vet top video editing freelancers.",
+      "rawReasoning": "The user's request for 'reels that look like competitors' suggests a need for high-quality video production.\\n\\nThis implies a need for a professional with strong editing skills and an eye for modern social media trends.\\n\\nI've formulated a profile for a 'Professional Video Editor' to target this specific skillset.",
+      "title": "Ideal Hire: Professional Video Editor",
+      "description": "A creative professional specializing in short-form video content for social media, with a proven ability to create engaging and polished reels that drive engagement.",
       "keySteps": [
-        "Interpret user query to define specific freelancer skills and experience.",
-        "Collect and analyze potential freelancer profiles based on defined criteria.",
-        "Review portfolios and verify past project experience of shortlisted candidates."
+        "Demonstrated expertise in Adobe Premiere Pro and After Effects.",
+        "A portfolio of recent work on Instagram Reels or TikTok.",
+        "If you feel this is right, click 'Start Hiring' to proceed or use the edit icon to refine the plan."
       ],
-      "final_query": "professional video editor"
+      "final_query": "professional video editor for social media"
     }`;
 
   const requestBody = {

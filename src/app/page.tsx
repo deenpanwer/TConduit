@@ -378,7 +378,8 @@ export default function Home() {
       
       sessionStorage.setItem('userEmail', contactInfo); // Store the user's email
       sessionStorage.setItem('geminiInputValue', inputValue); // Keep original behavior
-      router.push('/test2');
+      const searchId = Math.random().toString(36).substring(2, 10);
+      router.push(`/search/${searchId}`);
 
     } catch (error) {
       console.error(error); // Log the error, but don't show to user
