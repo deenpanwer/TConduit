@@ -8,65 +8,69 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { Info } from "lucide-react"; // Importing an icon for the tooltip trigger
+import { Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MetersProps {
   competencyScore?: number;
   agencyScore?: number;
 }
 
-const MeterArc: React.FC<{ score: number; color: string; title: string; description: string }> = ({ score, color, title, description }) => {
-  const radius = 40;
-  const fullCircumference = 2 * Math.PI * radius;
-  const partialCircumference = 0.75 * fullCircumference; // 75% of the circumference
+interface MeterArcProps {
+    score: number;
+    color: string;
+    title: string;
+    description: string;
+}
 
-  // Calculate the dashoffset based on the score and partial circumference
-  const dashoffset = partialCircumference - (score / 100) * partialCircumference;
+const MeterArc: React.FC<MeterArcProps> = ({ score, color, title, description }) => {
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-card rounded-lg shadow-lg">
-      <div className="flex items-center gap-2 mb-2">
-        <h4 className="text-lg font-semibold text-foreground">{title}</h4>
-        <Tooltip>
-          <TooltipTrigger className="cursor-pointer">
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{description}</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <div className="relative w-32 h-32">
-        <svg className="w-full h-full transform -rotate-135" viewBox="0 0 100 100">
-          <circle
-            className="text-gray-300"
-            strokeWidth="10"
-            stroke="currentColor"
-            fill="transparent"
-            r={radius}
-            cx="50"
-            cy="50"
-            strokeDasharray={partialCircumference}
-            strokeDashoffset="0"
-          />
-          <motion.circle
-            className={color}
-            strokeWidth="10"
-            strokeDasharray={partialCircumference}
-            strokeDashoffset={partialCircumference} // Start fully hidden
-            strokeLinecap="round"
-            stroke="currentColor"
-            fill="transparent"
-            r={radius}
-            cx="50"
-            cy="50"
-            animate={{ strokeDashoffset: dashoffset }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold text-foreground">
-          {score}%
+    <div className="flex flex-col items-center justify-center">
+        <div className="relative w-24 h-24">
+            <svg className="w-full h-full" viewBox="0 0 80 80">
+                <circle
+                    className="text-muted/20"
+                    strokeWidth="8"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r={radius}
+                    cx="40"
+                    cy="40"
+                />
+                <motion.circle
+                    className={color}
+                    strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={circumference}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r={radius}
+                    cx="40"
+                    cy="40"
+                    transform="rotate(-90 40 40)"
+                    animate={{ strokeDashoffset }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-foreground">
+                {score}%
+            </div>
         </div>
+        <div className="flex items-center gap-1 mt-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">{title}</h4>
+            <Tooltip>
+                <TooltipTrigger className="cursor-pointer">
+                    <Info className="h-3 w-3 text-muted-foreground/70" />
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p className="max-w-xs">{description}</p>
+                </TooltipContent>
+            </Tooltip>
       </div>
     </div>
   );
@@ -74,23 +78,23 @@ const MeterArc: React.FC<{ score: number; color: string; title: string; descript
 
 
 const Meters: React.FC<MetersProps> = ({
-  competencyScore = 85, // Placeholder score
-  agencyScore = 70, // Placeholder score
+  competencyScore = 0,
+  agencyScore = 0,
 }) => {
   return (
     <TooltipProvider>
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-row justify-center gap-8 w-full">
         <MeterArc
           score={competencyScore}
           color="text-green-500"
           title="Competency"
-          description="Competency: Reflects the candidate's skills and knowledge."
+          description="Measures the alignment of the candidate's verified skills, experience, and past project success with your specific job requirements."
         />
         <MeterArc
           score={agencyScore}
           color="text-blue-500"
           title="Agency"
-          description="Agency: Represents the candidate's proactive and self-driven nature."
+          description="Evaluates indicators of proactivity, reliability, and self-management, such as response time, client reviews, and project completion rates."
         />
       </div>
     </TooltipProvider>

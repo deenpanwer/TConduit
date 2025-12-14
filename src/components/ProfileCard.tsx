@@ -1,3 +1,4 @@
+
 "use client";
 
 import { motion } from "framer-motion";
@@ -6,6 +7,7 @@ import Image from "next/image";
 import { Star } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Meters from "./Meters"; // Import the integrated meters
 
 interface ProfileCardProps {
   name?: string | null;
@@ -19,6 +21,8 @@ interface ProfileCardProps {
   averageResponseTime?: string | null;
   email?: string | null;
   phone?: string | null;
+  competencyScore?: number;
+  agencyScore?: number;
 }
 
 const MAX_SKILLS_DISPLAY = 7;
@@ -35,6 +39,8 @@ const ProfileCard = ({
   averageResponseTime,
   email,
   phone,
+  competencyScore,
+  agencyScore,
 }: ProfileCardProps) => {
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -71,27 +77,40 @@ const ProfileCard = ({
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-card border rounded-lg p-6 flex flex-col items-center text-center shadow-lg h-full max-w-lg mx-auto relative overflow-hidden"
+      className="bg-card border rounded-lg p-6 flex flex-col items-center text-center shadow-lg w-full max-w-md mx-auto relative overflow-hidden"
     >
       <Image
-        src={imageUrl ?? '/default-avatar.png'} // Provide a default image
+        src={imageUrl ?? '/default-avatar.png'}
         alt={name ?? 'Profile picture'}
         width={96}
         height={96}
-        className="rounded-full mb-4 object-cover"
+        className="rounded-full mb-4 object-cover border-2 border-primary"
       />
       <h3 className="text-2xl font-bold text-card-foreground mb-1">{name ?? 'Unknown Name'}</h3>
-      <p className="text-md text-muted-foreground mb-2 px-4">{title ?? 'No title provided'}</p>
-      <div className="flex items-center mb-2">
-        {renderStars(rating ?? 0)}
-        <span className="ml-2 text-sm text-gray-500">({numReviews ?? 0} reviews)</span>
+      <p className="text-md text-muted-foreground mb-4 px-4">{title ?? 'No title provided'}</p>
+      
+      <div className="flex items-center justify-center space-x-4 mb-4 text-sm text-muted-foreground">
+        <div className="flex items-center">
+            {renderStars(rating ?? 0)}
+            <span className="ml-2">({numReviews ?? 0})</span>
+        </div>
+        <div className="flex items-center">
+            <span>{sellerLevel ?? 'N/A'}</span>
+        </div>
+        <div className="flex items-center">
+            <span>{averageResponseTime ?? 'N/A'}</span>
+        </div>
       </div>
-      <p className="text-sm text-gray-500 mb-2">{sellerLevel ?? 'N/A'}</p>
-      <p className="text-sm text-gray-500 mb-4">{averageResponseTime ?? 'N/A'}</p>
-      <p className="text-sm text-gray-500 mb-4 flex-grow">{description ?? 'No description.'}</p>
+      
+      {/* Integrated Meters */}
+      <div className="w-full my-4">
+        <Meters competencyScore={competencyScore} agencyScore={agencyScore} />
+      </div>
+
+      <p className="text-sm text-muted-foreground mb-6 flex-grow">{description ?? 'No description.'}</p>
 
       {/* Skills Section */}
-      <div className="flex flex-wrap justify-center gap-2 mb-4">
+      <div className="w-full flex flex-wrap justify-center gap-2 mb-6">
         {displayedSkills.map((skill, index) => (
           <span
             key={index}
@@ -102,10 +121,10 @@ const ProfileCard = ({
         ))}
         {hasMoreSkills && (
           <Button
-            variant="ghost"
+            variant="link"
             size="sm"
             onClick={() => setShowAllSkills(!showAllSkills)}
-            className="text-xs text-blue-500 hover:underline"
+            className="text-xs h-auto p-1"
           >
             {showAllSkills ? "Show Less" : "Show More"}
           </Button>
@@ -119,7 +138,7 @@ const ProfileCard = ({
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-sm text-gray-700 dark:text-gray-300 space-y-1 mb-4"
+          className="text-sm text-muted-foreground space-y-1 mb-4"
         >
           <p><strong>Email:</strong> {email ?? 'Not available'}</p>
           <p><strong>Phone:</strong> {phone ?? 'Not available'}</p>
@@ -128,10 +147,10 @@ const ProfileCard = ({
 
       {/* Action Buttons */}
       <div className="flex gap-4 mt-auto w-full justify-center">
-        <Button variant="default" onClick={() => setShowContact(!showContact)}>
-          {showContact ? "Hide Contact" : "Contact Him"}
+        <Button variant="default" onClick={() => setShowContact(!showContact)} className="flex-1">
+          {showContact ? "Hide Contact" : "Contact"}
         </Button>
-        <Button variant="outline" onClick={handleWrongHire} className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-500">
+        <Button variant="outline" onClick={handleWrongHire} className="flex-1 text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-500">
           Wrong Hire
         </Button>
       </div>
