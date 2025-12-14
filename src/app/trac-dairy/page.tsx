@@ -3,9 +3,10 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Apple } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -64,7 +65,7 @@ const DownloadManager = () => {
             <Button
                 asChild
                 size="lg"
-                className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white"
+                className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white disabled:bg-green-600/50 disabled:cursor-not-allowed"
                 disabled={!currentDownload}
             >
                 <a href={currentDownload?.href} download>
@@ -76,6 +77,28 @@ const DownloadManager = () => {
       </div>
     );
 };
+
+const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title: string; comingSoon?: boolean }) => (
+  <div className={cn(
+    "flex-1 p-6 rounded-lg border bg-card text-card-foreground shadow-sm transition-all",
+    comingSoon ? "bg-muted/50 opacity-60" : "hover:shadow-md"
+  )}>
+    <div className="flex flex-col h-full">
+      <div className="flex-grow">
+        {icon}
+      </div>
+      <div className="mt-4">
+        <a href="#" className={cn(
+          "text-sm font-medium text-primary hover:underline",
+          comingSoon && "pointer-events-none text-muted-foreground"
+        )}>
+          {title} {comingSoon ? '' : '→'}
+          {comingSoon && <span className="text-xs ml-1">(Coming Soon)</span>}
+        </a>
+      </div>
+    </div>
+  </div>
+);
 
 
 export default function TracDairyDownloadPage() {
@@ -93,7 +116,7 @@ export default function TracDairyDownloadPage() {
         </Link>
       </header>
 
-      <main className="pt-24">
+      <main className="pt-24 pb-20">
         {/* Hero Section */}
         <section className="py-16 bg-muted/30">
           <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -113,7 +136,7 @@ export default function TracDairyDownloadPage() {
                 width={600}
                 height={400}
                 className="rounded-lg shadow-2xl"
-                data-ai-hint="desktop app ui"
+                data-ai-hint="desktop app time tracking"
               />
             </div>
           </div>
@@ -175,6 +198,30 @@ export default function TracDairyDownloadPage() {
             </div>
           </div>
         </section>
+
+        {/* "Also Available For" Section */}
+        <section className="py-20">
+          <div className="container mx-auto">
+            <h2 className="text-2xl font-bold mb-6">Also available for</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <OtherOSCard
+                icon={<img src="https://www.svgrepo.com/show/303144/windows-10-logo.svg" alt="Windows Icon" className="h-8 w-8" />}
+                title="Windows OS"
+              />
+              <OtherOSCard
+                icon={<img src="https://www.svgrepo.com/show/303139/apple-13-logo.svg" alt="macOS Icon" className="h-8 w-8" />}
+                title="MacOS"
+                comingSoon
+              />
+              <OtherOSCard
+                icon={<img src="https://www.svgrepo.com/show/354429/tux.svg" alt="Linux Icon" className="h-8 w-8" />}
+                title="Linux"
+                comingSoon
+              />
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   );
