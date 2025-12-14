@@ -22,8 +22,8 @@ const downloadOptions = [
     {
       label: "Latest",
       options: [
-        { value: "win32-latest", label: "Windows (32-bit)", href: "https://storage.googleapis.com/trac-releases/TracDairy-Installer.exe" },
-        { value: "win64-latest", label: "Windows (64-bit)", href: "https://storage.googleapis.com/trac-releases/TracDairy-Installer-x64.exe" },
+        { value: "win32-latest", label: "Windows (32-bit)", href: "https://<your-project-ref>.supabase.co/storage/v1/object/public/installers/TracDairy-Installer.exe" },
+        { value: "win64-latest", label: "Windows (64-bit)", href: "https://<your-project-ref>.supabase.co/storage/v1/object/public/installers/TracDairy-Installer-x64.exe" },
       ]
     }
 ];
@@ -155,7 +155,7 @@ export default function TracDairyDownloadPage() {
               <ul className="space-y-3 text-muted-foreground text-left max-w-md mx-auto">
                 <li className="flex items-start">
                   <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  <span>Images of your screen taken randomly up to 6 times an hour.</span>
+                  <span>Images of your screen taken randomly.</span>
                 </li>
                 <li className="flex items-start">
                   <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
