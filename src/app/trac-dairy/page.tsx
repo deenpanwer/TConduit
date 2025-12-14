@@ -4,15 +4,18 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Apple } from 'lucide-react';
-import { SiWindows11 as SiWindows } from '@icons-pack/react-simple-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { ChevronUp } from 'lucide-react';
 
-const TuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const TuxIcon = (props: React.IMG_HTML_Attributes<HTMLImageElement>) => (
     <img src="https://www.svgrepo.com/show/303623/tux-linux-logo.svg" alt="Linux" {...props} />
+);
+
+const WindowsIcon = (props: React.IMG_HTML_Attributes<HTMLImageElement>) => (
+    <img src="https://www.svgrepo.com/show/355410/windows-11.svg" alt="Windows" {...props} />
 );
 
 const OperatingSystemButtons = () => {
@@ -26,7 +29,7 @@ const OperatingSystemButtons = () => {
           onClick={() => setSelectedOs('windows')}
           className="flex items-center gap-2"
         >
-          <SiWindows size={18} />
+          <WindowsIcon className="w-[18px] h-[18px]" />
           <span>Windows</span>
         </Button>
         <Button
@@ -68,7 +71,6 @@ const OperatingSystemButtons = () => {
 
 
 export default function TracDairyDownloadPage() {
-    const [showIdeationPanel, setShowIdeationPanel] = React.useState(false);
 
   return (
     <div className="bg-background min-h-screen text-foreground">
@@ -145,7 +147,7 @@ export default function TracDairyDownloadPage() {
                   <span>Images of your screen taken randomly up to 6 times an hour.</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0_0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   <span>The names of the applications you are using.</span>
                 </li>
               </ul>
