@@ -22,14 +22,13 @@ const downloadOptions = [
     {
       label: "Latest",
       options: [
-        { value: "win32-latest", label: "Windows (32-bit)", href: "https://<your-project-ref>.supabase.co/storage/v1/object/public/installers/TracDairy-Installer.exe" },
-        { value: "win64-latest", label: "Windows (64-bit)", href: "https://<your-project-ref>.supabase.co/storage/v1/object/public/installers/TracDairy-Installer-x64.exe" },
+        { value: "win-latest", label: "Windows", href: "/TracDairy-Installer.exe" },
       ]
     }
 ];
 
 const DownloadManager = () => {
-    const [selectedDownload, setSelectedDownload] = useState('');
+    const [selectedDownload, setSelectedDownload] = useState('win-latest');
   
     const findDownload = (value: string) => {
         for (const group of downloadOptions) {
@@ -108,19 +107,11 @@ export default function TracDairyDownloadPage() {
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
-        <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
-          <p className="text-sm text-muted-foreground text-right md:text-left">10,000+ freelancers have joined</p>
-          <Link href="/join">
-            <Button variant="outline" className="h-8 animate-shake">
-              Join the Network
-            </Button>
-          </Link>
-        </div>
       </header>
 
       <main className="pt-24 pb-12 sm:pb-20">
         {/* Hero Section */}
-        <section className="py-16 sm:py-24 bg-muted/30">
+        <section className="py-24 sm:py-32 bg-muted/30">
           <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
             <div className="flex flex-col gap-4 text-center md:text-left">
               <h1 className="text-4xl sm:text-5xl font-bold font-playfair tracking-tight">Get Trac on your desktop</h1>
@@ -133,7 +124,7 @@ export default function TracDairyDownloadPage() {
             </div>
             <div className="flex items-center justify-center">
               <Image
-                src="https://picsum.photos/seed/app-ui/600/400"
+                src="/dairy/1.png"
                 alt="Trac Dairy App UI"
                 width={600}
                 height={400}
@@ -146,8 +137,8 @@ export default function TracDairyDownloadPage() {
 
         {/* Feature 2: What it captures */}
         <section className="py-16 sm:py-20">
-          <div className="container mx-auto px-4 text-center">
-            <div className="max-w-3xl mx-auto">
+          <div className="container mx-auto px-4">
+            <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl font-bold font-playfair mb-4">What the app captures</h2>
               <p className="text-muted-foreground mb-6">
                 When you turn the tracker on, Trac will see:
@@ -155,7 +146,7 @@ export default function TracDairyDownloadPage() {
               <ul className="space-y-3 text-muted-foreground text-left max-w-md mx-auto">
                 <li className="flex items-start">
                   <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  <span>Images of your screen taken randomly.</span>
+                  <span>Images of your screen taken randomly up to 6 times an hour.</span>
                 </li>
                 <li className="flex items-start">
                   <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -171,8 +162,8 @@ export default function TracDairyDownloadPage() {
 
         {/* Feature 1: Proof of Work */}
         <section className="py-16 sm:py-20 bg-muted/30">
-          <div className="container mx-auto px-4 text-center">
-             <div className="max-w-3xl mx-auto">
+          <div className="container mx-auto px-4">
+             <div className="max-w-3xl mx-auto text-center">
                 <h2 className="text-3xl font-bold font-playfair mb-4">Verifiable Proof of Work</h2>
                 <p className="text-muted-foreground">
                     Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone. When you turn on the tracker, our AI builds a verifiable log of your contributions and skills.
@@ -187,16 +178,16 @@ export default function TracDairyDownloadPage() {
             <h2 className="text-2xl font-bold mb-6 text-center">Available for</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <OtherOSCard
-                icon={<img src="https://www.svgrepo.com/show/354530/windows.svg" alt="Windows Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/windows.png" alt="Windows Icon" className="h-8 w-8" />}
                 title="Windows OS"
               />
               <OtherOSCard
-                icon={<img src="https://www.svgrepo.com/show/448224/apple.svg" alt="macOS Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/apple-logo.png" alt="macOS Icon" className="h-8 w-8" />}
                 title="MacOS"
                 comingSoon
               />
               <OtherOSCard
-                icon={<img src="https://www.svgrepo.com/show/354411/tux.svg" alt="Linux Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/linux.png" alt="Linux Icon" className="h-8 w-8" />}
                 title="Linux"
                 comingSoon
               />

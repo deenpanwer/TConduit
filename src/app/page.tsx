@@ -436,7 +436,7 @@ export default function Home() {
         </h1>
         <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
           <p className="text-sm text-muted-foreground text-right md:text-left">10,000+ freelancers have joined</p>
-          <Link href="/join">
+          <Link href="/trac-dairy">
             <Button variant="outline" className="h-8 animate-shake">
               Join the Network
             </Button>
@@ -578,4 +578,3 @@ export default function Home() {
     </main> 
   );
 }
-
