@@ -15,7 +15,6 @@ import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { useTheme } from "next-themes";
 import ProfileCard from "@/components/ProfileCard";
 import Link from "next/link";
-import Meters from "@/components/Meters";
 import { embedText } from "@/app/actions"; // Correctly import embedText
 import { createClient } from '@supabase/supabase-js'; // Import Supabase client
 import { Plan2 } from "@/components/ai-elements/plan2";
@@ -73,8 +72,6 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 const SearchPage = () => {
   const [stage, setStage] = useState("stage1");
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [competencyScore, setCompetencyScore] = useState(0); // Initial score
-  const [agencyScore, setAgencyScore] = useState(0); // Initial score
   
   const { theme, setTheme } = useTheme();
 
@@ -181,8 +178,6 @@ const SearchPage = () => {
         if (bestProfile) {
             console.log(`Best profile found via client-side search: ${bestProfile.name} with similarity ${highestSimilarity}`);
             setBestProfile(bestProfile);
-            setCompetencyScore(bestProfile.competence_score ?? 0);
-            setAgencyScore(bestProfile.agency_score ?? 0);
         } else {
             console.log("Could not determine a best profile from the returned set.");
             setBestProfile(null);
@@ -257,22 +252,16 @@ const SearchPage = () => {
             )}
 
             {stage === "stage3" && (
-              <motion.div
+               <motion.div
                 key="stage3"
-              initial={{ opacity: 0 }}
+                initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-full flex flex-row items-start justify-center max-w-5xl gap-8"
+                className="w-full flex items-start justify-center max-w-5xl"
               >
-                <div className="flex flex-col items-start space-y-6 p-4 rounded-lg bg-gray-800 text-white shadow-lg">
-                  <h3 className="text-xl font-bold mb-2">Performance Barometers</h3>
-                  <Meters
-                    competencyScore={competencyScore}
-                    agencyScore={agencyScore}
-                  />
-                </div>
-
-                {isLoadingProfile ? null : bestProfile ? (
+                {isLoadingProfile ? (
+                  <p>Searching for the best candidate...</p>
+                ) : bestProfile ? (
                   <ProfileCard
                     name={bestProfile.name}
                     title={bestProfile.headline}
@@ -285,9 +274,11 @@ const SearchPage = () => {
                     averageResponseTime={bestProfile.average_response_time}
                     email={bestProfile.email}
                     phone={bestProfile.phone_number}
+                    competencyScore={bestProfile.competence_score ?? 0}
+                    agencyScore={bestProfile.agency_score ?? 0}
                   />
                 ) : (
-                  <p className="text-white">No suitable profile found.</p>
+                  <p className="text-muted-foreground">No suitable profile found.</p>
                 )}
               </motion.div>
             )}
@@ -298,4 +289,3 @@ const SearchPage = () => {
 };
 
 export default SearchPage;
-
