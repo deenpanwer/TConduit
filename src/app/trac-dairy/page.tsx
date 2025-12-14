@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Apple } from 'lucide-react';
-import { SiWindows as Windows } from '@icons-pack/react-simple-icons';
+import { SiWindows } from '@icons-pack/react-simple-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ const OperatingSystemButtons = () => {
           onClick={() => setSelectedOs('windows')}
           className="flex items-center gap-2"
         >
-          <Windows size={18} />
+          <SiWindows size={18} />
           <span>Windows</span>
         </Button>
         <Button
