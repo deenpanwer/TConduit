@@ -22,8 +22,8 @@ const downloadOptions = [
     {
       label: "Latest",
       options: [
-        { value: "win32-latest", label: "Windows (32-bit)", href: "/downloads/TracDairy-Installer.exe" },
-        { value: "win64-latest", label: "Windows (64-bit)", href: "/downloads/TracDairy-Installer-x64.exe" },
+        { value: "win32-latest", label: "Windows (32-bit)", href: "https://storage.googleapis.com/trac-releases/TracDairy-Installer.exe" },
+        { value: "win64-latest", label: "Windows (64-bit)", href: "https://storage.googleapis.com/trac-releases/TracDairy-Installer-x64.exe" },
       ]
     }
 ];
@@ -104,7 +104,7 @@ export default function TracDairyDownloadPage() {
 
   return (
     <div className="bg-background min-h-screen text-foreground">
-      <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
+       <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
         <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
         </h1>
