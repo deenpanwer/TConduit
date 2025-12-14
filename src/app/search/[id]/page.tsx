@@ -2,21 +2,6 @@
 "use client";
 
 import {
-  Plan,
-  PlanContent,
-  PlanDescription,
-  PlanFooter,
-  PlanHeader,
-  PlanTitle,
-  PlanTrigger,
-  PlanAction,
-} from "@/components/ai-elements/plan";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import {
   Task,
   TaskContent,
   TaskItem,
@@ -30,10 +15,10 @@ import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { useTheme } from "next-themes";
 import ProfileCard from "@/components/ProfileCard";
 import Link from "next/link";
-import PlanSkeleton from "@/components/ai-elements/PlanSkeleton";
 import Meters from "@/components/Meters";
 import { embedText } from "@/app/actions"; // Correctly import embedText
 import { createClient } from '@supabase/supabase-js'; // Import Supabase client
+import { Plan2 } from "@/components/ai-elements/plan2";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -90,96 +75,33 @@ const SearchPage = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [competencyScore, setCompetencyScore] = useState(0); // Initial score
   const [agencyScore, setAgencyScore] = useState(0); // Initial score
-  const [isEditing, setIsEditing] = useState(false);
-  const [markdown, setMarkdown] = useState('');
-
-
+  
   const { theme, setTheme } = useTheme();
 
   // Data from Genkit via sessionStorage
-  const [planData, setPlanData] = useState<any | null>(null);
   const [userQuery, setUserQuery] = useState<string | null>(null);
+  const [confirmedPlan, setConfirmedPlan] = useState<{title: string, final_query: string} | null>(null);
+
 
   // States for fetched profile and loading
   const [bestProfile, setBestProfile] = useState<ProfileData | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-
-  // Streaming states for Reasoning component
-  const [content, setContent] = useState("");
-  const [isStreamingReasoning, setIsStreamingReasoning] = useState(false);
-  const [currentTokenIndex, setCurrentTokenIndex] = useState(0);
-  const [tokens, setTokens] = useState<string[]>([]);
-
   // User email initial for profile icon
   const [userEmailInitial, setUserEmailInitial] = useState<string | null>(null);
 
-  // Function to chunk text into fake tokens
-  const chunkIntoTokens = useCallback((text: string): string[] => {
-    const tokens: string[] = [];
-    let i = 0;
-    while (i < text.length) {
-      const chunkSize = Math.floor(Math.random() * 2) + 3;
-      tokens.push(text.slice(i, i + chunkSize));
-      i += chunkSize;
-    }
-    return tokens;
-  }, []);
-
-    const planToMarkdown = (data: any) => {
-        if (!data) return '';
-        const steps = data.keySteps.map((step: string) => `* ${step}`).join('\n');
-        return `# ${data.title}\n\n${data.description}\n\n### Key Steps\n${steps}`;
-    };
-
-    const markdownToPlan = (markdown: string) => {
-        const lines = markdown.split('\n');
-
-        const title = lines.find(line => line.startsWith('# '))?.substring(2).trim() || '';
-
-        const titleIndex = lines.findIndex(line => line.startsWith('# '));
-        const stepsIndex = lines.findIndex(line => line.startsWith('### Key Steps'));
-
-        const description = lines
-            .slice(titleIndex + 1, stepsIndex)
-            .join('\n')
-            .trim();
-
-        const keySteps = lines
-            .slice(stepsIndex + 1)
-            .filter(line => line.startsWith('* '))
-            .map(line => line.substring(2).trim());
-
-        return { title, description, keySteps };
-    };
-
-    const handleEdit = () => {
-        setMarkdown(planToMarkdown(planData));
-        setIsEditing(true);
-    };
-
-    const handleSave = () => {
-        const newPlanData = markdownToPlan(markdown);
-        setPlanData({ ...planData, ...newPlanData });
-        setIsEditing(false);
-    };
+  const handlePlanConfirmed = (result: { title: string; final_query: string }) => {
+    setConfirmedPlan(result);
+    setUserQuery(result.final_query); // Set the user query to the confirmed final_query
+    setStage("stage2");
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedPlanData = sessionStorage.getItem('generatedPlanData');
+      // The user query is now the defining piece of state, let's get it from the session.
       const storedUserQuery = sessionStorage.getItem('userQueryForPlan');
       const storedUserEmail = sessionStorage.getItem('userEmail');
 
-      if (storedPlanData) {
-        const parsedPlanData = JSON.parse(storedPlanData);
-        setPlanData(parsedPlanData);
-        if (parsedPlanData.competence_score !== undefined) {
-          setCompetencyScore(parsedPlanData.competence_score);
-        }
-        if (parsedPlanData.agency_score !== undefined) {
-          setAgencyScore(parsedPlanData.agency_score);
-        }
-      }
       if (storedUserQuery) {
         console.log("Retrieved query from session storage:", storedUserQuery);
         setUserQuery(storedUserQuery);
@@ -275,37 +197,12 @@ const SearchPage = () => {
       }
     };
 
-    findAndSetBestProfile();
-  }, [userQuery]); // This effect runs when userQuery is set
-
-  // Initialize reasoning streaming
-  useEffect(() => {
-    if (planData && planData.rawReasoning) {
-      const tokenizedSteps = chunkIntoTokens(planData.rawReasoning);
-      setTokens(tokenizedSteps);
-      setContent("");
-      setCurrentTokenIndex(0);
-      setIsStreamingReasoning(true);
+    // Only run the search if we are in the later stages.
+    if(stage === 'stage2' || stage === 'stage3') {
+        findAndSetBestProfile();
     }
-  }, [planData, chunkIntoTokens]);
+  }, [userQuery, stage]); // This effect runs when userQuery or stage changes
 
-
-  // Stream content token by token
-  useEffect(() => {
-    if (!isStreamingReasoning || currentTokenIndex >= tokens.length) {
-      if (isStreamingReasoning) {
-        setIsStreamingReasoning(false);
-      }
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setContent((prev) => prev + tokens[currentTokenIndex]);
-      setCurrentTokenIndex((prev) => prev + 1);
-    }, 25); 
-
-    return () => clearTimeout(timer);
-  }, [isStreamingReasoning, currentTokenIndex, tokens]);
 
   // Auto-advance from Stage 2 to Stage 3
   useEffect(() => {
@@ -323,45 +220,6 @@ const SearchPage = () => {
   
     return (
       <div className="flex h-screen bg-background text-foreground">
-        {/* Side Strip */}
-        {/*
-        <div
-          className={`bg-card border-r transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"}`}
-        >
-          <div className="p-4 flex flex-col h-full">
-            <div className="flex items-center justify-between">
-              {!isCollapsed && <Link href="/" className="font-bold text-2xl">Trac</Link>}
-              <Link href="/" className="font-bold text-2xl">
-              <img
-                src="/1.png"
-                alt="Trac Logo"
-                className="w-8 h-8"
-              />
-              </Link>
-            </div>
-
-            <div className="flex-grow"></div>
-            <div className="flex flex-col items-center">
-              <div className="mb-4">
-                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-lg font-semibold">
-                  {userEmailInitial}
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-              >
-                {isCollapsed ? <ChevronsRight /> : <ChevronsLeft />}
-              </Button>
-                <Button variant="ghost" size="icon" onClick={toggleTheme}>
-                  {theme === "light" ? <Moon /> : <Sun />}
-                </Button>
-            </div>
-          </div>
-        </div>
-        */}
-
         {/* Main Content */}
         <main className="flex-1 p-8 flex items-center justify-center">
           <AnimatePresence mode="wait">
@@ -373,95 +231,10 @@ const SearchPage = () => {
                 exit={{ opacity: 0 }}
                 className="w-full max-w-2xl"
               >
-                {planData ? (
-                  <>
-                    <Reasoning
-                      className="w-full"
-                      isStreaming={isStreamingReasoning}
-                    >
-                      <ReasoningTrigger />
-                      <ReasoningContent>{content}</ReasoningContent>
-                    </Reasoning>
-
-                    <AnimatePresence>
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        {isStreamingReasoning ? (
-                          <PlanSkeleton />
-                        ) : (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.2, duration: 0.5 }}
-                          >
-                            {isEditing ? (
-                              <div className="w-full mt-4 p-4 border rounded-lg bg-card shadow-sm">
-                                <h3 className="text-lg font-semibold mb-4">Edit Plan (Markdown)</h3>
-                                <textarea
-                                  value={markdown}
-                                  onChange={(e) => setMarkdown(e.target.value)}
-                                  className="w-full h-96 p-4 border rounded-lg bg-background font-mono text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                                <div className="flex justify-end gap-2 mt-4">
-                                  <Button onClick={() => setIsEditing(false)} variant="ghost">Cancel</Button>
-                                  <Button onClick={handleSave}>Save Changes</Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <Plan className="mt-4" defaultOpen={true}>
-                                <PlanHeader>
-                                  <div>
-                                    <div className="mb-4 flex items-center gap-2">
-                                      <FileText className="size-4" />
-                                      <PlanTitle>{planData.title}</PlanTitle>
-                                    </div>
-                                    <PlanDescription>{planData.description}</PlanDescription>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <PlanTrigger />
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={handleEdit}
-                                      className="ml-2"
-                                    >
-                                      <Pencil className="size-4" />
-                                    </Button>
-                                  </div>
-                                </PlanHeader>
-                                <PlanContent>
-                                  <div className="space-y-4 text-sm">
-                                    <div>
-                                      <h3 className="mb-2 font-semibold">Key Steps</h3>
-                                      <ul className="list-inside list-disc space-y-1">
-                                        {planData.keySteps.map((step: string, index: number) => (
-                                          <li key={index}>{step}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </PlanContent>
-                                <PlanFooter className="justify-end">
-                                  <PlanAction>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => setStage("stage2")}
-                                    >
-                                      Start Hiring <kbd className="font-mono">⌘↩</kbd>
-                                    </Button>
-                                  </PlanAction>
-                                </PlanFooter>
-                              </Plan>
-                            )}
-                          </motion.div>                        )}
-                      </motion.div>
-                    </AnimatePresence>
-                  </>
+                {userQuery ? (
+                    <Plan2 userQuery={userQuery} onPlanConfirmed={handlePlanConfirmed} />
                 ) : (
-                  <PlanSkeleton /> 
+                    <div>Loading...</div>
                 )}
               </motion.div>
             )}
@@ -475,7 +248,7 @@ const SearchPage = () => {
                 className="w-full max-w-2xl"
               >
                 <Task className="w-full">
-                  <TaskTrigger title="Finding Candidates" />
+                  <TaskTrigger title={confirmedPlan ? `Finding: ${confirmedPlan.title}` : "Finding Candidates"} />
                   <TaskContent>
                     <SocialScan2 />
                   </TaskContent>
