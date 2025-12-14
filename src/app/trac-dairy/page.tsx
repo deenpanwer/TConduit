@@ -3,70 +3,80 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Apple } from 'lucide-react';
+import { Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { IdeationPanel } from '@/components/IdeationPanel';
-import { ChevronUp } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-const TuxIcon = (props: React.IMG_HTML_Attributes<HTMLImageElement>) => (
-    <img src="https://www.svgrepo.com/show/303623/tux-linux-logo.svg" alt="Linux" {...props} />
-);
 
-const WindowsIcon = (props: React.IMG_HTML_Attributes<HTMLImageElement>) => (
-    <img src="https://www.svgrepo.com/show/355410/windows-11.svg" alt="Windows" {...props} />
-);
+const downloadOptions = [
+    {
+      label: "Latest",
+      options: [
+        { value: "win32-latest", label: "Windows (32-bit)", href: "/downloads/TracDairy-Installer.exe" },
+        { value: "win64-latest", label: "Windows (64-bit)", href: "/downloads/TracDairy-Installer-x64.exe" },
+      ]
+    },
+    {
+      label: "Beta",
+      options: [
+        { value: "win32-beta", label: "Windows (32-bit) Beta", href: "/downloads/TracDairy-Installer-beta.exe" },
+        { value: "win64-beta", label: "Windows (64-bit) Beta", href: "/downloads/TracDairy-Installer-x64-beta.exe" },
+      ]
+    }
+];
 
-const OperatingSystemButtons = () => {
-  const [selectedOs, setSelectedOs] = useState<'windows' | 'mac' | 'linux'>('windows');
+const DownloadManager = () => {
+    const [selectedDownload, setSelectedDownload] = useState(downloadOptions[0].options[0].value);
+  
+    const findDownload = (value: string) => {
+        for (const group of downloadOptions) {
+            const found = group.options.find(opt => opt.value === value);
+            if (found) return found;
+        }
+        return downloadOptions[0].options[0];
+    };
 
-  return (
-    <div className="flex flex-col items-start gap-4">
-      <div className="flex rounded-lg border p-1">
-        <Button
-          variant={selectedOs === 'windows' ? 'secondary' : 'ghost'}
-          onClick={() => setSelectedOs('windows')}
-          className="flex items-center gap-2"
-        >
-          <WindowsIcon className="w-[18px] h-[18px]" />
-          <span>Windows</span>
-        </Button>
-        <Button
-          variant={selectedOs === 'mac' ? 'secondary' : 'ghost'}
-          onClick={() => setSelectedOs('mac')}
-          className="flex items-center gap-2"
-          disabled
-        >
-          <Apple size={18} />
-          <span>macOS</span>
-        </Button>
-        <Button
-          variant={selectedOs === 'linux' ? 'secondary' : 'ghost'}
-          onClick={() => setSelectedOs('linux')}
-          className="flex items-center gap-2"
-          disabled
-        >
-          <TuxIcon className="w-[18px] h-[18px]" />
-          <span>Linux</span>
-        </Button>
+    const currentDownload = findDownload(selectedDownload);
+  
+    return (
+      <div className="flex flex-col items-start gap-4">
+        <div className="flex items-center gap-2">
+            <Select value={selectedDownload} onValueChange={setSelectedDownload}>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="Select a version" />
+              </SelectTrigger>
+              <SelectContent>
+                {downloadOptions.map(group => (
+                    <SelectGroup key={group.label}>
+                        <SelectLabel>{group.label}</SelectLabel>
+                        {group.options.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                            </SelectItem>
+                        ))}
+                    </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <a href={currentDownload.href} download>
+                <Button size="lg" className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                </Button>
+            </a>
+        </div>
       </div>
-      <div>
-        {selectedOs === 'windows' ? (
-          <a href="/downloads/TracDairy-Installer.exe" download>
-            <Button size="lg" className="h-12 px-8 text-base rounded-lg shadow-md bg-green-600 hover:bg-green-700 text-white">
-              <Download className="mr-3 h-5 w-5" />
-              Download
-            </Button>
-          </a>
-        ) : (
-          <Button size="lg" className="h-12 px-8 text-base rounded-lg shadow-md" disabled>
-            Coming Soon
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+    );
 };
 
 
@@ -95,7 +105,7 @@ export default function TracDairyDownloadPage() {
                 Build your verifiable work profile by letting our AI log your activity and identify your core competencies. Stay connected to opportunity.
               </p>
               <div className="mt-4">
-                <OperatingSystemButtons />
+                <DownloadManager />
               </div>
             </div>
             <div className="flex items-center justify-center">
