@@ -1,103 +1,161 @@
-
 'use client';
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText, BrainCircuit, ChevronUp } from 'lucide-react';
+import { Download, Check, Apple, Windows, Tux } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { IdeationPanel } from '@/components/IdeationPanel';
 import { cn } from '@/lib/utils';
 
-const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) => (
-  <div className="flex flex-col items-center p-6 text-center">
-    <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-primary/10 text-primary">
-      <Icon className="w-6 h-6" />
-    </div>
-    <h3 className="mb-2 text-lg font-semibold">{title}</h3>
-    <p className="text-sm text-muted-foreground">{description}</p>
-  </div>
-);
-
-export default function TracDairyDownloadPage() {
-  const [showIdeationPanel, setShowIdeationPanel] = useState(false);
+const OperatingSystemButtons = () => {
+  const [selectedOs, setSelectedOs] = useState<'windows' | 'mac' | 'linux'>('windows');
 
   return (
-    <div className="bg-background min-h-screen">
-      <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
-        <Link href="/" className="font-poppins font-bold text-2xl text-foreground">
-          TRAC
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/join">
-            <Button variant="outline" className="h-8 animate-shake">
-              Join the Network
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 pt-32 pb-16 flex flex-col items-center text-center">
-        <h1 className="text-4xl md:text-5xl font-bold font-playfair tracking-tight text-foreground">
-          Build Your Verifiable Work Profile
-        </h1>
-        <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          Turn your daily tasks into a verifiable record of your skills and unlock new hiring opportunities.
-        </p>
-
-        <div className="mt-8">
+    <div className="flex flex-col items-start gap-4">
+      <div className="flex rounded-lg border p-1">
+        <Button
+          variant={selectedOs === 'windows' ? 'secondary' : 'ghost'}
+          onClick={() => setSelectedOs('windows')}
+          className="flex items-center gap-2"
+        >
+          <Windows size={18} />
+          <span>Windows</span>
+        </Button>
+        <Button
+          variant={selectedOs === 'mac' ? 'secondary' : 'ghost'}
+          onClick={() => setSelectedOs('mac')}
+          className="flex items-center gap-2"
+          disabled
+        >
+          <Apple size={18} />
+          <span>macOS</span>
+        </Button>
+        <Button
+          variant={selectedOs === 'linux' ? 'secondary' : 'ghost'}
+          onClick={() => setSelectedOs('linux')}
+          className="flex items-center gap-2"
+          disabled
+        >
+          <Tux size={18} />
+          <span>Linux</span>
+        </Button>
+      </div>
+      <div>
+        {selectedOs === 'windows' ? (
           <a href="/downloads/TracDairy-Installer.exe" download>
-            <Button size="lg" className="h-14 px-8 text-lg rounded-xl shadow-lg">
+            <Button size="lg" className="h-12 px-8 text-base rounded-lg shadow-md bg-green-600 hover:bg-green-700 text-white">
               <Download className="mr-3 h-5 w-5" />
-              Download for Windows
+              Download
             </Button>
           </a>
-          <p className="mt-3 text-xs text-muted-foreground">
-            
-          </p>
-        </div>
+        ) : (
+          <Button size="lg" className="h-12 px-8 text-base rounded-lg shadow-md" disabled>
+            Coming Soon
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
-        <section className="mt-20 w-full max-w-5xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={Shield}
-              title="Verifiable Proof of Work"
-              description="Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone."
-            />
-            <FeatureCard
-              icon={BrainCircuit}
-              title="AI-Powered Skill Insights"
-              description="Our AI analyzes your activity to identify your core competencies and areas for growth, helping you level-up."
-            />
-            <FeatureCard
-              icon={Zap}
-              title="Unlock Hiring Opportunities"
-              description="Connect your verified skill profile directly to the Trac network and get matched with relevant job opportunities."
-            />
+
+export default function TracDairyDownloadPage() {
+  return (
+    <div className="bg-background min-h-screen text-foreground">
+      <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center z-10">
+        <Link href="/" className="font-poppins font-bold text-2xl">
+          TRAC
+        </Link>
+        <Link href="/join">
+          <Button variant="outline" className="h-8 animate-shake">
+            Join the Network
+          </Button>
+        </Link>
+      </header>
+
+      <main className="pt-24">
+        {/* Hero Section */}
+        <section className="py-16 bg-muted/30">
+          <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="flex flex-col gap-4">
+              <h1 className="text-5xl font-bold font-playfair tracking-tight">Get Trac on your desktop</h1>
+              <p className="text-lg text-muted-foreground">
+                Build your verifiable work profile by letting our AI log your activity and identify your core competencies. Stay connected to opportunity.
+              </p>
+              <div className="mt-4">
+                <OperatingSystemButtons />
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <Image
+                src="https://picsum.photos/seed/app-ui/600/400"
+                alt="Trac Dairy App UI"
+                width={600}
+                height={400}
+                className="rounded-lg shadow-2xl"
+                data-ai-hint="desktop app ui"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Feature 1 */}
+        <section className="py-20">
+          <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="flex items-center justify-center">
+              <Image
+                src="https://picsum.photos/seed/proof-of-work/600/400"
+                alt="Verifiable Proof of Work"
+                width={600}
+                height={400}
+                className="rounded-lg shadow-xl"
+                data-ai-hint="abstract proof"
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              <h2 className="text-3xl font-bold font-playfair">Verifiable Proof of Work</h2>
+              <p className="text-muted-foreground">
+                Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone. When you turn on the tracker, our AI builds a verifiable log of your contributions and skills.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Feature 2 */}
+        <section className="py-20 bg-muted/30">
+          <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="flex flex-col gap-3">
+              <h2 className="text-3xl font-bold font-playfair">What the app captures</h2>
+              <p className="text-muted-foreground mb-4">
+                When you turn the tracker on, Trac will see:
+              </p>
+              <ul className="space-y-3 text-muted-foreground">
+                <li className="flex items-start">
+                  <Check className="h-5 w-5 mr-3 text-green-500 shrink-0" />
+                  <span>Images of your screen taken randomly up to 6 times an hour.</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="h-5 w-5 mr-3 text-green-500 shrink-0" />
+                  <span>The names of the applications you are using.</span>
+                </li>
+              </ul>
+              <p className="mt-4 text-sm text-muted-foreground/80">
+                The app does not track what you type, your individual mouse clicks, or webcam footage. Your privacy and trust are paramount.
+              </p>
+            </div>
+             <div className="flex items-center justify-center">
+              <Image
+                src="https://picsum.photos/seed/developer-working/600/400"
+                alt="Developer working"
+                width={600}
+                height={400}
+                className="rounded-lg shadow-xl"
+                data-ai-hint="developer working"
+              />
+            </div>
           </div>
         </section>
       </main>
-
-      <footer className="fixed bottom-0 left-0 right-0 z-10 text-sm">
-            <div className="container mx-auto px-4 py-4">
-                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
-                    <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
-                      <p>Google for Hiring Freelancer</p>
-                    </div>
-                    <div className="relative py-3 px-4">
-                        <div className="flex justify-center md:justify-end">
-                             <button
-                                onClick={() => setShowIdeationPanel(prev => !prev)}
-                                className="flex items-center gap-2 text-sm font-medium text-foreground transition-transform hover:scale-105"
-                            >
-                                Ideate with PG <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
-                            </button>
-                            <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </footer>
     </div>
   );
 }
