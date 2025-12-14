@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Apple } from 'lucide-react';
+import { Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -104,15 +104,18 @@ export default function TracDairyDownloadPage() {
 
   return (
     <div className="bg-background min-h-screen text-foreground">
-      <header className="absolute top-0 left-0 right-0 px-4 sm:px-6 py-6 flex justify-between items-center z-10">
-        <Link href="/" className="font-poppins font-bold text-xl sm:text-2xl">
+      <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
+        <h1 className="font-poppins font-bold text-2xl text-foreground">
           TRAC
-        </Link>
-        <Link href="/join">
-          <Button variant="outline" className="h-8 animate-shake text-xs sm:text-sm">
-            Join the Network
-          </Button>
-        </Link>
+        </h1>
+        <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
+          <p className="text-sm text-muted-foreground text-right md:text-left">10,000+ freelancers have joined</p>
+          <Link href="/join">
+            <Button variant="outline" className="h-8 animate-shake">
+              Join the Network
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <main className="pt-24 pb-12 sm:pb-20">
@@ -144,7 +147,7 @@ export default function TracDairyDownloadPage() {
         {/* Feature 1 */}
         <section className="py-16 sm:py-20">
           <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center md:order-last">
               <Image
                 src="https://picsum.photos/seed/proof-of-work/600/400"
                 alt="Verifiable Proof of Work"
@@ -154,7 +157,7 @@ export default function TracDairyDownloadPage() {
                 data-ai-hint="abstract proof"
               />
             </div>
-            <div className="flex flex-col gap-3 text-center md:text-left">
+            <div className="flex flex-col gap-3 text-center md:text-left md:order-first">
               <h2 className="text-3xl font-bold font-playfair">Verifiable Proof of Work</h2>
               <p className="text-muted-foreground">
                 Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone. When you turn on the tracker, our AI builds a verifiable log of your contributions and skills.
@@ -166,7 +169,7 @@ export default function TracDairyDownloadPage() {
         {/* Feature 2 */}
         <section className="py-16 sm:py-20 bg-muted/30">
           <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="flex flex-col gap-3 text-center md:text-left md:order-last">
+            <div className="flex flex-col gap-3 text-center md:text-left">
               <h2 className="text-3xl font-bold font-playfair">What the app captures</h2>
               <p className="text-muted-foreground mb-4">
                 When you turn the tracker on, Trac will see:
@@ -185,7 +188,7 @@ export default function TracDairyDownloadPage() {
                 The app does not track what you type, your individual mouse clicks, or webcam footage. Your privacy and trust are paramount.
               </p>
             </div>
-             <div className="flex items-center justify-center md:order-first">
+             <div className="flex items-center justify-center">
               <Image
                 src="https://picsum.photos/seed/developer-working/600/400"
                 alt="Developer working"
