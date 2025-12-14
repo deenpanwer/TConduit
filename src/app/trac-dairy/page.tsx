@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Zap, Shield } from 'lucide-react';
+import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -34,10 +35,10 @@ export default function TracDairyDownloadPage() {
 
       <main className="container mx-auto px-4 pt-32 pb-16 flex flex-col items-center text-center">
         <h1 className="text-4xl md:text-5xl font-bold font-playfair tracking-tight text-foreground">
-          Trac Dairy for Windows
+          Trac Dairy for Freelancers
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          The simplest and most beautiful way to keep track of your daily thoughts, tasks, and memories.
+          The ultimate work diary. Track your hours with verifiable proof, build client trust, and get paid accurately.
         </p>
 
         <div className="mt-8">
@@ -60,7 +61,7 @@ export default function TracDairyDownloadPage() {
               width={1200}
               height={675}
               className="rounded-lg object-cover w-full h-full"
-              data-ai-hint="desktop app interface"
+              data-ai-hint="desktop app time tracking"
             />
           </div>
         </div>
@@ -68,19 +69,19 @@ export default function TracDairyDownloadPage() {
         <section className="mt-20 w-full max-w-5xl">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <FeatureCard
-              icon={CheckCircle}
-              title="Effortless Organization"
-              description="Seamlessly categorize your notes, to-dos, and daily entries with an intuitive tagging system."
+              icon={Clock}
+              title="Automated Time Tracking"
+              description="Focus on your work while Trac Dairy automatically logs your hours and activity in the background."
             />
             <FeatureCard
-              icon={Zap}
-              title="Blazingly Fast"
-              description="Built for speed, Trac Dairy launches instantly and stays responsive, so you never lose your train of thought."
+              icon={Handshake}
+              title="Build Client Trust"
+              description="Provide clients with a transparent, verifiable work diary complete with screenshots and activity levels."
             />
             <FeatureCard
-              icon={Shield}
-              title="Private and Secure"
-              description="Your data is stored locally on your machine, ensuring your thoughts and plans remain completely private."
+              icon={FileText}
+              title="Simplify Invoicing"
+              description="Generate accurate invoices effortlessly based on your tracked time, eliminating billing disputes."
             />
           </div>
         </section>
