@@ -1,11 +1,13 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText, BrainCircuit } from 'lucide-react';
+import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText, BrainCircuit, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { IdeationPanel } from '@/components/IdeationPanel';
+import { cn } from '@/lib/utils';
 
 const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) => (
   <div className="flex flex-col items-center p-6 text-center">
@@ -18,6 +20,8 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementTy
 );
 
 export default function TracDairyDownloadPage() {
+  const [showIdeationPanel, setShowIdeationPanel] = useState(false);
+
   return (
     <div className="bg-background min-h-screen">
       <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
@@ -53,19 +57,6 @@ export default function TracDairyDownloadPage() {
           </p>
         </div>
 
-        <div className="mt-16 w-full max-w-4xl">
-          <div className="aspect-video bg-muted/50 rounded-2xl p-2 border shadow-inner">
-            <Image
-              src="https://picsum.photos/seed/trac-dairy-app/1200/675"
-              alt="Trac Dairy App Screenshot"
-              width={1200}
-              height={675}
-              className="rounded-lg object-cover w-full h-full"
-              data-ai-hint="proof of work desktop app"
-            />
-          </div>
-        </div>
-
         <section className="mt-20 w-full max-w-5xl">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <FeatureCard
@@ -85,16 +76,28 @@ export default function TracDairyDownloadPage() {
             />
           </div>
         </section>
-
-        <footer className="mt-24 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} TRAC. All rights reserved.</p>
-          <div className="mt-2">
-            <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
-            <span className="mx-2">&middot;</span>
-            <Link href="/terms" className="hover:underline">Terms of Service</Link>
-          </div>
-        </footer>
       </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-10 text-sm">
+            <div className="container mx-auto px-4 py-4">
+                <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
+                    <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
+                      <p>Google for Hiring Freelancer</p>
+                    </div>
+                    <div className="relative py-3 px-4">
+                        <div className="flex justify-center md:justify-end">
+                             <button
+                                onClick={() => setShowIdeationPanel(prev => !prev)}
+                                className="flex items-center gap-2 text-sm font-medium text-foreground transition-transform hover:scale-105"
+                            >
+                                Ideate with PG <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
+                            </button>
+                            <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </div>
   );
 }
