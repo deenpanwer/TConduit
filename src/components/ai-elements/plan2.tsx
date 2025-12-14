@@ -23,7 +23,6 @@ type Stage =
   | "SHOWING_QUESTION"
   | "LOADING_REFINEMENT"
   | "SHOWING_REFINEMENT"
-  | "CONFIRMED"
   | "EDITING"
   | "ERROR";
 
@@ -80,7 +79,6 @@ export function Plan2({ userQuery, onPlanConfirmed }: Plan2Props) {
   const handleYes = () => {
     if (suggestion) {
       onPlanConfirmed(suggestion);
-      setStage("CONFIRMED");
     }
   };
 
@@ -117,7 +115,6 @@ export function Plan2({ userQuery, onPlanConfirmed }: Plan2Props) {
   const handleStartHiring = () => {
     if (suggestion) {
       onPlanConfirmed(suggestion);
-      setStage("CONFIRMED");
     }
   };
 
@@ -248,11 +245,6 @@ export function Plan2({ userQuery, onPlanConfirmed }: Plan2Props) {
             </motion.div>
         )}
 
-        {stage === "CONFIRMED" && suggestion && (
-            <motion.div key="confirmed" {...motionVariants}>
-                <h2 className="text-xl font-bold text-green-600">Great! We'll start looking for a {suggestion.title}.</h2>
-            </motion.div>
-        )}
       </AnimatePresence>
     </Card>
   );

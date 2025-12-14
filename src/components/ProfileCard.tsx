@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface ProfileCardProps {
   name?: string | null;
@@ -37,6 +38,11 @@ const ProfileCard = ({
 }: ProfileCardProps) => {
   const [showAllSkills, setShowAllSkills] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const router = useRouter();
+
+  const handleWrongHire = () => {
+    router.push('/');
+  };
 
   const safeSkills = skills ?? [];
   const displayedSkills = showAllSkills ? safeSkills : safeSkills.slice(0, MAX_SKILLS_DISPLAY);
@@ -125,7 +131,7 @@ const ProfileCard = ({
         <Button variant="default" onClick={() => setShowContact(!showContact)}>
           {showContact ? "Hide Contact" : "Contact Him"}
         </Button>
-        <Button variant="outline" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-500">
+        <Button variant="outline" onClick={handleWrongHire} className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-500">
           Wrong Hire
         </Button>
       </div>
