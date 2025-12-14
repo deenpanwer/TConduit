@@ -35,14 +35,14 @@ const downloadOptions = [
 ];
 
 const DownloadManager = () => {
-    const [selectedDownload, setSelectedDownload] = useState(downloadOptions[0].options[0].value);
+    const [selectedDownload, setSelectedDownload] = useState('');
   
     const findDownload = (value: string) => {
         for (const group of downloadOptions) {
             const found = group.options.find(opt => opt.value === value);
             if (found) return found;
         }
-        return downloadOptions[0].options[0];
+        return null;
     };
 
     const currentDownload = findDownload(selectedDownload);
@@ -68,12 +68,17 @@ const DownloadManager = () => {
               </SelectContent>
             </Select>
 
-            <a href={currentDownload.href} download>
-                <Button size="lg" className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white">
+            <Button
+                asChild
+                size="lg"
+                className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white"
+                disabled={!currentDownload}
+            >
+                <a href={currentDownload?.href} download>
                     <Download className="mr-2 h-4 w-4" />
                     Download
-                </Button>
-            </a>
+                </a>
+            </Button>
         </div>
       </div>
     );
