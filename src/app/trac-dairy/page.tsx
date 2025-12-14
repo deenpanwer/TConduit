@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Apple } from 'lucide-react';
-import { SiWindows } from '@icons-pack/react-simple-icons';
+import { SiWindows11 as SiWindows } from '@icons-pack/react-simple-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -145,7 +145,7 @@ export default function TracDairyDownloadPage() {
                   <span>Images of your screen taken randomly up to 6 times an hour.</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0_0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   <span>The names of the applications you are using.</span>
                 </li>
               </ul>
