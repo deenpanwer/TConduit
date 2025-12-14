@@ -24,13 +24,6 @@ const downloadOptions = [
         { value: "win32-latest", label: "Windows (32-bit)", href: "/downloads/TracDairy-Installer.exe" },
         { value: "win64-latest", label: "Windows (64-bit)", href: "/downloads/TracDairy-Installer-x64.exe" },
       ]
-    },
-    {
-      label: "Beta",
-      options: [
-        { value: "win32-beta", label: "Windows (32-bit) Beta", href: "/downloads/TracDairy-Installer-beta.exe" },
-        { value: "win64-beta", label: "Windows (64-bit) Beta", href: "/downloads/TracDairy-Installer-x64-beta.exe" },
-      ]
     }
 ];
 
