@@ -49,7 +49,7 @@ export default function TracDairyDownloadPage() {
             </Button>
           </a>
           <p className="mt-3 text-xs text-muted-foreground">
-            Windows 10/11
+            
           </p>
         </div>
 
