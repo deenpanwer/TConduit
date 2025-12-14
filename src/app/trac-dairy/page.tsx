@@ -3,29 +3,13 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Check, Apple, Windows } from 'lucide-react';
+import { Download, Apple, Windows } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 const TuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M10.95 15.5c-1.2-1.2-1.95-3.05-1.95-5.5C9 4.5 12 2 12 2s3 2.5 3 8c0 2.45-.75 4.3-1.95 5.5" />
-      <path d="M10 14c-5-1-7-5-7-7" />
-      <path d="M14 14c5-1 7-5 7-7" />
-      <path d="M12 20c-1 0-3-1-3-3 0-2 2-3 3-3s3 1 3 3c0 2-2 3-3 3z" />
-    </svg>
+    <img src="https://www.svgrepo.com/show/303623/tux-linux-logo.svg" alt="Linux" {...props} />
 );
 
 const OperatingSystemButtons = () => {
@@ -57,7 +41,7 @@ const OperatingSystemButtons = () => {
           className="flex items-center gap-2"
           disabled
         >
-          <TuxIcon />
+          <TuxIcon className="w-[18px] h-[18px]" />
           <span>Linux</span>
         </Button>
       </div>
@@ -152,11 +136,11 @@ export default function TracDairyDownloadPage() {
               </p>
               <ul className="space-y-3 text-muted-foreground">
                 <li className="flex items-start">
-                  <Check className="h-5 w-5 mr-3 text-green-500 shrink-0" />
+                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   <span>Images of your screen taken randomly up to 6 times an hour.</span>
                 </li>
                 <li className="flex items-start">
-                  <Check className="h-5 w-5 mr-3 text-green-500 shrink-0" />
+                  <svg className="h-5 w-5 mr-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                   <span>The names of the applications you are using.</span>
                 </li>
               </ul>
