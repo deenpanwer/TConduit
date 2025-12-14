@@ -3,10 +3,13 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Apple, Windows } from 'lucide-react';
+import { Download, Apple } from 'lucide-react';
+import { SiWindows as Windows } from '@icons-pack/react-simple-icons';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { IdeationPanel } from '@/components/IdeationPanel';
+import { ChevronUp } from 'lucide-react';
 
 const TuxIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <img src="https://www.svgrepo.com/show/303623/tux-linux-logo.svg" alt="Linux" {...props} />
@@ -65,6 +68,8 @@ const OperatingSystemButtons = () => {
 
 
 export default function TracDairyDownloadPage() {
+    const [showIdeationPanel, setShowIdeationPanel] = React.useState(false);
+
   return (
     <div className="bg-background min-h-screen text-foreground">
       <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center z-10">
