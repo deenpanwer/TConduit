@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText } from 'lucide-react';
+import { Download, CheckCircle, Zap, Shield, Clock, Handshake, FileText, BrainCircuit } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -35,10 +35,10 @@ export default function TracDairyDownloadPage() {
 
       <main className="container mx-auto px-4 pt-32 pb-16 flex flex-col items-center text-center">
         <h1 className="text-4xl md:text-5xl font-bold font-playfair tracking-tight text-foreground">
-          Trac Dairy for Freelancers
+          Build Your Verifiable Work Profile
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          The ultimate work diary. Track your hours with verifiable proof, build client trust, and get paid accurately.
+          Turn your daily tasks into a verifiable record of your skills and unlock new hiring opportunities.
         </p>
 
         <div className="mt-8">
@@ -61,7 +61,7 @@ export default function TracDairyDownloadPage() {
               width={1200}
               height={675}
               className="rounded-lg object-cover w-full h-full"
-              data-ai-hint="desktop app time tracking"
+              data-ai-hint="proof of work desktop app"
             />
           </div>
         </div>
@@ -69,19 +69,19 @@ export default function TracDairyDownloadPage() {
         <section className="mt-20 w-full max-w-5xl">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <FeatureCard
-              icon={Clock}
-              title="Automated Time Tracking"
-              description="Focus on your work while Trac Dairy automatically logs your hours and activity in the background."
+              icon={Shield}
+              title="Verifiable Proof of Work"
+              description="Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone."
             />
             <FeatureCard
-              icon={Handshake}
-              title="Build Client Trust"
-              description="Provide clients with a transparent, verifiable work diary complete with screenshots and activity levels."
+              icon={BrainCircuit}
+              title="AI-Powered Skill Insights"
+              description="Our AI analyzes your activity to identify your core competencies and areas for growth, helping you level-up."
             />
             <FeatureCard
-              icon={FileText}
-              title="Simplify Invoicing"
-              description="Generate accurate invoices effortlessly based on your tracked time, eliminating billing disputes."
+              icon={Zap}
+              title="Unlock Hiring Opportunities"
+              description="Connect your verified skill profile directly to the Trac network and get matched with relevant job opportunities."
             />
           </div>
         </section>
