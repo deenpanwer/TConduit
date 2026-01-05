@@ -47,26 +47,10 @@ interface ProfileData {
   competence_score: number | null;
   agency_score: number | null;
   embedding: number[] | string | null; // Allow for string initially
+  similarity: number;
 }
 
-// --- Vector Similarity Function ---
-function cosineSimilarity(vecA: number[], vecB: number[]): number {
-  if (!vecA || !vecB || vecA.length !== vecB.length) {
-    return 0;
-  }
-  let dotProduct = 0.0;
-  let normA = 0.0;
-  let normB = 0.0;
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  if (normA === 0 || normB === 0) {
-    return 0;
-  }
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
+
 
 
 const SearchPage = () => {
@@ -129,55 +113,34 @@ const SearchPage = () => {
         }
         console.log("Successfully generated query embedding.");
 
-        // Step 2: Fetch all profiles from the database
-        console.log("Fetching all profiles from 'fiverr_profiles' table...");
-        const { data: profiles, error } = await supabase
-          .from('fiverr_profiles')
-          .select('*');
+        // Step 2: Call the Supabase RPC to find the best profiles
+        console.log("Calling Supabase RPC 'match_profiles'...");
+        const { data: profiles, error } = await supabase.rpc('match_profiles', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.5, // Adjust this threshold as needed (0.0 to 1.0)
+          match_count: 3,      // Retrieve the top 3 profiles as requested
+        });
 
         if (error) {
-          console.error("Supabase fetch error:", error);
-          throw new Error(`Failed to fetch profiles: ${error.message}`);
+          console.error("Supabase RPC error:", error);
+          throw new Error(`Failed to fetch profiles via RPC: ${error.message}`);
         }
 
         if (!profiles || profiles.length === 0) {
-          console.log("No profiles found in the database table.");
+          console.log("No profiles found via RPC for the given query and threshold.");
           setBestProfile(null);
           setIsLoadingProfile(false);
           return;
         }
-        console.log(`Fetched ${profiles.length} profiles to search through.`);
+        console.log(`Fetched ${profiles.length} profiles via RPC.`);
 
-        // Step 3: Find the best profile using client-side similarity search
-        let bestProfile: ProfileData | null = null;
-        let highestSimilarity = -1;
-
-        for (const profile of profiles) {
-          // Supabase returns embedding as a string like '[0.1, 0.2, ...]'. We need to parse it.
-          let profileEmbedding: number[] | null = null;
-          if (typeof profile.embedding === 'string') {
-            try {
-              profileEmbedding = JSON.parse(profile.embedding);
-            } catch (e) {
-              console.error(`Could not parse embedding for profile ${profile.username}`, e);
-              continue; // Skip this profile if embedding is invalid
-            }
-          } else if (Array.isArray(profile.embedding)) {
-            profileEmbedding = profile.embedding;
-          }
-
-          if (profileEmbedding) {
-            const similarity = cosineSimilarity(queryEmbedding, profileEmbedding);
-            if (similarity > highestSimilarity) {
-              highestSimilarity = similarity;
-              bestProfile = profile;
-            }
-          }
-        }
-
-        if (bestProfile) {
-            console.log(`Best profile found via client-side search: ${bestProfile.name} with similarity ${highestSimilarity}`);
-            setBestProfile(bestProfile);
+        // The RPC returns profiles already ordered by similarity, so the first one is the best.
+        // If your UI can display multiple profiles, you would use the 'profiles' array directly.
+        // For now, we'll set the bestProfile to the first one as your current UI seems to display a single card.
+        const bestRpcProfile = profiles[0] as ProfileData; // Cast to ProfileData with similarity
+        if (bestRpcProfile) {
+            console.log(`Best profile found via RPC: ${bestRpcProfile.name} with similarity ${bestRpcProfile.similarity}`);
+            setBestProfile(bestRpcProfile);
         } else {
             console.log("Could not determine a best profile from the returned set.");
             setBestProfile(null);
