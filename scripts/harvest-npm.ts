@@ -10,12 +10,36 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Throttling Constants
+const SEARCH_DEPTH = 250;
+const SEARCH_PAGE_SIZE = 50;
+const SEARCH_DELAY_MS = 2000;
+const PROFILE_DELAY_MS = 800;
+const METRIC_DELAY_MS = 400;
+
 if (!SUPABASE_URL || !SUPABASE_KEY || !GEMINI_API_KEY) {
   console.error("Error: Missing required environment variables (Supabase or Gemini).");
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// --- Resilience Helpers ---
+
+async function fetchWithRetry(url: string, options: any = {}, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, options);
+    if (res.ok) return res;
+    if (res.status === 429 || res.status >= 500) {
+      const wait = Math.pow(2, i) * 2000 + (Math.random() * 1000);
+      console.warn(`[Retry] ${res.status} on ${url}. Waiting ${Math.round(wait)}ms...`);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`Failed to fetch ${url} after ${retries} retries.`);
+}
 
 // --- Intelligence Helpers ---
 
@@ -26,7 +50,7 @@ async function callGeminiWithFallback(prompt: string): Promise<string> {
   for (const model of models) {
     try {
       const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const res = await fetch(API_URL, {
+      const res = await fetchWithRetry(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -34,11 +58,6 @@ async function callGeminiWithFallback(prompt: string): Promise<string> {
           generationConfig: { responseMimeType: "application/json" }
         }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${res.status}`);
-      }
 
       const data = await res.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -71,13 +90,13 @@ async function brainstormKeywords(pastKeywords: string[], count: number): Promis
     return JSON.parse(text || "[]");
   } catch (e) {
     console.error("[AI] Keyword generation failed:", e);
-    throw e; // No fallback words as requested
+    throw e;
   }
 }
 
 async function getMaintainerPortfolio(username: string) {
   try {
-    const res = await fetch(`https://registry.npmjs.org/-/v1/search?text=maintainer:${username}&size=100`);
+    const res = await fetchWithRetry(`https://registry.npmjs.org/-/v1/search?text=maintainer:${username}&size=100`);
     const data = await res.json();
     const pkgs = data.objects?.map((obj: any) => ({
       name: obj.package.name,
@@ -95,7 +114,7 @@ async function getMaintainerPortfolio(username: string) {
 // --- Main Harvest Logic ---
 
 async function runHarvest() {
-  console.log("🚀 Starting Autonomous NPM Talent Sweep...");
+  console.log("🚀 Starting Production-Grade NPM Talent Sweep...");
 
   // 1. Fetch Search History
   const { data: history } = await supabase.from('npm_search_history').select('keyword');
@@ -116,21 +135,28 @@ async function runHarvest() {
   let totalSaved = 0;
 
   for (const keyword of newKeywords) {
-    console.log(`
---- Processing Niche: ${keyword} ---`);
+    console.log(`\n--- Processing Niche: ${keyword} ---`);
     
-    // A. Scan Registry for Top 250 Packages (Max allowed by NPM)
-    const searchRes = await fetch(`https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(keyword)}&size=250`);
-    if (!searchRes.ok) {
-        console.error(`[NPM] Search failed for ${keyword}: ${searchRes.status}`);
-        continue;
+    // A. Graceful Pagination: Scan Registry in chunks
+    const allObjects: any[] = [];
+    for (let from = 0; from < SEARCH_DEPTH; from += SEARCH_PAGE_SIZE) {
+        console.log(`[NPM] Scanning ${keyword} (from ${from})...`);
+        const searchRes = await fetchWithRetry(`https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(keyword)}&size=${SEARCH_PAGE_SIZE}&from=${from}`);
+        if (!searchRes.ok) {
+            console.error(`[NPM] Search chunk failed for ${keyword} at ${from}: ${searchRes.status}`);
+            break;
+        }
+        const searchData = await searchRes.json();
+        const objects = searchData.objects || [];
+        allObjects.push(...objects);
+        
+        if (objects.length < SEARCH_PAGE_SIZE) break; // End of results
+        await new Promise(r => setTimeout(r, SEARCH_DELAY_MS));
     }
-    const searchData = await searchRes.json();
-    const objects = searchData.objects || [];
     
     // Collector Pattern: Group by Maintainer
     const maintainerFreq: Record<string, { count: number, samplePkgs: any[] }> = {};
-    objects.forEach((obj: any) => {
+    allObjects.forEach((obj: any) => {
       const p = obj.package;
       p.maintainers?.forEach((m: any) => {
         if (!m.username) return;
@@ -140,12 +166,11 @@ async function runHarvest() {
       });
     });
 
-    // Rank by impact in this niche (Ecosystem Authority)
     const sortedLeads = Object.entries(maintainerFreq)
         .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 100); // Process top 100 per niche
+        .slice(0, 80); 
 
-    console.log(`🔍 Found ${objects.length} packages. Identified ${sortedLeads.length} prioritized leads.`);
+    console.log(`🔍 Found ${allObjects.length} packages. Identified ${sortedLeads.length} prioritized leads.`);
 
     let engineersSavedInNiche = 0;
 
@@ -161,22 +186,23 @@ async function runHarvest() {
         const email = mInfo?.email || null;
         const avatarUrl = email ? `https://www.gravatar.com/avatar/${crypto.createHash('md5').update(email.toLowerCase()).digest('hex')}?s=200&d=retro` : null;
 
-        // 3. Quality Filter (Mirroring harvest.ts pattern)
-        const isHighQuality = (portfolioData.total > 2 || email !== null);
+        // 3. Quality Filter
+        const isHighQuality = (portfolioData.total > 1 || email !== null);
 
         if (isHighQuality) {
-            // 4. Detailed Impact Calculation (Top 10 packages)
+            // 4. Sequential Impact Calculation
             let totalImpact = 0;
             const topProjects = portfolioData.packages.slice(0, 10);
             
-            await Promise.all(topProjects.map(async (p: any) => {
+            for (const p of topProjects) {
               try {
-                const dlRes = await fetch(`https://api.npmjs.org/downloads/point/last-week/${p.name}`);
+                const dlRes = await fetchWithRetry(`https://api.npmjs.org/downloads/point/last-week/${p.name}`);
                 const dlData = await dlRes.json();
                 p.downloads = dlData.downloads || 0;
                 totalImpact += p.downloads;
+                await new Promise(r => setTimeout(r, METRIC_DELAY_MS));
               } catch {}
-            }));
+            }
 
             // 5. Upsert to Supabase
             const { error } = await supabase.from('npm_profiles').upsert({
@@ -194,12 +220,11 @@ async function runHarvest() {
         }
 
         // 6. Respectful Throttling
-        if (i % 5 === 0) process.stdout.write(`.`);
-        await new Promise(r => setTimeout(r, 150)); 
+        if (i % 5 === 0 && i > 0) console.log(`[Status] Processed ${i}/${sortedLeads.length} leads in niche...`);
+        await new Promise(r => setTimeout(r, PROFILE_DELAY_MS)); 
 
       } catch (e) {
-        console.error(`
-[Error] Skipping ${username}:`, e);
+        console.error(`\n[Error] Skipping ${username}:`, e);
       }
     }
 
@@ -207,17 +232,15 @@ async function runHarvest() {
     await supabase.from('npm_search_history').upsert({
       keyword,
       engineers_found: engineersSavedInNiche,
-      packages_scanned: objects.length,
+      packages_scanned: allObjects.length,
       used_at: new Date().toISOString()
     });
 
     totalSaved += engineersSavedInNiche;
-    console.log(`
-✅ Niche Complete. Profiled ${engineersSavedInNiche} high-impact leads.`);
+    console.log(`✅ Niche Complete. Profiled ${engineersSavedInNiche} leads for "${keyword}".`);
   }
 
-  console.log(`
-🏁 Sweep Finished. Total leads ingested: ${totalSaved}`);
+  console.log(`\n🏁 Sweep Finished. Total leads ingested: ${totalSaved}`);
 }
 
 runHarvest().catch(err => {
