@@ -11,7 +11,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Throttling Constants
-const SEARCH_DEPTH = 250;
+const SEARCH_DEPTH = 100;
 const SEARCH_PAGE_SIZE = 50;
 const SEARCH_DELAY_MS = 2000;
 const PROFILE_DELAY_MS = 800;
@@ -190,18 +190,29 @@ async function runHarvest() {
         const isHighQuality = (portfolioData.total > 1 || email !== null);
 
         if (isHighQuality) {
-            // 4. Sequential Impact Calculation
+            // 4. Bulk Impact Calculation (Much more efficient than sequential)
             let totalImpact = 0;
             const topProjects = portfolioData.packages.slice(0, 10);
             
-            for (const p of topProjects) {
+            if (topProjects.length > 0) {
               try {
-                const dlRes = await fetchWithRetry(`https://api.npmjs.org/downloads/point/last-week/${p.name}`);
+                const packageNames = topProjects.map((p: any) => p.name).join(',');
+                const dlRes = await fetchWithRetry(`https://api.npmjs.org/downloads/point/last-week/${packageNames}`);
                 const dlData = await dlRes.json();
-                p.downloads = dlData.downloads || 0;
-                totalImpact += p.downloads;
-                await new Promise(r => setTimeout(r, METRIC_DELAY_MS));
-              } catch {}
+                
+                // Handle both single and bulk response formats
+                topProjects.forEach((p: any) => {
+                  const data = dlData[p.name] || dlData;
+                  if (data && data.downloads) {
+                    p.downloads = data.downloads;
+                    totalImpact += p.downloads;
+                  } else {
+                    p.downloads = 0;
+                  }
+                });
+              } catch (e) {
+                console.warn(`[Metrics] Bulk fetch failed for ${username}, skipping impact calculation.`);
+              }
             }
 
             // 5. Upsert to Supabase
