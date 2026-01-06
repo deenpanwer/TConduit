@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function TalentRadarTestPage() {
   const [nicheCount, setNicheCount] = useState(2);
-  const [packageLimit, setPackageLimit] = useState(250);
+  const [packageLimit, setPackageLimit] = useState(100);
   
   const [loading, setLoading] = useState(false);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
@@ -303,12 +303,12 @@ export default function TalentRadarTestPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {currentEngineer.matchedProjects?.map((project: any, idx: number) => (
-                    <Card key={project.package_name + idx} className="bg-[#0B1120]/60 border-cyan-500/20 hover:border-cyan-500/50 transition-all rounded-[3rem] overflow-hidden backdrop-blur-md group">
+                    <Card key={project.name + idx} className="bg-[#0B1120]/60 border-cyan-500/20 hover:border-cyan-500/50 transition-all rounded-[3rem] overflow-hidden backdrop-blur-md group">
                       <CardContent className="p-8 space-y-6">
                          <div className="flex justify-between items-start">
                             <div className="space-y-2">
                                <h4 className="text-xl font-black text-white group-hover:text-cyan-400 transition-colors truncate max-w-[220px] uppercase italic tracking-tight">
-                                 {project.package_name}
+                                 {project.name}
                                </h4>
                                <Badge className="bg-cyan-500 text-slate-950 border-none text-[9px] font-black py-1 px-3 rounded-full">v{project.version}</Badge>
                             </div>
@@ -347,11 +347,11 @@ export default function TalentRadarTestPage() {
                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar p-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {currentEngineer.allProjects
-                          ?.filter((p: any) => !currentEngineer.matchedProjects?.find((mp: any) => mp.package_name === p.package_name))
+                          ?.filter((p: any) => !currentEngineer.matchedProjects?.find((mp: any) => mp.name === p.name))
                           .map((project: any, idx: number) => (
-                          <div key={project.package_name + idx} className="p-5 rounded-2xl bg-slate-900/40 border border-white/5 hover:border-cyan-500/20 transition-all group">
+                          <div key={project.name + idx} className="p-5 rounded-2xl bg-slate-900/40 border border-white/5 hover:border-cyan-500/20 transition-all group">
                              <div className="flex justify-between items-start mb-2">
-                                <span className="text-sm font-black text-slate-300 truncate max-w-[200px] group-hover:text-cyan-400">{project.package_name}</span>
+                                <span className="text-sm font-black text-slate-300 truncate max-w-[200px] group-hover:text-cyan-400">{project.name}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase">v{project.version}</span>
                              </div>
                              <p className="text-[11px] text-slate-500 line-clamp-1 mb-4 italic font-medium">{project.description}</p>

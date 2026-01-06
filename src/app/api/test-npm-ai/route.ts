@@ -10,6 +10,26 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const maxDuration = 60; 
 
+// Throttling Constants
+const SEARCH_DEPTH = 100;
+const SEARCH_PAGE_SIZE = 50;
+const SEARCH_DELAY_MS = 500; // Lower for API response time
+const METRIC_DELAY_MS = 200;
+
+async function fetchWithRetry(url: string, options: any = {}, retries = 3): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, options);
+    if (res.ok) return res;
+    if (res.status === 429 || res.status >= 500) {
+      const wait = Math.pow(2, i) * 1000 + (Math.random() * 500);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`Failed to fetch ${url} after ${retries} retries.`);
+}
+
 async function callGeminiWithFallback(prompt: string, aiLogs: string[]): Promise<string> {
   const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
   let lastError = null;
@@ -17,7 +37,7 @@ async function callGeminiWithFallback(prompt: string, aiLogs: string[]): Promise
   for (const model of models) {
     try {
       const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const res = await fetch(API_URL, {
+      const res = await fetchWithRetry(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -25,11 +45,6 @@ async function callGeminiWithFallback(prompt: string, aiLogs: string[]): Promise
           generationConfig: { responseMimeType: "application/json" }
         }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${res.status}`);
-      }
 
       const data = await res.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -63,7 +78,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const nicheCount = body.nicheCount || 2;
-    const packageLimit = body.packageLimit || 100;
+    // Overriding depth to 100 as requested for baseline
+    const packageLimit = 100;
 
     logAI(`Starting Harvest with goal: ${nicheCount} niches, depth ${packageLimit}.`);
 
@@ -85,10 +101,8 @@ export async function POST(req: Request) {
         CRITICAL: 
         1. Use ONLY short, concise technical keywords (e.g. "webrtc", "wasm", "orm").
         2. Return ONLY a plain JSON array of strings. 
-        3. Do NOT return an array of objects.
-        4. Do NOT use markdown code blocks.
         
-        Example format for 2 niches: ["webrtc", "solidity"]
+        Example format: ["webrtc", "solidity"]
       `;
 
       const text = await callGeminiWithFallback(prompt, aiLogs);
@@ -101,16 +115,12 @@ export async function POST(req: Request) {
         parsed = JSON.parse(cleaned);
       }
 
-      // If it wrapped it in an object like { "niches": [...] }
       if (!Array.isArray(parsed) && typeof parsed === 'object') {
         const arrayKey = Object.keys(parsed).find(key => Array.isArray(parsed[key]));
         if (arrayKey) parsed = parsed[arrayKey];
       }
       
-      let rawKeywords = Array.isArray(parsed) ? parsed : [];
-      
-      // DEFENSIVE: Ensure they are strings, not objects, and SLICE to requested count
-      newKeywords = rawKeywords
+      newKeywords = (Array.isArray(parsed) ? parsed : [])
         .map(k => typeof k === 'object' ? (Object.values(k)[0] as string) : String(k))
         .slice(0, nicheCount);
       
@@ -128,33 +138,30 @@ export async function POST(req: Request) {
     for (const keyword of newKeywords) {
       logReg(`--- SWEEPING NICHE: ${keyword} ---`);
       
-      const searchUrl = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(keyword)}&size=${packageLimit}`;
-      const searchRes = await fetch(searchUrl);
-      
-      if (!searchRes.ok) {
-        logReg(`❌ Registry Error: HTTP ${searchRes.status} on search. Skipping niche.`);
-        continue;
+      const allObjects: any[] = [];
+      for (let from = 0; from < packageLimit; from += SEARCH_PAGE_SIZE) {
+        logReg(`Scanning chunk at from=${from}...`);
+        const searchRes = await fetchWithRetry(`https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(keyword)}&size=${SEARCH_PAGE_SIZE}&from=${from}`);
+        if (!searchRes.ok) break;
+        const searchData = await searchRes.json();
+        const objects = searchData.objects || [];
+        allObjects.push(...objects);
+        if (objects.length < SEARCH_PAGE_SIZE) break;
+        await new Promise(r => setTimeout(r, SEARCH_DELAY_MS));
       }
 
-      const searchData = await searchRes.json();
-      const objects = searchData.objects || [];
-
-      logReg(`Identified ${objects.length} package clusters for "${keyword}".`);
+      logReg(`Identified ${allObjects.length} package clusters for "${keyword}".`);
 
       const maintainerFreq: Record<string, { count: number, samplePkgs: any[] }> = {};
       
-      for (const obj of objects) {
+      for (const obj of allObjects) {
         const p = obj.package;
-        const maintainers = p.maintainers || [];
-        
-        maintainers.forEach((m: any) => {
+        p.maintainers?.forEach((m: any) => {
           if (!m.username) return;
-          if (!maintainerFreq[m.username]) {
-            maintainerFreq[m.username] = { count: 0, samplePkgs: [] };
-          }
+          if (!maintainerFreq[m.username]) maintainerFreq[m.username] = { count: 0, samplePkgs: [] };
           maintainerFreq[m.username].count++;
           maintainerFreq[m.username].samplePkgs.push({
-            package_name: p.name,
+            name: p.name,
             version: p.version,
             description: p.description,
             date: p.date,
@@ -166,94 +173,79 @@ export async function POST(req: Request) {
 
       const sortedUsernames = Object.entries(maintainerFreq)
         .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 40); 
+        .slice(0, 30); 
 
       logReg(`Ranked ${sortedUsernames.length} high-signal leads.`);
 
-      const batchSize = 10;
-      for (let i = 0; i < sortedUsernames.length; i += batchSize) {
-        const batch = sortedUsernames.slice(i, i + batchSize);
-        logReg(`Intelligence Batch ${Math.floor(i/batchSize) + 1}...`);
+      for (let i = 0; i < sortedUsernames.length; i++) {
+        const [username, stats] = sortedUsernames[i];
+        try {
+          if (engineerMap[username]) continue;
 
-        await Promise.all(batch.map(async ([username, stats]) => {
-          try {
-            if (engineerMap[username]) return;
+          const res = await fetchWithRetry(`https://registry.npmjs.org/-/v1/search?text=maintainer:${username}&size=100`);
+          const data = await res.json();
+          const allPkgs = data.objects?.map((obj: any) => ({
+            name: obj.package.name,
+            version: obj.package.version,
+            date: obj.package.date,
+            description: obj.package.description,
+            npm_url: `https://www.npmjs.com/package/${obj.package.name}`
+          })) || [];
 
-            const res = await fetch(`https://registry.npmjs.org/-/v1/search?text=maintainer:${username}&size=100`);
-            if (!res.ok) return; 
+          const mInfo = allObjects.find(obj => obj.package.maintainers?.some((m: any) => m.username === username))?.package.maintainers?.find((m: any) => m.username === username);
+          const email = mInfo?.email || null;
+          const avatar_url = email ? `https://www.gravatar.com/avatar/${crypto.createHash('md5').update(email.toLowerCase()).digest('hex')}?s=200&d=retro` : null;
 
-            const data = await res.json();
-            const allPkgs = data.objects?.map((obj: any) => ({
-              package_name: obj.package.name,
-              version: obj.package.version,
-              date: obj.package.date,
-              description: obj.package.description,
-              npm_url: `https://www.npmjs.com/package/${obj.package.name}`
-            })) || [];
-
-            const samplePkg = stats.samplePkgs[0];
-            const match = objects.find((obj: any) => obj.package.name === samplePkg.package_name);
-            const mInfo = match?.package.maintainers?.find((m: any) => m.username === username);
-            
-            const email = mInfo?.email || null;
-            const avatar_url = email ? `https://www.gravatar.com/avatar/${crypto.createHash('md5').update(email.toLowerCase()).digest('hex')}?s=200&d=retro` : null;
-
-            let totalDownloads = 0;
-            const enrichedMatched = await Promise.all(stats.samplePkgs.map(async (p) => {
-               try {
-                 const dlRes = await fetch(`https://api.npmjs.org/downloads/point/last-week/${p.package_name}`).catch(() => null);
-                 if (!dlRes || !dlRes.ok) return { ...p, downloads: 0 };
-                 const dlData = await dlRes.json();
-                 totalDownloads += (dlData.downloads || 0);
-                 return { ...p, downloads: dlData.downloads || 0 };
-               } catch {
-                 return { ...p, downloads: 0 };
-               }
-            }));
-
-            const profile = {
-              username,
-              name: mInfo?.name || username,
-              email,
-              avatar_url,
-              total_packages: data.total || allPkgs.length,
-              total_downloads_weekly: totalDownloads,
-              matchedProjects: enrichedMatched,
-              allProjects: allPkgs,
-              portfolio: allPkgs,
-              last_scanned_at: new Date().toISOString()
-            };
-
-            engineerMap[username] = profile;
-
-            // D. Supabase Persistence (Mapping to exact schema columns)
-            const { error: dbError } = await supabase.from('npm_profiles').upsert({
-                username: profile.username,
-                name: profile.name,
-                email: profile.email,
-                avatar_url: profile.avatar_url,
-                total_packages: profile.total_packages,
-                total_downloads_weekly: profile.total_downloads_weekly,
-                portfolio: profile.allProjects, // Store all projects in portfolio column
-                last_scanned_at: profile.last_scanned_at
-            }, { onConflict: 'username' });
-
-            if (dbError) {
-              console.error(`[DB ERROR] Failed to save ${username}:`, dbError.message);
+          // Bulk Metric Calculation
+          let totalDownloads = 0;
+          const topProjects = stats.samplePkgs.slice(0, 10);
+          if (topProjects.length > 0) {
+            const pNames = topProjects.map(p => p.name).join(',');
+            const dlRes = await fetchWithRetry(`https://api.npmjs.org/downloads/point/last-week/${pNames}`).catch(() => null);
+            if (dlRes?.ok) {
+              const dlData = await dlRes.json();
+              topProjects.forEach(p => {
+                const d = dlData[p.name] || dlData;
+                p.downloads = d?.downloads || 0;
+                totalDownloads += p.downloads;
+              });
             }
-
-          } catch (err: any) {
-            console.error(`[PROFILING ERROR] ${username}:`, err.message);
           }
-        }));
-        
-        await new Promise(r => setTimeout(r, 200));
+
+          const profile = {
+            username,
+            name: mInfo?.name || username,
+            email,
+            avatar_url,
+            total_packages: data.total || allPkgs.length,
+            total_downloads_weekly: totalDownloads,
+            matchedProjects: topProjects,
+            allProjects: allPkgs,
+            last_scanned_at: new Date().toISOString()
+          };
+
+          engineerMap[username] = profile;
+
+          await supabase.from('npm_profiles').upsert({
+              username: profile.username,
+              name: profile.name,
+              email: profile.email,
+              avatar_url: profile.avatar_url,
+              total_packages: profile.total_packages,
+              total_downloads_weekly: profile.total_downloads_weekly,
+              portfolio: profile.allProjects,
+              last_scanned_at: profile.last_scanned_at
+          }, { onConflict: 'username' });
+
+        } catch (err: any) {
+          console.error(`[PROFILING ERROR] ${username}:`, err.message);
+        }
       }
 
       await supabase.from('npm_search_history').upsert({
         keyword,
         engineers_found: sortedUsernames.length,
-        packages_scanned: objects.length,
+        packages_scanned: allObjects.length,
         used_at: new Date().toISOString()
       });
     }
@@ -261,15 +253,9 @@ export async function POST(req: Request) {
     const finalResult = Object.values(engineerMap).sort((a, b) => b.total_downloads_weekly - a.total_downloads_weekly);
     logAI(`Synthesis complete. Compiled ${finalResult.length} impact profiles.`);
 
-    return NextResponse.json({ 
-      success: true, 
-      aiLogs, 
-      registryLogs, 
-      engineers: finalResult 
-    });
+    return NextResponse.json({ success: true, aiLogs, registryLogs, engineers: finalResult });
 
   } catch (error: any) {
-    console.error(error);
     return NextResponse.json({ success: false, error: error.message, aiLogs, registryLogs }, { status: 500 });
   }
 }
