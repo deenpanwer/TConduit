@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Octokit } from '@octokit/rest';
 import * as dotenv from 'dotenv';
@@ -34,7 +33,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
 async function checkRateLimit() {
-  if (!GITHUB_TOKEN) return; // Anonymous requests have low limits anyway, but we can't check easily without auth sometimes
+  if (!GITHUB_TOKEN) return; 
   
   try {
     const { data } = await octokit.rateLimit.get();
@@ -43,17 +42,51 @@ async function checkRateLimit() {
     
     if (remaining < MIN_RATE_LIMIT_REMAINING) {
       console.error(`[CRITICAL] Rate limit low (${remaining} < ${MIN_RATE_LIMIT_REMAINING}). Aborting to save quota.`);
-      process.exit(0); // Exit cleanly
+      process.exit(0); 
     }
   } catch (error) {
     console.warn("Failed to check rate limit:", error);
   }
 }
 
-// --- Helper: Gemini Brainstorming ---
-async function brainstormKeywords(pastKeywords: string[], count: number): Promise<string[]> {
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// --- Intelligence Helpers ---
 
+async function callGeminiWithFallback(prompt: string): Promise<string> {
+  const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Empty response");
+      
+      return text;
+    } catch (e: any) {
+      lastError = e;
+      console.warn(`[AI] ${model} failed: ${e.message}. Trying next...`);
+    }
+  }
+
+  throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
+}
+
+async function brainstormKeywords(pastKeywords: string[], count: number): Promise<string[]> {
   const prompt = `
     You are a Technical Recruiter AI. 
     We are building a database of developers from GitHub. 
@@ -68,34 +101,20 @@ async function brainstormKeywords(pastKeywords: string[], count: number): Promis
     Use terms that developers actually put in their GitHub bios or "about" sections.
     
     Return ONLY the JSON array of strings. No markdown formatting.
-    Example: ["Full Stack React", "Three.js WebGL"]
   `;
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("No response from Gemini");
-
-    return JSON.parse(text);
+    const text = await callGeminiWithFallback(prompt);
+    return JSON.parse(text || "[]");
   } catch (e) {
-    console.error("Failed to generate keywords with Gemini:", e);
-    return [];
+    console.error("[AI] Keyword generation failed:", e);
+    throw e;
   }
 }
 
 async function runHarvest() {
   console.log("Starting Autonomous Harvest...");
   
-  // 0. Initial Rate Limit Check
   await checkRateLimit();
 
   // 1. Fetch Search History
@@ -105,8 +124,14 @@ async function runHarvest() {
 
   // 2. Brainstorm with Gemini (3 niches)
   const NICHE_COUNT = 3;
-  const newKeywords = await brainstormKeywords(pastKeywords, NICHE_COUNT);
-  console.log(`[AI] Suggested niches: ${newKeywords.join(', ')}`);
+  let newKeywords: string[] = [];
+  try {
+    newKeywords = await brainstormKeywords(pastKeywords, NICHE_COUNT);
+    console.log(`[AI] Suggested niches: ${newKeywords.join(', ')}`);
+  } catch (e) {
+    console.error("AI Error. Aborting.");
+    return;
+  }
 
   if (newKeywords.length === 0) {
     console.error("No keywords generated. Exiting.");
@@ -118,8 +143,9 @@ async function runHarvest() {
 
   // 3. Harvest Loop
   for (const keyword of newKeywords) {
-    console.log(`\n--- Searching for: ${keyword} ---`);
-    await checkRateLimit(); // Check before each keyword
+    console.log(`
+--- Searching for: ${keyword} ---`);
+    await checkRateLimit(); 
 
     // A. Search GitHub (with Pagination)
     let users: any[] = [];
@@ -127,24 +153,24 @@ async function runHarvest() {
 
     while (users.length < PROFILES_PER_NICHE) {
       const remaining = PROFILES_PER_NICHE - users.length;
-      const perPage = Math.min(remaining, 100); // GitHub max is 100
+      const perPage = Math.min(remaining, 100); 
 
-      console.log(`[GH] Fetching page ${page} for "${keyword}" (Target: ${perPage})...`);
+      console.log(`[GH] Fetching page ${page} for "${keyword}" (Target: ${perPage})...
+`);
 
       try {
-        const searchRes = await octokit.search.users({
+        const searchRes = await octokit.search.users ({
           q: `${keyword} sort:followers`,
           per_page: perPage,
           page: page
         });
 
         const newUsers = searchRes.data.items;
-        if (newUsers.length === 0) break; // No more results
+        if (newUsers.length === 0) break; 
 
         users = users.concat(newUsers);
         page++;
 
-        // Brief pause between search pages
         await new Promise(r => setTimeout(r, 1000));
 
       } catch (e: any) {
@@ -158,13 +184,6 @@ async function runHarvest() {
     let savedForThisKeyword = 0;
 
     for (const userStub of users) {
-      // Check rate limit periodically (e.g., every user or just rely on the keyword check? Let's check every 5 users or so to be safe, or just relying on header inspection if we implemented middleware, but here explicit check is safer)
-      // To be safe and simple, we check if we are getting close to the edge inside the loop if we do many calls.
-      // For now, the implementation plan says "actively check x-ratelimit-remaining headers". 
-      // Since Octokit doesn't expose headers easily in the simple method return types without accessing `response` object explicitly, 
-      // we might stick to explicit checks or try to access `headers` if possible. 
-      // But `await octokit.users.getByUsername` returns `{ data, headers, ... }`.
-      
       try {
         // B. Get Full Details (Base Profile)
         const profileRes = await octokit.users.getByUsername ({
@@ -180,16 +199,14 @@ async function runHarvest() {
            process.exit(0);
         }
 
-        // Quality Check: Lowered Threshold
-        // > 1 Follower OR > 2 Public Repos
         const isHighQuality = (userProfile.followers > 1 || userProfile.public_repos > 2);
         
         let enrichedData: any = { user: userProfile };
 
         if (isHighQuality) {
-          console.log(`> Deep fetching for ${userStub.login}...`);
+          console.log(`> Deep fetching for ${userStub.login}...
+`);
           
-          // 1. Fetch Top 20 Repos (sorted by pushed)
           const reposRes = await octokit.repos.listForUser ({
             username: userStub.login,
             sort: 'pushed',
@@ -197,14 +214,12 @@ async function runHarvest() {
           });
           const repos = reposRes.data;
 
-          // 2. Fetch Social Accounts
           let socials: any[] = [];
           try {
              const socialRes = await octokit.users.listSocialAccountsForUser ({ username: userStub.login });
              socials = socialRes.data;
-          } catch (e) { /* social endpoint might 404 */ }
+          } catch (e) { }
 
-          // 3. Fetch Profile Readme
           let readme = null;
           try {
              const readmeRes = await octokit.repos.getReadme ({
@@ -213,9 +228,8 @@ async function runHarvest() {
                mediaType: { format: "raw" }
              });
              readme = String(readmeRes.data); 
-          } catch (e) { /* 404 is common */ }
+          } catch (e) { }
 
-          // 4. Fetch Recent Activity (Max 100 Events)
           let recentActivity: any[] = [];
           try {
               const eventsRes = await octokit.activity.listPublicEventsForUser ({
@@ -223,7 +237,7 @@ async function runHarvest() {
                   per_page: 100 
               });
               recentActivity = eventsRes.data;
-          } catch (e) { /* ignore */ }
+          } catch (e) { }
 
           enrichedData = {
               user: userProfile,
@@ -239,7 +253,8 @@ async function runHarvest() {
           };
 
         } else {
-          console.log(`> Skipping deep fetch for ${userStub.login} (Low Signal)`);
+          console.log(`> Skipping deep fetch for ${userStub.login} (Low Signal)
+`);
           enrichedData = {
               user: userProfile,
               meta: { 
@@ -271,7 +286,6 @@ async function runHarvest() {
           console.error(`Failed to fetch/save user ${userStub.login}: ${err.message}`);
       }
       
-      // Respect API politeness
       await new Promise(r => setTimeout(r, 200)); 
     }
 
@@ -285,11 +299,11 @@ async function runHarvest() {
     totalProfilesSaved += savedForThisKeyword;
     console.log(`[Summary] Saved ${savedForThisKeyword} profiles for "${keyword}".`);
     
-    // Pause between niches
     await new Promise(r => setTimeout(r, 1000));
   }
 
-  console.log(`\nHarvest Complete. Total profiles saved: ${totalProfilesSaved}`);
+  console.log(`
+Harvest Complete. Total profiles saved: ${totalProfilesSaved}`);
 }
 
 runHarvest().catch(err => {

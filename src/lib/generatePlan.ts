@@ -18,15 +18,47 @@ export const GeneratePlanOutputSchema = z.object({
 
 export type PlanData = z.infer<typeof GeneratePlanOutputSchema>;
 
-export async function generatePlan(userQuery: string): Promise<PlanData> {
-  // IMPORTANT: Replace 'YOUR_GEMINI_API_KEY' with your actual Gemini API Key
-  // You should store this securely, e.g., in an environment variable (process.env.GEMINI_API_KEY) 
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not set. Please set it in your environment variables.');
+async function callGeminiWithFallback(prompt: string): Promise<string> {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Empty response");
+      
+      return text;
+    } catch (e: any) {
+      lastError = e;
+      console.warn(`[AI] ${model} failed in generatePlan: ${e.message}`);
+    }
   }
 
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`; // this is the only working model 2.5
+  throw new Error(`All models failed in generatePlan. ${lastError?.message}`);
+}
+
+export async function generatePlan(userQuery: string): Promise<PlanData> {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not set.');
+  }
 
   const prompt = `You are a hiring agent AI. Your goal is to understand a user's hiring need and formulate a profile of the ideal candidate. This profile will be used to find the best talent. The user can then review and edit this profile.
 
@@ -34,11 +66,11 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
     
     The tone of your response should be consultative and suggestive, as if you are proposing a candidate profile. Frame it as "Based on what you've said, here's the type of person I think we should look for."
     
-    For 'rawReasoning': In 2-3 short sentences separated by '\\n\\n', explain your thought process. How did you interpret the user's informal request and translate it into a professional job profile?
+    For 'rawReasoning': In 2-3 short sentences separated by '\\n\\n', explain your thought process. How did you interpret the user's informal request and translate it into a professional job profile? 
     
     For 'title': Create a clear and professional job title for the ideal candidate. For example, "Senior Product Designer" or "Growth-Oriented Marketing Lead".
     
-    For 'description': Write a 1-2 sentence summary of this ideal candidate. What are their core responsibilities and qualifications? This should read like a summary of a job description (plus that spicific third key step from example).
+    For 'description': Write a 1-2 sentence summary of this ideal candidate. What are their core responsibilities and qualifications? This should read like a summary of a job description.
     
     For 'keySteps': Reframe this as "Key Qualifications". List 1-2 essential skills, experiences, or qualifications we should look for in this candidate. These should be specific and verifiable (e.g., "Proven experience with React and TypeScript," not "Good at coding") and super short.
 
@@ -59,49 +91,11 @@ export async function generatePlan(userQuery: string): Promise<PlanData> {
       "final_query": "professional video editor for social media"
     }`;
 
-  const requestBody = {
-    contents: [{
-      parts: [{
-        text: prompt
-      }]
-    }],
-    generationConfig: {
-      responseMimeType: "application/json", // Request JSON format
-    },
-  };
-
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Gemini API error:', errorData);
-      throw new Error(`Gemini API request failed: ${response.statusText} - ${JSON.stringify(errorData)}`);
-    }
-
-    const responseData = await response.json();
-    
-    // The response structure might vary slightly, so we need to parse it carefully.
-    // Assuming the JSON is directly in text field of the first part.
-    const jsonString = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!jsonString) {
-      throw new Error('Could not find JSON content in Gemini API response.');
-    }
-
+    const jsonString = await callGeminiWithFallback(prompt);
     const parsedData = JSON.parse(jsonString);
-
-    // Validate the parsed data against the schema
     const result = GeneratePlanOutputSchema.parse(parsedData);
-    
     return result;
-
   } catch (error) {
     console.error('Error generating plan:', error);
     throw error;
