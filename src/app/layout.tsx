@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { PHProvider } from './providers';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -39,16 +40,18 @@ export default function RootLayout({
           
         </head>
         <body className="font-sans">
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-            <Analytics />
-          </ThemeProvider>
+          <PHProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+              <Analytics />
+            </ThemeProvider>
+          </PHProvider>
         </body>
     </html>
   );
