@@ -29,6 +29,7 @@ type Stage =
 type Plan2Props = {
   userQuery: string;
   onPlanConfirmed: (result: { title: string; final_query: string }) => void;
+  onRefinement?: (question: string, answer: string) => void;
 };
 
 async function fetcher(url: string, body: object) {
@@ -50,7 +51,7 @@ const motionVariants = {
     exit: { opacity: 0, y: -20 },
 };
 
-export function Plan2({ userQuery, onPlanConfirmed }: Plan2Props) {
+export function Plan2({ userQuery, onPlanConfirmed, onRefinement }: Plan2Props) {
   const [stage, setStage] = useState<Stage>("LOADING_SUGGESTION");
   const [suggestion, setSuggestion] = useState<InitialRoleSuggestion | null>(null);
   const [question, setQuestion] = useState<string>("");
@@ -100,6 +101,11 @@ export function Plan2({ userQuery, onPlanConfirmed }: Plan2Props) {
   const handleAnswerSubmit = async () => {
     if (!suggestion || !answer) return;
     setStage("LOADING_REFINEMENT");
+    
+    if (onRefinement) {
+        onRefinement(question, answer);
+    }
+
     const action = () => handleAnswerSubmit();
     setLastAction(() => action);
     try {

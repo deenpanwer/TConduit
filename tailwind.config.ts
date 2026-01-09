@@ -103,6 +103,10 @@ export default {
           '0%': { transform: 'translate(0, 0)' },
           '100%': { transform: 'translate(-32px, -32px)' },
         },
+        'pulse-slow': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.6' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -111,6 +115,7 @@ export default {
         'pulse-dot': 'pulse-dot 1.2s infinite ease-in-out',
         'scroll-x': 'scroll-x 30s linear infinite',
         grid: 'grid 10s linear infinite',
+        'pulse-slow': 'pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

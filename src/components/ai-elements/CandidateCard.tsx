@@ -19,6 +19,7 @@ export interface CandidateCardProps {
   username: string;
   avatarUrl: string;
   bio?: string;
+  email?: string; // Added email prop
   skills?: string[];
   stats?: CandidateStat[];
   className?: string;
@@ -31,12 +32,20 @@ export const CandidateCard = ({
   username,
   avatarUrl,
   bio,
+  email,
   skills = [],
   stats = [],
   className,
   onHire,
   onViewProfile,
 }: CandidateCardProps) => {
+  const [showEmail, setShowEmail] = React.useState(false);
+
+  const handleHireClick = () => {
+    setShowEmail(true);
+    if (onHire) onHire();
+  };
+
   return (
     <div className={cn(
       "p-8 rounded-[2.5rem] border border-slate-200 bg-white dark:bg-slate-950 dark:border-slate-800 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col h-full text-slate-900 dark:text-slate-100",
@@ -65,6 +74,13 @@ export const CandidateCard = ({
                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">@{username}</span>
             </div>
             
+            {showEmail && email && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl animate-in fade-in slide-in-from-top-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Direct Contact (Time Being)</p>
+                <p className="text-sm font-bold truncate selection:bg-blue-200">{email}</p>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-1.5 mb-4">
                {skills.slice(0, 4).map((skill) => (
                  <Badge key={skill} className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase px-2 py-0.5 rounded-md border-none shadow-none">
@@ -105,7 +121,7 @@ export const CandidateCard = ({
            View Profile
          </Button>
          <Button 
-           onClick={onHire}
+           onClick={handleHireClick}
            className="flex-1 rounded-2xl bg-slate-950 dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-200 text-white font-black text-xs uppercase tracking-widest h-12 shadow-lg"
          >
            Hire

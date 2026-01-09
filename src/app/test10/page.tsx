@@ -21,9 +21,12 @@ export default function Test10Page() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { toast } = useToast();
 
+  const [currentJsonIndex, setCurrentJsonIndex] = useState(0);
+
   const fetchData = async () => {
     setLoading(true);
     setData(null);
+    setCurrentJsonIndex(0);
     try {
       const response = await fetch("/api/test10", {
         method: "POST",
@@ -55,14 +58,40 @@ export default function Test10Page() {
     }
   };
 
+  const currentJsonString = data && data.length > 0 ? JSON.stringify(data[currentJsonIndex], null, 2) : "";
+
   const copyToClipboard = () => {
-    if (!data) return;
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    if (!currentJsonString) return;
+    navigator.clipboard.writeText(currentJsonString);
     toast({
       title: "Copied!",
-      description: "JSON data copied to clipboard.",
+      description: "Current JSON item copied to clipboard.",
     });
   };
+
+  const handleNext = () => {
+    if (data && currentJsonIndex < data.length - 1) {
+      setCurrentJsonIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (data && currentJsonIndex > 0) {
+      setCurrentJsonIndex(prev => prev - 1);
+    }
+  };
+
+  // Calculate metrics
+  const getMetrics = (text: string) => {
+    if (!text) return { words: 0, chars: 0, lines: 0 };
+    return {
+      words: text.split(/\s+/).filter(Boolean).length,
+      chars: text.length,
+      lines: text.split("\n").length
+    };
+  };
+
+  const metrics = getMetrics(currentJsonString);
 
   const handleViewProfile = (profile: any) => {
     setSelectedProfile(profile);
@@ -115,7 +144,7 @@ export default function Test10Page() {
         </CardContent>
       </Card>
 
-      {data && (
+      {data && data.length > 0 && (
         <div className="space-y-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {data.map((profile, idx) => {
@@ -184,16 +213,31 @@ export default function Test10Page() {
 
           <Card className="w-full max-w-4xl mx-auto">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Raw JSON Data ({data.length} items)</CardTitle>
-                <Button variant="outline" size="sm" onClick={copyToClipboard}>
-                  Copy JSON
-                </Button>
+              <div className="flex flex-col space-y-4 md:flex-row md:justify-between md:items-center">
+                <div className="space-y-1">
+                  <CardTitle>Raw JSON Data (Item {currentJsonIndex + 1} of {data.length})</CardTitle>
+                  <div className="flex gap-4 text-xs text-muted-foreground font-mono">
+                    <span>Words: {metrics.words}</span>
+                    <span>Chars: {metrics.chars}</span>
+                    <span>LOC: {metrics.lines}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handlePrev} disabled={currentJsonIndex === 0}>
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleNext} disabled={currentJsonIndex === data.length - 1}>
+                    Next
+                  </Button>
+                  <Button variant="default" size="sm" onClick={copyToClipboard}>
+                    Copy JSON
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="bg-slate-950 text-slate-50 p-4 rounded-md overflow-auto max-h-[500px] text-xs font-mono">
-                <pre>{JSON.stringify(data, null, 2)}</pre>
+                <pre>{currentJsonString}</pre>
               </div>
             </CardContent>
           </Card>
