@@ -17,7 +17,7 @@ import {
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { IdeationPanel } from '@/components/IdeationPanel';
 import { Input } from "@/components/ui/input";
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { Brands } from '@/components/Brands';
 import { SoundWave } from '@/components/SoundWave';
 import { CandidateJourney } from '@/components/CandidateJourney';
@@ -436,9 +436,11 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative flex flex-col min-h-screen w-full">
         <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center z-20">
-            <h1 className="font-poppins font-bold text-2xl text-foreground">
-            TRAC
-            </h1>
+            <Link href="/">
+              <h1 className="font-poppins font-bold text-2xl text-foreground">
+              AI TRAC
+              </h1>
+            </Link>
             <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
             <p className="text-sm text-muted-foreground text-right md:text-left">10,000+ freelancers have joined</p>
             <Link href="/trac-dairy">

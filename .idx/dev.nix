@@ -9,6 +9,7 @@
     pkgs.zulu
     pkgs.openssh
     pkgs.git-lfs
+    pkgs.postgresql
   ];
   # Sets environment variables in the workspace
   env = {};

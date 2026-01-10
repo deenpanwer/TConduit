@@ -104,9 +104,11 @@ export default function TracDairyDownloadPage() {
   return (
     <div className="bg-background min-h-screen text-foreground">
        <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
-        <h1 className="font-poppins font-bold text-2xl text-foreground">
-          TRAC
-        </h1>
+        <Link href="/">
+            <h1 className="font-poppins font-bold text-2xl text-foreground">
+            AI TRAC
+            </h1>
+        </Link>
       </header>
 
       <main className="pt-24 pb-12 sm:pb-20">
