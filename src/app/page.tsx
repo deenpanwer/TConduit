@@ -442,7 +442,7 @@ export default function Home() {
               </h1>
             </Link>
             <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
-            <p className="text-sm text-muted-foreground text-right md:text-left">10,000+ freelancers have joined</p>
+            <p className="text-sm text-muted-foreground text-right md:text-left">Fifteen thousand people have joined the hiring network</p>
             <Link href="/trac-dairy">
                 <Button variant="outline" className="h-8 animate-shake">
                 Join the Network
@@ -515,7 +515,7 @@ export default function Home() {
                                     />
                                     {emailError && <p className="mt-2 text-sm text-red-500">{emailError}</p>}
                                     <p className="mt-2 text-xs text-muted-foreground">
-                                        Our agent will send profiles of relevant experts to this email.
+                                        Your AI-generated hiring plan and candidate matches will be ready in moments.
                                     </p>
                                 </div>
                                 
