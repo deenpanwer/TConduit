@@ -106,7 +106,7 @@ export default function TracDairyDownloadPage() {
        <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
         <Link href="/">
             <h1 className="font-poppins font-bold text-2xl text-foreground">
-            AI TRAC
+            TRAC AI
             </h1>
         </Link>
       </header>

@@ -438,7 +438,7 @@ export default function Home() {
         <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center z-20">
             <Link href="/">
               <h1 className="font-poppins font-bold text-2xl text-foreground">
-              AI TRAC
+              TRAC AI
               </h1>
             </Link>
             <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
