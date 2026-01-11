@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Brands } from '@/components/Brands';
 import { SoundWave } from '@/components/SoundWave';
 import { CandidateJourney } from '@/components/CandidateJourney';
+import { CandidateJourneyMobile } from '@/components/CandidateJourneyMobile';
 import { ProductDemo } from '@/components/ProductDemo';
 
 
@@ -380,7 +381,9 @@ export default function Home() {
       
       sessionStorage.setItem('userEmail', contactInfo); // Store the user's email
       sessionStorage.setItem('geminiInputValue', inputValue); // Keep original behavior
-      const searchId = Math.random().toString(36).substring(2, 10);
+      
+      // Use a proper UUID for the search ID to align with DB format from the start
+      const searchId = crypto.randomUUID();
       router.push(`/search/${searchId}`);
 
     } catch (error) {
@@ -555,7 +558,14 @@ export default function Home() {
                                 )}
                             </div>
                         </form>
-                        <Brands />
+                        <div className="mt-4">
+                            <Brands />
+                            <div className="mt-24 text-center">
+                                <Link href="/trac-dairy" className="text-lg text-muted-foreground hover:text-foreground transition-colors">
+                                    Looking to get hired? <span className="font-bold underline">Download Our Software.</span>
+                                </Link>
+                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -565,25 +575,30 @@ export default function Home() {
 
       {/* New Components Section */}
       <div className="relative z-10 bg-background pb-24">
-         <CandidateJourney />
+         <div className="hidden lg:block">
+            <CandidateJourney />
+         </div>
+         <div className="lg:hidden">
+            <CandidateJourneyMobile />
+         </div>
          {/* <ProductDemo /> */}
       </div>
       
       <footer className="fixed bottom-0 left-0 right-0 z-50 text-sm bg-background/80 backdrop-blur-md border-t border-border/50">
-            <div className="container mx-auto px-4 py-4">
+            <div className="container mx-auto px-4 py-2 md:py-4">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
-                    <div className="py-3 px-4 text-center md:text-left text-muted-foreground">
+                    <div className="py-1 px-4 md:py-3 text-center md:text-left text-muted-foreground">
                       <p>Google for Hiring</p>
                     </div>
-                    <div className="relative py-3 px-4">
+                    <div className="relative py-1 px-4 md:py-3">
                         <div className="flex justify-center md:justify-end">
-                             <button
+                             {/* <button
                                 onClick={() => setShowIdeationPanel(prev => !prev)}
                                 className="flex items-center gap-2 text-sm font-medium text-foreground transition-transform hover:scale-105"
                             >
                                 Ideate with PG <ChevronUp size={16} className={cn('transition-transform', showIdeationPanel && 'rotate-180')} />
                             </button>
-                            <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} />
+                            <IdeationPanel isOpen={showIdeationPanel} onClose={() => setShowIdeationPanel(false)} /> */}
                         </div>
                     </div>
                 </div>

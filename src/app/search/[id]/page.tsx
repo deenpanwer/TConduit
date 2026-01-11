@@ -12,16 +12,17 @@ import {
   FileText, Moon, Sun, ChevronsLeft, ChevronsRight, 
   Star, Clock, Zap, Briefcase, MessageSquare, CheckCircle, 
   Download, Box, Github, Layers, MoreHorizontal, Plus, Trash2, Edit2,
-  SquarePen, History
+  SquarePen, History, Menu, X, ChevronDown, ChevronRight,
+  Check
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { useTheme } from "next-themes";
 import { CandidateCard, CandidateStat } from "@/components/ai-elements/CandidateCard";
 import { ProfileDrawer } from "@/components/ai-elements/ProfileDrawer";
 import ProfileDrawer2 from "@/components/ai-elements/ProfileDrawer2";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { embedText } from "@/app/actions";
 import { createClient } from '@supabase/supabase-js';
 import { Plan2 } from "@/components/ai-elements/plan2";
@@ -55,8 +56,12 @@ interface UnifiedProfile {
 const SearchPage = () => {
   const [stage, setStage] = useState("stage1");
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const params = useParams(); // Get ID from URL
 
   // Workspace State
   const [userQuery, setUserQuery] = useState<string | null>(null);
@@ -67,10 +72,20 @@ const SearchPage = () => {
   // Results State
   const [bestCandidates, setBestCandidates] = useState<UnifiedProfile[]>([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [totalProfilesSearched, setTotalProfilesSearched] = useState<number | null>(null);
+  const totalCountRef = useRef<number | null>(null);
 
   // Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
+  const [editingSearchId, setEditingSearchId] = useState<string | null>(null);
+  const [tempTitle, setTempTitle] = useState("");
+
+  const formatK = (num: number) => {
+    if (num < 1000) return num.toString();
+    return (num / 1000).toFixed(1) + 'k';
+  };
+
 
   // User Identity
   const [userEmailInitial, setUserEmailInitial] = useState<string | null>(null);
@@ -78,15 +93,90 @@ const SearchPage = () => {
   const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const [pendingInteractions, setPendingInteractions] = useState<any[]>([]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 1. Handle URL Change (Navigation & Initial Load)
+  useEffect(() => {
+    const loadSearchFromURL = async () => {
+      if (!params.id || typeof params.id !== 'string') return;
+      
+      if (currentSearchId === params.id) return;
+
+      setIsLoadingResults(true);
+      setCurrentSearchId(params.id);
+
+      try {
+        const { data: searchRecord, error: searchError } = await supabase
+            .from('user_searches')
+            .select('*')
+            .eq('id', params.id)
+            .maybeSingle(); 
+
+                if (searchRecord) {
+                    // FOUND: This is a history item or direct link
+                    setStage("stage3");
+                    setUserQuery(searchRecord.original_query);
+                    setConfirmedPlan({ 
+                        title: searchRecord.custom_title || searchRecord.original_query, 
+                        final_query: searchRecord.original_query 
+                    });
+                    
+                    // Restore the total profiles searched count from DB
+                    if (searchRecord.total_scanned) {
+                        setTotalProfilesSearched(searchRecord.total_scanned);
+                    } else {
+                        setTotalProfilesSearched(null);
+                    }
+        
+                    if (searchRecord.result_ids && searchRecord.result_ids.length > 0) {                 const { data: profiles, error: profilesError } = await supabase
+                    .from('github_profiles')
+                    .select('*')
+                    .in('id', searchRecord.result_ids);
+
+                 if (profilesError) throw profilesError;
+
+                 setBestCandidates((profiles || []).map((p: any) => ({
+                    id: p.id,
+                    source_type: 'github',
+                    similarity: 1.0,
+                    raw_data: p
+                 })));
+            } else {
+                setBestCandidates([]);
+            }
+        } else {
+            // NOT FOUND: Check if brand new search
+            const storedQuery = sessionStorage.getItem('userQueryForPlan');
+            if (storedQuery) {
+                setStage("stage1");
+                setUserQuery(storedQuery);
+            }
+        }
+      } catch (e) {
+        console.error("Error loading search from URL:", e);
+      } finally {
+        setIsLoadingResults(false);
+      }
+    };
+
+    loadSearchFromURL();
+  }, [params.id]);
+
+
   const handlePlanConfirmed = (result: { title: string; final_query: string }) => {
     setConfirmedPlan(result);
     setUserQuery(result.final_query);
     setStage("stage2");
+    // Create history entry immediately when plan is confirmed
+    if (params.id && typeof params.id === 'string') {
+        logSearch(result.final_query, [], result, params.id);
+    }
   };
-
+  
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedUserQuery = sessionStorage.getItem('userQueryForPlan');
       const storedUserEmail = sessionStorage.getItem('userEmail');
 
       if (storedUserEmail) {
@@ -94,9 +184,6 @@ const SearchPage = () => {
         setUserEmailInitial(storedUserEmail.charAt(0).toUpperCase());
         initUser(storedUserEmail);
         fetchWorkspace(storedUserEmail);
-      }
-      if (storedUserQuery) {
-        setUserQuery(storedUserQuery);
       }
     }
   }, []);
@@ -124,9 +211,10 @@ const SearchPage = () => {
     }
   };
 
-  const logSearch = async (query: string, resultIds: string[]) => {
+  const logSearch = async (query: string, resultIds: string[], planDataOverride?: any, specificSearchId?: string) => {
     if (!userEmail) return;
     try {
+      const planData = planDataOverride || JSON.parse(sessionStorage.getItem('generatedPlanData') || '{}');
       const res = await fetch('/api/search-usage', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -134,7 +222,9 @@ const SearchPage = () => {
           email: userEmail, 
           query, 
           resultIds,
-          planData: JSON.parse(sessionStorage.getItem('generatedPlanData') || '{}')
+          planData: planData,
+          newTitle: planData?.title || query, 
+          searchId: specificSearchId
         })
       });
       
@@ -149,8 +239,26 @@ const SearchPage = () => {
     }
   };
 
+  const updateSearchResults = async (resultIds?: string[], totalScanned?: number) => {
+    if (!userEmail || !currentSearchId) return;
+    try {
+      await fetch('/api/search-usage', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          action: 'update_search', 
+          email: userEmail, 
+          searchId: currentSearchId,
+          resultIds,
+          totalScanned
+        })
+      });
+    } catch (e) {
+      console.error("Failed to update search results", e);
+    }
+  };
+
   const logInteraction = async (type: string, data: any) => {
-    console.log(`[logInteraction] Triggered: ${type}`, data); // Debug Log
+    console.log(`[logInteraction] Triggered: ${type}`, data); 
 
     const payload = {
       action: 'log_interaction',
@@ -163,13 +271,11 @@ const SearchPage = () => {
     };
 
     if (!currentSearchId) {
-      console.warn("[logInteraction] No currentSearchId, queuing interaction."); // Debug Log
       setPendingInteractions(prev => [...prev, payload]);
       return;
     }
 
     try {
-      console.log(`[logInteraction] Sending to API for Search ID: ${currentSearchId}`); // Debug Log
       await fetch('/api/search-usage', {
         method: 'POST',
         body: JSON.stringify({
@@ -186,11 +292,7 @@ const SearchPage = () => {
   useEffect(() => {
     const flushQueue = async () => {
       if (currentSearchId && pendingInteractions.length > 0) {
-        console.log(`[Flush] Processing ${pendingInteractions.length} queued interactions for Search ID: ${currentSearchId}`);
-        
-        // Create a copy to process
         const queueToProcess = [...pendingInteractions];
-        // Clear queue immediately to prevent double-processing
         setPendingInteractions([]);
 
         for (const payload of queueToProcess) {
@@ -202,7 +304,6 @@ const SearchPage = () => {
                 searchId: currentSearchId
               })
             });
-            console.log(`[Flush] Successfully logged queued interaction: ${payload.type}`);
           } catch (e) {
             console.error("[Flush] Failed to log interaction", e);
           }
@@ -213,33 +314,33 @@ const SearchPage = () => {
     flushQueue();
   }, [currentSearchId, pendingInteractions]);
 
-  const loadHistoryItem = async (item: any) => {
-    setStage("stage3");
-    setIsLoadingResults(true);
-    setUserQuery(item.original_query);
-    setConfirmedPlan({ title: item.custom_title, final_query: item.original_query });
-    setCurrentSearchId(item.id); // Set the current search ID to the history item ID
-    
-    try {
-      const { data: profiles, error } = await supabase
-        .from('github_profiles')
-        .select('*')
-        .in('id', item.result_ids || []);
+  const loadHistoryItem = (item: any) => {
+    setIsMobileSidebarOpen(false);
+    // Push the new URL. The useEffect above will handle data fetching.
+    router.push(`/search/${item.id}`); 
+  };
 
-      if (error) throw error;
-      
-      const normalizedProfiles: UnifiedProfile[] = (profiles || []).map((p: any) => ({
-        id: p.id,
-        source_type: 'github',
-        similarity: 1.0,
-        raw_data: p
-      }));
-      
-      setBestCandidates(normalizedProfiles);
+  const renameSearch = (searchId: string, currentTitle: string) => {
+    setEditingSearchId(searchId);
+    setTempTitle(currentTitle);
+  };
+
+  const saveRename = async (searchId: string) => {
+    if (!tempTitle.trim()) return;
+    try {
+      await fetch('/api/search-usage', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update_search',
+          email: userEmail,
+          searchId,
+          newTitle: tempTitle
+        })
+      });
+      setEditingSearchId(null);
+      fetchWorkspace(userEmail!);
     } catch (e) {
-      console.error("Error loading historical profiles", e);
-    } finally {
-      setIsLoadingResults(false);
+      console.error("Failed to rename search", e);
     }
   };
 
@@ -254,41 +355,69 @@ const SearchPage = () => {
     } catch (e) { }
   };
 
+  const triggerAlert = (count: number, isRetry: boolean) => {
+    // Fire and forget - don't await this
+    fetch('/api/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: userQuery,
+        email: userEmail,
+        searchId: currentSearchId,
+        count,
+      })
+    }).catch(err => console.error("Alert trigger failed", err));
+  };
+
+  const performSearch = async (query: string, isRetry = false) => {
+    setIsLoadingResults(true);
+    try {
+      const queryEmbedding = await embedText(query);
+      const { data: profiles, error } = await supabase.rpc('search_github_profiles', {
+        query_embedding: queryEmbedding || new Array(1536).fill(0),
+        query_text: query,
+        match_threshold: 0.5,
+        match_count: 3,
+      });
+
+      if (error) throw error;
+
+      const foundCount = profiles?.length || 0;
+      
+      // Trigger the standalone alert API
+      triggerAlert(foundCount, isRetry);
+
+      if (profiles && profiles.length > 0) {
+        const normalizedProfiles = profiles as UnifiedProfile[];
+        setBestCandidates(normalizedProfiles);
+        // Update the existing history record with the found results
+        updateSearchResults(normalizedProfiles.map((p: any) => p.id));
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsLoadingResults(false);
+    }
+  };
+
   // Fetch Results Effect (Only for new searches)
   useEffect(() => {
-    const fetchNewResults = async () => {
-      if (!userQuery || stage !== 'stage2') return;
-      
-      setIsLoadingResults(true);
-      try {
-        const queryEmbedding = await embedText(userQuery);
-        const { data: profiles, error } = await supabase.rpc('search_github_profiles', {
-          query_embedding: queryEmbedding || new Array(1536).fill(0),
-          query_text: userQuery,
-          match_threshold: 0.5,
-          match_count: 3,
-        });
-
-        if (error) throw error;
-
-        if (profiles && profiles.length > 0) {
-          setBestCandidates(profiles as UnifiedProfile[]);
-          logSearch(userQuery, profiles.map((p: any) => p.id));
-        }
-      } catch (error) {
-        console.error('Search error:', error);
-      } finally {
-        setIsLoadingResults(false);
-      }
-    };
-
-    fetchNewResults();
+    if (userQuery && stage === 'stage2') {
+      performSearch(userQuery);
+    }
   }, [userQuery, stage]);
 
   // Auto-advance Stage 2 -> 3
   useEffect(() => {
     if (stage === "stage2") {
-      const timer = setTimeout(() => setStage("stage3"), 14000);
+      const timer = setTimeout(() => {
+        setStage("stage3");
+        if (totalCountRef.current) {
+          setTotalProfilesSearched(totalCountRef.current);
+          // Send the final scanned count to the database
+          updateSearchResults(undefined, totalCountRef.current);
+        }
+      }, 14000);
       return () => clearTimeout(timer);
     }
   }, [stage]);
@@ -314,97 +443,170 @@ const SearchPage = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden relative">
+      
+      {/* Mobile Header / Hamburger */}
+      <div className="lg:hidden absolute top-4 left-4 z-50">
+        <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
+            <Menu className="size-5" />
+        </Button>
+      </div>
+
       {/* SIDEBAR: Reverted styling with History features */}
-      <div className={`bg-card border-r transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"} flex flex-col shrink-0 overflow-hidden`}>
-        <div className="p-4 flex flex-col h-full">
+      <div className={cn(
+        "bg-card border-r transition-all duration-300 flex flex-col shrink-0 overflow-hidden",
+        // Desktop styling
+        isCollapsed ? "lg:w-16" : "lg:w-64",
+        "hidden lg:flex", // Hide on mobile by default, show flex on desktop
+        
+        // Mobile styling (Absolute overlay when open)
+        isMobileSidebarOpen && "fixed inset-y-0 left-0 z-50 w-64 shadow-2xl flex"
+      )}>
+        <div className="p-4 flex flex-col h-full relative">
+          
           {/* Logo / Header Area */}
-          <div className="flex items-center justify-between mb-8 overflow-hidden whitespace-nowrap">
-            {!isCollapsed && <Link href="/" className="font-bold text-2xl tracking-tighter">Trac AI</Link>}
+          <div className="flex items-center justify-between mb-8 overflow-hidden whitespace-nowrap pt-8 lg:pt-0">
+            {mounted && (!isCollapsed || isMobileSidebarOpen) && <Link href="/" className="font-bold text-2xl tracking-tighter">Trac AI</Link>}
             <Link href="/">
-              <img src="/1.png" alt="Trac Logo" className="w-8 h-8 min-w-8" />
+              <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert" />
             </Link>
           </div>
 
           {/* Action Icons (Visible in both states) */}
           <div className="space-y-4 mb-6">
-            <TooltipProvider>
+            <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => router.push('/')}
                     className={cn(
                       "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary",
-                      isCollapsed ? "justify-center" : "px-3"
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
                     )}
                   >
                     <SquarePen className="size-5 shrink-0" />
-                    {!isCollapsed && <span className="text-sm font-bold truncate">New Search</span>}
+                    {mounted && (!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">New Search</span>}
                   </button>
                 </TooltipTrigger>
-                {isCollapsed && <TooltipContent side="right">New Search</TooltipContent>}
+                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                  New Search
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
-            <div className={cn(
-              "flex items-center gap-3 w-full p-2 transition-all text-muted-foreground",
-              isCollapsed ? "justify-center" : "px-3"
-            )}>
-              <History className="size-5 shrink-0" />
-              {!isCollapsed && <span className="text-[10px] font-black uppercase tracking-widest">History</span>}
-            </div>
+            <button
+               onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+               className={cn(
+                 "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary group text-muted-foreground hover:text-foreground",
+                 (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+               )}
+            >
+              <span className="size-5 shrink-0 relative flex items-center justify-center">
+                 <History className="absolute transition-opacity duration-200 group-hover:opacity-0" size={20} />
+                 {isHistoryExpanded ? (
+                    <ChevronDown className="absolute transition-opacity duration-200 opacity-0 group-hover:opacity-100" size={20} />
+                 ) : (
+                    <ChevronRight className="absolute transition-opacity duration-200 opacity-0 group-hover:opacity-100" size={20} />
+                 )}
+              </span>
+              {mounted && (!isCollapsed || isMobileSidebarOpen) && <span className="text-[10px] font-black uppercase tracking-widest">History</span>}
+            </button>
           </div>
 
           {/* History List (Expanded only) */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-1">
-            {!isCollapsed && (
-              <>
+          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2">
+            {mounted && (!isCollapsed || isMobileSidebarOpen) && isHistoryExpanded && (
+              <div className="relative space-y-1">
+                {/* Timeline Line - Now inside the wrapper, so it stops with content */}
+                <div className="absolute left-[1.15rem] top-2 bottom-2 w-[2px] bg-border/50" />
+
                 {isHistoryLoading ? (
-                  <div className="space-y-2 px-2">
+                  <div className="space-y-2 px-2 pl-6">
                     {[1, 2, 3].map(i => <div key={i} className="h-8 bg-secondary/50 rounded-lg animate-pulse" />)}
                   </div>
-                ) : history.map((item) => (
-                  <div key={item.id} className="group relative flex items-center">
-                    <button
-                      onClick={() => loadHistoryItem(item)}
-                      className="flex-1 text-left p-2.5 rounded-xl hover:bg-secondary transition-colors text-sm truncate font-medium pr-10"
-                    >
-                      {item.custom_title}
-                    </button>
-                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="p-1 hover:bg-muted rounded-md"><MoreHorizontal className="size-4 text-muted-foreground" /></button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40 rounded-xl">
-                          <DropdownMenuItem className="gap-2 text-xs font-bold"><Edit2 className="size-3" /> Rename</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => deleteSearch(item.id)} className="gap-2 text-xs font-bold text-red-500"><Trash2 className="size-3" /> Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                ) : history.slice(0, 5).map((item) => (
+                  <div key={item.id} className="group relative flex items-center pl-6">
+                    {editingSearchId === item.id ? (
+                      <div className="flex-1 flex items-center gap-1 pr-2">
+                        <input
+                          autoFocus
+                          value={tempTitle}
+                          onChange={(e) => setTempTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveRename(item.id);
+                            if (e.key === 'Escape') setEditingSearchId(null);
+                          }}
+                          className="flex-1 bg-background border border-primary/20 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <button onClick={() => saveRename(item.id)} className="p-1 hover:text-green-500 transition-colors">
+                          <Check className="size-4" />
+                        </button>
+                        <button onClick={() => setEditingSearchId(null)} className="p-1 hover:text-red-500 transition-colors">
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => loadHistoryItem(item)}
+                          className={cn(
+                            "flex-1 text-left p-2.5 rounded-xl transition-all text-sm font-medium pr-10 relative overflow-hidden",
+                            params.id === item.id 
+                              ? "bg-secondary text-foreground shadow-sm ring-1 ring-border" 
+                              : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <span className="block whitespace-nowrap overflow-hidden [mask-image:linear-gradient(to_right,black_60%,transparent)]">
+                            {item.custom_title}
+                          </span>
+                        </button>
+                        <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-muted rounded-md"><MoreHorizontal className="size-4 text-muted-foreground" /></button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                              <DropdownMenuItem 
+                                onClick={() => renameSearch(item.id, item.custom_title)}
+                                className="gap-2 text-xs font-bold"
+                              >
+                                <Edit2 className="size-3" /> Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => deleteSearch(item.id)} className="gap-2 text-xs font-bold text-red-500"><Trash2 className="size-3" /> Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
-              </>
+              </div>
             )}
           </div>
 
           {/* Bottom Area */}
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-4">
-            <div className={cn("w-full flex items-center gap-3", isCollapsed ? "justify-center" : "px-2")}>
+            <div className={cn("w-full flex items-center gap-3", (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2")}>
               <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-lg font-black border border-primary/20 shrink-0">
                 {userEmailInitial || "U"}
               </div>
-              {!isCollapsed && <div className="text-xs font-bold truncate flex-1">{userEmail}</div>}
+              {mounted && (!isCollapsed || isMobileSidebarOpen) && <div className="text-xs font-bold truncate flex-1">{userEmail}</div>}
             </div>
             
-            <div className={cn("flex w-full gap-2", isCollapsed ? "flex-col items-center" : "justify-center")}>
+            <div className={cn("flex w-full gap-2", (isCollapsed && !isMobileSidebarOpen) ? "flex-col items-center" : "justify-center")}>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={() => {
+                  if (isMobileSidebarOpen) {
+                    setIsMobileSidebarOpen(false);
+                  } else {
+                    setIsCollapsed(!isCollapsed);
+                  }
+                }}
                 className="hover:bg-secondary"
               >
-                {isCollapsed ? <ChevronsRight className="size-5" /> : <ChevronsLeft className="size-5" />}
+                {(isCollapsed && !isMobileSidebarOpen) ? <ChevronsRight className="size-5" /> : <ChevronsLeft className="size-5" />}
               </Button>
               <Button 
                 variant="ghost" 
@@ -418,9 +620,17 @@ const SearchPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Mobile Sidebar Backdrop */}
+      {isMobileSidebarOpen && (
+        <div 
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 p-8 flex items-center justify-center overflow-auto relative bg-slate-50/30 dark:bg-transparent">
+      <main className="flex-1 p-8 pt-16 lg:pt-8 flex items-center justify-center overflow-auto relative bg-slate-50/30 dark:bg-transparent">
         <AnimatePresence mode="wait">
           {stage === "stage1" && (
             <motion.div key="stage1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-2xl">
@@ -436,7 +646,11 @@ const SearchPage = () => {
             <motion.div key="stage2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-2xl">
               <Task className="w-full">
                 <TaskTrigger title={confirmedPlan ? `Documenting: ${confirmedPlan.title}` : "Creating Experience Log"} />
-                <TaskContent><SocialScan2 /></TaskContent>
+                <TaskContent>
+                  <SocialScan2 onTotalCalculated={(count) => {
+                    totalCountRef.current = count;
+                  }} />
+                </TaskContent>
               </Task>
             </motion.div>
           )}
@@ -448,6 +662,15 @@ const SearchPage = () => {
                   <h2 className="text-4xl font-black tracking-tighter">{confirmedPlan?.title || "Search Results"}</h2>
                   <p className="text-muted-foreground font-medium">Historical data captured from your talent discovery session.</p>
                 </div>
+                {totalProfilesSearched && (
+                  <div className="text-right pb-1">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Zap className="size-4 text-primary fill-primary" />
+                      <span className="text-3xl font-black tracking-tighter">{formatK(totalProfilesSearched)}</span>
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Profiles Scanned Across Web</p>
+                  </div>
+                )}
               </div>
 
               {isLoadingResults ? (
@@ -473,8 +696,24 @@ const SearchPage = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-64 border-2 border-dashed rounded-[3rem] border-muted">
-                  <p className="text-muted-foreground font-medium">No candidates were captured for this query.</p>
+                <div className="flex flex-col items-center justify-center h-80 border-2 border-dashed rounded-[3rem] border-muted gap-6">
+                  <div className="text-center space-y-2">
+                    <p className="text-muted-foreground font-medium text-lg">No candidates found yet.</p>
+                    <p className="text-muted-foreground/60 text-sm">You can try again or refine your search.</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => performSearch(userQuery!)}
+                    disabled={isLoadingResults}
+                    className="rounded-full px-8 py-6 font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all gap-2"
+                  >
+                    {isLoadingResults ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    ) : (
+                        <Zap className="size-4 fill-current" />
+                    )}
+                    {isLoadingResults ? "Searching..." : "Retry Search"}
+                  </Button>
                 </div>
               )}
             </motion.div>

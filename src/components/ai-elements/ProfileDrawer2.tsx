@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -41,6 +42,7 @@ interface ProfileDrawer2Props {
 }
 
 const ProfileDrawer2 = ({ isOpen, onClose, profile }: ProfileDrawer2Props) => {
+  const [showAllTopics, setShowAllTopics] = useState(false);
   // Normalize data between raw_data (nested) and github_profiles (flat)
   const isFlat = profile && !profile.user;
   
@@ -53,15 +55,43 @@ const ProfileDrawer2 = ({ isOpen, onClose, profile }: ProfileDrawer2Props) => {
     crawled_at: profile?.scraped_at 
   } : (profile?.meta || {});
 
-  // Pre-process README to fix Mixed Content (HTTP -> HTTPS) for common badge providers
-  if (readme) {
+  // Fix: Handle both 'username' (flat table) and 'login' (raw GitHub) - Move up for README pre-processing
+  const handle = user.username || user.login || "user";
+
+  // Pre-process README to fix Mixed Content and Relative Paths
+  if (readme && handle !== "user") {
+    // 1. Force HTTPS for common providers
     readme = readme.replace(/http:\/\/github-readme-stats\.vercel\.app/g, 'https://github-readme-stats.vercel.app');
     readme = readme.replace(/http:\/\/github-profile-summary-cards\.vercel\.app/g, 'https://github-profile-summary-cards.vercel.app');
     readme = readme.replace(/http:\/\/komarev\.com/g, 'https://komarev.com');
+
+    // 2. Fix relative paths and add error handling to ALL HTML <img> tags
+    // This targets ALL src attributes and appends/updates onerror logic
+    const rawBase = `https://raw.githubusercontent.com/${handle}/${handle}/master`;
+    const rawBaseMain = `https://raw.githubusercontent.com/${handle}/${handle}/main`;
+
+    readme = readme.replace(/<img([^>]+)src=["']([^"']+)["']([^>]*)>/g, (match: string, p1: string, src: string, p2: string) => {
+      let newSrc = src;
+      // Handle relative paths
+      if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+        newSrc = `${rawBase}/${src}`;
+      }
+      
+      // Add or update onerror to hide the image if it fails (503, 401, etc.)
+      // Also tries 'main' branch if 'master' fails for relative paths
+      const errorLogic = src.startsWith('http') 
+        ? "this.style.display='none';" 
+        : `this.onerror=null; this.src='${rawBaseMain}/${src}'; this.onerror=function(){this.style.display='none'};`;
+
+      return `<img${p1}src="${newSrc}" onerror="${errorLogic}" ${p2}>`;
+    });
+
+    // 3. Fix relative paths in Markdown images ![alt](assets/...)
+    readme = readme.replace(/!\[([^\]]*)\]\((?!(?:https?|data):|\/)([^)]+)\)/g, (match: string, alt: string, src: string) => {
+      return `![${alt}](${rawBase}/${src})`;
+    });
   }
   
-  // Fix: Handle both 'username' (flat table) and 'login' (raw GitHub)
-  const handle = user.username || user.login || "user";
   const displayName = user.name || handle;
 
   const socials = isFlat ? [
@@ -115,15 +145,23 @@ const ProfileDrawer2 = ({ isOpen, onClose, profile }: ProfileDrawer2Props) => {
         <table {...props} className="min-w-full border-collapse" />
       </div>
     ),
-    img: ({ node, ...props }: any) => (
-      <img 
-        {...props} 
-        onError={(e: any) => {
-          e.target.style.display = 'none'; // Hide if service is down (503/500)
-        }}
-        className="inline-block max-w-full h-auto rounded-lg" 
-      />
-    ),
+    img: ({ node, ...props }: any) => {
+      let src = props.src;
+      // Fix: Handle relative paths in READMEs by pointing to GitHub Raw content
+      if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+        src = `https://raw.githubusercontent.com/${handle}/${handle}/master/${src}`;
+      }
+      return (
+        <img 
+          {...props} 
+          src={src}
+          onError={(e: any) => {
+            e.target.style.display = 'none'; // Hide if service is down (503/500) or path is wrong
+          }}
+          className="inline-block max-w-full h-auto rounded-lg" 
+        />
+      );
+    },
   };
 
   return (
@@ -261,11 +299,25 @@ const ProfileDrawer2 = ({ isOpen, onClose, profile }: ProfileDrawer2Props) => {
                     <div className="space-y-4">
                       <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Technical Topics</h3>
                       <div className="flex flex-wrap gap-2">
-                        {topics.map((topic: any, i: number) => (
+                        {(showAllTopics ? topics : topics.slice(0, 10)).map((topic: any, i: number) => (
                           <Badge key={i} variant="outline" className="text-slate-500 dark:text-slate-400 font-bold text-[10px] px-3 py-1 rounded-lg border-slate-200 dark:border-slate-800">
                             #{String(topic)}
                           </Badge>
                         ))}
+                        {topics.length > 10 && !showAllTopics && (
+                          <button onClick={() => setShowAllTopics(true)}>
+                            <Badge variant="outline" className="text-blue-500 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer font-black text-[10px] px-3 py-1 rounded-lg">
+                              +{topics.length - 10} more
+                            </Badge>
+                          </button>
+                        )}
+                        {showAllTopics && (
+                          <button onClick={() => setShowAllTopics(false)}>
+                            <Badge variant="outline" className="text-slate-400 border-dashed cursor-pointer font-bold text-[10px] px-3 py-1 rounded-lg border-slate-200 dark:border-slate-800">
+                              Show less
+                            </Badge>
+                          </button>
+                        )}
                       </div>
                     </div>
                     

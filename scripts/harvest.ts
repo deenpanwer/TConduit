@@ -1,3 +1,5 @@
+// harvest.ts
+
 import { createClient } from '@supabase/supabase-js';
 import { Octokit } from '@octokit/rest';
 import * as dotenv from 'dotenv';
@@ -97,7 +99,7 @@ async function checkRateLimit() {
     console.warn("Failed to check rate limit:", error);
   }
 }
-
+   
 // --- Intelligence Helpers ---
 
 async function callGeminiWithFallback(prompt: string): Promise<string> {
@@ -244,7 +246,7 @@ async function runHarvest() {
 
     console.log(`[GH] Found total ${users.length} matches for "${keyword}".`);
 
-    let savedForThisKeyword = 0;
+    let engineersSavedInNiche = 0; // Renamed from savedForThisKeyword to match user's new code
 
     for (const userStub of users) {
       try {
@@ -431,7 +433,7 @@ async function runHarvest() {
           console.error(`  [DB Error] Saving ${userProfile.login}: ${error.message}`);
           console.error(`  Payload that failed:`, JSON.stringify(synthesizedProfile, null, 2));
         } else {
-          savedForThisKeyword++;
+          engineersSavedInNiche++; // Increment the new counter
           console.log(`  [Success] Saved ${userProfile.login} (Stars: ${totalStars}, Langs: ${topLangs.length})`);
         }
 
@@ -442,15 +444,54 @@ async function runHarvest() {
       await new Promise(r => setTimeout(r, 200)); 
     }
 
-    // E. Record History
-    await supabase.from('ai_search_history').upsert({
-      keyword: keyword,
-      profiles_found: savedForThisKeyword,
-      used_at: new Date().toISOString()
-    }, { onConflict: 'keyword' });
+    // D. Record History for the current 'keyword'
+    // Ensure 'keyword' and 'engineersSavedInNiche' are defined in the scope where this code runs.
+    try {
+        // 1. Fetch the existing record to get the current total_runs
+        //    'maybeSingle()' is used because the entry might not exist yet (for a new keyword).
+        const { data: existingEntry, error: fetchError } = await supabase
+            .from('ai_search_history') // <<<<<< IMPORTANT: Ensure this is your actual table name 'ai_search_history'
+            .select('total_runs')
+            .eq('keyword', keyword)
+            .maybeSingle(); 
 
-    totalProfilesSaved += savedForThisKeyword;
-    console.log(`[Summary] Saved ${savedForThisKeyword} profiles for "${keyword}".`);
+        // Handle potential errors during fetch, ignoring 'PGRST116' (No rows found)
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is the PostgREST code for "No rows found"
+            console.error("Error fetching existing search history for keyword:", keyword, fetchError);
+            // Log the error but continue, defaulting total_runs to 0 if an actual error occurs
+        }
+
+        const currentTotalRuns = existingEntry?.total_runs || 0; // Default to 0 if no entry or total_runs is null
+        const newTotalRuns = currentTotalRuns + 1; // Increment for the current run
+
+        // 2. Perform the upsert operation to update/insert the history record
+        const { error: upsertError } = await supabase.from('ai_search_history').upsert(
+            {
+                keyword: keyword,
+                profiles_found: engineersSavedInNiche, // This should be the number of new profiles found for this keyword in this run
+                used_at: new Date().toISOString(),    // Update timestamp to now
+                total_runs: newTotalRuns,             // Set the newly calculated total_runs
+            },
+            { onConflict: 'keyword' } // Specify 'keyword' as the unique column for conflict resolution
+        );
+
+        if (upsertError) {
+            console.error("Error upserting search history for keyword:", keyword, upsertError);
+            // Handle upsert error, e.g., retry or log more details
+        } else {
+            // Log success and the new total runs
+            // If you have a 'totalSaved' variable that tracks overall profiles ingested in a single harvest script run,
+            // make sure to increment it here if needed.
+            // totalSaved += engineersSavedInNiche; // Example if you have this variable
+            console.log(`✅ Niche Complete. Profiled ${engineersSavedInNiche} leads for "${keyword}". Total runs for "${keyword}": ${newTotalRuns}.`);
+        }
+
+    } catch (e) {
+        console.error("Unexpected error during history recording for keyword:", keyword, e);
+    }
+    
+    totalProfilesSaved += engineersSavedInNiche; // Use the new counter
+    console.log(`[Summary] Saved ${engineersSavedInNiche} profiles for "${keyword}".`); // Use the new counter
     
     await new Promise(r => setTimeout(r, 1000));
   }

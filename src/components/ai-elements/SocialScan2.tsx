@@ -62,7 +62,11 @@ const generateRandomCount = (min: number, max: number): number => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-const SocialScan2 = () => {
+interface SocialScan2Props {
+  onTotalCalculated?: (total: number) => void;
+}
+
+const SocialScan2 = ({ onTotalCalculated }: SocialScan2Props) => {
   const { theme } = useTheme();
   const [dynamicScanItems, setDynamicScanItems] = useState<ScanItem[]>([]);
   const [currentScanIndex, setCurrentScanIndex] = useState(0);
@@ -71,20 +75,25 @@ const SocialScan2 = () => {
 
   // Populate dynamicScanItems with randomized counts on mount
   useEffect(() => {
+    let total = 0;
     const randomizedItems: ScanItem[] = staticSocialScanItems.map((item) => {
       if (item.type === "social") {
         let count;
         if (item.id === "fiver" || item.id === "upwork") {
-          count = generateRandomCount(90, 450);
+          count = generateRandomCount(150, 600);
         } else { // github, linkedin, twitter
-          count = generateRandomCount(45, 200);
+          count = generateRandomCount(1200, 3500);
         }
+        total += count;
         return { ...item, count };
       }
       return item;
     });
     setDynamicScanItems(randomizedItems);
-  }, []); // Run only once on mount
+    if (onTotalCalculated) {
+      onTotalCalculated(total);
+    }
+  }, [onTotalCalculated]); // Run only once on mount or when callback changes
 
   const currentScan = dynamicScanItems[currentScanIndex];
   const logoSrc =

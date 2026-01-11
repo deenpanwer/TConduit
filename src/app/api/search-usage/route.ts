@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     if (action === 'init_user') {
       const { data, error } = await supabase
         .from('user_profiles')
-        .upsert({ email, last_active_at: new Date().toISOString() })
+        .upsert({ email, last_active_at: new Date().toISOString() }, { onConflict: 'email' })
         .select()
         .single();
       
@@ -39,19 +39,25 @@ export async function POST(req: NextRequest) {
       // Ensure user exists before logging search to prevent FK violation
       const { error: userError } = await supabase
         .from('user_profiles')
-        .upsert({ email, last_active_at: new Date().toISOString() });
+        .upsert({ email, last_active_at: new Date().toISOString() }, { onConflict: 'email' });
       
       if (userError) throw userError;
 
+      const insertData: any = {
+        user_email: email,
+        original_query: query,
+        custom_title: newTitle || query,
+        ai_plan: planData,
+        result_ids: resultIds || [],
+        total_scanned: body.totalScanned || 0
+      };
+
+      // If a specific searchId (UUID) is provided from the frontend, use it.
+      if (searchId) insertData.id = searchId;
+
       const { data, error } = await supabase
         .from('user_searches')
-        .insert({
-          user_email: email,
-          original_query: query,
-          custom_title: query, // Defaults to query
-          ai_plan: planData,
-          result_ids: resultIds || []
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -74,9 +80,11 @@ export async function POST(req: NextRequest) {
 
     // 4. Update Result (Rename, Soft Delete, or Log Interaction)
     if (action === 'update_search') {
-      const { action_type } = body;
+      const { action_type, resultIds, totalScanned } = body;
       const updateData: any = {};
       if (newTitle !== undefined) updateData.custom_title = newTitle;
+      if (resultIds !== undefined) updateData.result_ids = resultIds;
+      if (totalScanned !== undefined) updateData.total_scanned = totalScanned;
       if (action_type === 'delete') updateData.is_hidden = true;
 
       const { error } = await supabase
