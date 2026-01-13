@@ -459,7 +459,7 @@ export default function Home() {
                 <div className="w-full max-w-2xl">
                     <div className="pt-4">
                         <div className="animate-fade-in">
-                        <h2 className="text-center text-4xl md:text-5xl font-medium mb-4 text-foreground leading-tight font-playfair">
+                        <h2 className="text-center text-3xl md:text-4xl font-medium mb-4 text-foreground leading-tight font-playfair">
                             What's stopping you from growing faster?
                         </h2>
                         <p className="text-center text-muted-foreground mb-8">
@@ -561,8 +561,8 @@ export default function Home() {
                         <div className="mt-4">
                             <Brands />
                             <div className="mt-24 text-center">
-                                <Link href="/trac-dairy" className="text-lg text-muted-foreground hover:text-foreground transition-colors">
-                                    Looking to get hired? <span className="font-bold underline">Download Our Software.</span>
+                                <Link href="/trac-dairy" className="text-lg text-muted-foreground hover:text-foreground transition-colors block">
+                                    Looking to get hired? <br /> <span className="font-bold underline">Download Our Software.</span>
                                 </Link>
                             </div>
                         </div>

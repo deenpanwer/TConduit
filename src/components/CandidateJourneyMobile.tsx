@@ -33,7 +33,7 @@ const SECTIONS = [
     id: "hire",
     title: "You Get Hired",
     subtitle: "Direct Connection",
-    description: "Skip the interviews. We connect you directly with employers who need exactly what you've proven you can do.",
+    description: "Skip the interviews. We connect you directly with employers who need exactly what you\'ve proven you can do.",
     color: "from-primary/40 to-primary/30"
   },
 ];
@@ -130,7 +130,6 @@ export function CandidateJourneyMobile() {
       if (img) {
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
         
-        // Use 'contain' logic
         const scale = Math.min(canvasRef.current.width / img.width, canvasRef.current.height / img.height);
         
         const w = img.width * scale;
@@ -138,15 +137,13 @@ export function CandidateJourneyMobile() {
         const x = (canvasRef.current.width / 2) - (w / 2);
         const y = (canvasRef.current.height / 2) - (h / 2);
         
-        // Rounded corners for the image
-        const radius = 32; // 2rem
+        const radius = 32;
 
         ctx.save();
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
            ctx.roundRect(x, y, w, h, radius);
         } else {
-           // Fallback for older browsers
            ctx.moveTo(x + radius, y);
            ctx.lineTo(x + w - radius, y);
            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
@@ -187,30 +184,31 @@ export function CandidateJourneyMobile() {
   return (
     <div ref={containerRef} className="relative w-full bg-background" style={{ height: `${SECTIONS.length * 100}vh` }}>
       
-      {/* Sticky Canvas Background */}
-      <div className="sticky top-0 h-[100dvh] w-full overflow-hidden">
-        <canvas 
-            ref={canvasRef} 
-            className={cn(
-                "w-full h-full transition-opacity duration-700", 
-                imagesLoaded ? "opacity-100" : "opacity-0"
-            )}
-        />
-        {/* Overlay gradient to make text readable - lightened for clarity */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
-        
-        {/* Loading State */}
-        {!imagesLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                    <span className="text-sm font-medium animate-pulse">Loading Visuals...</span>
-                </div>
-            </div>
-        )}
+      {/* Sticky Container */}
+      <div className="sticky top-0 h-[100dvh] w-full overflow-hidden flex flex-col">
 
-        {/* Dynamic Content Overlay - Fixed position over the canvas */}
-        <div className="absolute inset-x-0 bottom-0 h-[55%] pb-8 px-6 flex flex-col justify-end pointer-events-none">
+        {/* Top Half: Canvas */}
+        <div className="relative w-full h-1/2 flex items-center justify-center">
+          <canvas 
+              ref={canvasRef} 
+              className={cn(
+                  "w-full h-full transition-opacity duration-700", 
+                  imagesLoaded ? "opacity-100" : "opacity-0"
+              )}
+          />
+          {/* Loading State - Over the canvas */}
+          {!imagesLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background z-50">
+                  <div className="flex flex-col items-center gap-3">
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                      <span className="text-sm font-medium animate-pulse">Loading Visuals...</span>
+                  </div>
+              </div>
+          )}
+        </div>
+
+        {/* Bottom Half: Content */}
+        <div className="relative w-full h-1/2 flex flex-col justify-start items-center px-4">
              <AnimatePresence mode="wait">
                 <motion.div
                     key={activeSection}
@@ -218,14 +216,13 @@ export function CandidateJourneyMobile() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="relative pointer-events-auto"
+                    className="w-full max-w-md" 
                 >
-                    {/* Card Container - Reduced blur */}
+                    {/* Card Container */}
                     <div className={cn(
                         "relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl p-6",
                         "dark:bg-black/20 dark:border-white/10"
                     )}>
-                        {/* Decorative background blob */}
                         <div className={cn("absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl opacity-30 bg-gradient-to-br", SECTIONS[activeSection].color)} />
 
                         <div className="relative z-10">
@@ -265,11 +262,7 @@ export function CandidateJourneyMobile() {
                 </motion.div>
              </AnimatePresence>
         </div>
-
-        {/* Progress Indicators  i removed these indicators not needed if theres any leftover code for them clean it up*/}
-
       </div>
-
     </div>
   );
 }

@@ -74,10 +74,15 @@ export const CandidateCard = ({
                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">@{username}</span>
             </div>
             
-            {showEmail && email && (
+            {showEmail && email ? (
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl animate-in fade-in slide-in-from-top-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Direct Contact (Time Being)</p>
                 <p className="text-sm font-bold truncate selection:bg-blue-200">{email}</p>
+              </div>
+            ) : showEmail && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl animate-in fade-in slide-in-from-top-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Direct Contact</p>
+                <p className="text-sm font-bold text-blue-700 dark:text-blue-300">Contact initiated! We'll reach out to them for you.</p>
               </div>
             )}
 
@@ -101,12 +106,14 @@ export const CandidateCard = ({
       {/* Flexible Stats Grid */}
       <div className="grid grid-cols-3 gap-2 mb-8">
          {stats.map((stat, idx) => (
-           <div key={idx} className="bg-slate-50/50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-100/50 dark:border-slate-800 flex flex-col items-center justify-center text-center transition-colors group-hover:bg-white dark:group-hover:bg-slate-900">
-             <div className="flex items-center gap-1 mb-1">
-               {stat.icon && <stat.icon className="w-3 h-3 text-slate-400" />}
-               <span className="text-[14px] font-black leading-none">{stat.value.toLocaleString()}</span>
+           <div key={idx} className={cn("bg-slate-50/50 dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-100/50 dark:border-slate-800 flex flex-col items-center justify-center text-center transition-colors group-hover:bg-white dark:group-hover:bg-slate-900 min-w-0",
+             stat.label === 'Location' && 'col-span-2'
+           )}>
+             <div className="flex items-center gap-1 mb-1 w-full">
+               {stat.icon && <stat.icon className="w-3 h-3 text-slate-400 shrink-0" />}
+               <div className="text-[14px] font-black leading-none whitespace-normal break-words w-full">{stat.value.toLocaleString()}</div>
              </div>
-             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter leading-none">{stat.label}</span>
+             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter leading-none truncate">{stat.label}</span>
            </div>
          ))}
       </div>

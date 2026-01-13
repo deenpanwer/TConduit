@@ -16,7 +16,6 @@ import {
   Check
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import SocialScan2 from "@/components/ai-elements/SocialScan2";
 import { useTheme } from "next-themes";
 import { CandidateCard, CandidateStat } from "@/components/ai-elements/CandidateCard";
 import { ProfileDrawer } from "@/components/ai-elements/ProfileDrawer";
@@ -73,7 +72,8 @@ const SearchPage = () => {
   const [bestCandidates, setBestCandidates] = useState<UnifiedProfile[]>([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [totalProfilesSearched, setTotalProfilesSearched] = useState<number | null>(null);
-  const totalCountRef = useRef<number | null>(null);
+  const ballparkCountRef = useRef<number | null>(null);
+
 
   // Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -116,7 +116,7 @@ const SearchPage = () => {
 
                 if (searchRecord) {
                     // FOUND: This is a history item or direct link
-                    setStage("stage3");
+                    setStage("stage2");
                     setUserQuery(searchRecord.original_query);
                     setConfirmedPlan({ 
                         title: searchRecord.custom_title || searchRecord.original_query, 
@@ -164,14 +164,28 @@ const SearchPage = () => {
     loadSearchFromURL();
   }, [params.id]);
 
+  const calculateBallparkCount = () => {
+    const generateRandomCount = (min: number, max: number): number => {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+    // 2 platforms with 150-600, 3 platforms with 1200-3500
+    const lowCount = generateRandomCount(150, 600) + generateRandomCount(150, 600);
+    const highCount = generateRandomCount(1200, 3500) + generateRandomCount(1200, 3500) + generateRandomCount(1200, 3500);
+    return lowCount + highCount;
+  };
 
   const handlePlanConfirmed = (result: { title: string; final_query: string }) => {
     setConfirmedPlan(result);
     setUserQuery(result.final_query);
-    setStage("stage2");
-    // Create history entry immediately when plan is confirmed
+    
+    const count = calculateBallparkCount();
+    // No need to store in ref now if passed directly to logSearch
+    setTotalProfilesSearched(count); // Still update state for UI display
+
+    setStage("stage2"); // Go directly to NEW stage2 (results page)
+    
     if (params.id && typeof params.id === 'string') {
-        logSearch(result.final_query, [], result, params.id);
+        logSearch(result.final_query, [], result, params.id, count); // Pass count as a new argument
     }
   };
   
@@ -211,7 +225,7 @@ const SearchPage = () => {
     }
   };
 
-  const logSearch = async (query: string, resultIds: string[], planDataOverride?: any, specificSearchId?: string) => {
+  const logSearch = async (query: string, resultIds: string[], planDataOverride?: any, specificSearchId?: string, totalScannedValue?: number) => {
     if (!userEmail) return;
     try {
       const planData = planDataOverride || JSON.parse(sessionStorage.getItem('generatedPlanData') || '{}');
@@ -224,7 +238,8 @@ const SearchPage = () => {
           resultIds,
           planData: planData,
           newTitle: planData?.title || query, 
-          searchId: specificSearchId
+          searchId: specificSearchId,
+          totalScanned: totalScannedValue // Pass it here
         })
       });
       
@@ -407,20 +422,6 @@ const SearchPage = () => {
     }
   }, [userQuery, stage]);
 
-  // Auto-advance Stage 2 -> 3
-  useEffect(() => {
-    if (stage === "stage2") {
-      const timer = setTimeout(() => {
-        setStage("stage3");
-        if (totalCountRef.current) {
-          setTotalProfilesSearched(totalCountRef.current);
-          // Send the final scanned count to the database
-          updateSearchResults(undefined, totalCountRef.current);
-        }
-      }, 14000);
-      return () => clearTimeout(timer);
-    }
-  }, [stage]);
 
   const normalizeCandidateForCard = (candidate: UnifiedProfile) => {
     const g = candidate.raw_data;
@@ -432,14 +433,12 @@ const SearchPage = () => {
       bio: g.bio || "Open Source Contributor",
       skills: g.top_languages || [],
       stats: [
-        { label: 'Followers', value: g.followers, icon: Star },
-        { label: 'Total Stars', value: g.total_stars, icon: Star },
-        { label: 'Repos', value: g.public_repos, icon: Layers },
-        { label: 'Experience', value: `${new Date().getFullYear() - new Date(g.gh_created_at).getFullYear()}y`, icon: Clock },
-        { label: 'Location', value: g.location || 'Remote', icon: Box },
-        { label: 'Type', value: 'GitHub', icon: Github },
-      ]
-    };
+                  { label: 'Followers', value: g.followers, icon: Star },
+                  { label: 'Total Stars', value: g.total_stars, icon: Star },
+                  { label: 'Projects', value: g.public_repos, icon: Layers },
+                  { label: 'Experience', value: `${new Date().getFullYear() - new Date(g.gh_created_at).getFullYear()}y`, icon: Clock },
+                  { label: 'Location', value: g.location || 'Remote', icon: Box },
+              ]    };
   };
 
   return (
@@ -643,20 +642,7 @@ const SearchPage = () => {
           )}
 
           {stage === "stage2" && (
-            <motion.div key="stage2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full max-w-2xl">
-              <Task className="w-full">
-                <TaskTrigger title={confirmedPlan ? `Documenting: ${confirmedPlan.title}` : "Creating Experience Log"} />
-                <TaskContent>
-                  <SocialScan2 onTotalCalculated={(count) => {
-                    totalCountRef.current = count;
-                  }} />
-                </TaskContent>
-              </Task>
-            </motion.div>
-          )}
-
-          {stage === "stage3" && (
-             <motion.div key="stage3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col max-w-7xl mx-auto">
+             <motion.div key="stage2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col max-w-7xl mx-auto">
               <div className="mb-8 flex justify-between items-end">
                 <div>
                   <h2 className="text-4xl font-black tracking-tighter">{confirmedPlan?.title || "Search Results"}</h2>
