@@ -1,10 +1,12 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import useEmblaCarousel from 'embla-carousel-react'
+
 
 const features = [
   {
@@ -39,8 +41,7 @@ const DesktopDemo = () => {
       setActiveFeatureIndex(Math.min(index, features.length - 1));
     });
   }, [scrollYProgress]);
-
-  // Adjust the arrow position to be centered on each of the 3 steps
+  
   const arrowY = useTransform(scrollYProgress, [0, 0.5, 1], ['25%', '50%', '75%']);
 
   return (
@@ -48,7 +49,6 @@ const DesktopDemo = () => {
       <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden bg-black p-10">
         <div className="relative flex w-full max-w-6xl items-center justify-center">
           
-          {/* Left Indicators */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
             {features.map((_, index) => (
               <div
@@ -61,18 +61,27 @@ const DesktopDemo = () => {
             ))}
           </div>
 
-          {/* Image Panel (Static Dashboard) */}
           <div className="relative w-1/2 h-[600px]">
-              <Image
-                src={features[activeFeatureIndex].image}
-                alt={features[activeFeatureIndex].title}
-                fill
-                className="object-contain rounded-3xl"
-                priority
-              />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeFeatureIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0"
+                >
+                    <Image
+                      src={features[activeFeatureIndex].image}
+                      alt={features[activeFeatureIndex].title}
+                      fill
+                      className="object-contain rounded-3xl"
+                      priority
+                    />
+                </motion.div>
+              </AnimatePresence>
           </div>
 
-          {/* Content Panel */}
           <div className="relative w-[45%] -ml-32">
             <motion.div
               className="absolute left-0 w-8 h-8 bg-white transform -translate-x-1/2 rotate-45"
@@ -104,103 +113,85 @@ const DesktopDemo = () => {
   );
 };
 
+
 const MobileDemo = () => {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [autorotate, setAutorotate] = useState(true);
-
+    const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+    const [selectedIndex, setSelectedIndex] = useState(0);
+  
+    const onSelect = useCallback(() => {
+      if (!emblaApi) return;
+      setSelectedIndex(emblaApi.selectedScrollSnap());
+    }, [emblaApi]);
+  
     useEffect(() => {
-        if (!autorotate) return;
-        const interval = setInterval(() => {
-        setActiveIndex((prev) => (prev + 1) % features.length);
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [autorotate]);
+      if (!emblaApi) return;
+      onSelect();
+      emblaApi.on("select", onSelect);
+      return () => emblaApi.off("select", onSelect);
+    }, [emblaApi, onSelect]);
 
-    const handleManualChange = (index: number) => {
-        setAutorotate(false);
-        setActiveIndex(index);
-    };
-
-    return (
-        <div className="w-full max-w-6xl mx-auto px-4 py-12 md:py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold font-playfair mb-4">
-              Experience the Power of Trac
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              A comprehensive suite of tools designed to help you capture, analyze, and improve your work.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Features List (Left side on desktop) */}
-            <div className="lg:col-span-4 flex flex-col gap-4">
-              {features.map((feature, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleManualChange(index)}
-                  className={cn(
-                    "text-left p-6 rounded-xl transition-all duration-300 border border-transparent",
-                    activeIndex === index
-                      ? "bg-secondary/50 border-secondary shadow-sm scale-[1.02]"
-                      : "hover:bg-muted/50 hover:scale-[1.01]"
-                  )}
-                >
-                  <h3
-                    className={cn(
-                      "font-semibold text-lg mb-2 transition-colors",
-                      activeIndex === index ? "text-primary" : "text-foreground"
-                    )}
-                  >
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
-                </button>
-              ))}
+    const FeatureCard = ({ title, description }: { title: string; description: string; }) => (
+        <div className="bg-black rounded-3xl p-2 w-full h-full">
+            <div className="bg-white rounded-[1.25rem] overflow-hidden shadow-xl h-full flex flex-col">
+                <div className="relative">
+                    <div style={{ clipPath: 'url(#mobile-curve)' }} className="relative">
+                        <div className="aspect-[4/3] relative">
+                            <Image 
+                              src="https://picsum.photos/seed/mobile-city/400/300"
+                              alt={title} 
+                              fill 
+                              className="object-cover"
+                              data-ai-hint="city night"
+                            />
+                            <div className="absolute inset-0 bg-orange-500/70 mix-blend-multiply"/>
+                        </div>
+                    </div>
+                    <svg width="0" height="0">
+                        <defs>
+                            <clipPath id="mobile-curve" clipPathUnits="objectBoundingBox">
+                                <path d="M 0,0 H 1 V 0.9 Q 0.5,1 0,0.9 Z" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+                </div>
+                <div className="p-8 text-left flex-grow flex flex-col justify-center">
+                    <h3 className="text-3xl font-bold text-slate-900 mb-4 leading-tight">
+                        {title}
+                    </h3>
+                    <p className="text-slate-600 leading-relaxed text-base">
+                        {description}
+                    </p>
+                </div>
             </div>
-
-            {/* Image Display (Right side on desktop) */}
-            <div className="lg:col-span-8 relative aspect-[16/10] bg-muted/20 rounded-2xl overflow-hidden shadow-2xl border border-border/50">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeIndex}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.4, ease: "easeInOut" }}
-                  className="absolute inset-0 flex items-center justify-center p-4 md:p-8"
-                >
-                  <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg bg-background">
-                    <Image
-                      src={features[activeIndex].image}
-                      alt={features[activeIndex].title}
-                      fill
-                      className="object-contain"
-                      priority
-                    />
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-              
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 lg:hidden z-10">
-                {features.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleManualChange(idx)}
-                    className={cn(
-                      "w-2 h-2 rounded-full transition-all",
-                      activeIndex === idx ? "bg-primary w-6" : "bg-primary/30"
-                    )}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
     );
-}
+  
+    return (
+      <div className="w-full bg-black py-16 px-4">
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex">
+            {features.map((feature, index) => (
+              <div className="flex-shrink-0 flex-grow-0 basis-full min-w-0 px-4" key={index}>
+                <FeatureCard title={feature.title} description={feature.description} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-center gap-2 mt-8">
+            {features.map((_, index) => (
+                <button
+                    key={index}
+                    onClick={() => emblaApi?.scrollTo(index)}
+                    className={cn(
+                        "w-2 h-2 rounded-full transition-all duration-300",
+                        index === selectedIndex ? "bg-white w-6" : "bg-white/30"
+                    )}
+                />
+            ))}
+        </div>
+      </div>
+    );
+  };
 
 // Main component that switches between Desktop and Mobile
 export default function DairyDemo() {
@@ -215,5 +206,3 @@ export default function DairyDemo() {
     </>
   )
 }
-
-    
