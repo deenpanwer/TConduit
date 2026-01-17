@@ -38,6 +38,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -90,6 +91,7 @@ const SearchPage = () => {
   // User Identity
   const [userEmailInitial, setUserEmailInitial] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isEmailResolved, setIsEmailResolved] = useState(false);
   const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const [pendingInteractions, setPendingInteractions] = useState<any[]>([]);
 
@@ -199,6 +201,7 @@ const SearchPage = () => {
         initUser(storedUserEmail);
         fetchWorkspace(storedUserEmail);
       }
+      setIsEmailResolved(true);
     }
   }, []);
 
@@ -586,8 +589,16 @@ const SearchPage = () => {
           {/* Bottom Area */}
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-4">
             <div className={cn("w-full flex items-center gap-3", (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2")}>
-              <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-lg font-black border border-primary/20 shrink-0">
-                {userEmailInitial || "U"}
+              <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0">
+                {!isEmailResolved ? (
+                  <Skeleton className="w-full h-full rounded-full" />
+                ) : (
+                  <img 
+                    src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userEmail || 'anonymous'}`}
+                    alt="User Avatar"
+                    className="w-full h-full"
+                  />
+                )}
               </div>
               {mounted && (!isCollapsed || isMobileSidebarOpen) && <div className="text-xs font-bold truncate flex-1">{userEmail}</div>}
             </div>
@@ -643,20 +654,41 @@ const SearchPage = () => {
 
           {stage === "stage2" && (
              <motion.div key="stage2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col max-w-7xl mx-auto">
-              <div className="mb-8 flex justify-between items-end">
-                <div>
-                  <h2 className="text-4xl font-black tracking-tighter">{confirmedPlan?.title || "Search Results"}</h2>
-                  <p className="text-muted-foreground font-medium">Historical data captured from your talent discovery session.</p>
+              <div className="mb-6 md:mb-8 flex flex-row justify-between items-start md:items-end gap-4">
+                <div className="space-y-1 md:space-y-2">
+                  {isLoadingResults ? (
+                    <>
+                      <Skeleton className="h-6 md:h-10 w-32 md:w-96 rounded-lg md:rounded-xl" />
+                      <Skeleton className="h-5 w-48 md:w-80 rounded-lg hidden md:block" />
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-lg md:text-4xl font-black tracking-tighter">{confirmedPlan?.title || "Search Results"}</h2>
+                      <p className="text-muted-foreground font-medium text-sm md:text-base hidden md:block">Historical data captured from your talent discovery session.</p>
+                    </>
+                  )}
                 </div>
-                {totalProfilesSearched && (
+                {isLoadingResults ? (
                   <div className="text-right pb-1">
-                    <div className="flex items-center gap-2 justify-end">
-                      <Zap className="size-4 text-primary fill-primary" />
-                      <span className="text-3xl font-black tracking-tighter">{formatK(totalProfilesSearched)}</span>
+                    <div className="flex items-center gap-2 justify-end mb-1">
+                      <Skeleton className="h-3 md:h-4 w-3 md:w-4 rounded-full" />
+                      <Skeleton className="h-5 md:h-8 w-12 md:w-24 rounded-lg" />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Profiles Scanned Across Web</p>
+                    <Skeleton className="h-2 md:h-3 w-24 md:w-40 ml-auto rounded-lg" />
                   </div>
-                )}
+                ) : totalProfilesSearched ? (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-right pb-1"
+                  >
+                    <div className="flex items-center gap-1.5 md:gap-2 justify-end">
+                      <Zap className="size-3 md:size-4 text-primary fill-primary" />
+                      <span className="text-lg md:text-3xl font-black tracking-tighter">{formatK(totalProfilesSearched)}</span>
+                    </div>
+                    <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Profiles Scanned</p>
+                  </motion.div>
+                ) : null}
               </div>
 
               {isLoadingResults ? (

@@ -22,13 +22,15 @@ const brands: Brand[] = [
 export function Brands() {
   return (
     <div className="mt-16 w-full">
-      <div className="relative border-t">
-        <p className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="h-px flex-grow bg-border" />
+        <p className="text-xs text-muted-foreground whitespace-nowrap">
           Trusted by teams at
         </p>
+        <div className="h-px flex-grow bg-border" />
       </div>
       <div
-        className="relative mt-8 w-full overflow-hidden"
+        className="relative w-full overflow-hidden"
         style={{
             maskImage: 'linear-gradient(to right, transparent, black 20%, black 80%, transparent)'
         }}
@@ -39,7 +41,7 @@ export function Brands() {
               <img
                 src={brand.logoUrl}
                 alt={brand.name}
-                className="h-5 w-auto object-contain grayscale brightness-0"
+                className="h-5 w-auto object-contain grayscale brightness-0 dark:invert"
               />
             </div>
           ))}

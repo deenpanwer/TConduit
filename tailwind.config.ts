@@ -117,6 +117,9 @@ export default {
         grid: 'grid 10s linear infinite',
         'pulse-slow': 'pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
+      letterSpacing: {
+        'tighter-custom': '-0.051em',
+      },
     },
   },
   plugins: [require('tailwindcss-animate'), require('@tailwindcss/aspect-ratio')],

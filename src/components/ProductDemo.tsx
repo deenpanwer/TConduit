@@ -130,10 +130,6 @@ export function ProductDemo() {
 
   return (
     <section className="relative w-full py-24 overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none z-0">
-        {/* Animated Background Gradient */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vh] bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-[120px] rounded-full opacity-60 animate-pulse-slow" />
-      </div>
 
       <div className="container mx-auto px-4 relative z-10">
         <motion.div
@@ -157,9 +153,9 @@ export function ProductDemo() {
                 autoPlay
                 muted
                 loop
-                poster="/image.png"
+                poster="/demo-image.jpg"
             >
-                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+                <source src="/demo.mp4" type="video/mp4" />
             </video>
           ) : (
             // Placeholder while waiting for lazy load

@@ -43,7 +43,7 @@ export default function RootLayout({
           <PHProvider>
             <ThemeProvider
               attribute="class"
-              defaultTheme="light"
+              defaultTheme="system"
               enableSystem
               disableTransitionOnChange
             >

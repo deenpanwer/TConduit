@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Brands } from '@/components/Brands';
 import { SoundWave } from '@/components/SoundWave';
 import { CandidateJourney } from '@/components/CandidateJourney';
-import { CandidateJourneyMobile } from '@/components/CandidateJourneyMobile';
+import { BackgroundGradient } from '@/components/BackgroundGradient';
 import { ProductDemo } from '@/components/ProductDemo';
 
 
@@ -435,6 +435,7 @@ export default function Home() {
   
   return (
     <main className="relative flex flex-col min-h-screen bg-background animate-fade-in font-sans selection:bg-primary/20">
+      <BackgroundGradient />
       
       {/* Hero Section */}
       <section className="relative flex flex-col min-h-screen w-full">
@@ -466,7 +467,7 @@ export default function Home() {
                             please be specific that helps us find better candidates for you
                         </p>
                         <form onSubmit={handleSubmit} className="mx-auto w-full space-y-4">
-                            <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border bg-secondary/30 rounded-2xl shadow-md focus-within:ring-2 focus-within:ring-primary/50",
+                            <div className={cn("relative w-full overflow-hidden flex flex-col items-center self-auto border border-primary/20 bg-secondary/30 rounded-2xl shadow-md focus-within:ring-2 focus-within:ring-primary/50 transition-all",
                                 listening && "p-0"
                             )}>
                                 {listening ? (
@@ -514,7 +515,7 @@ export default function Home() {
                                         placeholder="Your email address"
                                         aria-label="Contact information"
                                         disabled={isLoading}
-                                        className="h-14 w-full rounded-2xl bg-secondary/30 text-base shadow-md"
+                                        className="h-14 w-full rounded-2xl bg-secondary/30 text-base shadow-md border-primary/20 focus-visible:ring-primary/50 transition-all"
                                     />
                                     {emailError && <p className="mt-2 text-sm text-red-500">{emailError}</p>}
                                     <p className="mt-2 text-xs text-muted-foreground">
@@ -527,7 +528,7 @@ export default function Home() {
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-2xl shadow-md" disabled={isLoading || listening}>
+                                                    <Button type="button" onClick={startRecording} variant="secondary" size="icon" className="h-14 w-14 rounded-full shadow-md border border-primary/20" disabled={isLoading || listening}>
                                                     <Mic />
                                                     </Button>
                                                 </TooltipTrigger>
@@ -539,12 +540,23 @@ export default function Home() {
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button type="submit" size="lg" className="h-14 rounded-2xl px-6 shadow-md" disabled={isLoading || !inputValue.trim() || !contactInfo.trim() || emailError !== "" || listening}>
+                                                    <Button 
+                                                        type="submit" 
+                                                        size="lg" 
+                                                        className={cn(
+                                                            "h-14 rounded-full px-8 shadow-lg transition-all duration-300 font-bold text-base",
+                                                            (!inputValue.trim() || !contactInfo.trim() || emailError !== "") 
+                                                                ? "bg-primary/20 dark:bg-white/10 text-primary-foreground/50 dark:text-white/30 cursor-not-allowed" 
+                                                                : "bg-primary dark:bg-white text-primary-foreground dark:text-black hover:scale-105 active:scale-95",
+                                                            isLoading && "bg-primary/50 dark:bg-white/50 cursor-wait scale-95"
+                                                        )} 
+                                                        disabled={isLoading || !inputValue.trim() || !contactInfo.trim() || emailError !== "" || listening}
+                                                    >
                                                         {isLoading ? (
-                                                            <div className="flex items-center justify-center space-x-1">
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.3s]"></span>
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground [animation-delay:-0.15s]"></span>
-                                                                <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-primary-foreground"></span>
+                                                            <div className="flex items-center justify-center space-x-2">
+                                                                <div className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]"></div>
+                                                                <div className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]"></div>
+                                                                <div className="h-2 w-2 animate-bounce rounded-full bg-current"></div>
                                                             </div>
                                                         ) : 'Submit'}
                                                     </Button>
@@ -574,21 +586,21 @@ export default function Home() {
       </section>
 
       {/* New Components Section */}
-      <div className="relative z-10 bg-background pb-24">
-         <div className="hidden lg:block">
+      <div className="relative pb-24">
+         {/* <div className="hidden lg:block">
             <CandidateJourney />
          </div>
          <div className="lg:hidden">
             <CandidateJourneyMobile />
-         </div>
+         </div> */}
         <ProductDemo />
       </div>
       
-      <footer className="fixed bottom-0 left-0 right-0 z-50 text-sm bg-background/80 backdrop-blur-md border-t border-border/50">
-            <div className="container mx-auto px-4 py-2 md:py-4">
+      <footer className="fixed bottom-0 left-0 right-0 z-50 text-sm bg-background/20 backdrop-blur-sm border-t border-border/10 transition-all duration-300 hover:bg-background/40">
+            <div className="container mx-auto px-4 py-1 md:py-2">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
-                    <div className="py-1 px-4 md:py-3 text-center md:text-left text-muted-foreground">
-                      <p>Google for Hiring</p>
+                    <div className="py-1 px-4 md:py-2 text-center md:text-left">
+                      <p className="font-semibold text-foreground/70 dark:text-foreground/40 hover:text-foreground transition-colors">Google for Hiring</p>
                     </div>
                     <div className="relative py-1 px-4 md:py-3">
                         <div className="flex justify-center md:justify-end">

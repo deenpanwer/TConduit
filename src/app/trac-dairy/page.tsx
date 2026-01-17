@@ -7,18 +7,6 @@ import { Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-
-
-import DairyDemo from '@/components/DairyDemo';
 
 const downloadOptions = [
     {
@@ -29,72 +17,32 @@ const downloadOptions = [
     }
 ];
 
-const DownloadManager = () => {
-    const [selectedDownload, setSelectedDownload] = useState('win-latest');
-  
-    const findDownload = (value: string) => {
-        for (const group of downloadOptions) {
-            const found = group.options.find(opt => opt.value === value);
-            if (found) return found;
-        }
-        return null;
-    };
-
-    const currentDownload = findDownload(selectedDownload);
-  
-    return (
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2">
-            <Select value={selectedDownload} onValueChange={setSelectedDownload}>
-              <SelectTrigger className="w-full sm:w-[240px]">
-                <SelectValue placeholder="Select a version" />
-              </SelectTrigger>
-              <SelectContent>
-                {downloadOptions.map(group => (
-                    <SelectGroup key={group.label}>
-                        <SelectLabel>{group.label}</SelectLabel>
-                        {group.options.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-        </div>
-        <Button
-            asChild
-            size="lg"
-            className="h-10 px-6 text-base rounded-md shadow-md bg-green-600 hover:bg-green-700 text-white disabled:bg-green-600/50 disabled:cursor-not-allowed w-full sm:w-auto"
-            disabled={!currentDownload}
-        >
-            <a href={currentDownload?.href} download>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-            </a>
-        </Button>
-      </div>
-    );
-};
+import HeroSection from '@/components/ui/hero-section-with-gradient';
 
 const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title: string; comingSoon?: boolean }) => (
   <div className={cn(
-    "flex-1 p-6 rounded-lg border bg-card text-card-foreground shadow-sm transition-all",
-    comingSoon ? "bg-muted/50 opacity-60" : "hover:shadow-md"
+    "flex-1 p-8 rounded-2xl border bg-card/50 backdrop-blur-sm text-card-foreground shadow-sm transition-all duration-300",
+    comingSoon ? "opacity-40" : "hover:shadow-xl hover:border-primary/50 hover:bg-card/80 group"
   )}>
-    <div className="flex flex-col h-full">
-      <div className="flex-grow">
+    <div className="flex flex-col h-full items-center text-center">
+      <div className="p-4 rounded-2xl bg-secondary/50 mb-4 group-hover:scale-110 transition-transform duration-300">
         {icon}
       </div>
-      <div className="mt-4">
-        <a href="#" className={cn(
-          "text-sm font-medium text-primary hover:underline",
-          comingSoon && "pointer-events-none text-muted-foreground"
-        )}>
-          {title} {comingSoon ? '' : '→'}
-          {comingSoon && <span className="text-xs ml-1">(Coming Soon)</span>}
-        </a>
+      <div className="mt-2">
+        <h3 className="text-lg font-bold font-poppins">{title}</h3>
+        {comingSoon ? (
+          <p className="text-sm font-medium mt-2 text-muted-foreground">
+            Coming Soon
+          </p>
+        ) : (
+          <a 
+            href="/TracDairy-Installer.exe" 
+            download
+            className="text-sm font-medium mt-2 text-primary dark:text-white hover:underline block transition-colors"
+          >
+            Available Now →
+          </a>
+        )}
       </div>
     </div>
   </div>
@@ -104,8 +52,8 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
 export default function TracDairyDownloadPage() {
 
   return (
-    <div className="bg-background min-h-screen text-foreground">
-       <header className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center">
+    <div className="bg-background min-h-screen text-foreground relative isolate">
+       <header className="px-6 py-6 flex justify-between items-center z-50 relative">
         <Link href="/">
             <h1 className="font-poppins font-bold text-2xl text-foreground">
             TRAC AI
@@ -113,65 +61,31 @@ export default function TracDairyDownloadPage() {
         </Link>
       </header>
 
-      <main className="pt-24 pb-12 sm:pb-20">
-        {/* Hero Section */}
-        <section className="py-24 sm:py-32 bg-muted/30">
-          <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="flex flex-col gap-4 text-center md:text-left">
-              <h1 className="text-4xl sm:text-5xl font-bold font-playfair tracking-tight">Get Trac on your desktop</h1>
-              <p className="text-md sm:text-lg text-muted-foreground">
-                Build your verifiable work profile by letting our AI log your activity and identify your core competencies. Stay connected to opportunity.
-              </p>
-              <div className="mt-4 flex justify-center md:justify-start">
-                <DownloadManager />
-              </div>
-            </div>
-            <div className="flex items-center justify-center">
-              <Image
-                src="/dairy/1.png"
-                alt="Trac Dairy App UI"
-                width={600}
-                height={400}
-                className="rounded-lg shadow-2xl w-full max-w-md md:max-w-full"
-                data-ai-hint="desktop app time tracking"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Product Demo Section */}
-        <section className="bg-muted/10">
-            <DairyDemo />
-        </section>
-
-        {/* Feature 1: Proof of Work */}
-        <section className="py-16 sm:py-20 bg-muted/30">
-          <div className="container mx-auto px-4">
-             <div className="max-w-3xl mx-auto text-center">
-                <h2 className="text-3xl font-bold font-playfair mb-4">Verifiable Proof of Work</h2>
-                <p className="text-muted-foreground">
-                    Create an undeniable, minute-by-minute record of your work and competence that you can share with anyone. When you turn on the tracker, our AI builds a verifiable log of your contributions and skills.
-                </p>
-            </div>
-          </div>
-        </section>
+      <main className="pb-12 sm:pb-20">
+        <HeroSection />
 
         {/* "Available for" Section */}
-        <section className="py-16 sm:py-20">
+        <section className="py-24 sm:py-32 relative">
           <div className="container mx-auto px-4">
-            <h2 className="text-2xl font-bold mb-6 text-center">Available for</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="max-w-3xl mx-auto text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold font-poppins mb-4">Cross-Platform Support</h2>
+                <p className="text-muted-foreground text-lg">
+                    Download Trac Dairy for your preferred operating system and start building your verifiable profile today.
+                </p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <OtherOSCard
-                icon={<img src="/dairy/windows.png" alt="Windows Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/windows.png" alt="Windows Icon" className="h-10 w-10" />}
                 title="Windows OS"
               />
               <OtherOSCard
-                icon={<img src="/dairy/apple-logo.png" alt="macOS Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/apple-logo.png" alt="macOS Icon" className="h-10 w-10" />}
                 title="MacOS"
                 comingSoon
               />
               <OtherOSCard
-                icon={<img src="/dairy/linux.png" alt="Linux Icon" className="h-8 w-8" />}
+                icon={<img src="/dairy/linux.png" alt="Linux Icon" className="h-10 w-10" />}
                 title="Linux"
                 comingSoon
               />
