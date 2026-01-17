@@ -1,5 +1,5 @@
 
-'use client';
+"use client";
 
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
@@ -8,24 +8,19 @@ import { cn } from '@/lib/utils';
 
 const features = [
   {
-    title: "Smart Activity Feed",
-    description: "Track your work in real-time with automatic context logging. See exactly what you've worked on and for how long.",
+    title: "Infrastructure that saves time and costs",
+    description: "Rail leverages stablecoins to enable instant cross-border transactions with reduced fees for fiat or digital payments. Where legacy international payment systems take days, with Rail your money can settle in hours.",
     image: "/dairy/demo1.png",
   },
   {
-    title: "Strategic Capacity",
-    description: "View your productivity trends and capacity at a glance. Identify your most productive days and optimize your schedule.",
+    title: "Strategic Capacity Management",
+    description: "View your productivity trends and capacity at a glance. Identify your most productive days and optimize your schedule for peak performance and sustainable growth.",
     image: "/dairy/demo2.png",
   },
   {
-    title: "Visual Analytics",
-    description: "Understand where your time goes with project distribution charts. Visualize your focus across different applications and projects.",
+    title: "Deep Visual Analytics",
+    description: "Understand precisely where your time goes with our detailed project distribution charts. Visualize your focus across different applications and strategic initiatives.",
     image: "/dairy/demo3.png",
-  },
-  {
-    title: "Granular Reporting",
-    description: "Dive deep into every minute with detailed logs and exportable data. Generate comprehensive reports for billing or personal audits.",
-    image: "/dairy/demo4.png",
   },
 ];
 
@@ -46,16 +41,15 @@ const DesktopDemo = () => {
     });
   }, [scrollYProgress]);
 
-  // Using 4 indicators to match the 4 features. The user's image had 3, but we have 4 content sections.
-  const arrowY = useTransform(scrollYProgress, [0, 1/3, 2/3, 1], ['20%', '40%', '60%', '80%']);
+  const arrowY = useTransform(scrollYProgress, [0, 0.5, 1], ['25%', '50%', '75%']);
 
   return (
-    <div ref={targetRef} className="relative h-[350vh] w-full">
-      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden bg-black">
-        <div className="relative flex w-full max-w-7xl items-center justify-center p-8">
+    <div ref={targetRef} className="relative h-[300vh] w-full">
+      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden bg-black p-10">
+        <div className="relative flex w-full max-w-6xl items-center justify-center">
           
-          {/* Left Indicators - 4 to match features */}
-          <div className="absolute left-8 top-1/2 -translate-y-1/2 flex flex-col items-center gap-6">
+          {/* Left Indicators */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
             {features.map((_, index) => (
               <div
                 key={index}
@@ -94,10 +88,7 @@ const DesktopDemo = () => {
           <div className="relative w-[45%] -ml-16">
             <motion.div
               className="absolute left-0 w-8 h-8 bg-background transform -translate-x-1/2 rotate-45"
-              style={{
-                clipPath: 'polygon(50% 0%, 0% 50%, 50% 100%)',
-                top: arrowY,
-              }}
+              style={{ top: arrowY }}
             />
             <div className="bg-background text-card-foreground p-16 rounded-3xl shadow-2xl h-[450px] flex flex-col justify-center">
                <AnimatePresence mode="wait">
@@ -107,7 +98,7 @@ const DesktopDemo = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3, ease: 'circOut' }}
-                    className="space-y-4"
+                    className="space-y-6"
                   >
                     <h2 className="text-4xl font-bold font-playfair text-foreground">
                       {features[activeFeatureIndex].title}
@@ -119,13 +110,11 @@ const DesktopDemo = () => {
                </AnimatePresence>
             </div>
           </div>
-
         </div>
       </div>
     </div>
   );
 };
-
 
 // Original Mobile Component
 const MobileDemo = () => {
