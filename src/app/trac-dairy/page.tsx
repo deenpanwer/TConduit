@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select"
 
 
+import TracDairyDemo from '@/components/TracDairyDemo';
+
 const downloadOptions = [
     {
       label: "Latest",
@@ -160,6 +162,11 @@ export default function TracDairyDownloadPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/* Product Demo Section */}
+        <section className="bg-muted/10">
+            <TracDairyDemo />
         </section>
 
         {/* Feature 1: Proof of Work */}

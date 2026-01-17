@@ -581,7 +581,7 @@ export default function Home() {
          <div className="lg:hidden">
             <CandidateJourneyMobile />
          </div>
-         {/* <ProductDemo /> */}
+        <ProductDemo />
       </div>
       
       <footer className="fixed bottom-0 left-0 right-0 z-50 text-sm bg-background/80 backdrop-blur-md border-t border-border/50">
