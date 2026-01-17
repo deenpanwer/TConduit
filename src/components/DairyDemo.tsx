@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -7,18 +8,18 @@ import { cn } from '@/lib/utils';
 
 const features = [
   {
-    title: "Infrastructure that saves time and costs",
-    description: "Rail leverages stablecoins to enable instant cross-border transactions with reduced fees for fiat or digital payments. Where legacy international payment systems take days, with Rail your money can settle in hours.",
-    image: "/dairy/demo1.png",
-  },
-  {
-    title: "Strategic Capacity Management",
-    description: "View your productivity trends and capacity at a glance. Identify your most productive days and optimize your schedule for peak performance and sustainable growth.",
+    title: "Reporting Overview",
+    description: "Get a high-level overview of key performance metrics and activity trends. Monitor your team's output at a glance.",
     image: "/dairy/demo2.png",
   },
   {
     title: "Deep Visual Analytics",
     description: "Understand precisely where your time goes with our detailed project distribution charts. Visualize your focus across different applications and strategic initiatives.",
+    image: "/dairy/demo2.png",
+  },
+  {
+    title: "Activity Trend Analysis",
+    description: "Track productivity patterns over time to identify opportunities for improvement and celebrate your team's successes.",
     image: "/dairy/demo3.png",
   },
 ];
@@ -39,7 +40,8 @@ const DesktopDemo = () => {
     });
   }, [scrollYProgress]);
 
-  const arrowY = useTransform(scrollYProgress, [0, 0.45, 0.9], ['25%', '50%', '75%']);
+  // Adjust the arrow position to be centered on each of the 3 steps
+  const arrowY = useTransform(scrollYProgress, [0, 0.5, 1], ['25%', '50%', '75%']);
 
   return (
     <div ref={targetRef} className="relative h-[300vh] w-full">
@@ -59,36 +61,24 @@ const DesktopDemo = () => {
             ))}
           </div>
 
-          {/* Image Panel */}
-          <div className="relative w-1/2 h-[600px] rounded-3xl overflow-hidden">
-            <AnimatePresence initial={false}>
-                <motion.div
-                  key={activeFeatureIndex}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                  className="absolute inset-0"
-                >
-                  <Image
-                    src={features[activeFeatureIndex].image}
-                    alt={features[activeFeatureIndex].title}
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-orange-500/40 mix-blend-multiply" />
-                </motion.div>
-            </AnimatePresence>
+          {/* Image Panel (Static Dashboard) */}
+          <div className="relative w-1/2 h-[600px]">
+              <Image
+                src={features[activeFeatureIndex].image}
+                alt={features[activeFeatureIndex].title}
+                fill
+                className="object-contain rounded-3xl"
+                priority
+              />
           </div>
 
           {/* Content Panel */}
-          <div className="relative w-[45%] -ml-16">
+          <div className="relative w-[45%] -ml-32">
             <motion.div
-              className="absolute left-0 w-8 h-8 bg-background transform -translate-x-1/2 rotate-45"
+              className="absolute left-0 w-8 h-8 bg-white transform -translate-x-1/2 rotate-45"
               style={{ top: arrowY }}
             />
-            <div className="bg-background text-card-foreground p-16 rounded-3xl shadow-2xl h-[450px] flex flex-col justify-center">
+            <div className="bg-white text-slate-900 p-16 rounded-3xl shadow-2xl h-[450px] flex flex-col justify-center">
                <AnimatePresence mode="wait">
                   <motion.div
                     key={activeFeatureIndex}
@@ -98,10 +88,10 @@ const DesktopDemo = () => {
                     transition={{ duration: 0.3, ease: 'circOut' }}
                     className="space-y-6"
                   >
-                    <h2 className="text-4xl font-bold font-playfair text-foreground">
+                    <h2 className="text-4xl font-bold font-playfair text-slate-900">
                       {features[activeFeatureIndex].title}
                     </h2>
-                    <p className="text-lg text-muted-foreground leading-relaxed">
+                    <p className="text-lg text-slate-600 leading-relaxed">
                       {features[activeFeatureIndex].description}
                     </p>
                   </motion.div>
@@ -225,3 +215,5 @@ export default function DairyDemo() {
     </>
   )
 }
+
+    
