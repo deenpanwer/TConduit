@@ -10,10 +10,29 @@ export function ProductDemo() {
   const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [isHovering, setIsHovering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const togglePlaybackRate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rates = [1, 1.5, 2];
+    const nextRate = rates[(rates.indexOf(playbackRate) + 1) % rates.length];
+    if (videoRef.current) {
+      videoRef.current.playbackRate = nextRate;
+      setPlaybackRate(nextRate);
+    }
+  };
 
   const togglePlay = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -110,13 +129,27 @@ export function ProductDemo() {
     const onTimeUpdate = () => {
         if (video.duration) {
             setProgress((video.currentTime / video.duration) * 100);
+            setCurrentTime(video.currentTime);
+            // Fallback for duration if loadedmetadata missed it
+            if (duration === 0) setDuration(video.duration);
         }
     };
+    const onLoadedMetadata = () => {
+        if (video.duration) {
+            setDuration(video.duration);
+        }
+    };
+
+    // If video is already loaded (e.g. from cache), capture duration immediately
+    if (video.readyState >= 1 && video.duration) {
+        setDuration(video.duration);
+    }
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("volumechange", onVolumeChange);
     video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
     document.addEventListener("fullscreenchange", onFullscreenChange);
 
     return () => {
@@ -124,6 +157,7 @@ export function ProductDemo() {
         video.removeEventListener("pause", onPause);
         video.removeEventListener("volumechange", onVolumeChange);
         video.removeEventListener("timeupdate", onTimeUpdate);
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
         document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
   }, [shouldLoad]); // Re-attach when loaded
@@ -196,11 +230,24 @@ export function ProductDemo() {
           >
              <div className="flex justify-between items-end w-full">
                  <div className="text-white">
-                    <h4 className="font-medium text-lg">TracDairy Demo</h4>
+                    <div className="flex items-center gap-3">
+                        <h4 className="font-medium text-lg">TracDairy Demo</h4>
+                        <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-white/50">
+                            {formatTime(currentTime)} / {formatTime(duration)}
+                        </span>
+                    </div>
                     <p className="text-white/70 text-sm">See how it works in real time</p>
                  </div>
                  
                  <div className="flex items-center gap-4">
+                     <button
+                        onClick={togglePlaybackRate}
+                        className="text-white font-mono text-sm hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors border border-white/10 bg-white/5"
+                        title="Playback Speed"
+                     >
+                        {playbackRate}x
+                     </button>
+
                      <button 
                         onClick={toggleMute} 
                         className="text-white hover:bg-white/20 p-2 rounded-full transition-colors"
