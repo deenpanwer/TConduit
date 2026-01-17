@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select"
 
 
-import TracDairyDemo from '@/components/TracDairyDemo';
+import DairyDemo from '@/components/DairyDemo';
 
 const downloadOptions = [
     {
@@ -139,34 +139,9 @@ export default function TracDairyDownloadPage() {
           </div>
         </section>
 
-        {/* Feature 2: What it captures */}
-        <section className="py-16 sm:py-20">
-          <div className="container mx-auto px-4">
-            <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-3xl font-bold font-playfair mb-4">What the app captures</h2>
-              <p className="text-muted-foreground mb-6">
-                When you turn the tracker on, Trac will see:
-              </p>
-              <ul className="space-y-3 text-muted-foreground text-left max-w-md mx-auto">
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  <span>Images of your screen taken randomly up to 6 times an hour.</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-3 mt-1 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                  <span>The names of the applications you are using.</span>
-                </li>
-              </ul>
-              <p className="mt-6 text-xs sm:text-sm text-muted-foreground/80">
-                The app does not track what you type, your individual mouse clicks, or webcam footage. Your privacy and trust are paramount.
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* Product Demo Section */}
         <section className="bg-muted/10">
-            <TracDairyDemo />
+            <DairyDemo />
         </section>
 
         {/* Feature 1: Proof of Work */}

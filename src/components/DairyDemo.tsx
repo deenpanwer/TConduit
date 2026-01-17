@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -24,7 +23,6 @@ const features = [
   },
 ];
 
-// New Desktop Component
 const DesktopDemo = () => {
   const targetRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -41,7 +39,7 @@ const DesktopDemo = () => {
     });
   }, [scrollYProgress]);
 
-  const arrowY = useTransform(scrollYProgress, [0, 0.5, 1], ['25%', '50%', '75%']);
+  const arrowY = useTransform(scrollYProgress, [0, 0.45, 0.9], ['25%', '50%', '75%']);
 
   return (
     <div ref={targetRef} className="relative h-[300vh] w-full">
@@ -54,8 +52,8 @@ const DesktopDemo = () => {
               <div
                 key={index}
                 className={cn(
-                  'h-8 w-1 rounded-full bg-white transition-opacity duration-300',
-                  activeFeatureIndex === index ? 'opacity-100' : 'opacity-30'
+                  'w-1 rounded-full bg-white transition-all duration-300',
+                  activeFeatureIndex === index ? 'opacity-100 h-8' : 'opacity-30 h-4'
                 )}
               />
             ))}
@@ -116,7 +114,6 @@ const DesktopDemo = () => {
   );
 };
 
-// Original Mobile Component
 const MobileDemo = () => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [autorotate, setAutorotate] = useState(true);
@@ -216,7 +213,7 @@ const MobileDemo = () => {
 }
 
 // Main component that switches between Desktop and Mobile
-export default function TracDairyDemo() {
+export default function DairyDemo() {
   return (
     <>
       <div className="hidden lg:block">
