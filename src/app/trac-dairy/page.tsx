@@ -12,7 +12,7 @@ const downloadOptions = [
     {
       label: "Latest",
       options: [
-        { value: "win-latest", label: "Windows", href: "/TracDairy-Installer.exe" },
+        { value: "win-latest", label: "Windows", href: "/dairy/TracDairy-Installer.exe" },
       ]
     }
 ];
@@ -36,7 +36,7 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
           </p>
         ) : (
           <a 
-            href="/TracDairy-Installer.exe" 
+            href="/dairy/TracDairy-Installer.exe" 
             download
             className="text-sm font-medium mt-2 text-primary dark:text-white hover:underline block transition-colors"
           >
