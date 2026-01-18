@@ -455,7 +455,7 @@ export default function Home() {
             </div>
         </header>
 
-        <div className='flex-grow flex flex-col justify-center px-4 relative z-10'>
+        <div className='flex-grow flex flex-col justify-center px-4 pt-32 md:pt-0 relative z-10'>
             <div className="flex-grow flex items-center justify-center">
                 <div className="w-full max-w-2xl">
                     <div className="pt-4">
@@ -570,13 +570,13 @@ export default function Home() {
                                 )}
                             </div>
                         </form>
-                        <div className="mt-4">
-                            <Brands />
-                            <div className="mt-24 text-center">
-                                <Link href="/trac-dairy" className="text-lg text-muted-foreground hover:text-foreground transition-colors block">
-                                    Looking to get hired? <br /> <span className="font-bold underline">Download Our Software.</span>
+                        <div className="mt-16">
+                            <div className="mb-24 text-center">
+                                <Link href="/trac-dairy" className="text-lg text-foreground hover:text-primary transition-colors block">
+                                    <span className="font-medium">Looking to get hired?</span> <br /> <span className="font-bold underline text-xl">Download Our Software.</span>
                                 </Link>
                             </div>
+                            <Brands />
                         </div>
                         </div>
                     </div>
