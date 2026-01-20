@@ -13,7 +13,8 @@ import {
   Star, Clock, Zap, Briefcase, MessageSquare, CheckCircle, 
   Download, Box, Github, Layers, MoreHorizontal, Plus, Trash2, Edit2,
   SquarePen, History, Menu, X, ChevronDown, ChevronRight,
-  Check
+  Check,
+  FileSignature
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useTheme } from "next-themes";
@@ -39,6 +40,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HiringModal, HiringData } from "@/components/HiringModal";
+import { OnboardingHub } from "@/components/OnboardingHub";
+import { useSearchParams } from "next/navigation";
 
 // --- Supabase Client Initialization ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -62,6 +66,8 @@ const SearchPage = () => {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const params = useParams(); // Get ID from URL
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab");
 
   // Workspace State
   const [userQuery, setUserQuery] = useState<string | null>(null);
@@ -81,6 +87,16 @@ const SearchPage = () => {
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [editingSearchId, setEditingSearchId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
+
+  // Hiring & Onboarding State
+  const [isHiringModalOpen, setIsHiringModalOpen] = useState(false);
+  const [hiringCandidate, setHiringCandidate] = useState<{id: string, name: string} | null>(null);
+  const [isOnboardingActive, setIsOnboardingActive] = useState(activeTab === "onboarding");
+  const [hiringData, setHiringData] = useState<HiringData | null>(null);
+
+  useEffect(() => {
+    setIsOnboardingActive(activeTab === "onboarding");
+  }, [activeTab]);
 
   const formatK = (num: number) => {
     if (num < 1000) return num.toString();
@@ -496,6 +512,47 @@ const SearchPage = () => {
               </Tooltip>
             </TooltipProvider>
 
+          {/* Onboarding Section (Purple Theme) */}
+          {isOnboardingActive && hiringCandidate && (
+            <div className={cn("mb-4", (isCollapsed && !isMobileSidebarOpen) ? "px-0 flex justify-center" : "px-2")}>
+                {mounted && (!isCollapsed || isMobileSidebarOpen) && (
+                    <div className="flex items-center gap-2 mb-2 px-1 animate-in fade-in duration-300">
+                        <div className="size-1.5 rounded-full bg-purple-500 animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-purple-500">Pipeline</span>
+                    </div>
+                )}
+                <button
+                    onClick={() => router.push(`/search/${params.id}?tab=onboarding`)}
+                    className={cn(
+                        "flex items-center gap-3 w-full p-2 rounded-xl transition-all border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 relative group",
+                        (isCollapsed && !isMobileSidebarOpen) ? "justify-center size-10 p-0" : "p-2.5",
+                        activeTab === "onboarding" ? "ring-1 ring-purple-500/50 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.15)]" : ""
+                    )}
+                >
+                    <div className={cn(
+                        "rounded-lg bg-purple-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-purple-500/20 transition-all",
+                        (isCollapsed && !isMobileSidebarOpen) ? "size-6" : "size-8"
+                    )}>
+                        <FileSignature className={cn("size-4", (isCollapsed && !isMobileSidebarOpen) && "size-3")} />
+                    </div>
+                    
+                    {mounted && (!isCollapsed || isMobileSidebarOpen) && (
+                        <div className="flex flex-col items-start overflow-hidden text-left min-w-0 flex-1">
+                            <span className="text-xs font-bold truncate w-full text-purple-700 dark:text-purple-300">{hiringCandidate.name}</span>
+                            <span className="text-[10px] text-purple-500/70 font-medium truncate w-full">Onboarding</span>
+                        </div>
+                    )}
+
+                    {/* Tooltip for collapsed state */}
+                    {(isCollapsed && !isMobileSidebarOpen) && (
+                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 border">
+                            {hiringCandidate.name}
+                        </div>
+                    )}
+                </button>
+            </div>
+          )}
+
             <button
                onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
                className={cn(
@@ -654,6 +711,18 @@ const SearchPage = () => {
 
           {stage === "stage2" && (
              <motion.div key="stage2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col max-w-7xl mx-auto">
+              
+              {isOnboardingActive && hiringCandidate && hiringData ? (
+                <OnboardingHub 
+                    candidateName={hiringCandidate.name} 
+                    hiringData={hiringData}
+                    onBack={() => {
+                        setIsOnboardingActive(false);
+                        router.push(`/search/${params.id}`);
+                    }} 
+                />
+              ) : (
+              <>
               <div className="mb-6 md:mb-8 flex flex-row justify-between items-start md:items-end gap-4">
                 <div className="space-y-1 md:space-y-2">
                   {isLoadingResults ? (
@@ -704,7 +773,12 @@ const SearchPage = () => {
                     <CandidateCard
                       key={candidate.id}
                       {...normalizeCandidateForCard(candidate)}
-                      onHire={() => logInteraction('hire', { candidateId: candidate.id, candidateName: normalizeCandidateForCard(candidate).name })}
+                      onHire={() => {
+                          const cName = normalizeCandidateForCard(candidate).name;
+                          logInteraction('hire_click', { candidateId: candidate.id, candidateName: cName });
+                          setHiringCandidate({ id: candidate.id, name: cName });
+                          setIsHiringModalOpen(true);
+                      }}
                       onViewProfile={() => {
                         logInteraction('view_profile', { candidateId: candidate.id, candidateName: normalizeCandidateForCard(candidate).name });
                         setSelectedProfile(candidate.raw_data);
@@ -734,6 +808,8 @@ const SearchPage = () => {
                   </Button>
                 </div>
               )}
+              </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -744,6 +820,21 @@ const SearchPage = () => {
         onClose={() => setDrawerOpen(false)}
         profile={selectedProfile}
       />
+
+      {hiringCandidate && (
+        <HiringModal 
+            isOpen={isHiringModalOpen} 
+            onClose={() => setIsHiringModalOpen(false)}
+            candidateName={hiringCandidate.name}
+            onConfirm={(data) => {
+                setHiringData(data);
+                setIsHiringModalOpen(false);
+                setIsOnboardingActive(true);
+                router.push(`/search/${params.id}?tab=onboarding`);
+                logInteraction('hiring_modal_confirmed', { candidateId: hiringCandidate.id, ...data });
+            }}
+        />
+      )}
     </div>
   );
 };
