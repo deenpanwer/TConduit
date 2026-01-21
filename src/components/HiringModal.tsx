@@ -62,7 +62,7 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] w-full max-h-[90vh] overflow-y-auto gap-0 p-0 bg-background border-border shadow-2xl">
+      <DialogContent className="sm:max-w-[550px] w-[95vw] max-h-[90vh] overflow-y-auto gap-0 p-0 bg-background border-border shadow-2xl rounded-2xl md:rounded-3xl">
         {/* Progress Bar */}
         <div className="h-1 w-full bg-secondary shrink-0">
           <div 
@@ -72,24 +72,24 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
         </div>
 
         {/* Header */}
-        <div className="p-6 pb-2 bg-gradient-to-b from-muted/50 to-transparent shrink-0">
+        <div className="p-4 md:p-6 pb-2 bg-gradient-to-b from-muted/50 to-transparent shrink-0">
           <DialogHeader>
-            <DialogTitle className="text-xl md:text-2xl font-bold flex items-center gap-2">
-              <Briefcase className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+            <DialogTitle className="text-lg md:text-2xl font-bold flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
               Hire {candidateName}
             </DialogTitle>
-            <DialogDescription className="text-sm md:text-base">
+            <DialogDescription className="text-xs md:text-base">
               {step === 1 ? "Let's start with your organization details." : "Define the compensation and terms."}
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="p-6 pt-2 space-y-6">
+        <div className="p-4 md:p-6 pt-2 space-y-4 md:space-y-6">
           {step === 1 ? (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="space-y-4 md:space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="userName" className="flex items-center gap-1.5 text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
+                  <Label htmlFor="userName" className="flex items-center gap-1.5 text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
                     Your Name
                   </Label>
                   <div className="relative">
@@ -97,7 +97,7 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                     <Input 
                       id="userName" 
                       placeholder="Jane Doe" 
-                      className="pl-9 bg-secondary/20"
+                      className="pl-9 bg-secondary/20 h-10 md:h-11"
                       value={formData.userName}
                       onChange={(e) => handleInputChange("userName", e.target.value)}
                       autoFocus
@@ -105,7 +105,7 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="orgName" className="flex items-center gap-1.5 text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
+                  <Label htmlFor="orgName" className="flex items-center gap-1.5 text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
                      Organization
                   </Label>
                   <div className="relative">
@@ -113,7 +113,7 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                     <Input 
                       id="orgName" 
                       placeholder="Acme Inc." 
-                      className="pl-9 bg-secondary/20"
+                      className="pl-9 bg-secondary/20 h-10 md:h-11"
                       value={formData.orgName}
                       onChange={(e) => handleInputChange("orgName", e.target.value)}
                     />
@@ -121,9 +121,9 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                 <div className="space-y-2">
-                    <Label htmlFor="siteUrl" className="flex items-center gap-1.5 text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
+                    <Label htmlFor="siteUrl" className="flex items-center gap-1.5 text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
                         Website URL <span className="text-muted-foreground/50 font-normal lowercase">(Optional)</span>
                     </Label>
                     <div className="relative">
@@ -131,20 +131,20 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                         <Input 
                         id="siteUrl" 
                         placeholder="https://acme.com" 
-                        className="pl-9 bg-secondary/20"
+                        className="pl-9 bg-secondary/20 h-10 md:h-11"
                         value={formData.siteUrl}
                         onChange={(e) => handleInputChange("siteUrl", e.target.value)}
                         />
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="logoUrl" className="flex items-center gap-1.5 text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
+                    <Label htmlFor="logoUrl" className="flex items-center gap-1.5 text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
                         Logo URL <span className="text-muted-foreground/50 font-normal lowercase">(For Docs)</span>
                     </Label>
                     <Input 
                     id="logoUrl" 
                     placeholder="https://acme.com/logo.png" 
-                    className="bg-secondary/20"
+                    className="bg-secondary/20 h-10 md:h-11"
                     value={formData.logoUrl}
                     onChange={(e) => handleInputChange("logoUrl", e.target.value)}
                     />
@@ -152,48 +152,52 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="message" className="flex items-center gap-1.5 text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
+                <Label htmlFor="message" className="flex items-center gap-1.5 text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">
                     Message to Candidate
                 </Label>
                 <Textarea 
                   id="message" 
                   placeholder={`Hi ${candidateName}, we're impressed by your work on...`}
-                  className="min-h-[100px] bg-secondary/20 resize-none"
+                  className="min-h-[80px] md:min-h-[100px] bg-secondary/20 resize-none"
                   value={formData.message}
                   onChange={(e) => handleInputChange("message", e.target.value)}
                 />
               </div>
             </div>
           ) : (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-5 md:space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-3">
-                <Label className="text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Engagement Type</Label>
+                <Label className="text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Engagement Type</Label>
                 <RadioGroup 
                   defaultValue="hourly" 
                   value={formData.hiringType} 
                   onValueChange={(val) => handleInputChange("hiringType", val as "hourly" | "fulltime")}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4"
                 >
                   <div>
                     <RadioGroupItem value="hourly" id="hourly" className="peer sr-only" />
                     <Label
                       htmlFor="hourly"
-                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 peer-data-[state=checked]:text-primary cursor-pointer transition-all"
+                      className="flex flex-row sm:flex-col items-center sm:justify-center gap-3 sm:gap-0 rounded-xl border-2 border-muted bg-popover p-3 md:p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 peer-data-[state=checked]:text-primary cursor-pointer transition-all"
                     >
-                      <ClockIcon className="mb-2 h-6 w-6" />
-                      <span className="font-semibold">Hourly Contract</span>
-                      <span className="text-xs text-muted-foreground font-normal mt-1">Pay for hours worked</span>
+                      <ClockIcon className="sm:mb-2 h-5 w-5 md:h-6 md:w-6" />
+                      <div className="flex flex-col sm:items-center">
+                        <span className="font-semibold text-sm md:text-base">Hourly Contract</span>
+                        <span className="text-[10px] md:text-xs text-muted-foreground font-normal mt-0.5 md:mt-1">Pay for hours worked</span>
+                      </div>
                     </Label>
                   </div>
                   <div>
                     <RadioGroupItem value="fulltime" id="fulltime" className="peer sr-only" />
                     <Label
                       htmlFor="fulltime"
-                      className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 peer-data-[state=checked]:text-primary cursor-pointer transition-all"
+                      className="flex flex-row sm:flex-col items-center sm:justify-center gap-3 sm:gap-0 rounded-xl border-2 border-muted bg-popover p-3 md:p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 peer-data-[state=checked]:text-primary cursor-pointer transition-all"
                     >
-                      <BriefcaseIcon className="mb-2 h-6 w-6" />
-                      <span className="font-semibold">Full-Time</span>
-                      <span className="text-xs text-muted-foreground font-normal mt-1">Annual salary & benefits</span>
+                      <BriefcaseIcon className="sm:mb-2 h-5 w-5 md:h-6 md:w-6" />
+                      <div className="flex flex-col sm:items-center">
+                        <span className="font-semibold text-sm md:text-base">Full-Time</span>
+                        <span className="text-[10px] md:text-xs text-muted-foreground font-normal mt-0.5 md:mt-1">Annual salary & benefits</span>
+                      </div>
                     </Label>
                   </div>
                 </RadioGroup>
@@ -201,34 +205,34 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
 
               {formData.hiringType === "hourly" ? (
                 <div className="space-y-2">
-                  <Label htmlFor="rate" className="text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Proposed Hourly Rate</Label>
+                  <Label htmlFor="rate" className="text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Proposed Hourly Rate</Label>
                   <div className="relative flex items-center">
                     <div className="absolute left-3 top-2.5 text-muted-foreground font-bold">$</div>
                     <Input 
                       id="rate" 
                       type="number" 
                       placeholder="50" 
-                      className="pl-7 pr-12 bg-secondary/20 font-mono text-lg"
+                      className="pl-7 pr-12 bg-secondary/20 font-mono text-base md:text-lg h-10 md:h-11"
                       value={formData.rate}
                       onChange={(e) => handleInputChange("rate", e.target.value)}
                     />
-                    <div className="absolute right-3 top-2.5 text-muted-foreground text-sm font-medium">/hr</div>
+                    <div className="absolute right-3 top-2.5 text-muted-foreground text-xs md:text-sm font-medium">/hr</div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="salary" className="text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Proposed Annual Salary</Label>
+                  <Label htmlFor="salary" className="text-[10px] md:text-xs uppercase font-bold text-muted-foreground/70 tracking-wider">Proposed Annual Salary</Label>
                   <div className="relative flex items-center">
                     <div className="absolute left-3 top-2.5 text-muted-foreground font-bold">$</div>
                     <Input 
                       id="salary" 
                       type="number" 
                       placeholder="120,000" 
-                      className="pl-7 pr-16 bg-secondary/20 font-mono text-lg"
+                      className="pl-7 pr-16 bg-secondary/20 font-mono text-base md:text-lg h-10 md:h-11"
                       value={formData.salary}
                       onChange={(e) => handleInputChange("salary", e.target.value)}
                     />
-                    <div className="absolute right-3 top-2.5 text-muted-foreground text-sm font-medium">/year</div>
+                    <div className="absolute right-3 top-2.5 text-muted-foreground text-xs md:text-sm font-medium">/year</div>
                   </div>
                 </div>
               )}
@@ -245,12 +249,12 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
                     <div className="grid gap-1.5 leading-none">
                         <label
                             htmlFor="terms"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            className="text-xs md:text-sm font-medium leading-tight md:leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
-                            I agree to the <a href="/legal/master_services_agreement" target="_blank" className="text-primary hover:underline">Master Services Agreement</a>, <a href="/legal/dpa" target="_blank" className="text-primary hover:underline">Data Processing Agreement</a>, and <a href="/legal/terms" target="_blank" className="text-primary hover:underline">Terms of Service</a>.
+                            I agree to the <a href="/legal/master_services_agreement" target="_blank" className="text-primary hover:underline">MSA</a>, <a href="/legal/dpa" target="_blank" className="text-primary hover:underline">DPA</a>, and <a href="/legal/terms" target="_blank" className="text-primary hover:underline">ToS</a>.
                         </label>
-                        <p className="text-[0.8rem] text-muted-foreground">
-                            By clicking "Complete Hiring", you confirm that you have authority to bind your organization to these terms.
+                        <p className="text-[0.7rem] md:text-[0.8rem] text-muted-foreground leading-snug">
+                            By clicking "Proceed", you confirm authority to bind your organization.
                         </p>
                     </div>
                 </div>
@@ -259,9 +263,9 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
           )}
         </div>
 
-        <DialogFooter className="p-6 pt-2 bg-background flex flex-row items-center justify-between">
+        <DialogFooter className="p-4 md:p-6 pt-2 bg-background flex flex-row items-center justify-between gap-2">
             {step === 2 ? (
-                 <Button variant="ghost" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground">
+                 <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground h-9 md:h-10">
                  Back
                </Button>
             ) : (
@@ -270,15 +274,15 @@ export function HiringModal({ isOpen, onClose, candidateName, onConfirm }: Hirin
          
           <div className="flex gap-2">
              {step === 1 && (
-                <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="sm" onClick={onClose} className="text-muted-foreground hover:text-foreground h-9 md:h-10">
                     Cancel
                 </Button>
              )}
-            <Button onClick={handleNext} disabled={step === 1 ? !isStep1Valid : (!isStep2Valid || !formData.agreedToTerms)} className="px-8 font-bold">
+            <Button size="sm" onClick={handleNext} disabled={step === 1 ? !isStep1Valid : (!isStep2Valid || !formData.agreedToTerms)} className="px-4 md:px-8 font-bold h-9 md:h-10 text-xs md:text-sm">
                 {step === 1 ? (
-                    <>Next Step <ArrowRight className="ml-2 w-4 h-4" /></>
+                    <>Next <ArrowRight className="ml-1.5 md:ml-2 w-3.5 h-3.5 md:w-4 md:h-4" /></>
                 ) : (
-                    <>Proceed to Onboarding <Check className="ml-2 w-4 h-4" /></>
+                    <>Complete <Check className="ml-1.5 md:ml-2 w-3.5 h-3.5 md:w-4 md:h-4" /></>
                 )}
             </Button>
           </div>

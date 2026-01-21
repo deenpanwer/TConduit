@@ -27,9 +27,9 @@ export function BackgroundGradient({ className }: BackgroundGradientProps) {
         className="absolute inset-0 hidden dark:block transition-opacity duration-700"
         style={{
             backgroundImage: `
-                linear-gradient(180deg, #000000 0%, #0a192f 25%, #112240 50%, #1e1b4b 70%, #4c1d95 85%, #020617 100%),
-                radial-gradient(at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
-                radial-gradient(at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 70%)
+                linear-gradient(180deg, #000000 0%, #0a192f 25%, #112240 50%, #0f172a 75%, #020617 100%),
+                radial-gradient(at 20% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+                radial-gradient(at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 70%)
             `,
             filter: "blur(60px)",
             opacity: 1,
@@ -37,10 +37,10 @@ export function BackgroundGradient({ className }: BackgroundGradientProps) {
       />
 
       {/* Animated Pulse Effect */}
-      <div className="absolute inset-0 opacity-30">
+      <div className="absolute inset-0 opacity-20">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vh] bg-radial-pulse animate-pulse-slow" 
                style={{
-                   background: "radial-gradient(circle at center, var(--primary) 0%, transparent 70%)",
+                   background: "radial-gradient(circle at center, rgba(56, 189, 248, 0.15) 0%, transparent 70%)",
                    filter: "blur(120px)",
                }}
           />

@@ -7,7 +7,7 @@ import { HiringData } from "./HiringModal";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, ShieldCheck } from "lucide-react";
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;
@@ -17,6 +17,8 @@ interface DocumentPreviewModalProps {
   candidateName: string;
   hiringData: HiringData;
 }
+
+import { processDocumentTemplate } from "@/lib/document-utils";
 
 export function DocumentPreviewModal({
   isOpen,
@@ -28,7 +30,6 @@ export function DocumentPreviewModal({
 }: DocumentPreviewModalProps) {
   const [content, setContent] = useState("");
   const [pages, setPages] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
@@ -78,76 +79,28 @@ export function DocumentPreviewModal({
         rawText = `Preview not available for ${docId}`;
       }
 
-      // 2. Dynamic Replacement
-      const logoMarkdown = hiringData.logoUrl 
-        ? `![Company Logo](${hiringData.logoUrl})` 
-        : `**${hiringData.orgName}**`; // Fallback to text if no logo
-
-      const processedText = rawText
-        .replace(/!\[Company Logo\]\({{ORG_LOGO}}\)/g, logoMarkdown)
-        .replace(/{{ORG_LOGO}}/g, hiringData.logoUrl || "") // Catch-all
-        .replace(/{{CLIENT_NAME}}/g, hiringData.orgName)
-        .replace(/{{ORG_NAME}}/g, hiringData.orgName)
-        .replace(/{{COMPANY_NAME}}/g, hiringData.orgName)
-        .replace(/{{CLIENT_ADDRESS}}/g, "123 Business Rd, Tech City") 
-        .replace(/{{CONTRACTOR_NAME}}/g, candidateName)
-        .replace(/{{EMPLOYEE_NAME}}/g, candidateName)
-        .replace(/{{CANDIDATE_NAME}}/g, candidateName)
-        .replace(/{{CANDIDATE_ADDRESS}}/g, "Remote")
-        .replace(/{{CONTRACTOR_ADDRESS}}/g, "Remote") 
-        .replace(/{{SERVICES_DESCRIPTION}}/g, "Software development and engineering services.")
-        .replace(/{{PAYMENT_RATE}}/g, `${hiringData.currency}${hiringData.rate}/hr`)
-        .replace(/{{SALARY_AMOUNT}}/g, `${hiringData.currency}${hiringData.salary}`)
-        .replace(/{{EQUITY_AMOUNT}}/g, "1,000") // Placeholder
-        .replace(/{{JOB_TITLE}}/g, "Software Engineer") // Placeholder
-        .replace(/{{MANAGER_NAME}}/g, hiringData.userName)
-        .replace(/{{USER_NAME}}/g, hiringData.userName)
-        .replace(/{{START_DATE}}/g, "immediately")
-        .replace(/{{EXPIRATION_DATE}}/g, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString())
-        .replace(/{{END_DATE}}/g, "Open-ended")
-        .replace(/{{DISPUTE_COUNTY}}/g, "San Francisco County, CA")
-        .replace(/{{CONFIDENTIALITY_OTHER}}/g, "None")
-        .replace(/{{GOVERNING_LAW_STATE}}/g, "California")
-        .replace(/{{CURRENT_DATE}}/g, new Date().toLocaleDateString())
-        .replace(/{{EFFECTIVE_DATE}}/g, new Date().toLocaleDateString());
+      // 2. Dynamic Replacement via Utility
+      const processedText = processDocumentTemplate(rawText, candidateName, hiringData);
 
       // 3. Pagination Split
       const splitPages = processedText.split('---');
       setPages(splitPages);
       setContent(processedText); 
-      setCurrentPage(0);
       setLoading(false);
     };
 
-        fetchAndProcess();
+    fetchAndProcess();
+  }, [isOpen, docId, hiringData, candidateName]);
 
-      }, [isOpen, docId, hiringData, candidateName]);
-
-    
-
-      useEffect(() => {
-
-          if (isPdf && docId === "tax_form") {
-
-              setPdfUrl(TAX_FORMS[taxFormType]);
-
-          }
-
-      }, [taxFormType, isPdf, docId]);
-
-    
-
-      const handleNext = () => {
-    if (currentPage < pages.length - 1) setCurrentPage(prev => prev + 1);
-  };
-
-  const handlePrev = () => {
-    if (currentPage > 0) setCurrentPage(prev => prev - 1);
-  };
+  useEffect(() => {
+    if (isPdf && docId === "tax_form") {
+      setPdfUrl(TAX_FORMS[taxFormType]);
+    }
+  }, [taxFormType, isPdf, docId]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 dark:bg-slate-900 font-poppins">
+      <DialogContent className="max-w-5xl h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 dark:bg-slate-900 font-poppins">
         {/* Header */}
         <DialogHeader className="p-6 border-b bg-background flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -158,7 +111,7 @@ export function DocumentPreviewModal({
                 <div>
                     <DialogTitle className="text-xl font-bold">{docName}</DialogTitle>
                     <DialogDescription className="text-xs mt-1">
-                        Reviewing document for {candidateName}
+                        Reviewing full document for {candidateName}
                     </DialogDescription>
                 </div>
             </div>
@@ -177,73 +130,65 @@ export function DocumentPreviewModal({
                         W-8BEN (Intl)
                     </button>
                 </div>
-            ) : pages.length > 1 && (
-                <div className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                    Page {currentPage + 1} of {pages.length}
+            ) : (
+                <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border">
+                    {pages.length} Pages • Scroll to Review
                 </div>
             )}
           </div>
         </DialogHeader>
         
-        {/* Document Viewer (A4 Ratio-ish) */}
-        <div className="flex-1 overflow-hidden relative bg-slate-100 dark:bg-slate-950 p-4 md:p-8 flex justify-center items-start overflow-y-auto">
+        {/* Document Viewer */}
+        <div className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-950 p-4 md:p-8 custom-scrollbar">
              {loading ? (
-                 <div className="animate-pulse flex flex-col gap-4 w-full max-w-3xl">
-                     <div className="h-8 bg-muted rounded w-1/3" />
-                     <div className="h-4 bg-muted rounded w-full" />
-                     <div className="h-4 bg-muted rounded w-full" />
-                     <div className="h-4 bg-muted rounded w-2/3" />
+                 <div className="animate-pulse flex flex-col gap-6 items-center w-full">
+                     <div className="w-full max-w-[210mm] aspect-[1/1.4] bg-muted rounded-sm" />
+                     <div className="w-full max-w-[210mm] aspect-[1/1.4] bg-muted rounded-sm" />
                  </div>
              ) : isPdf ? (
-                 <iframe 
-                    src={pdfUrl} 
-                    className="w-full h-full rounded-md shadow-lg border bg-white"
-                    title="PDF Viewer"
-                 />
+                 <div className="w-full h-full flex justify-center">
+                    <iframe 
+                        src={pdfUrl} 
+                        className="w-full max-w-5xl h-full rounded-md shadow-lg border bg-white"
+                        title="PDF Viewer"
+                    />
+                 </div>
              ) : (
-                <div className="w-full max-w-[210mm] min-h-[297mm] bg-white dark:bg-slate-900 shadow-xl border rounded-sm p-8 md:p-12 text-slate-900 dark:text-slate-100">
-                    <article className="prose prose-sm md:prose-base dark:prose-invert max-w-none 
-                        prose-headings:font-bold prose-headings:text-slate-900 dark:prose-headings:text-white
-                        prose-p:leading-relaxed
-                        prose-ul:list-disc prose-ul:pl-4
-                        prose-li:marker:text-slate-400
-                    ">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {pages[currentPage] || content}
-                        </ReactMarkdown>
-                    </article>
+                <div className="flex flex-col gap-8 items-center pb-12">
+                    {pages.map((page, index) => (
+                        <div key={index} className="w-full max-w-[210mm] min-h-[297mm] bg-white dark:bg-slate-900 shadow-xl border rounded-sm p-8 md:p-16 text-slate-900 dark:text-slate-100 relative">
+                            {/* Page Number Indicator */}
+                            <div className="absolute top-4 right-6 text-[10px] font-mono text-slate-300 dark:text-slate-700 uppercase tracking-widest">
+                                Page {index + 1}
+                            </div>
+                            
+                            <article className="prose prose-sm md:prose-base dark:prose-invert max-w-none 
+                                prose-headings:font-bold prose-headings:text-slate-900 dark:prose-headings:text-white
+                                prose-p:leading-relaxed
+                                prose-ul:list-disc prose-ul:pl-4
+                                prose-li:marker:text-slate-400
+                            ">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {page}
+                                </ReactMarkdown>
+                            </article>
+                        </div>
+                    ))}
                 </div>
              )}
         </div>
 
         {/* Footer / Controls */}
         <DialogFooter className="p-4 border-t bg-background flex-shrink-0 flex items-center justify-between sm:justify-between">
-          <div className="flex gap-2">
-             {!isPdf && (
-                 <>
-                    <Button 
-                        variant="outline" 
-                        onClick={handlePrev} 
-                        disabled={currentPage === 0 || loading}
-                        className="gap-2"
-                    >
-                        <ChevronLeft className="w-4 h-4" /> Previous
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        onClick={handleNext} 
-                        disabled={currentPage === pages.length - 1 || loading}
-                        className="gap-2"
-                    >
-                        Next <ChevronRight className="w-4 h-4" />
-                    </Button>
-                 </>
-             )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
+            <ShieldCheck className="w-3 h-3 text-green-500" /> Standard {docName} Template
           </div>
           
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose}>Close Preview</Button>
-            <Button onClick={onClose}>Done Reviewing</Button>
+            <Button variant="ghost" onClick={onClose} className="font-medium">Close</Button>
+            <Button onClick={onClose} className="font-bold bg-primary hover:bg-primary/90">
+                Finish Review
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>

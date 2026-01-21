@@ -13,6 +13,7 @@
 /docs
 docs
 .idx
+/.idx
 node_modules
 
 # testing
