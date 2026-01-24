@@ -140,7 +140,7 @@
     height: 40px;
     width: 100px;
   }
-  
+
   .sound-wave .bar {
     background: hsl(var(--primary));
     width: 2px;
@@ -170,11 +170,11 @@
       transform: translate3d(3px, 0, 0);
     }
   }
-  
+
   .animate-shake:hover {
     animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
   }
-  
+
   @keyframes grid {
     0% {
       transform: translate(0, 0);
@@ -277,5 +277,26 @@
     background: linear-gradient(90deg, #E0E0E0 0%, #F0F0F0 20%, #E0E0E0 40%, #E0E0E0 100%);
     background-size: 200% 100%; /* Make the gradient wider than the element */
     animation: shimmer 1.5s infinite linear;
+  }
+}
+
+@theme inline {
+  @keyframes animation-path {
+  0% {
+    offset-distance: 0%;
+    }
+  100% {
+    offset-distance: 100%;
+    }
+  }
+  @keyframes scaleUp {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+    }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    }
   }
 }
