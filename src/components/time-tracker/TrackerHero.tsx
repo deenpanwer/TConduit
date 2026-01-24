@@ -48,7 +48,12 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button 
                   size="lg" 
-                  onClick={onBookDemo} 
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+                      (window as any).gtag_report_conversion();
+                    }
+                    onBookDemo();
+                  }} 
                   className="h-14 px-8 text-lg font-black uppercase tracking-wider border-2 border-foreground bg-primary text-primary-foreground rounded-none hover:translate-x-1 hover:-translate-y-1 hover:shadow-[-4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[-4px_4px_0px_0px_rgba(255,255,255,1)] transition-all"
                 >
                   <Play className="mr-2 h-5 w-5 fill-current" />
@@ -58,6 +63,12 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
                   href={whatsappUrl}
                   target="_blank" 
                   rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+                      e.preventDefault();
+                      (window as any).gtag_report_conversion(whatsappUrl);
+                    }
+                  }}
                   className="group inline-flex items-center justify-center whitespace-nowrap text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-14 px-8 text-lg font-black uppercase tracking-wider border-2 border-foreground bg-background text-foreground rounded-none hover:bg-foreground hover:text-background transition-colors"
                 >
                     <img 

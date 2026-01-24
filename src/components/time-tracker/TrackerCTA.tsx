@@ -41,7 +41,18 @@ export function TrackerCTA({ onStartTrial, onBookDemo, whatsappNumber = "9231780
           <div className="flex flex-col sm:flex-row items-center gap-8 mt-12 pt-12 border-t border-background/20 w-full max-w-3xl">
              <div className="flex-1 text-center sm:text-right">
                 <p className="font-mono text-xs uppercase tracking-widest text-background/50 mb-2">Need a demo?</p>
-                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-center sm:justify-end gap-2 text-lg font-bold hover:text-primary transition-colors w-full">
+                <a 
+                  href={whatsappUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  onClick={(e) => {
+                    if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+                      e.preventDefault();
+                      (window as any).gtag_report_conversion(whatsappUrl);
+                    }
+                  }}
+                  className="group flex items-center justify-center sm:justify-end gap-2 text-lg font-bold hover:text-primary transition-colors w-full"
+                >
                     Book Strategy Call <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </a>
              </div>
@@ -52,6 +63,12 @@ export function TrackerCTA({ onStartTrial, onBookDemo, whatsappNumber = "9231780
                     href={whatsappUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+                        e.preventDefault();
+                        (window as any).gtag_report_conversion(whatsappUrl);
+                      }
+                    }}
                     className="flex items-center justify-center sm:justify-start gap-2 text-lg font-bold hover:text-green-400 transition-colors"
                 >
                     <img src="/whatsapp-real.svg" alt="WhatsApp" className="w-5 h-5 invert-0" />

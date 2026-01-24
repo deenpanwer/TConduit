@@ -28,9 +28,14 @@ export function TrackerHeader({ onBookDemo }: TrackerHeaderProps) {
           </div>
 
           {/* CTA Island */}
-          <div className="bg-background border-2 border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] rounded-xl p-1 pointer-events-auto transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
+          <div className="bg-background border-2 border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] rounded-xl p-1 pointer-events-auto transition-transform hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
             <Button 
-              onClick={onBookDemo} 
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+                  (window as any).gtag_report_conversion();
+                }
+                onBookDemo();
+              }} 
               variant="default" 
               className="rounded-lg font-bold border-none bg-foreground text-background hover:bg-foreground/90 h-8 md:h-10 px-3 md:px-6 uppercase tracking-wide text-[10px] md:text-sm"
             >

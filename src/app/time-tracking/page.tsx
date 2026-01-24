@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Script from 'next/script';
 import { TrackerHeader } from '@/components/time-tracker/TrackerHeader';
 import { TrackerHero } from '@/components/time-tracker/TrackerHero';
 import { TrackerFeatures } from '@/components/time-tracker/TrackerFeatures';
@@ -28,6 +29,34 @@ export default function TimeTrackingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white overflow-x-hidden">
+      {/* Google Tag (gtag.js) */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=AW-17668221650"
+        strategy="afterInteractive"
+      />
+      <Script id="google-tag-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'AW-17668221650');
+
+          function gtag_report_conversion(url) {
+            var callback = function () {
+              if (typeof(url) != 'undefined' && url) {
+                window.location = url;
+              }
+            };
+            gtag('event', 'conversion', {
+                'send_to': 'AW-17668221650/fFhWCPny2LAbENLV7uhB',
+                'value': 1.0,
+                'currency': 'PKR',
+                'event_callback': callback
+            });
+            return false;
+          }
+        `}
+      </Script>
       
       <TrackerHeader onBookDemo={handleBookDemo} />
 
