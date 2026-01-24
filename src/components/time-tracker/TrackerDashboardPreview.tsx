@@ -126,36 +126,59 @@ export function TrackerDashboardPreview() {
         </div>
 
         {/* Command Center Window */}
-        <div className="relative max-w-6xl mx-auto bg-background border-2 border-foreground shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] rounded-xl overflow-hidden flex flex-col md:flex-row h-[600px] md:h-[700px]">
+        <div className="relative max-w-6xl mx-auto bg-background border-2 border-foreground shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] rounded-xl flex flex-col md:flex-row min-h-[600px] md:h-[700px] overflow-hidden">
             
             {/* Sidebar: Team Status */}
-            <div className="w-full md:w-64 bg-muted/30 border-r-2 border-foreground flex flex-col">
-                <div className="p-4 border-b-2 border-foreground bg-foreground text-background">
+            <div className="w-full md:w-64 bg-muted/30 border-b-2 md:border-b-0 md:border-r-2 border-foreground flex flex-col relative">
+                <div className="p-4 border-b-2 border-foreground bg-foreground text-background shrink-0 flex justify-between items-center">
                     <h3 className="font-mono font-bold uppercase text-xs tracking-widest">Team Status</h3>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                
+                {/* Scrollable list: Compact Avatars on mobile, Cards on PC */}
+                <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-4 md:p-2 gap-4 md:gap-2 custom-scrollbar shrink-0 md:flex-1 scrollbar-hide snap-x snap-mandatory">
                     {USERS.map((user) => (
                         <div 
                             key={user.id} 
                             onClick={() => setSelectedUserId(user.id)}
-                            className={`p-3 border-2 rounded cursor-pointer transition-all ${
+                            className={`flex flex-col md:flex-row md:items-start gap-2 md:gap-1 cursor-pointer transition-all shrink-0 snap-center ${
                                 selectedUserId === user.id 
-                                ? 'border-primary bg-primary/10 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] translate-x-1' 
-                                : 'border-transparent hover:border-foreground/20 hover:bg-muted/50'
-                            }`}
+                                ? 'md:border-primary md:bg-primary/10 md:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] md:translate-x-1' 
+                                : 'md:border-transparent md:hover:border-foreground/20 md:hover:bg-muted/50'
+                            } md:border-2 md:p-3 md:rounded md:min-w-0`}
                         >
-                            <div className="flex items-center justify-between mb-1">
-                                <span className="font-bold font-mono text-sm">{user.name}</span>
-                                <div className={`w-2 h-2 rounded-full ${user.status === 'online' ? 'bg-green-500 animate-pulse' : user.status === 'idle' ? 'bg-orange-500' : 'bg-gray-400'}`} />
+                            {/* Mobile Avatar View */}
+                            <div className="relative md:hidden flex flex-col items-center">
+                                <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center font-bold text-xs transition-all ${
+                                    selectedUserId === user.id 
+                                    ? 'border-primary bg-primary/20 scale-110 shadow-md ring-2 ring-primary/20' 
+                                    : 'border-foreground/20 bg-muted'
+                                }`}>
+                                    {user.initials}
+                                </div>
+                                <div className={`absolute bottom-4 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                                    user.status === 'online' ? 'bg-green-500 animate-pulse' : user.status === 'idle' ? 'bg-orange-500' : 'bg-gray-400'
+                                }`} />
+                                <span className={`mt-1 font-mono text-[10px] font-bold uppercase truncate max-w-[60px] text-center ${selectedUserId === user.id ? 'text-primary' : 'text-muted-foreground'}`}>
+                                    {user.name.split(' ')[0]}
+                                </span>
                             </div>
-                            <div className="flex justify-between text-[10px] text-muted-foreground uppercase font-bold">
-                                <span>{user.role}</span>
-                                <span>{user.app}</span>
+
+                            {/* Desktop Card View */}
+                            <div className="hidden md:flex flex-col w-full">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="font-bold font-mono text-sm truncate">{user.name}</span>
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${user.status === 'online' ? 'bg-green-500 animate-pulse' : user.status === 'idle' ? 'bg-orange-500' : 'bg-gray-400'}`} />
+                                </div>
+                                <div className="flex justify-between w-full text-[10px] text-muted-foreground uppercase font-bold">
+                                    <span>{user.role}</span>
+                                    <span>{user.app}</span>
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
-                <div className="p-4 border-t-2 border-foreground bg-muted/50">
+                
+                <div className="p-4 border-t-2 border-foreground bg-muted/50 hidden md:block">
                     <div className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Global Efficiency</div>
                     <div className="w-full h-2 bg-foreground/10 rounded-full overflow-hidden">
                         <div className="w-[84%] h-full bg-green-500" />
@@ -164,7 +187,7 @@ export function TrackerDashboardPreview() {
             </div>
 
             {/* Main Content: Deep Dive */}
-            <div className="flex-1 flex flex-col bg-background relative">
+            <div className="flex-1 flex flex-col bg-background relative overflow-hidden">
                 
                 {/* User Header */}
                 <div className="h-14 border-b-2 border-foreground flex items-center justify-between px-6 bg-background">
