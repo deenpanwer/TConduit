@@ -41,7 +41,7 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
               </h1>
               
               <p className="text-xl md:text-2xl text-muted-foreground font-medium max-w-2xl leading-relaxed mb-10 border-l-4 border-primary pl-6">
-                <span className="text-foreground font-bold">The best way to track employee hours in Pakistan.</span> <br className="hidden sm:block" />
+                <span className="text-foreground font-bold">The best way to ensure every billed hour is a productive hour.</span> <br className="hidden sm:block" />
                 <span className="text-foreground/90">AI-powered logging and live streams. Pay only for true work.</span>
               </p>
 
