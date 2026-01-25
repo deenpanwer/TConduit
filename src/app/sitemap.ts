@@ -9,7 +9,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/',
     '/2',
     '/legal',
-    '/problems',
     '/time-tracking',
     '/trac-dairy',
   ].map((route) => ({
