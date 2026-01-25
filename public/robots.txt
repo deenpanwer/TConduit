@@ -2,4 +2,4 @@
 #
 # To disallow all crawlers from the entire site uncomment the following two lines:
 User-agent: *
-Disallow: /
+Allow: /
