@@ -21,7 +21,12 @@ export default function TimeTrackingPage() {
   };
 
   const handleStartTrial = () => {
-    window.location.href = '/trac-dairy'; 
+    const trialUrl = '/trac-dairy';
+    if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+      (window as any).gtag_report_conversion(trialUrl);
+    } else {
+      window.location.href = trialUrl;
+    }
   };
 
   const whatsappNumber = "923178005465"; 
@@ -37,11 +42,11 @@ export default function TimeTrackingPage() {
       <Script id="google-tag-init" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
+          window.gtag = function(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', 'AW-17668221650');
 
-          function gtag_report_conversion(url) {
+          window.gtag_report_conversion = function(url) {
             var callback = function () {
               if (typeof(url) != 'undefined' && url) {
                 window.location = url;
@@ -88,6 +93,11 @@ export default function TimeTrackingPage() {
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => {
+          if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
+            (window as any).gtag_report_conversion();
+          }
+        }}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 1 }}

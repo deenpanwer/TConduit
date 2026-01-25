@@ -45,10 +45,9 @@ export function TrackerCTA({ onStartTrial, onBookDemo, whatsappNumber = "9231780
                   href={whatsappUrl} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  onClick={(e) => {
+                  onClick={() => {
                     if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
-                      e.preventDefault();
-                      (window as any).gtag_report_conversion(whatsappUrl);
+                      (window as any).gtag_report_conversion();
                     }
                   }}
                   className="group flex items-center justify-center sm:justify-end gap-2 text-lg font-bold hover:text-primary transition-colors w-full"
@@ -63,10 +62,9 @@ export function TrackerCTA({ onStartTrial, onBookDemo, whatsappNumber = "9231780
                     href={whatsappUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    onClick={(e) => {
+                    onClick={() => {
                       if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
-                        e.preventDefault();
-                        (window as any).gtag_report_conversion(whatsappUrl);
+                        (window as any).gtag_report_conversion();
                       }
                     }}
                     className="flex items-center justify-center sm:justify-start gap-2 text-lg font-bold hover:text-green-400 transition-colors"

@@ -63,10 +63,9 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
                   href={whatsappUrl}
                   target="_blank" 
                   rel="noopener noreferrer"
-                  onClick={(e) => {
+                  onClick={() => {
                     if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
-                      e.preventDefault();
-                      (window as any).gtag_report_conversion(whatsappUrl);
+                      (window as any).gtag_report_conversion();
                     }
                   }}
                   className="group inline-flex items-center justify-center whitespace-nowrap text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-14 px-8 text-lg font-black uppercase tracking-wider border-2 border-foreground bg-background text-foreground rounded-none hover:bg-foreground hover:text-background transition-colors"
