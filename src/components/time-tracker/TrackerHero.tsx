@@ -68,12 +68,12 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
                       (window as any).gtag_report_conversion();
                     }
                   }}
-                  className="group inline-flex items-center justify-center whitespace-nowrap text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-14 px-8 text-lg font-black uppercase tracking-wider border-2 border-foreground bg-background text-foreground rounded-none hover:bg-foreground hover:text-background transition-colors"
+                  className="group inline-flex items-center justify-center whitespace-nowrap text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-14 px-8 text-lg font-black uppercase tracking-wider border-2 border-foreground bg-[#25D366] text-white rounded-none hover:bg-[#1EAE54] transition-colors"
                 >
                     <img 
-                      src="/whatsapp-black.svg" 
+                      src="/whatsapp-real.svg" 
                       alt="WhatsApp" 
-                      className="mr-2 h-5 w-5 transition-all filter invert-0 group-hover:invert dark:invert dark:group-hover:invert-0" 
+                      className="mr-2 h-5 w-5" 
                     />
                     Chat on WhatsApp
                 </a>
