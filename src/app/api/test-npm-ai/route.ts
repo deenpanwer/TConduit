@@ -107,7 +107,7 @@ export async function POST(req: Request) {
 
       const text = await callGeminiWithFallback(prompt, aiLogs);
       
-      let parsed;
+      let parsed: any;
       try {
         parsed = JSON.parse(text);
       } catch {

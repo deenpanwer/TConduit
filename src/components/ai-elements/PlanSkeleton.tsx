@@ -39,7 +39,7 @@ const PlanSkeleton = () => (
     </div>
     
     {/* Add Shimmer effect over the entire skeleton */}
-    <Shimmer />
+    <Shimmer> </Shimmer>
   </div>
 );
 

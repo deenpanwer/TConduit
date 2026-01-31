@@ -15,9 +15,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -59,9 +56,7 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: {
-    allowedDevOrigins: [
-      "6000-firebase-studio-1761477126029.cluster-nzwlpk54dvagsxetkvxzbvslyi.cloudworkstations.dev"
-    ],
+    position: 'top-right',
   },
 };
 

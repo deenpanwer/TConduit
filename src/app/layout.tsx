@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PHProvider } from './providers';
+import { AuthProvider } from '@/hooks/use-auth';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -29,6 +30,13 @@ export const metadata: Metadata = {
   description: 'An AI agent that finds relevant talent across the web.',
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,16 +49,18 @@ export default function RootLayout({
         </head>
         <body className="font-sans">
           <PHProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster />
-              <Analytics />
-            </ThemeProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+                <Toaster />
+                <Analytics />
+              </ThemeProvider>
+            </AuthProvider>
           </PHProvider>
         </body>
     </html>

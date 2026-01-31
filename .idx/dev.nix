@@ -10,6 +10,8 @@
     pkgs.openssh
     pkgs.git-lfs
     pkgs.postgresql
+    pkgs.xsel
+    pkgs.xclip
   ];
   # Sets environment variables in the workspace
   env = {};

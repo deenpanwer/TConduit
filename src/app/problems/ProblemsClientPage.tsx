@@ -145,12 +145,10 @@ export default function ProblemsClientPage({ initialPage }: { initialPage: numbe
             setTotalPages(Math.ceil(shuffledEntries.length / ITEMS_PER_PAGE));
             setLoading(false);
           },
-          error: (error) => {
-            console.error('CSV parsing error:', error);
-            setError('An error occurred while parsing the CSV file.');
-            setEntries([]);
-            setLoading(false);
-          }
+          error: (error: any) => {
+            console.error("Error creating problem:", error);
+            return "Failed to create problem";
+          },
         });
       } catch (error) {
         console.error(error);
