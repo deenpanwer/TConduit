@@ -31,9 +31,9 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
 
   return (
     <GlassCard className="p-10 mb-16 relative overflow-hidden" hoverEffect={false}>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 h-full min-h-[500px]">
-        {/* Left Side: Text (25%) */}
-        <div className="lg:col-span-1 flex flex-col justify-between z-20 relative bg-card/80 backdrop-blur-sm pr-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 h-full min-h-[500px]">
+        {/* Left Side: Text (approx 33%) */}
+        <div className="lg:col-span-4 flex flex-col justify-between z-20 relative bg-transparent pr-8">
           <div>
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/10">
@@ -67,9 +67,9 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
           
           <button 
             onClick={() => setShowExpanded(true)}
-            className="mt-12 w-full p-8 px-10 rounded-[2.5rem] bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-2xl relative overflow-hidden group cursor-pointer text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="mt-12 w-full p-8 px-10 rounded-[2.5rem] bg-gray-900 dark:bg-blue-600 text-white shadow-2xl relative overflow-hidden group cursor-pointer text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <div className="absolute inset-0 bg-blue-500/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
             <div className="relative z-10">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-60 mb-1">Strategic Vector</p>
               <div className="flex items-center justify-between">
@@ -80,13 +80,10 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
           </button>
         </div>
 
-        {/* Right Side: Map (75%) */}
-        <div className="lg:col-span-3 relative h-full flex items-center justify-center">
-          {/* Fade Effect Overlay */}
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-card to-transparent z-10 pointer-events-none" />
-          
-          <div className="w-full h-full flex items-center justify-center scale-125 md:scale-150">
-            <ComposableMap projectionConfig={{ scale: 190 }} className="w-full h-full">
+        {/* Right Side: Map (approx 66%) */}
+        <div className="lg:col-span-8 relative h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center scale-110 md:scale-125">
+            <ComposableMap projectionConfig={{ scale: 150 }} className="w-full h-full">
                 <Geographies geography={geoUrl}>
                 {({ geographies }) =>
                     geographies
@@ -104,14 +101,14 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
                             onMouseLeave={() => setHoveredCountry(null)}
                             style={{
                             default: {
-                                fill: isActive ? (isDark ? "#ffffff" : "#000000") : (isDark ? "#18181b" : "#f1f5f9"),
+                                fill: isActive ? "#3b82f6" : (isDark ? "#18181b" : "#f1f5f9"),
                                 stroke: isDark ? "#27272a" : "#e2e8f0",
                                 strokeWidth: 0.5,
                                 outline: "none",
                                 transition: "all 0.5s"
                             },
                             hover: {
-                                fill: isActive ? "#3b82f6" : (isDark ? "#27272a" : "#e2e8f0"),
+                                fill: isActive ? "#2563eb" : (isDark ? "#27272a" : "#e2e8f0"),
                                 outline: "none",
                                 cursor: isActive ? "pointer" : "default"
                             },
@@ -152,11 +149,14 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
               <h2 className="text-3xl font-black uppercase tracking-tighter">Our Global Team</h2>
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">See where everyone is working from</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
               <div className="px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
                 <Users size={14} className="text-blue-500" />
                 <span className="text-xs font-black">{employees.length} Members</span>
               </div>
+              <button onClick={() => setShowExpanded(false)} className="p-2 hover:bg-muted rounded-xl transition-colors">
+                <X size={20} />
+              </button>
             </div>
           </div>
 
@@ -180,13 +180,13 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
                                   geography={geo}
                                   style={{
                                   default: {
-                                      fill: isActive ? (isDark ? "#ffffff" : "#000000") : (isDark ? "#18181b" : "#f1f5f9"),
+                                      fill: isActive ? "#3b82f6" : (isDark ? "#18181b" : "#f1f5f9"),
                                       stroke: isDark ? "#27272a" : "#e2e8f0",
                                       strokeWidth: 0.5,
                                       outline: "none",
                                   },
                                   hover: {
-                                      fill: isActive ? "#3b82f6" : (isDark ? "#27272a" : "#e2e8f0"),
+                                      fill: isActive ? "#2563eb" : (isDark ? "#27272a" : "#e2e8f0"),
                                       outline: "none",
                                   },
                                   pressed: { outline: "none" }

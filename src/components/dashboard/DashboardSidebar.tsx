@@ -25,6 +25,7 @@ interface DashboardSidebarProps {
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
   employees: any[];
+  onInviteClick?: () => void;
 }
 
 export function DashboardSidebar({
@@ -32,7 +33,8 @@ export function DashboardSidebar({
   setIsCollapsed,
   isMobileSidebarOpen,
   setIsMobileSidebarOpen,
-  employees
+  employees,
+  onInviteClick
 }: DashboardSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
@@ -102,28 +104,26 @@ export function DashboardSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => {}}
+                    onClick={() => onInviteClick?.()}
                     className={cn(
                       "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
                       (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
                     )}
                   >
                     <Plus className="size-5 shrink-0" />
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Member</span>}
+                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Invite Member
+                  Invite Staff Member
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
             <div className="space-y-1">
                 <NavItem icon={LayoutDashboard} label="Overview" href="/dashboard" active={pathname === "/dashboard"} />
-                <NavItem icon={Zap} label="Live Feed" href="#" count={0} />
-                <NavItem icon={Activity} label="Performance" href="#" />
-                <NavItem icon={ShieldCheck} label="Compliance" href="#" />
             </div>
+
 
             {/* Team Section (Purple Theme) */}
             <div className="space-y-1">
@@ -139,7 +139,7 @@ export function DashboardSidebar({
                         <Users className="absolute transition-all duration-200 group-hover:opacity-0 group-hover:scale-75" size={20} />
                         <ChevronDown className={cn("absolute transition-all duration-200 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100", isTeamExpanded ? "" : "-rotate-90")} size={20} />
                     </span>
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-[10px] font-black uppercase tracking-widest">Team Members</span>}
+                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-[10px] font-black uppercase tracking-widest">Staff Member</span>}
                 </button>
 
                 {isTeamExpanded && (!isCollapsed || isMobileSidebarOpen) && (

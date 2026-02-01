@@ -665,7 +665,7 @@ export default function Test14Page() {
             <div className="flex justify-between items-center mb-10">
               <div>
                 <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Work Quality Flow</h3>
-                <p className="text-gray-400 mt-1 text-[10px] font-medium uppercase tracking-widest">Quality breakdown across primary nodes</p>
+                <p className="text-gray-400 mt-1 text-[10px] font-medium uppercase tracking-widest">Quality breakdown across primary personnel</p>
               </div>
               <div className="flex items-center space-x-3">
                  <div className="flex items-center space-x-1.5"><div className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-[8px] font-black uppercase tracking-widest text-gray-400">Deep</span></div>

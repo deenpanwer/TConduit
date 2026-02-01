@@ -29,7 +29,17 @@ const MetricBox = ({ icon: Icon, label, value }: any) => (
 );
 
 export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0", topApp = "---", joinedDate }: EmployeeHeaderProps) {
+  // Helper to extract JS Date safely
+  const getDate = (ts: any) => {
+    if (!ts) return new Date(0);
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  };
+
   const isOnline = employee?.heartbeat?.isCurrentlyRunning;
+  const officialJoinedDate = joinedDate || getDate(employee?.createdAt);
 
   if (!employee) {
     return (
@@ -92,11 +102,11 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
                     </div>
                     
                     <div>
-                        <h1 className="text-5xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">{employee?.name || "Anonymous Node"}</h1>
+                        <h1 className="text-5xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4">{employee?.name || "Anonymous Member"}</h1>
                         <div className="flex flex-wrap gap-6 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
                             <span className="flex items-center gap-2"><Activity size={14} className="text-primary" /> {employee?.role || "Team Member"}</span>
                             <span className="flex items-center gap-2"><Mail size={14} className="text-primary" /> {employee?.email}</span>
-                            <span className="flex items-center gap-2"><Calendar size={14} className="text-primary" /> Joined {joinedDate ? format(joinedDate, 'dd MMMM yyyy') : (employee?.createdAt?.toDate ? format(employee.createdAt.toDate(), 'dd MMMM yyyy') : '01 January 2026')}</span>
+                            <span className="flex items-center gap-2"><Calendar size={14} className="text-primary" /> Joined {officialJoinedDate.getTime() > 0 ? format(officialJoinedDate, 'dd MMMM yyyy') : '01 January 2026'}</span>
                             <span className="flex items-center gap-2 text-emerald-500/80"><ShieldCheck size={14} /> Verified</span>
                         </div>
                     </div>

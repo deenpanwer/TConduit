@@ -10,16 +10,24 @@ interface ActivityMatrixProps {
 }
 
 export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
+  // Helper to extract JS Date safely
+  const getDate = (ts: any) => {
+    if (!ts) return new Date(0);
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  };
+
   // Filter for LAST HOUR (Last 60 Minutes)
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
   const lastHourLogs = screenshots.filter(s => {
-    if (!s.timestamp) return false;
-    const date = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp.seconds * 1000);
+    const date = getDate(s.timestamp);
     return date >= oneHourAgo;
   }).sort((a, b) => {
-    const tA = a.timestamp?.seconds || 0;
-    const tB = b.timestamp?.seconds || 0;
+    const tA = getDate(a.timestamp).getTime();
+    const tB = getDate(b.timestamp).getTime();
     return tA - tB;
   });
 
@@ -40,12 +48,15 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
   }
 
   // Process screenshot activity data for the chart
-  const chartData = lastHourLogs.map(s => ({
-    time: s.timestamp?.toDate ? s.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:00',
-    keystrokes: s.activity?.keystrokes || 0,
-    clicks: s.activity?.mouseClicks || 0,
-    distance: (s.activity?.mouseDistance || 0) / 100, // scaled for chart
-  }));
+  const chartData = lastHourLogs.map(s => {
+    const date = getDate(s.timestamp);
+    return {
+        time: date.getTime() > 0 ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:00',
+        keystrokes: s.activity?.keystrokes || 0,
+        clicks: s.activity?.mouseClicks || 0,
+        distance: (s.activity?.mouseDistance || 0) / 100, // scaled for chart
+    };
+  });
 
   const totals = lastHourLogs.reduce((acc, s) => ({
     keys: acc.keys + (s.activity?.keystrokes || 0),

@@ -4,85 +4,137 @@ import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { GlassCard } from './shared/GlassCard';
 import { useTheme } from 'next-themes';
+import { motion } from 'framer-motion';
 
-const data = Array.from({ length: 30 }, (_, i) => ({
-  day: i + 1,
-  hours: Math.floor(Math.random() * 15) + 30 + (i * 1.8),
-}));
+interface PerformanceHorizonProps {
+  data?: any[];
+}
 
-const forecastData = data.slice(-10).map(d => ({
-  ...d,
-  hours: d.hours * (1 + (Math.random() * 0.15))
-}));
+const CustomTooltip = ({ active, payload, label, isDark }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const actual = payload.find((p: any) => p.dataKey === "actualHours")?.value;
+    const projected = payload.find((p: any) => p.dataKey === "projectedHours")?.value;
 
-export const PerformanceHorizon = () => {
+    return (
+      <div className="bg-black/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl min-w-[200px]">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-1">{data.fullDate || label}</span>
+            <div className="h-px w-full bg-white/5 my-2" />
+          </div>
+          
+          {actual !== null && actual !== undefined && (
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Confirmed Activity</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-white tracking-tighter">{parseFloat(actual).toFixed(1)}</span>
+                <span className="text-xs font-bold text-gray-400 uppercase">Hours</span>
+              </div>
+            </div>
+          )}
+
+          {projected !== null && projected !== undefined && (
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Estimated Yield</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-blue-500/80 tracking-tighter">{parseFloat(projected).toFixed(1)}</span>
+                <span className="text-xs font-bold text-gray-400 uppercase">Hours</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+export const PerformanceHorizon = ({ data = [] }: PerformanceHorizonProps) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
+  if (!data || data.length === 0) {
+    return (
+      <GlassCard className="p-10 h-[450px] flex items-center justify-center" hoverEffect={false}>
+        <p className="text-muted-foreground font-black uppercase text-xs tracking-widest">Awaiting Productivity Data...</p>
+      </GlassCard>
+    );
+  }
+
   return (
     <GlassCard className="p-10" hoverEffect={false}>
-      <div className="flex justify-between items-center mb-10">
+      <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-black font-poppins text-gray-900 dark:text-white leading-none tracking-tighter uppercase">Performance Horizon</h2>
-          <p className="text-gray-400 mt-2 text-[10px] font-black font-poppins uppercase tracking-[0.2em]">Aggregate output with 14-day projection</p>
+          <h2 className="text-3xl font-black font-poppins text-gray-900 dark:text-white leading-none tracking-tighter uppercase">Productivity Flow</h2>
+          <p className="text-gray-400 mt-3 text-[10px] font-black font-poppins uppercase tracking-[0.3em] italic">Hourly activity audit and shift projections</p>
         </div>
-        <div className="flex bg-gray-50 dark:bg-[#111113] p-1.5 rounded-2xl border border-gray-100 dark:border-white/5 shadow-inner">
-          <button className="px-6 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Monthly</button>
-          <button className="px-6 py-2 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:text-gray-900 dark:hover:text-white transition-colors">Weekly</button>
+        <div className="flex items-center gap-8 pb-1">
+          <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)]" />
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Real Output</span>
+          </div>
+          <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full border-2 border-dashed border-blue-500/40" />
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Forecast</span>
+          </div>
         </div>
       </div>
-      
-      <div className="h-[350px] w-full">
+      <div className="h-[380px] w-full relative">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={data} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorOutput" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorForecast" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.08}/>
                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <CartesianGrid 
-              strokeDasharray="0" 
+              strokeDasharray="4 4" 
               vertical={false} 
-              stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} 
+              stroke={isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)"} 
             />
-            <XAxis dataKey="day" hide />
-            <YAxis hide domain={['dataMin - 5', 'dataMax + 10']} />
+            <XAxis 
+                dataKey="date" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8', letterSpacing: '0.1em' }}
+                interval={2}
+                padding={{ left: 30, right: 30 }}
+            />
+            <YAxis 
+                hide 
+                domain={['auto', 'dataMax + 1']} 
+            />
             <RechartsTooltip 
-              cursor={{ stroke: '#3b82f6', strokeWidth: 2, strokeDasharray: '5 5' }}
-              contentStyle={{ 
-                borderRadius: '24px', 
-                border: 'none', 
-                boxShadow: '0 40px 80px rgba(0,0,0,0.15)', 
-                backgroundColor: isDark ? '#18181b' : '#ffffff', 
-                backdropFilter: 'blur(16px)', 
-                fontWeight: '900', 
-                fontSize: '12px', 
-                textTransform: 'uppercase', 
-                letterSpacing: '0.1em' 
-              }}
-              itemStyle={{ color: isDark ? '#ffffff' : '#18181b' }}
+              cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '8 8', opacity: 0.3 }}
+              content={<CustomTooltip isDark={isDark} />}
             />
-            {/* Actual Data */}
             <Area 
               type="monotone" 
-              dataKey="hours" 
+              dataKey="actualHours" 
               stroke="#3b82f6" 
-              strokeWidth={6} 
+              strokeWidth={4} 
               fillOpacity={1} 
               fill="url(#colorOutput)" 
               animationDuration={2500}
+              activeDot={{ r: 8, strokeWidth: 4, stroke: isDark ? '#09090b' : '#fff', fill: '#3b82f6' }}
+              connectNulls={false}
             />
-            {/* Forecast Line */}
             <Area 
               type="monotone" 
-              data={forecastData} 
-              dataKey="hours" 
+              dataKey="projectedHours" 
               stroke="#3b82f6" 
               strokeWidth={2} 
-              strokeDasharray="10 10" 
-              fill="transparent" 
-              opacity={0.3} 
+              strokeDasharray="8 4" 
+              fill="url(#colorForecast)" 
+              opacity={0.5} 
+              activeDot={{ r: 6, strokeWidth: 3, stroke: isDark ? '#09090b' : '#fff', fill: '#3b82f6', opacity: 0.6 }}
+              connectNulls={true}
             />
           </AreaChart>
         </ResponsiveContainer>

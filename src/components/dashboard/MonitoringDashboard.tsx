@@ -23,7 +23,7 @@ export function MonitoringDashboard({ employees }: MonitoringDashboardProps) {
         <div>
           <h1 className="text-4xl font-black uppercase tracking-tighter">Technical Intelligence</h1>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight mt-1">
-            Monitoring <span className="text-primary font-black">{employees.length}</span> Active {employees.length === 1 ? 'Node' : 'Nodes'}
+            Monitoring <span className="text-primary font-black">{employees.length}</span> Active {employees.length === 1 ? 'Member' : 'Members'}
           </p>
         </div>
         <div className="flex gap-2">

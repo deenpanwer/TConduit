@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Activity, Zap, BrainCircuit } from 'lucide-react';
 import { GlassCard } from '../main/shared/GlassCard';
+import { cn } from '@/lib/utils';
 
 interface CognitiveHubProps {
   employee: any;
@@ -11,7 +12,6 @@ interface CognitiveHubProps {
 }
 
 export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
-  // Mock AI text for now - in production this would come from an analysis prop
   const activeWindow = employee?.heartbeat?.lastActiveWindow || "Idle";
   const isOnline = employee?.heartbeat?.isCurrentlyRunning;
 
@@ -28,6 +28,10 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
   // If offline, flatline (0).
   const visualIntensity = isOnline ? Math.max(intensity, 0.2) : 0;
 
+  // Determine status labels based on intensity
+  const focusStatus = visualIntensity > 1.2 ? "Hyper Focus" : visualIntensity > 0.7 ? "Optimal" : visualIntensity > 0.3 ? "Standard" : "Low Impact";
+  const rhythmStatus = visualIntensity > 0.8 ? "High Velocity" : visualIntensity > 0.4 ? "Consistent" : "Fragmented";
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* 70% Column: AI Insight Console */}
@@ -39,21 +43,30 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
           <div className="flex-1 space-y-4">
             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Cognitive Audit Protocol</h3>
             <p className="text-lg md:text-xl font-medium font-poppins text-gray-900 dark:text-white leading-relaxed">
-              "{employee?.name} is <span className="text-blue-500 font-black">{isOnline ? 'Active' : 'Offline'}</span>. 
-              {isOnline 
-                ? <span> The telemetry indicates execution in <span className="italic border-b border-gray-300 dark:border-gray-700">{activeWindow}</span>.</span>
-                : <span> No live telemetry signal detected. Node is currently disconnected from the neural grid.</span>
-              }
+              {employee.aiSummary ? (
+                <span>"{employee.aiSummary}"</span>
+              ) : (
+                <span>
+                    "{employee?.name} is <span className="text-blue-500 font-black">{isOnline ? 'Active' : 'Offline'}</span>. 
+                    {isOnline 
+                        ? <span> The telemetry indicates execution in <span className="italic border-b border-gray-300 dark:border-gray-700">{activeWindow}</span>.</span>
+                        : <span> No live telemetry signal detected. Staff member is currently offline.</span>
+                    }"
+                </span>
+              )}
             </p>
             {isOnline && (
                 <div className="flex items-center space-x-6 pt-4">
-                <div className="flex items-center space-x-2 text-[10px] font-bold text-emerald-500 bg-emerald-500/5 px-3 py-1.5 rounded-lg uppercase tracking-widest border border-emerald-500/10">
+                <div className={cn(
+                    "flex items-center space-x-2 text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-widest border",
+                    visualIntensity > 0.7 ? "text-emerald-500 bg-emerald-500/5 border-emerald-500/10" : "text-amber-500 bg-orange-500/5 border-orange-500/10"
+                )}>
                     <Sparkles size={12} />
-                    <span>Focus: Optimal</span>
+                    <span>Focus: {focusStatus}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-[10px] font-bold text-blue-500 bg-blue-500/5 px-3 py-1.5 rounded-lg uppercase tracking-widest border border-blue-500/10">
                     <Activity size={12} />
-                    <span>Rhythm: Consistent</span>
+                    <span>Rhythm: {rhythmStatus}</span>
                 </div>
                 </div>
             )}

@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Zap, Coffee, Play, RefreshCcw, CheckCircle2, AlertCircle } from "lucide-react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { Clock, Zap, Coffee, RefreshCcw } from "lucide-react";
 import { format } from "date-fns";
 import { GlassCard } from "../main/shared/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -12,9 +10,11 @@ import { Button } from "@/components/ui/button";
 interface YieldCalculatorProps {
   employeeId: string;
   employeeName: string;
+  timeEntries: any[];
+  screenshots: any[];
 }
 
-export function YieldCalculator({ employeeId, employeeName }: YieldCalculatorProps) {
+export function YieldCalculator({ employeeId, employeeName, timeEntries, screenshots }: YieldCalculatorProps) {
   const [isCalculating, setIsCalculating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -34,45 +34,43 @@ export function YieldCalculator({ employeeId, employeeName }: YieldCalculatorPro
     try {
       const todayStr = format(new Date(), "yyyy-MM-dd");
       
-      // 1. Fetch Time Entries for Total Clocked Time
+      // 1. Process Time Entries for Total Clocked Time
       setStatus("Extracting Time Ledger...");
-      setProgress(20);
-      const timeRef = collection(db, "users", employeeId, "timeEntries");
-      const timeSnap = await getDocs(timeRef);
+      setProgress(30);
       
-      const totalSeconds = timeSnap.docs.reduce((acc, doc) => {
-        const data = doc.data();
-        const startTime = data.startTime?.toDate ? data.startTime.toDate() : new Date(0);
+      const totalSeconds = timeEntries.reduce((acc, entry) => {
+        const startTime = entry.startTime?.toDate ? entry.startTime.toDate() : (entry.startTime?.seconds ? new Date(entry.startTime.seconds * 1000) : new Date(0));
         if (format(startTime, "yyyy-MM-dd") === todayStr) {
-          return acc + (data.duration || 0);
+          return acc + (entry.duration || 0);
         }
         return acc;
       }, 0);
 
-      setProgress(40);
+      setProgress(60);
       setStatus("Analyzing Telemetry Packets...");
 
-      // 2. Fetch Screenshots for Idle Detection
-      const screenshotRef = collection(db, "users", employeeId, "screenshots", todayStr, "images");
-      const screenshotSnap = await getDocs(screenshotRef);
-      const logs = screenshotSnap.docs.map(d => d.data());
+      // 2. Filter Screenshots for today
+      const todayLogs = screenshots.filter(l => {
+        const date = l.timestamp?.toDate ? format(l.timestamp.toDate(), "yyyy-MM-dd") : (l.timestamp?.seconds ? format(new Date(l.timestamp.seconds * 1000), "yyyy-MM-dd") : null);
+        return date === todayStr;
+      });
 
-      setProgress(70);
       setStatus("Calculating Cognitive Yield...");
+      setProgress(80);
 
       // 3. Logic: A minute is idle if Keystrokes, Clicks, and Distance are all 0
-      const idleLogs = logs.filter(l => {
-        const activity = l.activity || l; // Handle potential nesting
+      const idleLogs = todayLogs.filter(l => {
+        const activity = l.activity || l; 
         return (activity.keystrokes || 0) === 0 && 
                (activity.mouseClicks || 0) === 0 && 
                (activity.mouseDistance || 0) === 0;
       });
 
-      const idleRatio = logs.length > 0 ? idleLogs.length / logs.length : 0;
+      const idleRatio = todayLogs.length > 0 ? idleLogs.length / todayLogs.length : 0;
       const idleSeconds = totalSeconds * idleRatio;
       const activeSeconds = totalSeconds - idleSeconds;
 
-      setProgress(90);
+      setProgress(95);
       setStatus("Finalizing Audit...");
       
       setTimeout(() => {
@@ -88,7 +86,7 @@ export function YieldCalculator({ employeeId, employeeName }: YieldCalculatorPro
 
     } catch (error) {
       console.error("Calculation failed", error);
-      setStatus("Audit Failed - Check Permissions");
+      setStatus("Audit Failed");
       setIsCalculating(false);
     }
   };

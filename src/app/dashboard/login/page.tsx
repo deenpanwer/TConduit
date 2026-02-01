@@ -36,10 +36,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      toast({ title: "Session Initialized", description: "Identity verified successfully." });
+      toast({ title: "Welcome back", description: "You have successfully signed in." });
       router.push("/dashboard");
     } catch (error: any) {
-      toast({ title: "Authentication Error", description: error.message, variant: "destructive" });
+      toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function LoginPage() {
       await signInWithPopup(auth, provider);
       router.push("/dashboard");
     } catch (error: any) {
-      toast({ title: "Handshake Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Google sign in failed", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -70,9 +70,9 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] lg:bg-black/20" />
         <div className="hidden lg:flex absolute inset-0 items-end p-12 text-white">
           <div className="max-w-md">
-            <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">Technical Oversight</h2>
-            <p className="text-lg font-medium opacity-80 uppercase tracking-tight">
-              Enterprise-grade performance monitoring for high-velocity engineering teams.
+            <h2 className="text-4xl font-bold tracking-tight mb-4">Welcome Back</h2>
+            <p className="text-lg font-medium opacity-90">
+              Access your dashboard to manage your engineering operations with precision and clarity.
             </p>
           </div>
         </div>
@@ -89,28 +89,28 @@ export default function LoginPage() {
             <div className="flex justify-center mb-6">
                <img src="/logo.svg" alt="Logo" className="w-14 h-14 dark:invert" />
             </div>
-            <h1 className="text-3xl font-black uppercase tracking-widest">Identity Portal</h1>
-            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">
-              Authorized Personnel Access Only
+            <h1 className="text-3xl font-bold tracking-tight">Sign In</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter your credentials to access your account
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest ml-1">Corporate Email</Label>
+              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider ml-1">Email Address</Label>
               <Input 
                 id="email" 
                 type="email" 
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="identity@organization.com" 
-                className="bg-background/50 border-border h-14 rounded-2xl font-bold px-5"
+                placeholder="name@company.com" 
+                className="bg-background/50 border-border h-14 rounded-2xl px-5"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
-                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest">Access Key</Label>
-                <Link href="#" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Reset Token</Link>
+                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
+                <Link href="#" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input 
@@ -119,7 +119,7 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   placeholder="••••••••" 
-                  className="bg-background/50 border-border h-14 rounded-2xl font-bold px-5 pr-12"
+                  className="bg-background/50 border-border h-14 rounded-2xl px-5 pr-12"
                 />
                 <button 
                   type="button"
@@ -130,14 +130,14 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20">
-              {loading ? "Authenticating..." : "Initialize Session"}
+            <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide shadow-xl shadow-primary/20">
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black"><span className="bg-card px-3 text-muted-foreground tracking-widest">Secondary Protocol</span></div>
+            <div className="relative flex justify-center text-xs uppercase font-medium"><span className="bg-card px-3 text-muted-foreground tracking-wider">Or continue with</span></div>
           </div>
 
           <Button 
@@ -145,16 +145,16 @@ export default function LoginPage() {
             type="button" 
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest gap-3 border-2 border-border/50 hover:bg-secondary/50"
+            className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
           >
             <img src="/google.svg" className="size-5" alt="Google" />
             Google Workspace
           </Button>
 
           <div className="mt-10 text-center">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-              No Organization Record?{" "}
-              <Link href="/dashboard/signup" className="text-primary hover:underline">Provision One</Link>
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link href="/dashboard/signup" className="text-primary font-semibold hover:underline">Sign up</Link>
             </p>
           </div>
         </motion.div>

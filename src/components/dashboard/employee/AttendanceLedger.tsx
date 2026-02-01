@@ -40,6 +40,15 @@ interface AttendanceLedgerProps {
 export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // Helper to extract JS Date safely
+  const getDate = (ts: any) => {
+    if (!ts) return new Date(0);
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  };
+
   const days = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
@@ -48,17 +57,21 @@ export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProp
 
   const joiningDate = useMemo(() => {
     // STRICT FILTER: Match the policy in the parent page
-    if (employee?.attachedAt?.toDate) return startOfDay(employee.attachedAt.toDate());
-    if (employee?.createdAt?.toDate) return startOfDay(employee.createdAt.toDate());
+    const attached = getDate(employee?.attachedAt);
+    const created = getDate(employee?.createdAt);
+    
+    if (attached.getTime() > 0) return startOfDay(attached);
+    if (created.getTime() > 0) return startOfDay(created);
     return startOfDay(new Date(2026, 0, 1)); // Safe fallback
   }, [employee]);
 
   const attendanceMap = useMemo(() => {
     const map: Record<string, number> = {};
     timeEntries.forEach(entry => {
-      const date = entry.startTime?.toDate ? format(entry.startTime.toDate(), 'yyyy-MM-dd') : null;
-      if (date) {
-        map[date] = (map[date] || 0) + (entry.duration || 0);
+      const entryDate = getDate(entry.startTime);
+      if (entryDate.getTime() > 0) {
+        const dateKey = format(entryDate, 'yyyy-MM-dd');
+        map[dateKey] = (map[dateKey] || 0) + (entry.duration || 0);
       }
     });
     return map;

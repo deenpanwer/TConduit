@@ -133,7 +133,7 @@ export default function SettingsPage() {
                 <div className="space-y-6">
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Organization Name</Label>
-                        <Input value={userData?.orgName || ""} className="h-12 rounded-xl font-bold" />
+                        <Input value={userData?.orgName || ""} readOnly className="h-12 rounded-xl font-bold" />
                     </div>
 
                     <div className="p-6 rounded-2xl bg-secondary/30 border-2 border-dashed border-border">

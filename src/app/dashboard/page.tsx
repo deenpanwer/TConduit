@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, Search, Bell, UserPlus, X } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { OnboardingModal } from "@/components/dashboard/onboarding/OnboardingModal";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, serverTimestamp, collection, query, where, onSnapshot, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/dashboard/EmptyState";
@@ -15,16 +14,25 @@ import { useTeam } from "@/hooks/use-team";
 import { DUMMY_ORG, DUMMY_EMPLOYEES } from "@/lib/dashboard-demo-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Ticket, Copy, Check } from "lucide-react";
+import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
+import { useRouter } from "next/navigation";
+import router from "next/router";
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { employees, loading: teamLoading } = useTeam();
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const {
+    employees,
+    realEmployees,
+    isDemoMode,
+    loading: teamLoading,
+    toggleDemoMode,
+    addDemoEmployee,
+    removeLastDemoEmployee
+  } = useTeam();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
   
   const { user, userData, loading } = useAuth();
   const { toast } = useToast();
@@ -32,12 +40,17 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!loading && user && userData) {
       if (!userData.onboardingCompleted) {
-        setShowOnboarding(true);
-        collectMetadata();
+        router.push("/dashboard/onboarding");
+        return;
       }
       fetchOrgDetails();
     }
   }, [user, userData, loading]);
+
+  const handleAddDemo = () => {
+    addDemoEmployee();
+    toast({ title: "New Member Added", description: "A new simulated team member has joined the workspace." });
+  };
 
   const fetchOrgDetails = async () => {
     const targetOrgId = userData?.ownedOrgId || userData?.orgId;
@@ -92,7 +105,23 @@ export default function DashboardPage() {
     } catch (err) {}
   };
 
-  if (loading) return null;
+  if (loading || teamLoading) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden">
+        <div className="w-16 lg:w-64 border-r animate-pulse bg-card" />
+        <main className="flex-1 flex flex-col">
+          <header className="h-16 border-b bg-card/50 flex items-center px-8 shrink-0">
+            <Shimmer className="h-4 w-32 rounded-full" />
+          </header>
+          <div className="flex-1 p-8 space-y-12 overflow-hidden">
+            <Shimmer className="h-96 w-full rounded-[3rem]" />
+            <Shimmer className="h-48 w-full rounded-[2.5rem]" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   return (
@@ -103,16 +132,8 @@ export default function DashboardPage() {
         isMobileSidebarOpen={isMobileOpen}
         setIsMobileSidebarOpen={setIsMobileOpen}
         employees={employees}
+        onInviteClick={() => setShowInviteModal(true)}
       />
-
-      {showOnboarding && user && userData && (
-        <OnboardingModal 
-            userId={user.uid}
-            orgId={userData.ownedOrgId || userData.orgId || ""}
-            initialOrgName={userData.orgName}
-            onComplete={() => setShowOnboarding(false)}
-        />
-      )}
 
       {/* Persistent Invite Modal (Access via Add More) */}
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
@@ -121,7 +142,7 @@ export default function DashboardPage() {
             <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
                 <Ticket size={32} className="text-primary" />
             </div>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Invite Node</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Invite Staff Member</DialogTitle>
             <DialogDescription className="text-xs font-bold uppercase tracking-tight text-muted-foreground">
               Direct your team to enter this code in the Trac EMS Profile.
             </DialogDescription>
@@ -150,24 +171,60 @@ export default function DashboardPage() {
           </div>
           
           <div className="flex items-center gap-4">
-            {employees.length === 0 && !teamLoading && (
-              <Button 
-                onClick={() => setIsDemoMode(!isDemoMode)} 
-                variant={isDemoMode ? "default" : "outline"} 
-                size="sm" 
-                className="rounded-xl font-black uppercase text-[10px] tracking-widest border-primary/20 hover:bg-primary/5 shadow-sm"
-              >
-                {isDemoMode ? "Exit Preview" : "Demo Preview"}
-              </Button>
+            {realEmployees.length === 0 && !teamLoading && (
+              <div className="flex items-center bg-secondary/50 rounded-xl p-1 border border-border">
+                {isDemoMode ? (
+                  <>
+                    <Button 
+                      onClick={removeLastDemoEmployee} 
+                      variant="ghost" 
+                      size="sm" 
+                      className="rounded-lg font-black uppercase text-[10px] tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      Remove Staff ({employees.length})
+                    </Button>
+                    <div className="w-px h-4 bg-border mx-1" />
+                    <Button 
+                      onClick={handleAddDemo} 
+                      variant="ghost" 
+                      size="icon" 
+                      className="size-8 rounded-lg text-primary"
+                    >
+                      <UserPlus size={14} />
+                    </Button>
+                  </>
+                ) : (
+                  <Button 
+                    onClick={toggleDemoMode} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="rounded-lg font-black uppercase text-[10px] tracking-widest"
+                  >
+                    Demo Preview
+                  </Button>
+                )}
+              </div>
             )}
-            {employees.length > 0 && (
-                <Button onClick={() => setShowInviteModal(true)} variant="outline" size="sm" className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest border-primary/20 hover:bg-primary/5">
-                    <UserPlus size={14} className="mr-2" /> Invite Node
+            {realEmployees.length > 0 && (
+                <Button 
+                  onClick={() => setShowInviteModal(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="hidden md:flex rounded-none font-black uppercase text-[10px] tracking-widest border-[3px] border-black dark:border-white hover:bg-primary/5 transition-all active:scale-95 h-10 px-6"
+                >
+                    <UserPlus size={14} className="mr-2" /> Add Staff Member
                 </Button>
             )}
-            <div className="size-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
-               {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-[10px] font-black">AD</span>}
-            </div>
+            <button 
+              onClick={() => router.push("/dashboard/settings")}
+              className="size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90"
+            >
+               <img 
+                  src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover" 
+                />
+            </button>
           </div>
         </header>
 
@@ -185,10 +242,12 @@ export default function DashboardPage() {
               orgData={isDemoMode ? DUMMY_ORG : orgData} 
               ownerData={userData} 
               isDemo={isDemoMode}
+              demoEmployees={isDemoMode ? employees : []}
             />
           )}
         </div>
       </main>
+
 
       {/* Mobile Sidebar Overlay */}
       {isMobileOpen && (
