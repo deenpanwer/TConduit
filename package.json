@@ -58,6 +58,7 @@
     "firebase": "^11.9.1",
     "framer-motion": "^11.18.2",
     "genkit": "^1.25.0",
+    "gsap": "^3.14.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.475.0",
