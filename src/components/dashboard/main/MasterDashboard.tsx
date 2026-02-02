@@ -33,11 +33,98 @@ interface MasterDashboardProps {
 }
 
 export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmployees = [] }: MasterDashboardProps) => {
+  /*
+    Component Data & Calculation Documentation
+    ------------------------------------------
+    This parent dashboard is responsible for fetching all necessary data and performing
+    primary calculations. Child components receive this data as props.
+
+    1. PerformanceHorizon:
+        - Data Requirements:
+            - user doc: 0
+            - timeEntries: All (for today, across the entire org)
+            - projects: 0
+            - screenshots: 0
+        - Calculations (Performed HERE in `useMemo`):
+            - `performanceData`: Creates 24 hourly buckets and sums the `duration` of all org-wide `timeEntries` that fall into each bucket for the current day.
+        - Child Component Role: Purely for VISUALIZATION of the `performanceData` prop.
+
+    2. WorkforceRegistry:
+        - Data Requirements:
+            - user doc: All
+            - timeEntries: 0
+            - projects: 0
+            - screenshots: 0
+        - Calculations (Performed HERE in `useMemo`):
+            - `workforceData`: The `employees` array (derived from all user docs in the org) is processed here to calculate `hoursToday`, `totalHours`, and `topApp` for each employee.
+        - Child Component Role: VISUALIZES the list of employees. Handles its own internal state for pagination (which users are visible).
+
+    3. OwnerCockpit:
+        - Data Requirements:
+            - user doc: 1 (the owner's document)
+            - timeEntries: All
+            - projects: 0
+            - screenshots: 0
+        - Calculations (Performed HERE in `useMemo`):
+            - All aggregate statistics (`totalStaff`, `totalHoursToday`, `activeEmployees`, `topApp`) are calculated in the parent `stats` object.
+        - Child Component Role: Primarily for VISUALIZATION of owner data and the pre-calculated `stats` prop.
+
+    4. IntelligenceUnit:
+        - Data Requirements:
+            - user doc: All
+            - timeEntries: All
+            - projects: 0
+            - screenshots: All
+        - Calculations (Performed HERE in `useMemo`):
+            - `velocity`: Calculated from the average `productivityScore` of all employees.
+            - `topApp`, `activeCount`: Derived from the parent `stats` object.
+        - Child Component Role: VISUALIZES the organization's overall velocity and displays an AI-generated or formatted text brief.
+
+    5. ApplicationUsage:
+        - Data Requirements:
+            - user doc: 0
+            - timeEntries: All
+            - projects: 0
+            - screenshots: 0
+        - Calculations (Performed HERE in `useMemo`):
+            - The `stats` object calculates `topApps` by aggregating `hoursToday` for each application across all employees.
+        - Child Component Role: Purely for VISUALIZATION of the `topApps` data passed in the `stats` prop.
+
+    6. EliteWorkforce:
+        - Data Requirements:
+            - user doc: All
+            - timeEntries: All
+            - projects: 0
+            - screenshots: 10 (per user, for sparkline)
+        - Calculations (Performed HERE in `useMemo`):
+            - The `workforceData` object is passed to this component. It contains pre-calculated `hoursToday` and `prevHours` (sparkline data) for each employee.
+        - Child Component Role: VISUALIZES the top-performing employees and their individual stats.
+
+    7. WorkQualityFlow:
+        - Data Requirements:
+            - user doc: All
+            - timeEntries: 0
+            - projects: 0
+            - screenshots: All
+        - Calculations (Performed HERE in `useMemo`):
+            - `sankeyData`: Creates nodes for the org, employees, and apps, and calculates links between them based on time spent. App usage is determined by analyzing the `activeWindow` in screenshot data.
+        - Child Component Role: Purely for VISUALIZATION of the `sankeyData` prop using the d3-sankey library.
+
+    8. GlobalPresence:
+        - Data Requirements:
+            - user doc: All
+            - timeEntries: 0
+            - projects: 0
+            - screenshots: 0
+        - Calculations (Performed in the CHILD component):
+            - `countryData`: Counts the number of employees per country based on the `lastLoginLocation` in the `employees` prop.
+        - Child Component Role: Calculates and VISUALIZES a world map highlighting the countries where employees are located.
+  */
+
   const { stats: realStats, loading, employees: realEmployees } = useDashboardStats();
 
   const employees = isDemo ? demoEmployees : realEmployees;
 
-  // Process Workforce Telemetry (for EliteWorkforce & MemberPulse)
   const workforceData = React.useMemo(() => {
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
@@ -72,7 +159,11 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
             totalHours: (totalSeconds / 3600).toFixed(1),
             topApp,
             isLive: emp.heartbeat?.isCurrentlyRunning || false,
-            prevHours: emp.screenshots?.slice(-10).map((s: any) => s.activity?.keystrokes || 0).reverse() || []
+            prevHours: emp.screenshots?.slice(-10).map((s: any) => {
+                const act = s.activity || {};
+                // Combined activity score: keys + clicks*2 + distance/100
+                return (act.keystrokes || 0) + ((act.mouseClicks || 0) * 2) + ((act.mouseDistance || 0) / 100);
+            }).reverse() || []
         };
     });
   }, [employees, isDemo]);
@@ -114,7 +205,6 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
     };
   }, [isDemo, workforceData, realStats, employees]);
 
-  // Calculate Chart Data for PerformanceHorizon (Today's Hourly Timeline)
   const performanceData = React.useMemo(() => {
     if (employees.length === 0) return [];
 
@@ -128,17 +218,15 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
             const isPast = i <= currentHour;
             const hourLabel = `${i.toString().padStart(2, '0')}:00`;
             
-            let hours = 0;
-            if (isPast) {
-                const peak = Math.exp(-Math.pow(i - 11, 2) / 10) + Math.exp(-Math.pow(i - 15, 2) / 10);
-                hours = (baseHours / 8) * peak * (0.8 + Math.random() * 0.4);
-            }
+            const peak = Math.exp(-Math.pow(i - 11, 2) / 10) + Math.exp(-Math.pow(i - 15, 2) / 10);
+            const hours = (baseHours / 8) * peak * (0.8 + Math.random() * 0.4);
+            const projected = (baseHours / 8) * peak;
 
             return {
                 date: hourLabel,
                 fullDate: `Today at ${hourLabel}`,
                 actualHours: isPast ? parseFloat(hours.toFixed(1)) : null,
-                projectedHours: i >= currentHour ? parseFloat(((baseHours / 8) * 0.5).toFixed(1)) : null,
+                projectedHours: i >= currentHour ? parseFloat(projected.toFixed(1)) : null,
             };
         });
     }
@@ -163,21 +251,29 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
             }
         });
     });
+    
+    const totalHoursSoFar = hourlyBuckets.slice(0, currentHour + 1).reduce((acc, b) => acc + b.actualHours, 0);
+    const hoursPassed = currentHour + 1;
+    const avgHourlyRate = totalHoursSoFar > 0 ? totalHoursSoFar / hoursPassed : 0;
 
     return hourlyBuckets.map((b, i) => {
         const isPast = i <= currentHour;
+        const projectedValue = avgHourlyRate > 0 ? Math.max(0.1, parseFloat(avgHourlyRate.toFixed(1))) : null;
+
         return {
             ...b,
             actualHours: isPast ? parseFloat(b.actualHours.toFixed(1)) : null,
-            projectedHours: i >= currentHour ? (i === currentHour ? parseFloat(b.actualHours.toFixed(1)) : 0) : null
+            projectedHours: i >= currentHour 
+                ? (i === currentHour ? parseFloat(b.actualHours.toFixed(1)) : projectedValue) 
+                : null
         };
     });
   }, [employees, isDemo, stats]);
 
   // Calculate Sankey Data for WorkQualityFlow
   const sankeyData = React.useMemo(() => {
-    const orgName = orgData?.orgName || orgData?.name || "ORGANIZATION";
-    const nodes: any[] = [{ name: orgName.toUpperCase(), color: "#3b82f6" }];
+    const displayOrgName = ownerData?.orgName || orgData?.orgName || orgData?.name || "ORGANIZATION";
+    const nodes: any[] = [{ name: displayOrgName.toUpperCase(), color: "#3b82f6" }];
     const links: any[] = [];
     
     if (employees.length === 0) return { nodes, links };
@@ -247,9 +343,17 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
       {/* HUB 1: Cockpit */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
         <OwnerCockpit 
-            orgName={orgData?.orgName || orgData?.name || "Your Organization"} 
-            ownerData={isDemo ? DUMMY_OWNER : ownerData} 
+            orgName={ownerData?.orgName || orgData?.orgName || orgData?.name || "Your Organization"} 
+            ownerData={isDemo ? { 
+                ...DUMMY_OWNER, 
+                ...ownerData,
+                // Force real identity if it exists
+                name: ownerData?.name || DUMMY_OWNER.name,
+                role: ownerData?.role || DUMMY_OWNER.role,
+                photoUrl: ownerData?.photoUrl || null // logoUrl in Cockpit takes priority anyway
+            } : ownerData} 
             stats={stats}
+            logoUrl={orgData?.logoUrl}
         />
       </motion.div>
 

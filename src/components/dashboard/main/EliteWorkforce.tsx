@@ -130,7 +130,7 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
         )}
 
         {/* Aggregate Audit Card */}
-        <GlassCard elevated className="bg-slate-950 dark:bg-slate-900 border-none shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] flex flex-col justify-between p-8 lg:p-10 group relative overflow-hidden min-h-[380px]" hoverEffect={false}>
+        <GlassCard elevated className="border-none shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] flex flex-col justify-between p-8 lg:p-10 group relative overflow-hidden min-h-[380px]" hoverEffect={false}>
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/20 transition-colors duration-700" />
           
           <div className="relative z-10 space-y-8">
@@ -147,10 +147,10 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/50 mb-3">Combined Work Time</p>
               <div className="flex items-baseline gap-2">
-                  <h4 className="text-6xl lg:text-7xl font-black text-white tracking-tighter leading-none">{cumulativeHours}</h4>
-                  <span className="text-2xl font-bold text-white/20 uppercase">h</span>
+                  <h4 className="text-6xl lg:text-7xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">{cumulativeHours}</h4>
+                  <span className="text-2xl font-bold text-gray-400 dark:text-white/20 uppercase">h</span>
               </div>
-              <p className="text-[10px] font-bold text-white/30 mt-4 uppercase tracking-widest flex items-center gap-2">
+              <p className="text-[10px] font-bold text-gray-500 dark:text-white/30 mt-4 uppercase tracking-widest flex items-center gap-2">
                   <Clock size={14} className="text-primary/60" /> Active Session Overview
               </p>
             </div>
@@ -170,8 +170,8 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
                   </AreaChart>
                 </ResponsiveContainer>
              </div>
-             <div className="pt-6 border-t border-white/5 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Team Scaling</span>
+             <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-white/40">Team Scaling</span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Consistent Output</span>
              </div>
           </div>

@@ -37,6 +37,24 @@ const WORKFLOWS = [
   { id: "sales", label: "Sales & Marketing" },
 ];
 
+const SHIFTS = [
+  { id: "4", label: "4h", seconds: 14400 },
+  { id: "6", label: "6h", seconds: 21600 },
+  { id: "8", label: "8h", seconds: 28800 },
+  { id: "9", label: "9h", seconds: 32400 },
+  { id: "10", label: "10h", seconds: 36000 },
+];
+
+const DAYS = [
+  { id: 1, label: "M" },
+  { id: 2, label: "T" },
+  { id: 3, label: "W" },
+  { id: 4, label: "T" },
+  { id: 5, label: "F" },
+  { id: 6, label: "S" },
+  { id: 0, label: "S" },
+];
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -57,7 +75,10 @@ export default function OnboardingPage() {
     teamSize: "",
     workflow: "",
     logoUrl: "",
-    industry: ""
+    industry: "",
+    shift: "8",
+    workdays: [1, 2, 3, 4, 5],
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   });
 
   useEffect(() => {
@@ -138,6 +159,11 @@ export default function OnboardingPage() {
         role: formData.role,
         ownedOrgId: finalOrgId,
         onboardingCompleted: true,
+        settings: {
+          defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
+          workdays: formData.workdays,
+          timezone: formData.timezone
+        },
         updatedAt: serverTimestamp()
       });
 
@@ -175,7 +201,7 @@ export default function OnboardingPage() {
           {/* Progress Header */}
           <div className="flex items-center justify-between mb-10">
             <div className="flex gap-2">
-              {[1, 2, 3].map((i) => (
+              {[1, 2, 3, 4].map((i) => (
                 <div 
                   key={i} 
                   className={cn(
@@ -186,7 +212,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Step {step} of 3
+              Step {step} of 4
             </span>
           </div>
 
@@ -334,6 +360,90 @@ export default function OnboardingPage() {
             {step === 3 && (
               <motion.div
                 key="step3"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-8"
+              >
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Operational Standards</h1>
+                  <p className="text-muted-foreground">Define the baseline for your workspace.</p>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="space-y-4">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Standard Workday</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {SHIFTS.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => setFormData({ ...formData, shift: s.id })}
+                          className={cn(
+                            "py-4 rounded-2xl border-2 text-[10px] font-bold uppercase transition-all",
+                            formData.shift === s.id ? "border-primary bg-primary/5 text-primary shadow-lg" : "border-transparent bg-secondary/50 hover:bg-secondary"
+                          )}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Weekly Schedule</Label>
+                    <div className="flex justify-between gap-1">
+                      {DAYS.map((d) => (
+                        <button
+                          key={d.id}
+                          onClick={() => {
+                            const newDays = formData.workdays.includes(d.id)
+                              ? formData.workdays.filter(id => id !== d.id)
+                              : [...formData.workdays, d.id].sort();
+                            setFormData({ ...formData, workdays: newDays });
+                          }}
+                          className={cn(
+                            "flex-1 py-4 rounded-xl border-2 text-[10px] font-bold transition-all",
+                            formData.workdays.includes(d.id) ? "border-primary bg-primary/5 text-primary" : "border-transparent bg-secondary/50 text-muted-foreground"
+                          )}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <div className="size-8 rounded-lg bg-background flex items-center justify-center border shadow-sm text-primary">
+                        <Loader2 size={16} className={loading ? "animate-spin" : ""} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Detected Zone</span>
+                        <span className="text-[11px] font-bold text-foreground">{formData.timezone}</span>
+                      </div>
+                    </div>
+                    <CheckCircle2 className="text-emerald-500" size={20} />
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleBack} className="h-14 px-8 rounded-2xl font-bold uppercase tracking-wide">
+                    Back
+                  </Button>
+                  <Button 
+                    onClick={handleNext} 
+                    className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
+                  >
+                    Continue
+                    <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 4 && (
+              <motion.div
+                key="step4"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}

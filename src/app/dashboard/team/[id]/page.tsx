@@ -196,26 +196,28 @@ export default function EmployeeDetailPage() {
     
     if (!recent.length) return 0;
 
-    // Check if the latest log is actually "live" (within last 10 mins OR in the future)
-    const lastLogTime = (recent[0].timestamp?.seconds || 0) * 1000;
-    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-    
-    // Allow future timestamps (timezone diffs) or recent past
-    if (lastLogTime < tenMinutesAgo) return 0; 
-
     // Calculate Average Activity (Keystrokes + Clicks + Mouse Distance)
     const avgActivity = recent.reduce((acc, curr) => {
-      // Weighting: 
-      // Keystrokes = 1
-      // Clicks = 2
-      // Mouse Distance = 1/100 (e.g. 870 dist -> 8.7 points)
-      const score = (curr.keystrokes || 0) + ((curr.mouseClicks || 0) * 2) + ((curr.mouseDistance || 0) / 100);
+      // Access activity data from the nested 'activity' object
+      const act = curr.activity || {};
+      const score = (act.keystrokes || 0) + ((act.mouseClicks || 0) * 2) + ((act.mouseDistance || 0) / 100);
       return acc + score;
     }, 0) / recent.length;
 
     // Normalize: 150 actions/min = 1.0 intensity (Standard Flow)
     // Cap at 2.0 (Hyper Intensity)
-    return Math.min(avgActivity / 150, 2.0);
+    const calculatedIntensity = Math.min(avgActivity / 150, 2.0);
+
+    // If data is older than 10 minutes, we still show it but at a reduced "historical" scale
+    // This ensures dummy data (which isn't always 'live') still looks dynamic
+    const lastLogTime = (recent[0].timestamp?.seconds || 0) * 1000;
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    
+    if (lastLogTime < tenMinutesAgo) {
+        return calculatedIntensity * 0.8; // 20% reduction for non-live data
+    }
+
+    return calculatedIntensity;
   }, [screenshots]);
 
   if (loading || authLoading) {
@@ -234,6 +236,88 @@ export default function EmployeeDetailPage() {
       </div>
     );
   }
+
+  /*
+    Component Data & Calculation Documentation
+    ------------------------------------------
+    This parent page is responsible for fetching all necessary data and performing
+    primary calculations. Child components receive this data as props.
+
+    1. EmployeeHeader:
+       - Data Requirements:
+         - user doc: 1
+         - timeEntries: 0
+         - projects: 0
+         - screenshots: 0
+       - Calculations (Performed HERE in `useMemo`):
+         - `totalHours`: Sum of all `duration` from `timeEntries`.
+         - `hoursToday`: Sum of `duration` from `timeEntries` for the current day.
+         - `topApp`: Most frequent `projectName` from `timeEntries`.
+         - `joinedDate`: The `attachedAt` or `createdAt` timestamp from the user doc.
+       - Child Component Role: Primarily for VISUALIZATION of these props.
+
+    2. AttendanceLedger:
+       - Data Requirements:
+         - user doc: 1
+         - timeEntries: 50
+         - projects: 0
+         - screenshots: 0
+       - Calculations (Performed in the CHILD component):
+         - The child component creates an `attendanceMap` by summing `duration` per day from the `timeEntries` prop.
+         - It is responsible for its own internal state management for calendar display (e.g., current month).
+       - Child Component Role: Calculates and VISUALIZES the daily attendance calendar.
+
+    3. CognitiveHub:
+       - Data Requirements:
+         - user doc: 1
+         - timeEntries: 0
+         - projects: 0
+         - screenshots: 0
+       - Calculations (Performed HERE in `useMemo`):
+         - `intensity`: Calculated from the `keystrokes`, `mouseClicks`, and `mouseDistance` of the last 20 `screenshots`.
+       - Child Component Role:
+         - Receives calculated `intensity` as a prop.
+         - Performs minor visual calculations (e.g., `focusStatus`, `rhythmStatus`).
+         - VISUALIZES the AI summary and the live intensity SVG.
+    
+    4. ActivityMatrix:
+       - Data Requirements:
+         - user doc: 0
+         - timeEntries: 0
+         - projects: 0
+         - screenshots: All
+       - Calculations (Performed in the CHILD component):
+         - Filters screenshots to include only those from the last hour (or the last 60 available if none in the last hour).
+         - Processes this filtered data to create `chartData` (for keystrokes, clicks, and scaled mouse distance over time).
+         - Calculates `totals` for `keystrokes`, `clicks`, and `mouseDistance` for the displayed period.
+       - Child Component Role: Calculates, processes, and VISUALIZES real-time activity metrics using charts and summary cards.
+
+    5. YieldCalculator:
+       - Data Requirements:
+         - user doc: 0
+         - timeEntries: All
+         - projects: 0
+         - screenshots: All
+       - Calculations (Performed in the CHILD component, on demand):
+         - `totalSeconds`: Sum of `duration` from all `timeEntries`.
+         - `idleLogs`: Filters `screenshots` where `keystrokes`, `mouseClicks`, and `mouseDistance` are all zero.
+         - `idleRatio`: Proportion of `idleLogs` to total `screenshots`.
+         - `idleSeconds`: `totalSeconds` multiplied by `idleRatio`.
+         - `activeSeconds`: `totalSeconds` minus `idleSeconds`.
+         - These are then converted to `totalHours`, `idleHours`, `activeHours`, and `idleRatio` (percentage) for display.
+       - Child Component Role: Performs a calculation-intensive "idle audit" on demand, and then VISUALIZES the results.
+
+    6. WorkHistory:
+       - Data Requirements:
+         - user doc: 0
+         - timeEntries: All
+         - projects: 0
+         - screenshots: All
+       - Calculations (Performed in the CHILD component):
+         - `clusters`: Groups `timeEntries` with their corresponding `screenshots`. It sorts `timeEntries` by `startTime` (descending) and filters `screenshots` that fall within each `timeEntry`'s `startTime` and `endTime`. Each cluster contains up to 20 related screenshots.
+         - `visibleClusters`: Controls pagination by slicing the `clusters` array based on `pageSize`.
+       - Child Component Role: Calculates and VISUALIZES a chronological log of work activity, grouped by time entry and showing associated screenshots.
+  */
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">

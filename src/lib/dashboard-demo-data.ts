@@ -17,23 +17,35 @@ const randomRange = (min: number, max: number) => faker.number.int({ min, max })
 const generateScreenshotsForEntry = (userId: string, entry: any, appName: string, windowTitle: string) => {
   const startTime = entry.startTime.toDate();
   const durationMins = Math.floor(entry.duration / 60);
-  const screenshotCount = Math.min(durationMins, 10); // Generate up to 10 screenshots per entry
+  const screenshotCount = 20; // Generate exactly 20 screenshots per entry as requested
   
   return Array.from({ length: screenshotCount }, (_, i) => {
     // Distribute screenshots throughout the duration
-    const timestamp = subMinutes(entry.endTime.toDate(), (screenshotCount - 1 - i) * Math.floor(durationMins / screenshotCount));
+    const timestamp = subMinutes(entry.endTime.toDate(), (screenshotCount - 1 - i) * Math.max(1, Math.floor(durationMins / screenshotCount)));
     
+    // 20% chance of being idle
+    const isIdle = Math.random() < 0.2;
+
     return {
+      id: `scr_${userId}_${entry.id}_${i}`,
+      timestamp: createTimestamp(timestamp),
       activity: {
         activeWindow: {
           owner: appName,
           title: windowTitle
         },
-        keystrokes: randomRange(30, 150),
-        mouseClicks: randomRange(5, 40),
-        mouseDistance: randomRange(1000, 12000),
+        keystrokes: isIdle ? 0 : randomRange(30, 150),
+        mouseClicks: isIdle ? 0 : randomRange(5, 40),
+        mouseDistance: isIdle ? 0 : randomRange(1000, 12000),
         base64: null,
-        cloudinaryUrl: `https://res.cloudinary.com/dz01fwn5a/image/upload/v1769954889/g7h29h3vgjeqqwf7${randomRange(100, 999)}mp.jpg`,
+        cloudinaryUrl: `https://images.unsplash.com/photo-${[
+          '1461749280684-dccba630e2f6', // code
+          '1498050108023-c5249f4df085', // workspace
+          '1555066931-4365d14bab8c', // programming
+          '1581291518633-83b4ebd1d83e', // app UI
+          '1542831371-29b0f74f9713', // coding
+          '1550439062-609e1531270e'  // tech
+        ][randomRange(0, 5)]}?auto=format&fit=crop&w=800&q=80`,
         createdAt: timestamp.toISOString(),
         date: timestamp.toISOString().split('T')[0],
         id: `scr_${userId}_${entry.id}_${i}`,
@@ -41,7 +53,14 @@ const generateScreenshotsForEntry = (userId: string, entry: any, appName: string
         projectId: entry.projectId,
         timestamp: createTimestamp(timestamp)
       },
-      url: `https://res.cloudinary.com/dz01fwn5a/image/upload/v1769954889/g7h29h3vgjeqqwf7${randomRange(100, 999)}mp.jpg`
+      url: `https://images.unsplash.com/photo-${[
+        '1461749280684-dccba630e2f6',
+        '1498050108023-c5249f4df085',
+        '1555066931-4365d14bab8c',
+        '1581291518633-83b4ebd1d83e',
+        '1542831371-29b0f74f9713',
+        '1550439062-609e1531270e'
+      ][randomRange(0, 5)]}?auto=format&fit=crop&w=800&q=80`
     };
   });
 };
@@ -86,9 +105,9 @@ const generateTimeEntries = (userId: string, projects: any[]) => {
     duration: randomRange(1800, 7200),
     projectName: p.name,
     projectId: p.id,
-    startTime: createTimestamp(subHours(now, i + 2)),
-    endTime: createTimestamp(subHours(now, i + 1)),
-    createdAt: createTimestamp(subHours(now, i + 1)),
+    startTime: createTimestamp(subHours(now, i + 1)),
+    endTime: createTimestamp(subHours(now, i)),
+    createdAt: createTimestamp(subHours(now, i)),
     userId: userId,
     description: `Working on ${p.name} tasks`,
     appName: p.appName,
@@ -248,7 +267,8 @@ export const DUMMY_ORG = {
   ownerId: "sq45K5QAnwbRZV7KZa2R9cqesEW2",
   orgName: "deens org",
   industry: "Technology",
-  role: "Founder"
+  role: "Founder",
+  logoUrl: null // Placeholder for base64 or URL
 };
 
 export const DUMMY_ORG_BRIEF = {

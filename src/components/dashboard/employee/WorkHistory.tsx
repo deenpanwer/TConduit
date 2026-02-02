@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { format, isWithinInterval } from "date-fns";
 import { Clock, Hash, ChevronRight, ZoomIn, Image as ImageIcon, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -46,7 +46,7 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
         ...entry,
         startTime: start,
         endTime: end,
-        images: relatedScreenshots.slice(0, 5) // Max 5 images as requested
+        images: relatedScreenshots.slice(0, 20) // Increased to 20 as requested
       };
     });
   }, [timeEntries, screenshots]);
@@ -174,6 +174,7 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
       <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-5xl p-0 overflow-hidden bg-black/90 border-none">
             <DialogTitle className="sr-only">Activity Proof Image</DialogTitle>
+            <DialogDescription className="sr-only">Enlarged screenshot of employee activity</DialogDescription>
             {selectedImage && (
                 <div className="relative aspect-video w-full h-full flex items-center justify-center">
                     <img 

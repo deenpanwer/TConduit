@@ -172,33 +172,29 @@ export default function DashboardPage() {
           
           <div className="flex items-center gap-4">
             {realEmployees.length === 0 && !teamLoading && (
-              <div className="flex items-center bg-secondary/50 rounded-xl p-1 border border-border">
+              <div className="flex items-center">
                 {isDemoMode ? (
-                  <>
-                    <Button 
-                      onClick={removeLastDemoEmployee} 
-                      variant="ghost" 
-                      size="sm" 
-                      className="rounded-lg font-black uppercase text-[10px] tracking-widest text-red-500 hover:text-red-600 hover:bg-red-50"
+                  <div className="flex items-center border-[3px] border-black dark:border-white rounded-none h-10 overflow-hidden transition-all active:scale-95 shadow-lg shadow-black/5">
+                    <button 
+                      onClick={removeLastDemoEmployee}
+                      className="bg-red-600 text-white hover:bg-red-700 h-full px-4 font-black uppercase text-[10px] tracking-widest transition-all active:opacity-90 border-r-0"
                     >
                       Remove Staff ({employees.length})
-                    </Button>
-                    <div className="w-px h-4 bg-border mx-1" />
-                    <Button 
-                      onClick={handleAddDemo} 
-                      variant="ghost" 
-                      size="icon" 
-                      className="size-8 rounded-lg text-primary"
+                    </button>
+                    <div className="w-[3px] h-full bg-black dark:bg-white" />
+                    <button 
+                      onClick={handleAddDemo}
+                      className="hover:bg-primary/5 h-full px-3 text-black dark:text-white transition-all active:opacity-70 flex items-center justify-center bg-card"
                     >
                       <UserPlus size={14} />
-                    </Button>
-                  </>
+                    </button>
+                  </div>
                 ) : (
                   <Button 
                     onClick={toggleDemoMode} 
-                    variant="ghost" 
+                    variant="outline" 
                     size="sm" 
-                    className="rounded-lg font-black uppercase text-[10px] tracking-widest"
+                    className="rounded-none font-black uppercase text-[10px] tracking-widest border-[3px] border-black dark:border-white hover:bg-primary/5 transition-all active:scale-95 h-10 px-6"
                   >
                     Demo Preview
                   </Button>
@@ -239,7 +235,7 @@ export default function DashboardPage() {
             />
           ) : (
             <MasterDashboard 
-              orgData={isDemoMode ? DUMMY_ORG : orgData} 
+              orgData={orgData || (isDemoMode ? DUMMY_ORG : null)} 
               ownerData={userData} 
               isDemo={isDemoMode}
               demoEmployees={isDemoMode ? employees : []}

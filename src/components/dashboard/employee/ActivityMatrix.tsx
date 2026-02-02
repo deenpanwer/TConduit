@@ -22,7 +22,7 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
   // Filter for LAST HOUR (Last 60 Minutes)
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-  const lastHourLogs = screenshots.filter(s => {
+  let lastHourLogs = screenshots.filter(s => {
     const date = getDate(s.timestamp);
     return date >= oneHourAgo;
   }).sort((a, b) => {
@@ -30,6 +30,15 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
     const tB = getDate(b.timestamp).getTime();
     return tA - tB;
   });
+
+  // Fallback: If no logs in the last hour, show the most recent logs available
+  if (lastHourLogs.length === 0 && screenshots.length > 0) {
+    lastHourLogs = [...screenshots].sort((a, b) => {
+        const tA = getDate(a.timestamp).getTime();
+        const tB = getDate(b.timestamp).getTime();
+        return tA - tB;
+    }).slice(-60); // Show last 60 available logs
+  }
 
   if (screenshots.length === 0) {
     return (

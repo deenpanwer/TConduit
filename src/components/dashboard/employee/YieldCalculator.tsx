@@ -31,42 +31,41 @@ export function YieldCalculator({ employeeId, employeeName, timeEntries, screens
     setProgress(5);
     setStatus("Initializing Neural Audit...");
 
+    // Helper to extract JS Date safely
+    const getDate = (ts: any) => {
+      if (!ts) return new Date(0);
+      if (ts.toDate) return ts.toDate();
+      if (ts instanceof Date) return ts;
+      if (ts.seconds) return new Date(ts.seconds * 1000);
+      return new Date(ts);
+    };
+
     try {
-      const todayStr = format(new Date(), "yyyy-MM-dd");
-      
       // 1. Process Time Entries for Total Clocked Time
       setStatus("Extracting Time Ledger...");
       setProgress(30);
       
-      const totalSeconds = timeEntries.reduce((acc, entry) => {
-        const startTime = entry.startTime?.toDate ? entry.startTime.toDate() : (entry.startTime?.seconds ? new Date(entry.startTime.seconds * 1000) : new Date(0));
-        if (format(startTime, "yyyy-MM-dd") === todayStr) {
-          return acc + (entry.duration || 0);
-        }
-        return acc;
-      }, 0);
+      // Calculate total seconds from all provided entries
+      const totalSeconds = timeEntries.reduce((acc, entry) => acc + (entry.duration || 0), 0);
 
       setProgress(60);
       setStatus("Analyzing Telemetry Packets...");
 
-      // 2. Filter Screenshots for today
-      const todayLogs = screenshots.filter(l => {
-        const date = l.timestamp?.toDate ? format(l.timestamp.toDate(), "yyyy-MM-dd") : (l.timestamp?.seconds ? format(new Date(l.timestamp.seconds * 1000), "yyyy-MM-dd") : null);
-        return date === todayStr;
-      });
+      // 2. Process all provided logs
+      const targetLogs = screenshots;
 
       setStatus("Calculating Cognitive Yield...");
       setProgress(80);
 
-      // 3. Logic: A minute is idle if Keystrokes, Clicks, and Distance are all 0
-      const idleLogs = todayLogs.filter(l => {
+      // 3. Logic: A log is idle if Keystrokes, Clicks, and Distance are all 0
+      const idleLogs = targetLogs.filter(l => {
         const activity = l.activity || l; 
         return (activity.keystrokes || 0) === 0 && 
                (activity.mouseClicks || 0) === 0 && 
                (activity.mouseDistance || 0) === 0;
       });
 
-      const idleRatio = todayLogs.length > 0 ? idleLogs.length / todayLogs.length : 0;
+      const idleRatio = targetLogs.length > 0 ? idleLogs.length / targetLogs.length : 0;
       const idleSeconds = totalSeconds * idleRatio;
       const activeSeconds = totalSeconds - idleSeconds;
 

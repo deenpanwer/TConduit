@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { GlassCard } from './shared/GlassCard';
 import { Target, Code, Figma, Mail, MessageSquare, Terminal, Globe as ChromeIcon, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Shimmer } from './shared/Shimmer';
 
 const getAppIcon = (name: string) => {
@@ -78,68 +78,70 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
       </GlassCard>
 
       <Dialog open={showAudit} onOpenChange={setShowAudit}>
-        <DialogContent className="max-w-3xl bg-card border-border rounded-[2.5rem] p-0 overflow-hidden shadow-2xl">
-          <div className="p-8 border-b bg-card flex items-center justify-between">
+        <DialogContent className="max-w-3xl w-[95vw] md:w-full bg-card border-border rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="p-6 md:p-8 border-b bg-card shrink-0">
             <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                <div className="p-3 bg-primary/10 rounded-2xl text-primary hidden sm:block">
                     <Target size={20} />
                 </div>
-                <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter">Application Intelligence</h2>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-0.5">Granular resource allocation audit</p>
+                <div className="text-left">
+                    <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tighter">Application Intelligence</DialogTitle>
+                    <DialogDescription className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-0.5">Granular resource allocation audit</DialogDescription>
                 </div>
             </div>
-          </div>
+          </DialogHeader>
 
-          <div className="p-8">
-            <div className="rounded-[2rem] border border-border overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-muted/30 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                            <th className="px-8 py-5">Application</th>
-                            <th className="px-8 py-5">Daily Yield</th>
-                            <th className="px-8 py-5 text-right">Saturation</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {displayApps.length === 0 ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <tr key={i}>
-                                    <td className="px-8 py-6"><Shimmer className="h-4 w-32 rounded-full" /></td>
-                                    <td className="px-8 py-6"><Shimmer className="h-4 w-20 rounded-full" /></td>
-                                    <td className="px-8 py-6 text-right"><Shimmer className="h-4 w-12 rounded-full ml-auto" /></td>
-                                </tr>
-                            ))
-                        ) : (
-                            displayApps.map((app, i) => (
-                                <motion.tr 
-                                    key={app.name}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    className="hover:bg-muted/20 transition-colors group"
-                                >
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-2.5 rounded-xl bg-secondary border border-border group-hover:scale-110 transition-transform">
-                                                {React.createElement(getAppIcon(app.name), { size: 14, className: "text-primary" })}
+          <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar">
+            <div className="rounded-[1.5rem] md:rounded-[2rem] border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[400px]">
+                        <thead>
+                            <tr className="bg-muted/30 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                <th className="px-6 md:px-8 py-4 md:py-5">Application</th>
+                                <th className="px-6 md:px-8 py-4 md:py-5">Daily Yield</th>
+                                <th className="px-6 md:px-8 py-4 md:py-5 text-right">Saturation</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {displayApps.length === 0 ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-6 md:px-8 py-5 md:py-6"><Shimmer className="h-4 w-32 rounded-full" /></td>
+                                        <td className="px-6 md:px-8 py-5 md:py-6"><Shimmer className="h-4 w-20 rounded-full" /></td>
+                                        <td className="px-6 md:px-8 py-5 md:py-6 text-right"><Shimmer className="h-4 w-12 rounded-full ml-auto" /></td>
+                                    </tr>
+                                ))
+                            ) : (
+                                displayApps.map((app, i) => (
+                                    <motion.tr 
+                                        key={app.name}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        className="hover:bg-muted/20 transition-colors group"
+                                    >
+                                        <td className="px-6 md:px-8 py-5 md:py-6">
+                                            <div className="flex items-center gap-3 md:gap-4">
+                                                <div className="p-2 rounded-xl bg-secondary border border-border group-hover:scale-110 transition-transform shrink-0">
+                                                    {React.createElement(getAppIcon(app.name), { size: 14, className: "text-primary" })}
+                                                </div>
+                                                <span className="text-sm font-black uppercase tracking-tight truncate max-w-[150px]">{app.name}</span>
                                             </div>
-                                            <span className="text-sm font-black uppercase tracking-tight">{app.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <span className="text-sm font-bold font-mono">{app.hours}h</span>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <div className="inline-flex items-center px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black border border-primary/10">
-                                            {app.percentage}%
-                                        </div>
-                                    </td>
-                                </motion.tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                                        </td>
+                                        <td className="px-6 md:px-8 py-5 md:py-6">
+                                            <span className="text-sm font-bold font-mono">{app.hours}h</span>
+                                        </td>
+                                        <td className="px-6 md:px-8 py-5 md:py-6 text-right">
+                                            <div className="inline-flex items-center px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black border border-primary/10">
+                                                {app.percentage}%
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
           </div>
         </DialogContent>
