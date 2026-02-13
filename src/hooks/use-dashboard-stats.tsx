@@ -21,16 +21,45 @@ export function useDashboardStats() {
       setLoading(true);
       try {
         const today = startOfDay(new Date());
-        
-        // Return minimal stats, deep fetching will be done in components
+        const todayStr = format(today, "yyyy-MM-dd");
+
+        let totalOrgHoursToday = 0;
+        const orgAppMap: Record<string, number> = {};
+        let activeEmployeeCount = 0;
+
+        employees.forEach(emp => {
+          const todayShift = emp.workShifts?.find((s: any) => s.id.startsWith(todayStr));
+          if (todayShift?.liveMetrics) {
+            totalOrgHoursToday += (todayShift.liveMetrics.totalSeconds || 0);
+          }
+          if (todayShift?.liveBreakdown) {
+              Object.entries(todayShift.liveBreakdown).forEach(([app, secs]) => {
+                  orgAppMap[app] = (orgAppMap[app] || 0) + (secs as number);
+              });
+          }
+          if (emp.heartbeat?.isCurrentlyRunning) {
+              activeEmployeeCount++;
+          }
+        });
+
+        const topApps = Object.entries(orgAppMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([name, seconds]) => ({ 
+                name, 
+                hours: (seconds / 3600).toFixed(1), 
+                percentage: Math.round((seconds / (totalOrgHoursToday || 1)) * 100) 
+            }));
+
         setStats({
-          totalHoursToday: "0.0", // Components will calculate their own
-          velocity: 114, 
-          topApps: [],
-          activeEmployees: employees.filter(e => e.heartbeat?.isCurrentlyRunning).length,
+          totalHoursToday: (totalOrgHoursToday / 3600).toFixed(1),
+          velocity: 114, // Placeholder, will be calculated in MasterDashboard for demo
+          topApps,
+          activeEmployees: activeEmployeeCount,
           totalStaff: employees.length,
           locationsCount: new Set(employees.map(e => e.lastLoginLocation?.country)).size,
         });
+
       } catch (error) {
         console.error("Error aggregating dashboard stats:", error);
       } finally {

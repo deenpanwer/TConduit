@@ -1,4 +1,4 @@
-import { startOfDay, subDays, subMinutes, subHours } from "date-fns";
+import { startOfDay, subDays, subMinutes, subHours, format } from "date-fns";
 import { faker } from '@faker-js/faker';
 
 // --- TYPES & HELPERS ---
@@ -13,6 +13,121 @@ const createTimestamp = (date: Date) => ({
 const randomRange = (min: number, max: number) => faker.number.int({ min, max });
 
 // --- GENERATORS ---
+
+const generateWorkShifts = (userId: string) => {
+  const shifts = [];
+  const now = new Date();
+  
+  for (let i = 0; i < 5; i++) {
+    const date = subDays(now, i);
+    const dateStr = format(date, "yyyy-MM-dd");
+    const shiftId = `${dateStr}_0`;
+    
+    const isToday = i === 0;
+    const startTime = new Date(date);
+    startTime.setHours(8, 0, 0, 0);
+    
+    const endTime = isToday ? null : new Date(date);
+    if (endTime) endTime.setHours(16, 0, 0, 0);
+    
+    // For 8 hour shift (28800s), generate realistic distribution
+    const baselineSeconds = 28800;
+    const totalSeconds = isToday ? Math.min(baselineSeconds, Math.floor((now.getTime() - startTime.getTime()) / 1000)) : baselineSeconds;
+    
+    const idleSeconds = Math.floor(totalSeconds * (0.05 + Math.random() * 0.1));
+    const activeSeconds = totalSeconds - idleSeconds;
+    
+    // Define proportional distribution for an 8-hour day
+    const hourlyActivityDistribution = {
+        "08": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "09": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "10": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "11": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "12": { seconds: 1800, keys: 0.05, clicks: 0.05, distance: 0.05, screenshots: 0.05, switches: 0.05 }, // Lunch break
+        "13": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "14": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
+        "15": { seconds: 3600, keys: 0.05, clicks: 0.05, distance: 0.05, screenshots: 0.05, switches: 0.05 }, // Wind down
+    };
+
+    const liveMetrics = {
+        totalSeconds,
+        activeSeconds,
+        idleSeconds,
+        keystrokes: randomRange(5000, 15000),
+        mouseClicks: randomRange(1000, 3000),
+        mouseDistance: randomRange(30000, 60000),
+        screenshotCount: Math.floor(totalSeconds / 300), // 1 every 5 mins
+        appSwitches: randomRange(10, 30)
+    };
+
+    const hourlyPulse: { [key: string]: { seconds: number; keystrokes: number; mouseClicks: number; mouseDistance: number; screenshotCount: number; appSwitches: number; } } = {};
+    let totalSecondsForHourlyDistribution = 0;
+
+    for (const hourKey in hourlyActivityDistribution) {
+        totalSecondsForHourlyDistribution += hourlyActivityDistribution[hourKey].seconds;
+    }
+
+    let currentSecondSum = 0;
+    for (const hourKey in hourlyActivityDistribution) {
+        const planned = hourlyActivityDistribution[hourKey];
+        let actualSecondsThisHour = planned.seconds;
+
+        if (isToday) {
+            const currentHour = now.getHours();
+            const startHour = parseInt(hourKey);
+
+            if (startHour === currentHour) {
+                // For the current hour, use actual elapsed seconds
+                actualSecondsThisHour = Math.min(planned.seconds, Math.floor((now.getTime() - startTime.getTime()) / 1000) - currentSecondSum);
+                if (actualSecondsThisHour < 0) actualSecondsThisHour = 0; // Ensure no negative values
+            } else if (startHour > currentHour) {
+                actualSecondsThisHour = 0; // Future hours are not yet active
+            }
+        }
+        
+        currentSecondSum += actualSecondsThisHour;
+
+        if (actualSecondsThisHour > 0) {
+            const ratio = actualSecondsThisHour / planned.seconds;
+            hourlyPulse[hourKey] = {
+                seconds: actualSecondsThisHour,
+                keystrokes: Math.floor(liveMetrics.keystrokes * planned.keys * ratio),
+                mouseClicks: Math.floor(liveMetrics.mouseClicks * planned.clicks * ratio),
+                mouseDistance: Math.floor(liveMetrics.mouseDistance * planned.distance * ratio),
+                screenshotCount: Math.floor(liveMetrics.screenshotCount * planned.screenshots * ratio),
+                appSwitches: Math.floor(liveMetrics.appSwitches * planned.switches * ratio)
+            };
+        }
+    }
+    
+    const shift = {
+      id: shiftId,
+      startTime: startTime.toISOString(),
+      endTime: endTime ? endTime.toISOString() : null,
+      status: isToday ? "active" : "completed",
+      baselineSeconds,
+      liveMetrics,
+      liveBreakdown: {
+        "Visual_Studio_Code": Math.floor(activeSeconds * 0.65),
+        "Google_Chrome": Math.floor(activeSeconds * 0.20),
+        "Slack": Math.floor(activeSeconds * 0.10),
+        "Terminal": Math.floor(activeSeconds * 0.05)
+      },
+      hourlyPulse,
+      cognitiveReport: {
+        productivityScore: randomRange(88, 96),
+        focusScore: randomRange(85, 94),
+        velocity: randomRange(45, 65),
+        aiBrief: isToday 
+          ? "Mid-day performance update: Performance is exceptional, with minimal idle time recorded. High-intensity deep work detected. Output remains consistent."
+          : "Shift concluded: Target objectives achieved with high focus density. Minimal context switching detected during core development blocks."
+      },
+      updatedAt: new Date().toISOString()
+    };
+    shifts.push(shift);
+  }
+  return shifts;
+};
 
 const generateScreenshotsForEntry = (userId: string, entry: any, appName: string, windowTitle: string) => {
   const startTime = entry.startTime.toDate();
@@ -220,18 +335,25 @@ export const createDemoUser = (name?: string, role?: string, avatar?: string, fo
         longitude: faker.location.longitude(), 
         region: faker.location.state()
     },
-    heartbeat: { 
-        isCurrentlyRunning: true, 
-        lastActiveWindow: activeProject.windowTitle, 
-        currentLatency: randomRange(20, 50),
-        updatedAt: createTimestamp(new Date())
-    },
+    workShifts: generateWorkShifts(userId),
     projects: projects,
     timeEntries: timeEntries,
     screenshots: timeEntries.flatMap(entry => generateScreenshotsForEntry(userId, entry, entry.appName, entry.windowTitle))
   };
 
-  return calculateAbstractions(rawUser);
+  // The heartbeat is conceptually a separate document: /users/{userId}/live/heartbeat
+  const isRunning = Math.random() > 0.3; // 70% chance of being active
+  const heartbeat = {
+      isCurrentlyRunning: isRunning,
+      lastActiveWindow: isRunning ? activeProject.windowTitle : "None (Idle)",
+      currentLatency: isRunning ? randomRange(20, 400) : 0,
+      updatedAt: createTimestamp(new Date())
+  };
+
+  return {
+    ...calculateAbstractions(rawUser),
+    heartbeat // We keep it in the returned object for the UI to consume, but it's now logically distinct
+  };
 };
 
 // --- INITIAL DUMMY EXPORTS ---
