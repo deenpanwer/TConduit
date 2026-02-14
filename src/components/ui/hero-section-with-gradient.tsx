@@ -8,7 +8,13 @@ import { ReactNode } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { Download } from "lucide-react";
 
-export default function HeroSection() {
+export default function HeroSection({ 
+  downloadUrl = "https://github.com/deenpanwer/TConduit/releases", 
+  version 
+}: { 
+  downloadUrl?: string; 
+  version?: string;
+}) {
   const gradientRef = useRef<HTMLDivElement>(null);
 
   const transitionVariants = {
@@ -104,9 +110,9 @@ export default function HeroSection() {
                 >
                     <div key={1} className="bg-foreground/10 rounded-full p-0.5 shadow-lg shadow-foreground/5 dark:shadow-none mb-2">
                     <Button asChild size="lg" className="rounded-full px-12 h-16 text-xl font-poppins bg-foreground text-background hover:bg-foreground/90 border-none transition-all">
-                        <a href="https://github.com/deenpanwer/TConduit/releases/download/1.0.7-1/Trac.Dairy.Setup.1.0.7-1.exe" download className="flex items-center gap-2">
+                        <a href={downloadUrl} download className="flex items-center gap-2">
                             <Download className="w-7 h-7" />
-                            download for windows
+                            download {version ? `v${version}` : 'for windows'}
                         </a>
                     </Button>
                     </div>

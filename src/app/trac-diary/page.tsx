@@ -1,25 +1,27 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-
-const downloadOptions = [
-    {
-      label: "Latest",
-      options: [
-        { value: "win-latest", label: "Windows", href: "https://github.com/deenpanwer/TConduit/releases/download/1.0.7-1/Trac.Dairy.Setup.1.0.7-1.exe" },
-      ]
-    }
-];
-
 import HeroSection from '@/components/ui/hero-section-with-gradient';
 
-const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title: string; comingSoon?: boolean }) => (
+const FALLBACK_DOWNLOAD_LINK = "https://github.com/deenpanwer/TConduit/releases/download/1.0.7-2/Trac.Dairy.Setup.1.0.7-2.exe";
+
+const OtherOSCard = ({ 
+  icon, 
+  title, 
+  comingSoon, 
+  href 
+}: { 
+  icon: React.ReactNode; 
+  title: string; 
+  comingSoon?: boolean; 
+  href?: string;
+}) => (
   <div className={cn(
     "flex-1 p-8 rounded-2xl border bg-card/50 backdrop-blur-sm text-card-foreground shadow-sm transition-all duration-300",
     comingSoon ? "opacity-40" : "hover:shadow-xl hover:border-primary/50 hover:bg-card/80 group"
@@ -36,7 +38,7 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
           </p>
         ) : (
           <a 
-            href="https://github.com/deenpanwer/TConduit/releases/download/1.0.7-1/Trac.Dairy.Setup.1.0.7-1.exe" 
+            href={href || FALLBACK_DOWNLOAD_LINK} 
             download
             className="text-sm font-medium mt-2 text-primary dark:text-white hover:underline block transition-colors"
           >
@@ -50,6 +52,21 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
 
 
 export default function TracDiaryDownloadPage() {
+  const [downloadUrl, setDownloadUrl] = useState(FALLBACK_DOWNLOAD_LINK);
+  const [version, setVersion] = useState("1.0.7-2");
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/deenpanwer/TConduit/releases/latest')
+      .then(res => res.json())
+      .then(data => {
+        const exeAsset = data.assets?.find((a: any) => a.name.toLowerCase().endsWith('.exe'));
+        if (exeAsset) {
+          setDownloadUrl(exeAsset.browser_download_url);
+          setVersion(data.tag_name);
+        }
+      })
+      .catch(err => console.error("Update fetch failed:", err));
+  }, []);
 
   return (
     <div className="bg-background min-h-screen text-foreground relative isolate">
@@ -62,7 +79,10 @@ export default function TracDiaryDownloadPage() {
       </header>
 
       <main className="pb-12 sm:pb-20">
-        <HeroSection />
+        <HeroSection 
+          downloadUrl={downloadUrl} 
+          version={version} 
+        />
 
         {/* "Available for" Section */}
         <section className="py-24 sm:py-32 relative">
@@ -72,12 +92,18 @@ export default function TracDiaryDownloadPage() {
                 <p className="text-muted-foreground text-lg">
                     Download Trac Diary for your preferred operating system and start building your verifiable profile today.
                 </p>
+                {version && (
+                  <p className="mt-4 text-sm font-bold uppercase tracking-widest text-primary/60">
+                    Latest Version: {version}
+                  </p>
+                )}
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <OtherOSCard
                 icon={<img src="/diary/windows.png" alt="Windows Icon" className="h-10 w-10" />}
                 title="Windows OS"
+                href={downloadUrl}
               />
               <OtherOSCard
                 icon={<img src="/diary/apple-logo.png" alt="macOS Icon" className="h-10 w-10" />}
@@ -97,3 +123,4 @@ export default function TracDiaryDownloadPage() {
     </div>
   );
 }
+

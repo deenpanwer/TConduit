@@ -37,6 +37,7 @@ import { Ticket, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import { useTeam } from "@/hooks/use-team";
+import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -97,6 +98,10 @@ export default function EmployeeDetailPage() {
     if (!employeeDoc && !liveEmployee) return null;
     return { ...employeeDoc, ...liveEmployee };
   }, [employeeDoc, liveEmployee]);
+
+  const isSubscriptionActive = orgData?.subscriptionExpiry 
+    ? orgData.subscriptionExpiry.toDate() > new Date() 
+    : true;
 
   useEffect(() => {
     fetchOrgDetails();
@@ -402,45 +407,51 @@ export default function EmployeeDetailPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar space-y-12 pb-32">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <EmployeeHeader 
-                employee={employee} 
-                totalHours={todayTotalHours}
-                hoursToday={currentShiftHours}
-                topApp={topApp}
-                joinedDate={joinedDate}
-            />
-          </motion.div>
+          {!isSubscriptionActive ? (
+            <PaywallScreen orgData={orgData} userData={userData} />
+          ) : (
+            <>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <EmployeeHeader 
+                    employee={employee} 
+                    totalHours={todayTotalHours}
+                    hoursToday={currentShiftHours}
+                    topApp={topApp}
+                    joinedDate={joinedDate}
+                />
+              </motion.div>
 
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
-          </motion.div>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
+              </motion.div>
 
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <CognitiveHub employee={employee} intensity={intensity} aiBrief={aiBrief} />
-          </motion.div>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <CognitiveHub employee={employee} intensity={intensity} aiBrief={aiBrief} />
+              </motion.div>
 
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-            <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
-          </motion.div>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
+                <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
+              </motion.div>
 
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <YieldCalculator 
-                employeeId={id as string} 
-                employeeName={employee?.name || "Member"} 
-                workShifts={workShifts} 
-                screenshots={screenshots}
-                joinedDate={joinedDate}
-            />
-          </motion.div>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <YieldCalculator 
+                    employeeId={id as string} 
+                    employeeName={employee?.name || "Member"} 
+                    workShifts={workShifts} 
+                    screenshots={screenshots}
+                    joinedDate={joinedDate}
+                />
+              </motion.div>
 
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <WorkHistory 
-              timeEntries={timeEntries} 
-              screenshots={screenshots} 
-              onLoadMore={handleLoadMore}
-            />
-          </motion.div>
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <WorkHistory 
+                  timeEntries={timeEntries} 
+                  screenshots={screenshots} 
+                  onLoadMore={handleLoadMore}
+                />
+              </motion.div>
+            </>
+          )}
         </div>
       </main>
 

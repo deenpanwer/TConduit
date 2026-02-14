@@ -137,6 +137,9 @@ export default function OnboardingPage() {
 
       if (!finalOrgId) {
         finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + 14); // 14 Day Trial
+
         await setDoc(doc(db, "organizations", finalOrgId), {
           name: formData.orgName || "My Organization",
           ownerId: user.uid,
@@ -146,6 +149,8 @@ export default function OnboardingPage() {
           teamSize: formData.teamSize,
           workflow: formData.workflow,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          subscriptionExpiry: trialExpiry,
+          subscriptionStatus: "trialing",
           createdAt: serverTimestamp()
         });
       } else {

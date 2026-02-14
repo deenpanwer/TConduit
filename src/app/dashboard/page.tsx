@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Ticket, Copy, Check } from "lucide-react";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
 import { useRouter } from "next/navigation";
+import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -48,6 +49,10 @@ export default function DashboardPage() {
       if (orgDoc.exists()) setOrgData(orgDoc.data());
     }
   };
+
+  const isSubscriptionActive = orgData?.subscriptionExpiry 
+    ? orgData.subscriptionExpiry.toDate() > new Date() 
+    : true; // Default to true while loading or if not owner to prevent flash
 
   const copyInviteCode = () => {
     if (orgData?.inviteCode) {
@@ -161,7 +166,12 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-          {employees.length === 0 ? (
+          {!isSubscriptionActive ? (
+            <PaywallScreen 
+              orgData={orgData}
+              userData={userData}
+            />
+          ) : employees.length === 0 ? (
             <EmptyState 
                 orgName={userData?.orgName || "Your Organization"}
                 inviteCode={orgData?.inviteCode}
