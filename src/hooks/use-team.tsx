@@ -1,105 +1,206 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt } from "firebase/firestore";
 import { useAuth } from "./use-auth";
-import { useParams } from "next/navigation";
+import { format } from "date-fns";
 
-export function useTeam() {
-  const { user, userData } = useAuth();
-  const { id } = useParams();
-  const [realEmployees, setRealEmployees] = useState<any[]>([]);
-  
-  const [demoEmployees, setDemoEmployees] = useState<any[]>(() => {
-    if (typeof window === "undefined") return [];
-    const saved = localStorage.getItem("trac_demo_employees");
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+/**
+ * TeamContext: The Global Organization Data Orchestrator
+ * --------------------------------------------------
+ * Centrally manages real-time synchronization with Firestore sub-collections.
+ * Shared across the entire application to minimize listeners and ensure data consistency.
+ */
 
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("trac_demo_mode") === "true";
-  });
+interface TeamContextType {
+  employees: any[];
+  owner: any | null;
+  stats: any | null;
+  loading: boolean;
+}
 
+const TeamContext = createContext<TeamContextType>({
+  employees: [],
+  owner: null,
+  stats: null,
+  loading: true,
+});
+
+export function TeamProvider({ children }: { children: React.ReactNode }) {
+  const { user, userData, loading: authLoading } = useAuth();
+  const [personnelData, setPersonnelData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  
+  // Track active sub-listeners globally to prevent duplicate attachments
+  const listenersRef = useRef<Record<string, (() => void)[]>>({});
+  const personnelListRef = useRef<string[]>([]);
 
-  // Sync demo state to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem("trac_demo_mode", isDemoMode.toString());
-    localStorage.setItem("trac_demo_employees", JSON.stringify(demoEmployees));
-  }, [isDemoMode, demoEmployees]);
+  const clearListeners = useCallback(() => {
+    Object.values(listenersRef.current).forEach(unsubs => unsubs.forEach(unsub => unsub()));
+    listenersRef.current = {};
+    personnelListRef.current = [];
+  }, []);
 
   useEffect(() => {
     const targetOrgId = userData?.ownedOrgId || userData?.orgId;
+    
+    // Safety check: If user logs out or org changes, clear everything
+    if (authLoading) return;
     if (!targetOrgId) {
+      clearListeners();
+      setPersonnelData({});
       setLoading(false);
       return;
     }
 
+    // --- STEP 1: SYNC PERSONNEL LIST ---
     const q = query(
       collection(db, "users"), 
       where("orgId", "==", targetOrgId)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const empList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const filteredList = empList.filter(emp => emp.id !== user?.uid);
-      setRealEmployees(filteredList);
+    const unsubscribePersonnel = onSnapshot(q, (snapshot) => {
+      const allPersonnel = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      const currentUids = allPersonnel.map(p => p.id);
+
+      // Handle removals
+      personnelListRef.current.forEach(uid => {
+        if (!currentUids.includes(uid)) {
+          if (listenersRef.current[uid]) {
+            listenersRef.current[uid].forEach(unsub => unsub());
+            delete listenersRef.current[uid];
+          }
+          setPersonnelData(prev => {
+            const next = { ...prev };
+            delete next[uid];
+            return next;
+          });
+        }
+      });
+      personnelListRef.current = currentUids;
+
+      const isPrivileged = userData?.role === 'Owner' || userData?.role === 'Admin' || !!userData?.ownedOrgId;
+
+      allPersonnel.forEach(p => {
+        setPersonnelData(prev => ({
+          ...prev,
+          [p.id]: {
+            workShifts: [],
+            heartbeat: null,
+            ...prev[p.id],
+            ...p
+          }
+        }));
+
+        const isSelf = p.id === user?.uid;
+        if (!isPrivileged && !isSelf) return;
+        if (listenersRef.current[p.id]) return;
+
+        const userUnsubs: (() => void)[] = [];
+
+        // --- STEP 2: SYNC LIVE HEARTBEAT ---
+        const hbRef = doc(db, "users", p.id, "live", "heartbeat");
+        const unsubHb = onSnapshot(hbRef, (snap) => {
+          const hbData = snap.exists() ? snap.data() : null;
+          setPersonnelData(prev => ({
+            ...prev,
+            [p.id]: { ...prev[p.id], heartbeat: hbData }
+          }));
+        }, (err) => console.warn(`HB Error ${p.id}:`, err.message));
+        userUnsubs.push(unsubHb);
+
+        // --- STEP 3: SYNC TODAY'S SHIFTS (TARGETED) ---
+        const shiftsRef = collection(db, "users", p.id, "workShifts");
+        const qShifts = query(
+            shiftsRef, 
+            orderBy("__name__"), 
+            startAt(todayStr), 
+            endAt(todayStr + "\uf8ff")
+        );
+
+        const unsubShifts = onSnapshot(qShifts, (snap) => {
+          const shifts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setPersonnelData(prev => ({
+            ...prev,
+            [p.id]: { ...prev[p.id], workShifts: shifts }
+          }));
+        }, (err) => console.warn(`Shifts Error ${p.id}:`, err.message));
+        userUnsubs.push(unsubShifts);
+
+        listenersRef.current[p.id] = userUnsubs;
+      });
+
+      setLoading(false);
+    }, (err) => {
+      console.error("Global personnel list error:", err);
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [userData?.ownedOrgId, userData?.orgId, user?.uid]);
+    return () => {
+      unsubscribePersonnel();
+      // Note: We don't clear sub-listeners here to maintain the cache across navigation
+      // They are only cleared if the user/org context actually changes.
+    };
+  }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners]);
 
-  // Auto-disable demo mode if real employees exist
-  useEffect(() => {
-    if (realEmployees.length > 0 && isDemoMode) {
-      setIsDemoMode(false);
-    }
-  }, [realEmployees.length, isDemoMode]);
+  // Derive final data
+  const employees = Object.values(personnelData).filter(p => p.id !== user?.uid);
+  const owner = Object.values(personnelData).find(p => p.id === user?.uid) || 
+                Object.values(personnelData).find(p => p.role === 'Owner') || 
+                userData;
 
-  const toggleDemoMode = useCallback(() => {
-    setIsDemoMode(prev => {
-      const next = !prev;
-      if (next && demoEmployees.length === 0) {
-        import("@/lib/dashboard-demo-data").then(m => {
-          setDemoEmployees([m.createDemoUser(undefined, undefined, undefined, "demo_member_1")]);
-        });
-      }
-      return next;
+  const stats = (() => {
+    let totalSecondsToday = 0;
+    let totalSecondsAllTime = 0;
+    const orgAppMap: Record<string, number> = {};
+    let activeCount = 0;
+    let totalVelocity = 0;
+    let velocityCount = 0;
+
+    Object.values(personnelData).forEach(p => {
+      if (p.heartbeat?.isCurrentlyRunning) activeCount++;
+      totalSecondsAllTime += (p.totalSeconds || 0);
+
+      p.workShifts?.forEach((s: any) => {
+        totalSecondsToday += (s.liveMetrics?.totalSeconds || 0);
+        if (s.liveBreakdown) {
+          Object.entries(s.liveBreakdown).forEach(([app, secs]) => {
+            orgAppMap[app] = (orgAppMap[app] || 0) + (secs as number);
+          });
+        }
+        if (s.cognitiveReport?.velocity) {
+          totalVelocity += s.cognitiveReport.velocity;
+          velocityCount++;
+        }
+      });
     });
-  }, [demoEmployees.length]);
 
-  const addDemoEmployee = useCallback(() => {
-    import("@/lib/dashboard-demo-data").then(m => {
-      setDemoEmployees(prev => [...prev, m.createDemoUser()]);
-    });
-  }, []);
+    const topApps = Object.entries(orgAppMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, secs]) => ({
+        name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        hours: (secs / 3600).toFixed(1),
+        percentage: Math.round((secs / (totalSecondsToday || 1)) * 100)
+      }));
 
-  const removeLastDemoEmployee = useCallback(() => {
-    setDemoEmployees(prev => {
-      const next = prev.slice(0, -1);
-      if (next.length === 0) setIsDemoMode(false);
-      return next;
-    });
-  }, []);
+    return {
+      totalHoursToday: (totalSecondsToday / 3600).toFixed(1),
+      totalOrgHours: (totalSecondsAllTime / 3600).toFixed(1),
+      activeEmployees: activeCount,
+      velocity: velocityCount > 0 ? Math.round(totalVelocity / velocityCount) : 100,
+      topApps,
+      totalStaff: employees.length,
+      locationsCount: new Set(Object.values(personnelData).map(p => p.lastLoginLocation?.country)).size
+    };
+  })();
 
-  const isViewingDemo = typeof id === 'string' && id.startsWith('demo_');
-  const employees = (isDemoMode || isViewingDemo) ? demoEmployees : realEmployees;
-
-  return { 
-    employees, 
-    realEmployees,
-    demoEmployees,
-    isDemoMode: isDemoMode || isViewingDemo,
-    loading, 
-    toggleDemoMode, 
-    addDemoEmployee, 
-    removeLastDemoEmployee 
-  };
+  return (
+    <TeamContext.Provider value={{ employees, owner, stats, loading }}>
+      {children}
+    </TeamContext.Provider>
+  );
 }
+
+export const useTeam = () => useContext(TeamContext);

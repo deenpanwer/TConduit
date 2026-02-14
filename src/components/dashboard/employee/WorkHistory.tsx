@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { format, isWithinInterval } from "date-fns";
-import { Clock, Hash, ChevronRight, ZoomIn, Image as ImageIcon, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Clock, Hash, ZoomIn, Image as ImageIcon, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
 interface WorkHistoryProps {
   timeEntries: any[];
   screenshots: any[];
+  onLoadMore: () => void;
 }
 
-export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
-  const [pageSize, setPageSize] = useState(10);
+export function WorkHistory({ timeEntries, screenshots, onLoadMore }: WorkHistoryProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Helper to extract JS Date safely
@@ -28,11 +27,8 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
 
   // Process activity clusters: Map time entries to their screenshots
   const clusters = useMemo(() => {
-    const sortedEntries = [...timeEntries].sort((a, b) => 
-      getDate(b.startTime).getTime() - getDate(a.startTime).getTime()
-    );
-
-    return sortedEntries.map(entry => {
+    // Note: timeEntries are already sorted and limited by the parent (EmployeeDetailPage)
+    return timeEntries.map(entry => {
       const start = getDate(entry.startTime);
       const end = getDate(entry.endTime);
       
@@ -40,19 +36,16 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
       const relatedScreenshots = screenshots.filter(s => {
         const sTime = getDate(s.timestamp);
         return sTime >= start && sTime <= end;
-      }).sort((a, b) => getDate(a.timestamp).getTime() - getDate(b.timestamp).getTime());
+      }).sort((a, b) => getDate(b.timestamp).getTime() - getDate(a.timestamp).getTime());
 
       return {
         ...entry,
         startTime: start,
         endTime: end,
-        images: relatedScreenshots.slice(0, 5) // Only five most recent images
+        images: relatedScreenshots.slice(0, 5) // Maximum of 5 screenshots per entry as requested
       };
     });
   }, [timeEntries, screenshots]);
-
-  const visibleClusters = clusters.slice(0, pageSize);
-  const hasMore = clusters.length > pageSize;
 
   if (timeEntries.length === 0) {
     return (
@@ -72,7 +65,7 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
       <div className="flex items-center justify-between mb-10">
         <div>
             <h3 className="text-xl font-black uppercase tracking-tighter">Engagement Log</h3>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Chronological activity clusters</p>
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Chronological activity clusters (Max 5 images per segment)</p>
         </div>
         <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-inner">
             <Hash size={20} />
@@ -80,7 +73,7 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
       </div>
 
       <div className="space-y-6">
-        {visibleClusters.map((entry, idx) => (
+        {clusters.map((entry, idx) => (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -157,18 +150,16 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
         ))}
       </div>
 
-      {hasMore && (
-        <div className="mt-12 flex justify-center">
-            <Button 
-                onClick={() => setPageSize(prev => prev + 10)}
-                variant="outline" 
-                className="rounded-2xl h-14 px-10 font-black uppercase text-[10px] tracking-[0.2em] border-2 group hover:bg-primary hover:text-white transition-all active:scale-95"
-            >
-                Load More Clusters 
-                <ChevronDown className="ml-2 group-hover:translate-y-1 transition-transform" size={16} />
-            </Button>
-        </div>
-      )}
+      <div className="mt-12 flex justify-center">
+          <Button 
+              onClick={onLoadMore}
+              variant="outline" 
+              className="rounded-2xl h-14 px-10 font-black uppercase text-[10px] tracking-[0.2em] border-2 group hover:bg-primary hover:text-white transition-all active:scale-95"
+          >
+              Load More Clusters 
+              <ChevronDown className="ml-2 group-hover:translate-y-1 transition-transform" size={16} />
+          </Button>
+      </div>
 
       {/* Image Zoom Modal */}
       <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>

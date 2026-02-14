@@ -39,8 +39,15 @@ export default function SettingsPage() {
   }, [userData]);
 
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/dashboard/login");
+    try {
+      await signOut(auth);
+      // Clear session cookie explicitly
+      await fetch("/api/auth/session", { method: "DELETE" });
+      router.push("/dashboard/login");
+      toast({ title: "Signed out", description: "You have been successfully logged out." });
+    } catch (error: any) {
+      toast({ title: "Logout failed", description: error.message, variant: "destructive" });
+    }
   };
 
   const copyToClipboard = (text: string) => {

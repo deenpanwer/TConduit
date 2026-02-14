@@ -49,8 +49,48 @@ export default function LoginPage() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/dashboard");
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user exists in Firestore
+      const { db } = await import("@/lib/firebase");
+      const { doc, getDoc, setDoc, serverTimestamp } = await import("firebase/firestore");
+      
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+        const orgName = `${user.displayName || 'Enterprise'}'s Org`;
+
+        await setDoc(doc(db, "organizations", orgId), {
+          name: orgName,
+          ownerId: user.uid,
+          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          createdAt: serverTimestamp()
+        });
+
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName,
+          photoUrl: user.photoURL,
+          role: "owner",
+          orgName: orgName,
+          ownedOrgId: orgId,
+          uid: user.uid,
+          onboardingCompleted: false,
+          createdAt: serverTimestamp()
+        });
+        
+        toast({ title: "Welcome", description: "Let's set up your workspace." });
+        router.push("/dashboard/onboarding");
+      } else {
+        const userData = userDoc.data();
+        if (!userData.onboardingCompleted) {
+          router.push("/dashboard/onboarding");
+        } else {
+          toast({ title: "Welcome back", description: "You have successfully signed in." });
+          router.push("/dashboard");
+        }
+      }
     } catch (error: any) {
       toast({ title: "Google sign in failed", description: error.message, variant: "destructive" });
     } finally {
@@ -110,7 +150,7 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
-                <Link href="#" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
+                <Link href="/dashboard/forgot-password" disable-animation="true" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input 
@@ -130,7 +170,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide shadow-xl shadow-primary/20">
+            <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold tracking-wide shadow-xl shadow-primary/20">
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
@@ -145,10 +185,10 @@ export default function LoginPage() {
             type="button" 
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
+            className="w-full h-14 rounded-2xl font-bold tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
           >
             <img src="/google.svg" className="size-5" alt="Google" />
-            Google Workspace
+            Continue with Google
           </Button>
 
           <div className="mt-10 text-center">

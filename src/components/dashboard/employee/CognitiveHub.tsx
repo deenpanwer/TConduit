@@ -1,46 +1,57 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Activity, Zap, BrainCircuit } from 'lucide-react';
+import { Activity, Zap, BrainCircuit, Sparkles } from 'lucide-react';
 import { GlassCard } from '../main/shared/GlassCard';
 import { cn } from '@/lib/utils';
 
 interface CognitiveHubProps {
   employee: any;
   intensity?: number;
+  aiBrief?: string | null;
 }
 
-export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
+export function CognitiveHub({ employee, intensity = 0, aiBrief = null }: CognitiveHubProps) {
   const activeWindow = employee?.heartbeat?.lastActiveWindow || "Idle";
   const isOnline = employee?.heartbeat?.isCurrentlyRunning;
 
   const [displayedAiBrief, setDisplayedAiBrief] = useState('');
   const [isTypingComplete, setIsTypingComplete] = useState(false);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Determine the full AI brief text
-  const fullAiBrief = employee.aiSummary ? `"${employee.aiSummary}"` : 
-    `"${employee?.name} is ${isOnline ? 'Active' : 'Offline'}. ${isOnline 
-        ? ` The telemetry indicates execution in ${activeWindow}.`
-        : ` No live telemetry signal detected. Staff member is currently offline.`
-    }"`;
+  // 1. Determine the raw text content without quotes
+  const rawBrief = aiBrief || 
+    `${employee?.name} is ${isOnline ? 'Active' : 'Offline'}. ${isOnline 
+        ? `The telemetry indicates execution in ${activeWindow}.`
+        : `No live telemetry signal detected. Staff member is currently offline.`
+    }`;
 
+  // 2. Atomic Typewriter Effect
   useEffect(() => {
-    setDisplayedAiBrief(''); // Reset when fullAiBrief changes
+    // Clear any existing timer to prevent overlapping loops
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    
+    setDisplayedAiBrief('');
     setIsTypingComplete(false);
-    let i = 0;
-    const typingInterval = setInterval(() => {
-      if (i < fullAiBrief.length) {
-        setDisplayedAiBrief((prev) => prev + fullAiBrief.charAt(i));
-        i++;
+
+    let currentIndex = 0;
+    const type = () => {
+      if (currentIndex < rawBrief.length) {
+        setDisplayedAiBrief(rawBrief.substring(0, currentIndex + 1));
+        currentIndex++;
+        typingTimerRef.current = setTimeout(type, 15); // Faster, smoother typing
       } else {
-        clearInterval(typingInterval);
         setIsTypingComplete(true);
       }
-    }, 25); // Typing speed: 25ms per character
+    };
 
-    return () => clearInterval(typingInterval);
-  }, [fullAiBrief]);
+    type();
+
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [rawBrief]); // Only re-run if the text content actually changes
 
 
   if (!employee) {
@@ -52,11 +63,7 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
     );
   }
 
-  // Visual Logic: If online but no data yet, show a "breathing" pulse (0.2). 
-  // If offline, flatline (0).
   const visualIntensity = isOnline ? Math.max(intensity, 0.2) : 0;
-
-  // Determine status labels based on intensity
   const focusStatus = visualIntensity > 1.2 ? "Hyper Focus" : visualIntensity > 0.7 ? "Optimal" : visualIntensity > 0.3 ? "Standard" : "Low Impact";
   const rhythmStatus = visualIntensity > 0.8 ? "High Velocity" : visualIntensity > 0.4 ? "Consistent" : "Fragmented";
 
@@ -71,8 +78,8 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
           <div className="flex-1 space-y-4">
             <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">AI Insight Summary</h3>
             <p className="text-lg md:text-xl font-medium font-poppins text-gray-900 dark:text-white leading-relaxed">
-              {displayedAiBrief}
-              {!isTypingComplete && <span className="animate-pulse">|</span>} {/* Blinking cursor */}
+              "{displayedAiBrief}"
+              {!isTypingComplete && <span className="inline-block w-1.5 h-5 ml-1 bg-blue-500 animate-pulse align-middle" />}
             </p>
             {isOnline && (
                 <div className="flex items-center space-x-6 pt-4">
@@ -123,7 +130,9 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
          
          <div className="mt-4 flex items-center justify-between">
             <div className="flex flex-col">
-                <span className="text-3xl font-black font-poppins text-gray-900 dark:text-white">{(visualIntensity * 100).toFixed(0)}%</span>
+                <span className="text-3xl font-black font-poppins text-gray-900 dark:text-white">
+                    {isOnline ? (intensity * 70).toFixed(0) : "0"}%
+                </span>
             </div>
             <Zap className={`w-5 h-5 ${isOnline ? 'text-blue-500' : 'text-gray-600'}`} />
          </div>

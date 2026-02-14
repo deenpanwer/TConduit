@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PHProvider } from './providers';
 import { AuthProvider } from '@/hooks/use-auth';
+import { TeamProvider } from '@/hooks/use-team';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -50,16 +51,18 @@ export default function RootLayout({
         <body className="font-sans">
           <PHProvider>
             <AuthProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                {children}
-                <Toaster />
-                <Analytics />
-              </ThemeProvider>
+              <TeamProvider>
+                <ThemeProvider
+                  attribute="class"
+                  defaultTheme="system"
+                  enableSystem
+                  disableTransitionOnChange
+                >
+                  {children}
+                  <Toaster />
+                  <Analytics />
+                </ThemeProvider>
+              </TeamProvider>
             </AuthProvider>
           </PHProvider>
         </body>

@@ -115,8 +115,8 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
 
             {/* Founder-grade Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <MetricBox icon={Zap} label="Today's Hours" value={`${hoursToday}h`} />
-                <MetricBox icon={Clock} label="Total Hours" value={`${totalHours}h`} />
+                <MetricBox icon={Zap} label="Shift Hours" value={`${hoursToday}h`} />
+                <MetricBox icon={Clock} label="Today's Total" value={`${totalHours}h`} />
                 <MetricBox icon={Target} label="Top Application" value={topApp} />
                 <MetricBox icon={MapPin} label="Region" value={employee?.lastLoginLocation?.city || "Remote"} />
             </div>

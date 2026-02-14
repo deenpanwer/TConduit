@@ -60,13 +60,14 @@ export function AttendanceLedger({ employee, workShifts, joinedDate }: Attendanc
     const map: Record<string, number> = {};
     if (!workShifts) return map;
 
-    const actualJoinedDate = joinedDate || new Date(0); // Use a very old date if joinedDate is null
+    // Use startOfDay for the joinedDate cutoff to allow all work from the joining day to be counted
+    const actualJoinedDate = joinedDate ? startOfDay(joinedDate) : new Date(0);
 
     workShifts.forEach(shift => {
       const shiftStartDate = getDate(shift.startTime);
-      // Apply the joinedDate cutoff here
+      
       if (shiftStartDate < actualJoinedDate) {
-        return; // Skip shifts before the employee joined
+        return; 
       }
 
       if (shiftStartDate.getTime() > 0) {
@@ -93,7 +94,7 @@ export function AttendanceLedger({ employee, workShifts, joinedDate }: Attendanc
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  const safeJoinedDate = joinedDate || new Date(0); // Ensure joinedDate is always a Date object for comparisons
+  const safeJoinedDate = joinedDate ? startOfDay(joinedDate) : new Date(0);
 
   return (
     <GlassCard className="p-10 relative overflow-hidden" hoverEffect={false}>
@@ -133,7 +134,7 @@ export function AttendanceLedger({ employee, workShifts, joinedDate }: Attendanc
             const hours = (duration / 3600).toFixed(1);
             const isToday = isSameDay(day, new Date());
             const isFuture = isAfter(startOfDay(day), startOfDay(new Date()));
-            const isBeforeJoining = isBefore(startOfDay(day), startOfDay(safeJoinedDate));
+            const isBeforeJoining = isBefore(startOfDay(day), safeJoinedDate);
             const isPresent = duration > 0;
             const isAbsent = !isPresent && !isFuture && !isBeforeJoining && !isToday;
 
@@ -152,7 +153,9 @@ export function AttendanceLedger({ employee, workShifts, joinedDate }: Attendanc
             } else if (isAbsent) {
               statusColor = "bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]";
               statusLabel = "Absent / No Pulse";
-            } else if (isToday && !isPresent) {
+            } else if (isToday) {
+              // For today, if they have joined, we show it as a blue pulse if no time yet, 
+              // or emerald if time is produced (handled by isPresent above)
               statusColor = "bg-blue-500/20 border-2 border-blue-500 animate-pulse";
               statusLabel = "Awaiting Yield";
             }

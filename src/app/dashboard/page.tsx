@@ -2,33 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Search, Bell, UserPlus, X } from "lucide-react";
+import { Menu, UserPlus, X } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { db, auth } from "@/lib/firebase";
-import { doc, updateDoc, serverTimestamp, collection, query, where, onSnapshot, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { MasterDashboard } from "@/components/dashboard/main/MasterDashboard";
 import { useTeam } from "@/hooks/use-team";
-import { DUMMY_ORG, DUMMY_EMPLOYEES } from "@/lib/dashboard-demo-data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Ticket, Copy, Check } from "lucide-react";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
 import { useRouter } from "next/navigation";
-import router from "next/router";
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const {
     employees,
-    realEmployees,
-    isDemoMode,
     loading: teamLoading,
-    toggleDemoMode,
-    addDemoEmployee,
-    removeLastDemoEmployee
   } = useTeam();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
@@ -36,10 +29,11 @@ export default function DashboardPage() {
   
   const { user, userData, loading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user && userData) {
-      if (!userData.onboardingCompleted) {
+    if (!loading && user) {
+      if (!userData || !userData.onboardingCompleted) {
         router.push("/dashboard/onboarding");
         return;
       }
@@ -47,40 +41,12 @@ export default function DashboardPage() {
     }
   }, [user, userData, loading]);
 
-  const handleAddDemo = () => {
-    addDemoEmployee();
-    toast({ title: "New Member Added", description: "A new simulated team member has joined the workspace." });
-  };
-
   const fetchOrgDetails = async () => {
     const targetOrgId = userData?.ownedOrgId || userData?.orgId;
     if (targetOrgId) {
       const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
       if (orgDoc.exists()) setOrgData(orgDoc.data());
     }
-  };
-
-  const collectMetadata = async () => {
-    try {
-        const res = await fetch('/api/user/metadata');
-        const data = await res.json();
-        if (data.error) return;
-        await updateDoc(doc(db, "users", user!.uid), {
-            name: user?.displayName || userData?.orgName || "Owner",
-            photoUrl: user?.photoURL || null,
-            lastLoginOs: navigator.platform,
-            lastLoginAppVersion: "1.0.0-web",
-            lastLoginIpAddress: data.ip,
-            lastLoginLocation: {
-                city: data.city,
-                region: data.region,
-                country: data.country_name,
-                latitude: data.latitude,
-                longitude: data.longitude
-            },
-            updatedAt: serverTimestamp()
-        });
-    } catch (e) {}
   };
 
   const copyInviteCode = () => {
@@ -171,37 +137,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="flex items-center gap-4">
-            {realEmployees.length === 0 && !teamLoading && (
-              <div className="flex items-center">
-                {isDemoMode ? (
-                  <div className="flex items-center border-[3px] border-black dark:border-white rounded-none h-10 overflow-hidden transition-all active:scale-95 shadow-lg shadow-black/5">
-                    <button 
-                      onClick={removeLastDemoEmployee}
-                      className="bg-red-600 text-white hover:bg-red-700 h-full px-4 font-black uppercase text-[10px] tracking-widest transition-all active:opacity-90 border-r-0"
-                    >
-                      Remove Staff ({employees.length})
-                    </button>
-                    <div className="w-[3px] h-full bg-black dark:bg-white" />
-                    <button 
-                      onClick={handleAddDemo}
-                      className="hover:bg-primary/5 h-full px-3 text-black dark:text-white transition-all active:opacity-70 flex items-center justify-center bg-card"
-                    >
-                      <UserPlus size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <Button 
-                    onClick={toggleDemoMode} 
-                    variant="outline" 
-                    size="sm" 
-                    className="rounded-none font-black uppercase text-[10px] tracking-widest border-[3px] border-black dark:border-white hover:bg-primary/5 transition-all active:scale-95 h-10 px-6"
-                  >
-                    Demo Preview
-                  </Button>
-                )}
-              </div>
-            )}
-            {realEmployees.length > 0 && (
+            {employees.length > 0 && (
                 <Button 
                   onClick={() => setShowInviteModal(true)} 
                   variant="outline" 
@@ -225,7 +161,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-          {employees.length === 0 && !isDemoMode ? (
+          {employees.length === 0 ? (
             <EmptyState 
                 orgName={userData?.orgName || "Your Organization"}
                 inviteCode={orgData?.inviteCode}
@@ -235,10 +171,8 @@ export default function DashboardPage() {
             />
           ) : (
             <MasterDashboard 
-              orgData={orgData || (isDemoMode ? DUMMY_ORG : null)} 
+              orgData={orgData} 
               ownerData={userData} 
-              isDemo={isDemoMode}
-              demoEmployees={isDemoMode ? employees : []}
             />
           )}
         </div>

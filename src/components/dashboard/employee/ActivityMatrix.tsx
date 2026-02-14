@@ -1,46 +1,71 @@
 "use client";
 
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell } from "recharts";
-import { Zap, MousePointer2, Keyboard, Move } from "lucide-react";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import React, { useMemo } from "react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { MousePointer2, Keyboard, Move } from "lucide-react";
+import { format } from "date-fns";
 
 interface ActivityMatrixProps {
+  workShifts: any[];
   screenshots: any[];
 }
 
-export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
-  // Helper to extract JS Date safely
-  const getDate = (ts: any) => {
-    if (!ts) return new Date(0);
-    if (ts.toDate) return ts.toDate();
-    if (ts instanceof Date) return ts;
-    if (ts.seconds) return new Date(ts.seconds * 1000);
-    return new Date(ts);
-  };
+export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  // Filter for LAST HOUR (Last 60 Minutes)
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const { chartData, totals } = useMemo(() => {
+    // 1. Initialize 24-hour buckets
+    const hourlyBuckets: Record<string, { time: string; keystrokes: number; clicks: number; distance: number }> = {};
+    
+    for (let i = 0; i < 24; i++) {
+      const hour = i.toString().padStart(2, "0");
+      hourlyBuckets[hour] = {
+        time: `${hour}:00`,
+        keystrokes: 0,
+        clicks: 0,
+        distance: 0,
+      };
+    }
 
-  let lastHourLogs = screenshots.filter(s => {
-    const date = getDate(s.timestamp);
-    return date >= oneHourAgo;
-  }).sort((a, b) => {
-    const tA = getDate(a.timestamp).getTime();
-    const tB = getDate(b.timestamp).getTime();
-    return tA - tB;
-  });
+    let totalKeys = 0;
+    let totalClicks = 0;
+    let totalDistance = 0;
 
-  // Fallback: If no logs in the last hour, show the most recent logs available
-  if (lastHourLogs.length === 0 && screenshots.length > 0) {
-    lastHourLogs = [...screenshots].sort((a, b) => {
-        const tA = getDate(a.timestamp).getTime();
-        const tB = getDate(b.timestamp).getTime();
-        return tA - tB;
-    }).slice(-60); // Show last 60 available logs
-  }
+    // 2. Aggregate data from today's workShifts
+    workShifts.forEach((shift) => {
+      // Ensure we only process today's shifts
+      if (!shift.id.startsWith(todayStr)) return;
 
-  if (screenshots.length === 0) {
+      if (shift.hourlyPulse) {
+        Object.entries(shift.hourlyPulse).forEach(([hour, metrics]: [string, any]) => {
+          if (hourlyBuckets[hour]) {
+            const ks = metrics.keystrokes || 0;
+            const mc = metrics.mouseClicks || 0;
+            const md = metrics.mouseDistance || 0;
+
+            hourlyBuckets[hour].keystrokes += ks;
+            hourlyBuckets[hour].clicks += mc;
+            hourlyBuckets[hour].distance += md;
+
+            totalKeys += ks;
+            totalClicks += mc;
+            totalDistance += md;
+          }
+        });
+      }
+    });
+
+    return {
+      chartData: Object.values(hourlyBuckets),
+      totals: {
+        keys: totalKeys,
+        clicks: totalClicks,
+        distance: totalDistance,
+      },
+    };
+  }, [workShifts, todayStr]);
+
+  if (workShifts.length === 0) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
             <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 h-[380px] flex items-center justify-center">
@@ -56,31 +81,14 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
     );
   }
 
-  // Process screenshot activity data for the chart
-  const chartData = lastHourLogs.map(s => {
-    const date = getDate(s.timestamp);
-    return {
-        time: date.getTime() > 0 ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '00:00',
-        keystrokes: s.activity?.keystrokes || 0,
-        clicks: s.activity?.mouseClicks || 0,
-        distance: (s.activity?.mouseDistance || 0) / 100, // scaled for chart
-    };
-  });
-
-  const totals = lastHourLogs.reduce((acc, s) => ({
-    keys: acc.keys + (s.activity?.keystrokes || 0),
-    clicks: acc.clicks + (s.activity?.mouseClicks || 0),
-    distance: acc.distance + (s.activity?.mouseDistance || 0),
-  }), { keys: 0, clicks: 0, distance: 0 });
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Real-time Velocity Area Chart */}
+      {/* 24-Hour Activity Intensity Chart */}
       <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
         <div className="flex items-center justify-between mb-8">
              <div>
                 <h3 className="text-xl font-black uppercase tracking-tighter">Activity Intensity</h3>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Real-time interaction matrix (Last 60 Mins)</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Full Day Interaction Matrix (24 Hours)</p>
              </div>
              <div className="flex gap-4">
                 <LegendItem color="bg-primary" label="Keys" />
@@ -107,8 +115,7 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }}
-                        interval="preserveStartEnd" 
-                        minTickGap={30}
+                        interval={2} // Shows ticks every 3 hours (00, 03, 06...)
                     />
                     <Tooltip
                         contentStyle={{
@@ -133,7 +140,7 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
             icon={Keyboard}
             label="Total Keystrokes"
             value={totals.keys.toLocaleString()}
-            sub="Today"
+            sub="Captured Today"
             color="text-primary"
         />
         <StatCard
@@ -146,7 +153,7 @@ export function ActivityMatrix({ screenshots }: ActivityMatrixProps) {
         <StatCard
             icon={Move}
             label="Cursor Distance"
-            value={`${(totals.distance / 1000).toFixed(1)}k`}
+            value={totals.distance >= 1000000 ? `${(totals.distance / 1000000).toFixed(2)}M` : `${(totals.distance / 1000).toFixed(1)}k`}
             sub="Pixels Traversed"
             color="text-blue-500"
         />

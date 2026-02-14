@@ -71,6 +71,7 @@ export default function OnboardingPage() {
 
   const [formData, setFormData] = useState({
     role: "",
+    orgName: "",
     goal: "",
     teamSize: "",
     workflow: "",
@@ -94,7 +95,11 @@ export default function OnboardingPage() {
         
         if (userData?.ownedOrgId) {
             const orgDoc = await getDoc(doc(db, "organizations", userData.ownedOrgId));
-            setOrgData({ id: userData.ownedOrgId, ...orgDoc.data() });
+            const data = orgDoc.data();
+            setOrgData({ id: userData.ownedOrgId, ...data });
+            if (data?.name) {
+              setFormData(prev => ({ ...prev, orgName: data.name }));
+            }
         }
         setAuthLoading(false);
       } else {
@@ -133,7 +138,7 @@ export default function OnboardingPage() {
       if (!finalOrgId) {
         finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         await setDoc(doc(db, "organizations", finalOrgId), {
-          name: orgData?.name || "My Organization",
+          name: formData.orgName || "My Organization",
           ownerId: user.uid,
           logoUrl: formData.logoUrl || null,
           industry: formData.industry,
@@ -145,6 +150,7 @@ export default function OnboardingPage() {
         });
       } else {
         await updateDoc(doc(db, "organizations", finalOrgId), {
+          name: formData.orgName,
           industry: formData.industry,
           logoUrl: formData.logoUrl || null,
           goals: formData.goal,
@@ -155,8 +161,12 @@ export default function OnboardingPage() {
         });
       }
 
-      await updateDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        name: user.displayName || user.email?.split('@')[0] || "User",
+        photoUrl: user.photoURL || null,
         role: formData.role,
+        orgName: formData.orgName,
         ownedOrgId: finalOrgId,
         onboardingCompleted: true,
         settings: {
@@ -165,7 +175,7 @@ export default function OnboardingPage() {
           timezone: formData.timezone
         },
         updatedAt: serverTimestamp()
-      });
+      }, { merge: true });
 
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
       router.push("/dashboard");
@@ -232,6 +242,16 @@ export default function OnboardingPage() {
 
                 <div className="space-y-6">
                   <div className="space-y-3">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+                    <Input
+                      placeholder="e.g. Acme Corp"
+                      value={formData.orgName}
+                      onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
+                      className="h-14 rounded-2xl px-6 bg-background/50"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
                     <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Your Capacity</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {["Founder", "Manager", "Ops", "HR"].map((r) => (
@@ -261,7 +281,7 @@ export default function OnboardingPage() {
                 </div>
 
                 <Button 
-                  disabled={!formData.role || !formData.industry} 
+                  disabled={!formData.role || !formData.industry || !formData.orgName} 
                   onClick={handleNext} 
                   className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide group"
                 >

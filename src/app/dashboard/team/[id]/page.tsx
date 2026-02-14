@@ -6,9 +6,9 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, orderBy, limit } from "firebase/firestore";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCcw, Settings, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Settings, MoreHorizontal } from "lucide-react";
 import { EmployeeHeader } from "@/components/dashboard/employee/EmployeeHeader";
 import { ActivityMatrix } from "@/components/dashboard/employee/ActivityMatrix";
 import { WorkHistory } from "@/components/dashboard/employee/WorkHistory";
@@ -33,15 +33,35 @@ const sectionVariants = {
   }
 };
 
+/**
+ * EmployeeDetailPage: Deep-Dive Data Orchestration
+ * -----------------------------------------------
+ * This page manages temporary listeners for historical and deep-dive data.
+ * 
+ * COST OPTIMIZATION (Surgical Reads):
+ * 1. Shifts: Limited to last 30 at base (Bills only for existing docs).
+ * 2. Time Entries: Limited to 5 at base.
+ * 3. Screenshots: 1 listener for TODAY only at base.
+ * 
+ * NOTE ON NEW USERS: If a user joined today, a "limit(30)" query only bills for 
+ * the 1 or 2 shifts they actually have. Firestore does not bill for the "empty" limit.
+ */
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
-  const { employees } = useTeam();
+  const { employees, owner, loading: teamLoading } = useTeam();
   
-  const [employee, setEmployee] = useState<any>(null);
+  const [employeeDoc, setEmployeeDoc] = useState<any>(null);
+  const [workShifts, setWorkShifts] = useState<any[]>([]);
   const [screenshots, setScreenshots] = useState<any[]>([]);
-  const [timeEntries, setTimeEntries] = useState<any[]>([]); // Keep this state for other components for now
+  const [timeEntries, setTimeEntries] = useState<any[]>([]); 
+  
+  // --- PAGINATION STATES ---
+  const [historyLimit, setHistoryLimit] = useState(5);
+  const [shiftsLimit, setShiftsLimit] = useState(30); // Decreased from 100
+  const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base
+
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -49,7 +69,15 @@ export default function EmployeeDetailPage() {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const isDemoId = typeof id === 'string' && id.startsWith('demo_');
+  const liveEmployee = useMemo(() => {
+    if (owner?.id === id) return owner;
+    return employees.find(e => e.id === id);
+  }, [employees, owner, id]);
+
+  const employee = useMemo(() => {
+    if (!employeeDoc && !liveEmployee) return null;
+    return { ...employeeDoc, ...liveEmployee };
+  }, [employeeDoc, liveEmployee]);
 
   useEffect(() => {
     fetchOrgDetails();
@@ -75,49 +103,39 @@ export default function EmployeeDetailPage() {
   useEffect(() => {
     if (!id) return;
 
-    if (isDemoId) {
-        setLoading(true);
-        import("@/lib/dashboard-demo-data").then(m => {
-            const demoUser = m.getDemoUserById(id as string); 
-            setEmployee({ ...demoUser, id });
-            setScreenshots(demoUser.screenshots || []);
-            setTimeEntries(demoUser.timeEntries || []);
-            setLoading(false);
-        }).catch(() => setLoading(false));
-        return;
-    }
-
     setLoading(true);
+    // 1. Profile Document
     const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
-      if (snapshot.exists()) setEmployee(snapshot.data());
-      else setLoading(false); // ID not found
+      if (snapshot.exists()) setEmployeeDoc(snapshot.data());
+      else setLoading(false); 
     });
 
+    // 2. Shift History (Limited for Ledger preview)
+    const shiftsRef = collection(db, "users", id as string, "workShifts");
+    const shiftsQuery = query(shiftsRef, orderBy("startTime", "desc"), limit(shiftsLimit));
+    const unsubShifts = onSnapshot(shiftsQuery, (snapshot) => {
+      setWorkShifts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    // 3. Time Entries (Paginated Engagement Log)
     const timeRef = collection(db, "users", id as string, "timeEntries");
-    const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(50));
+    const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(historyLimit));
     const unsubTime = onSnapshot(timeQuery, (snapshot) => {
       setTimeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
+    // 4. Visual Evidence (Snapshot per day)
     const today = new Date();
-    const dates = [
-      format(addDays(today, -1), "yyyy-MM-dd"),
-      format(today, "yyyy-MM-dd"),
-      format(addDays(today, 1), "yyyy-MM-dd")
-    ];
+    const dates = Array.from({ length: screenshotDays }, (_, i) => 
+        format(subDays(today, i), "yyyy-MM-dd")
+    );
 
-    const twoHoursAgo = new Date(Date.now() - (120 * 60 * 1000));
     const unsubscribers: (() => void)[] = [];
     const allScreenshots: Record<string, any[]> = {};
 
     dates.forEach(dateStr => {
         const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
-        const screenQuery = query(
-            screenshotRef, 
-            where("timestamp", ">=", twoHoursAgo),
-            orderBy("timestamp", "desc"), 
-            limit(120)
-        );
+        const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
         
         const unsub = onSnapshot(screenQuery, (snapshot) => {
             allScreenshots[dateStr] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -128,53 +146,46 @@ export default function EmployeeDetailPage() {
             });
             setScreenshots(merged);
             setLoading(false);
-        }, () => setLoading(false)); // Error fallback
+        }, () => setLoading(false)); 
         unsubscribers.push(unsub);
     });
 
     return () => {
       unsubProfile();
+      unsubShifts();
       unsubTime();
       unsubscribers.forEach(u => u());
     };
-  }, [id, isDemoId]);
+  }, [id, historyLimit, shiftsLimit, screenshotDays]);
 
-  /* 
-     CRITICAL DATA FILTERING RULE:
-     We must ONLY show data (Time Entries, Screenshots, Metrics) that occurred AFTER 
-     the employee joined the organization (`attachedAt` or fallback to `createdAt`).
-     
-     If `attachedAt` exists, filter `entry.startTime >= attachedAt`.
-     This prevents showing "Ghost Data" from previous organizations or personal usage 
-     before they were officially onboarded to this specific workspace.
-  */
+  const handleLoadMore = () => {
+    setHistoryLimit(prev => prev + 5);
+    // Progressively load more shifts and visual evidence when digging into history
+    if (historyLimit >= shiftsLimit - 5) setShiftsLimit(prev => prev + 30);
+    if (screenshotDays < 3) setScreenshotDays(prev => prev + 1);
+  };
 
-  // 4. Calculations for Header
-  const { totalHours, hoursToday, topApp } = useMemo(() => {
-    // Determine the official start date for this org for filtering shifts
+  const { currentShiftHours, todayTotalHours, topApp } = useMemo(() => {
     const officialStart = employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
+    const shiftsToProcess = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
     
-    if (!employee || !employee.workShifts || employee.workShifts.length === 0) {
-      return { totalHours: "0.0", hoursToday: "0.0", topApp: "---" };
+    if (shiftsToProcess.length === 0) {
+      return { currentShiftHours: "0.0", todayTotalHours: "0.0", topApp: "---" };
     }
 
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    let overallTotalSeconds = 0;
+    let activeShiftSeconds = 0;
     let todayTotalSeconds = 0;
     const todayAppBreakdown: Record<string, number> = {};
 
-    employee.workShifts.forEach((shift: any) => {
-      // Ensure shift has liveMetrics and check if its within official start date
-      const shiftStartTime = new Date(shift.startTime);
-      if (shiftStartTime < officialStart) return; // Filter out shifts before employee joined
+    shiftsToProcess.forEach((shift: any) => {
+      const shiftStartTime = shift.startTime?.toDate ? shift.startTime.toDate() : new Date(shift.startTime);
+      if (shiftStartTime < officialStart && !shift.id.startsWith(todayStr)) return; 
 
-      overallTotalSeconds += shift.liveMetrics?.totalSeconds || 0;
-
-      // Check if the shift is for today
       if (shift.id.startsWith(todayStr)) {
-        todayTotalSeconds += shift.liveMetrics?.totalSeconds || 0;
-
-        // Aggregate liveBreakdown for today's top app
+        const shiftDuration = shift.liveMetrics?.totalSeconds || 0;
+        todayTotalSeconds += shiftDuration;
+        if (shift.status === 'active') activeShiftSeconds = shiftDuration;
         if (shift.liveBreakdown) {
           for (const appName in shift.liveBreakdown) {
             todayAppBreakdown[appName] = (todayAppBreakdown[appName] || 0) + (shift.liveBreakdown[appName] || 0);
@@ -183,63 +194,51 @@ export default function EmployeeDetailPage() {
       }
     });
 
-    // Calculate today's top app
     const top = Object.entries(todayAppBreakdown)
       .sort(([, secondsA], [, secondsB]) => secondsB - secondsA)
-      .find(([appName]) => appName !== "Idle")?.[0] || "---"; // Exclude "Idle" if it appears in liveBreakdown
+      .find(([appName]) => appName !== "Idle")?.[0] || "---"; 
 
     return {
-      totalHours: (overallTotalSeconds / 3600).toFixed(1),
-      hoursToday: (todayTotalSeconds / 3600).toFixed(1),
-      topApp: top,
+      currentShiftHours: (activeShiftSeconds / 3600).toFixed(1),
+      todayTotalHours: (todayTotalSeconds / 3600).toFixed(1),
+      topApp: top.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     };
-  }, [employee]); // Dependency on employee object
+  }, [employee, liveEmployee, workShifts]); 
 
-  // Calculate joinedDate separately as it's independent of timeEntries/workShifts aggregation
   const joinedDate = useMemo(() => {
     return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
   }, [employee]);
 
-  // 5. Calculate Live Intensity (Real-time Tension)
-  const intensity = useMemo(() => {
-    if (!employee || !employee.workShifts || employee.workShifts.length === 0) return 0;
+  const { intensity, aiBrief } = useMemo(() => {
+    const shiftsForIntensity = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
+    if (shiftsForIntensity.length === 0) return { intensity: 0, aiBrief: null };
 
-    // Filter for shifts that have cognitiveReport.velocity and are either active or completed with time
-    const relevantShifts = employee.workShifts
+    const relevantShifts = shiftsForIntensity
       .filter((s: any) => 
         s.cognitiveReport?.velocity !== undefined && s.cognitiveReport.velocity !== null &&
         (s.status === 'active' || (s.liveMetrics?.totalSeconds > 0 && s.endTime))
       )
       .sort((a: any, b: any) => {
-        // Sort by start time, most recent first
-        const dateA = new Date(a.startTime).getTime();
-        const dateB = new Date(b.startTime).getTime();
+        const dateA = a.startTime?.toDate ? a.startTime.toDate().getTime() : new Date(a.startTime).getTime();
+        const dateB = b.startTime?.toDate ? b.startTime.toDate().getTime() : new Date(b.startTime).getTime();
         return dateB - dateA;
       });
       
-    const mostRecentShiftWithVelocity = relevantShifts[0]; // Get the most recent relevant shift
+    const mostRecentShift = relevantShifts[0]; 
+    if (!mostRecentShift) return { intensity: employee?.heartbeat?.isCurrentlyRunning ? 0.1 : 0, aiBrief: null };
 
-    if (!mostRecentShiftWithVelocity) {
-      // If no relevant shift is found, provide a default non-zero intensity if employee is online.
-      return employee?.heartbeat?.isCurrentlyRunning ? 0.1 : 0;
-    }
+    const focus = mostRecentShift.cognitiveReport.focusScore || 0;
+    const productivity = mostRecentShift.cognitiveReport.productivityScore || 0;
+    const velocity = mostRecentShift.cognitiveReport.velocity || 0;
+    const compositeScore = (focus + productivity + velocity) / 3;
+    const brief = mostRecentShift.cognitiveReport.aiBrief;
+    let normalizedIntensity = Math.min(Math.max(compositeScore / 70, 0), 1.5);
+    if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
-    const rawVelocity = mostRecentShiftWithVelocity.cognitiveReport.velocity;
-    const minVelocity = 10;
-    const maxVelocity = 70;
-    
-    // Scale velocity from its range to 0-1. Clamp to ensure it's within 0-1.
-    let normalizedIntensity = Math.min(Math.max((rawVelocity - minVelocity) / (maxVelocity - minVelocity), 0), 1.0);
+    return { intensity: normalizedIntensity, aiBrief: brief };
+  }, [employee, liveEmployee, workShifts]);
 
-    // If employee is currently running, ensure a minimum visible intensity
-    if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) {
-        normalizedIntensity = 0.1; 
-    }
-
-    return normalizedIntensity;
-  }, [employee]);
-
-  if (loading || authLoading) {
+  if (loading || authLoading || teamLoading) {
     return (
       <div className="flex h-screen bg-background">
         <div className="w-16 lg:w-64 border-r animate-pulse bg-card" />
@@ -256,88 +255,6 @@ export default function EmployeeDetailPage() {
     );
   }
 
-  /*
-    Component Data & Calculation Documentation
-    ------------------------------------------
-    This parent page is responsible for fetching all necessary data and performing
-    primary calculations. Child components receive this data as props.
-
-    1. EmployeeHeader:
-       - Data Requirements:
-         - user doc: 1
-         - timeEntries: 0
-         - projects: 0
-         - screenshots: 0
-       - Calculations (Performed HERE in `useMemo`):
-         - `totalHours`: Sum of all `duration` from `timeEntries`.
-         - `hoursToday`: Sum of `duration` from `timeEntries` for the current day.
-         - `topApp`: Most frequent `projectName` from `timeEntries`.
-         - `joinedDate`: The `attachedAt` or `createdAt` timestamp from the user doc.
-       - Child Component Role: Primarily for VISUALIZATION of these props.
-
-    2. AttendanceLedger:
-       - Data Requirements:
-         - user doc: 1
-         - timeEntries: 50
-         - projects: 0
-         - screenshots: 0
-       - Calculations (Performed in the CHILD component):
-         - The child component creates an `attendanceMap` by summing `duration` per day from the `timeEntries` prop.
-         - It is responsible for its own internal state management for calendar display (e.g., current month).
-       - Child Component Role: Calculates and VISUALIZES the daily attendance calendar.
-
-    3. CognitiveHub:
-       - Data Requirements:
-         - user doc: 1
-         - timeEntries: 0
-         - projects: 0
-         - screenshots: 0
-       - Calculations (Performed HERE in `useMemo`):
-         - `intensity`: Calculated from the `keystrokes`, `mouseClicks`, and `mouseDistance` of the last 20 `screenshots`.
-       - Child Component Role:
-         - Receives calculated `intensity` as a prop.
-         - Performs minor visual calculations (e.g., `focusStatus`, `rhythmStatus`).
-         - VISUALIZES the AI summary and the live intensity SVG.
-    
-    4. ActivityMatrix:
-       - Data Requirements:
-         - user doc: 0
-         - timeEntries: 0
-         - projects: 0
-         - screenshots: All
-       - Calculations (Performed in the CHILD component):
-         - Filters screenshots to include only those from the last hour (or the last 60 available if none in the last hour).
-         - Processes this filtered data to create `chartData` (for keystrokes, clicks, and scaled mouse distance over time).
-         - Calculates `totals` for `keystrokes`, `clicks`, and `mouseDistance` for the displayed period.
-       - Child Component Role: Calculates, processes, and VISUALIZES real-time activity metrics using charts and summary cards.
-
-    5. YieldCalculator:
-       - Data Requirements:
-         - user doc: 0
-         - timeEntries: All
-         - projects: 0
-         - screenshots: All
-       - Calculations (Performed in the CHILD component, on demand):
-         - `totalSeconds`: Sum of `duration` from all `timeEntries`.
-         - `idleLogs`: Filters `screenshots` where `keystrokes`, `mouseClicks`, and `mouseDistance` are all zero.
-         - `idleRatio`: Proportion of `idleLogs` to total `screenshots`.
-         - `idleSeconds`: `totalSeconds` multiplied by `idleRatio`.
-         - `activeSeconds`: `totalSeconds` minus `idleSeconds`.
-         - These are then converted to `totalHours`, `idleHours`, `activeHours`, and `idleRatio` (percentage) for display.
-       - Child Component Role: Performs a calculation-intensive "idle audit" on demand, and then VISUALIZES the results.
-
-    6. WorkHistory:
-       - Data Requirements:
-         - user doc: 0
-         - timeEntries: All
-         - projects: 0
-         - screenshots: All
-       - Calculations (Performed in the CHILD component):
-         - `clusters`: Groups `timeEntries` with their corresponding `screenshots`. It sorts `timeEntries` by `startTime` (descending) and filters `screenshots` that fall within each `timeEntry`'s `startTime` and `endTime`. Each cluster contains up to 20 related screenshots.
-         - `visibleClusters`: Controls pagination by slicing the `clusters` array based on `pageSize`.
-       - Child Component Role: Calculates and VISUALIZES a chronological log of work activity, grouped by time entry and showing associated screenshots.
-  */
-
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
       <DashboardSidebar
@@ -349,7 +266,6 @@ export default function EmployeeDetailPage() {
         onInviteClick={() => setShowInviteModal(true)}
       />
 
-      {/* Persistent Invite Modal */}
       <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
         <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
           <DialogHeader className="items-center text-center">
@@ -375,7 +291,6 @@ export default function EmployeeDetailPage() {
       </Dialog>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Header */}
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -395,46 +310,44 @@ export default function EmployeeDetailPage() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar space-y-12 pb-32">
-          {/* Section 1: Hero Identity */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
             <EmployeeHeader 
                 employee={employee} 
-                totalHours={totalHours}
-                hoursToday={hoursToday}
+                totalHours={todayTotalHours}
+                hoursToday={currentShiftHours}
                 topApp={topApp}
                 joinedDate={joinedDate}
             />
           </motion.div>
 
-          {/* Section 2: Attendance Ledger */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <AttendanceLedger employee={employee} workShifts={employee?.workShifts || []} joinedDate={joinedDate} />
+            <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
           </motion.div>
 
-          {/* Section 3: Cognitive Hub (AI + Live Intensity) */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <CognitiveHub employee={employee} intensity={intensity} />
+            <CognitiveHub employee={employee} intensity={intensity} aiBrief={aiBrief} />
           </motion.div>
 
-          {/* Section 4: Real-time Interaction Matrix */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-            <ActivityMatrix screenshots={screenshots} />
+            <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
           </motion.div>
 
-          {/* Section 4.5: Shift Idle Audit */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
             <YieldCalculator 
                 employeeId={id as string} 
                 employeeName={employee?.name || "Member"} 
-                workShifts={employee?.workShifts || []} 
+                workShifts={workShifts} 
                 screenshots={screenshots}
                 joinedDate={joinedDate}
             />
           </motion.div>
 
-          {/* Section 5: Transactional Activity Log */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <WorkHistory timeEntries={timeEntries} screenshots={screenshots} />
+            <WorkHistory 
+              timeEntries={timeEntries} 
+              screenshots={screenshots} 
+              onLoadMore={handleLoadMore}
+            />
           </motion.div>
         </div>
       </main>

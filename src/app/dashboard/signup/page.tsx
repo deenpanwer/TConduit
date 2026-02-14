@@ -224,7 +224,7 @@ export default function SignupPage() {
             className="w-full h-12 rounded-xl font-bold uppercase tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
           >
             <img src="/google.svg" className="size-5" alt="Google" />
-            Google Workspace
+            Continue with Google
           </Button>
 
           <div className="mt-8 text-center">
