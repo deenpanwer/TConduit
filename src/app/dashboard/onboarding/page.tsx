@@ -15,6 +15,7 @@ import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from "firebase/firest
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged } from "firebase/auth";
+import { useAuth } from "@/hooks/use-auth"; // Import useAuth
 
 const GOALS = [
   { id: "billing", label: "Billing & Invoicing" },
@@ -64,10 +65,12 @@ export default function OnboardingPage() {
   const [logoMode, setLogoMode] = useState<"upload" | "url">("upload");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { refreshUserData } = useAuth(); // Destructure refreshUserData
 
   const [formData, setFormData] = useState({
     role: "",
@@ -110,10 +113,7 @@ export default function OnboardingPage() {
   }, [router]);
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-        toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
-        return;
-    }
+    // Removed type check to allow any file type
     
     setIsUploading(true);
     const reader = new FileReader();
@@ -176,6 +176,8 @@ export default function OnboardingPage() {
         },
         updatedAt: serverTimestamp()
       }, { merge: true });
+
+      await refreshUserData(); // Call to refresh user data in context
 
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
       router.push("/dashboard");
@@ -499,16 +501,25 @@ export default function OnboardingPage() {
                   {logoMode === "upload" ? (
                     <div 
                       onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleFile(file);
+                      }}
                       className={cn(
                         "relative aspect-video rounded-[2rem] border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center gap-4 overflow-hidden",
-                        logoPreview ? "border-solid border-primary/20 bg-primary/5" : "border-border bg-secondary/30 hover:bg-secondary/50"
+                        logoPreview ? "border-solid border-primary/20 bg-primary/5" : "border-border bg-secondary/30 hover:bg-secondary/50",
+                        isDragging && "border-solid border-primary bg-primary/10" // Visual feedback for dragging
                       )}
                     >
                       <input 
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        accept="image/*"
+                        // Removed accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) handleFile(file);
@@ -534,7 +545,7 @@ export default function OnboardingPage() {
                           </div>
                           <div className="text-center">
                             <p className="text-xs font-bold uppercase tracking-widest">Drop logo here</p>
-                            <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">SVG, PNG or JPG</p>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Drag & Drop or Click to Upload</p>
                           </div>
                         </>
                       )}

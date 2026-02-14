@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
+
 
 export default function SettingsPage() {
   const { user, userData } = useAuth();
@@ -26,6 +32,8 @@ export default function SettingsPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
+  const [loading, setLoading] = useState(false); // Add loading state
 
   useEffect(() => {
     async function fetchOrg() {
@@ -56,6 +64,45 @@ export default function SettingsPage() {
     toast({ title: "Copied!", description: "Invite code copied to clipboard." });
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleDeleteOrganization = async () => {
+    if (!user || !userData?.ownedOrgId) {
+      toast({ title: "Error", description: "No organization to delete.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true); // Assuming a loading state exists or needs to be added
+    try {
+      const orgRef = doc(db, "organizations", userData.ownedOrgId);
+      const userRef = doc(db, "users", user.uid);
+
+      // Soft delete the organization
+      await updateDoc(orgRef, {
+        deleted: true,
+        deletedAt: serverTimestamp(),
+      });
+
+      // Update the owner's user document
+      await updateDoc(userRef, {
+        ownedOrgId: null,
+        orgId: null, // Also clear if they were referenced as an employee somewhere
+        onboardingCompleted: false, // Force re-onboarding for a new org
+        orgDeleted: true, // Custom flag to indicate old org was deleted
+      });
+
+      // Clear the session and redirect
+      await signOut(auth);
+      await fetch("/api/auth/session", { method: "DELETE" });
+      
+      toast({ title: "Organization Deleted", description: "Your organization has been archived. You have been logged out.", variant: "default" });
+      router.push("/dashboard/signup"); // Redirect to signup to create a new org
+    } catch (error: any) {
+      toast({ title: "Deletion Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false); // Assuming a loading state exists
+    }
+  };
+
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -175,9 +222,26 @@ export default function SettingsPage() {
             <section className="p-8 border-2 border-destructive/10 rounded-3xl bg-destructive/5">
                  <h3 className="text-sm font-black uppercase tracking-widest text-destructive mb-2">Danger Zone</h3>
                  <p className="text-xs font-medium text-muted-foreground mb-6">Permanently delete your organization and all associated employee data.</p>
-                 <Button variant="destructive" className="rounded-xl font-black uppercase tracking-widest text-[10px]">
-                    Delete Organization
-                 </Button>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="rounded-xl font-black uppercase tracking-widest text-[10px]">
+                            Delete Organization
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action will archive your organization's data, but you will no longer have access to it. You will be logged out and will need to create a new organization to continue using the app.
+                                This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteOrganization}>Continue</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                 </AlertDialog>
             </section>
 
           </div>

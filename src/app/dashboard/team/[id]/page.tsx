@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { db } from "@/lib/firebase";
+import { db, updateDoc } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, orderBy, limit } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,22 @@ import { CognitiveHub } from "@/components/dashboard/employee/CognitiveHub";
 import { YieldCalculator } from "@/components/dashboard/employee/YieldCalculator";
 import { motion } from "framer-motion";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Ticket, Copy, Check } from "lucide-react";
 import { getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -68,6 +83,11 @@ export default function EmployeeDetailPage() {
   const [orgData, setOrgData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
+  // Modals for employee actions
+  const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
+  const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
+  const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
 
   const liveEmployee = useMemo(() => {
     if (owner?.id === id) return owner;
@@ -238,6 +258,69 @@ export default function EmployeeDetailPage() {
     return { intensity: normalizedIntensity, aiBrief: brief };
   }, [employee, liveEmployee, workShifts]);
 
+  const handleEditEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !employee) return;
+    setLoading(true);
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const name = formData.get("name") as string;
+    const role = formData.get("role") as string;
+
+    try {
+      await updateDoc(doc(db, "users", id as string), {
+        name: name,
+        role: role,
+        updatedAt: new Date(),
+      });
+      toast({ title: "Employee Updated", description: `${name}'s profile has been updated.` });
+      setShowEditEmployeeModal(false);
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivateEmployee = async () => {
+    if (!id || !employee) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "users", id as string), {
+        active: false,
+        deactivatedAt: new Date(),
+        updatedAt: new Date(),
+      });
+      toast({ title: "Employee Deactivated", description: `${employee.name} has been deactivated.` });
+      setShowDeactivateEmployeeModal(false);
+      router.push("/dashboard"); // Redirect to dashboard after deactivating
+    } catch (error: any) {
+      toast({ title: "Deactivation Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangeMemberAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !employee) return;
+    setLoading(true);
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const role = formData.get("memberRole") as string;
+
+    try {
+      await updateDoc(doc(db, "users", id as string), {
+        role: role,
+        updatedAt: new Date(),
+      });
+      toast({ title: "Member Role Updated", description: `${employee.name}'s role has been changed to ${role}.` });
+      setShowMemberAccessModal(false);
+    } catch (error: any) {
+      toast({ title: "Role Update Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading || authLoading || teamLoading) {
     return (
       <div className="flex h-screen bg-background">
@@ -300,12 +383,22 @@ export default function EmployeeDetailPage() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
+            <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-xl border h-10 w-10">
-                <MoreHorizontal size={20} />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-xl border h-10 w-10">
+                    <MoreHorizontal size={20} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Employee Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowEditEmployeeModal(true)}>Edit Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDeactivateEmployeeModal(true)} className="text-destructive focus:text-destructive">Deactivate Employee</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -351,6 +444,93 @@ export default function EmployeeDetailPage() {
           </motion.div>
         </div>
       </main>
+
+      {/* Edit Employee Modal */}
+      <Dialog open={showEditEmployeeModal} onOpenChange={setShowEditEmployeeModal}>
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
+          <DialogHeader>
+            <DialogTitle>Edit Employee Profile</DialogTitle>
+            <DialogDescription>
+              Make changes to {employee?.name}'s profile here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditEmployee} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                defaultValue={employee?.name}
+                className="col-span-3"
+                name="name"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right">
+                Role
+              </Label>
+              <Input
+                id="role"
+                defaultValue={employee?.role}
+                className="col-span-3"
+                name="role"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deactivate Employee AlertDialog */}
+      <AlertDialog open={showDeactivateEmployeeModal} onOpenChange={setShowDeactivateEmployeeModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will deactivate {employee?.name}'s account. They will no longer be able to log in or track time within your organization. Their past data will be archived.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeactivateEmployee}>Deactivate</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Member Access Modal */}
+      <Dialog open={showMemberAccessModal} onOpenChange={setShowMemberAccessModal}>
+        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
+          <DialogHeader>
+            <DialogTitle>Member Access for {employee?.name}</DialogTitle>
+            <DialogDescription>
+              Manage {employee?.name}'s role within the organization.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangeMemberAccess} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="memberRole" className="text-right">
+                Role
+              </Label>
+              <Select defaultValue={employee?.role} name="memberRole">
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="owner">Owner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

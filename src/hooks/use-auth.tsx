@@ -10,12 +10,14 @@ interface AuthContextType {
   user: User | null;
   userData: any | null;
   loading: boolean;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   userData: null,
   loading: true,
+  refreshUserData: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -24,6 +26,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+
+  const fetchAndSetUserData = async (firebaseUser: User) => {
+    const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+    if (userDoc.exists()) {
+      setUserData(userDoc.data());
+    } else {
+      setUserData(null);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -36,10 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         
         setUser(user);
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
+        await fetchAndSetUserData(user);
       } else {
         // Clear unique cookie
         await fetch("/api/auth/session", { method: "DELETE" });
@@ -52,6 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const refreshUserData = async () => {
+    if (user) {
+      setLoading(true);
+      await fetchAndSetUserData(user);
+      setLoading(false);
+    }
+  };
+
   // Safety Net: Client-side redirect if session is lost
   useEffect(() => {
     if (!loading && !user && pathname?.startsWith("/dashboard") && !pathname?.includes("/login") && !pathname?.includes("/signup") && !pathname?.includes("/forgot-password")) {
@@ -60,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, loading, pathname, router]);
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading }}>
+    <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );
