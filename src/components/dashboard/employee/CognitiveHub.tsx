@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Activity, Zap, BrainCircuit } from 'lucide-react';
 import { GlassCard } from '../main/shared/GlassCard';
@@ -14,6 +14,34 @@ interface CognitiveHubProps {
 export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
   const activeWindow = employee?.heartbeat?.lastActiveWindow || "Idle";
   const isOnline = employee?.heartbeat?.isCurrentlyRunning;
+
+  const [displayedAiBrief, setDisplayedAiBrief] = useState('');
+  const [isTypingComplete, setIsTypingComplete] = useState(false);
+
+  // Determine the full AI brief text
+  const fullAiBrief = employee.aiSummary ? `"${employee.aiSummary}"` : 
+    `"${employee?.name} is ${isOnline ? 'Active' : 'Offline'}. ${isOnline 
+        ? ` The telemetry indicates execution in ${activeWindow}.`
+        : ` No live telemetry signal detected. Staff member is currently offline.`
+    }"`;
+
+  useEffect(() => {
+    setDisplayedAiBrief(''); // Reset when fullAiBrief changes
+    setIsTypingComplete(false);
+    let i = 0;
+    const typingInterval = setInterval(() => {
+      if (i < fullAiBrief.length) {
+        setDisplayedAiBrief((prev) => prev + fullAiBrief.charAt(i));
+        i++;
+      } else {
+        clearInterval(typingInterval);
+        setIsTypingComplete(true);
+      }
+    }, 25); // Typing speed: 25ms per character
+
+    return () => clearInterval(typingInterval);
+  }, [fullAiBrief]);
+
 
   if (!employee) {
     return (
@@ -41,19 +69,10 @@ export function CognitiveHub({ employee, intensity = 0 }: CognitiveHubProps) {
             <BrainCircuit className="w-6 h-6 text-blue-500" />
           </div>
           <div className="flex-1 space-y-4">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Cognitive Audit Protocol</h3>
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">AI Insight Summary</h3>
             <p className="text-lg md:text-xl font-medium font-poppins text-gray-900 dark:text-white leading-relaxed">
-              {employee.aiSummary ? (
-                <span>"{employee.aiSummary}"</span>
-              ) : (
-                <span>
-                    "{employee?.name} is <span className="text-blue-500 font-black">{isOnline ? 'Active' : 'Offline'}</span>. 
-                    {isOnline 
-                        ? <span> The telemetry indicates execution in <span className="italic border-b border-gray-300 dark:border-gray-700">{activeWindow}</span>.</span>
-                        : <span> No live telemetry signal detected. Staff member is currently offline.</span>
-                    }"
-                </span>
-              )}
+              {displayedAiBrief}
+              {!isTypingComplete && <span className="animate-pulse">|</span>} {/* Blinking cursor */}
             </p>
             {isOnline && (
                 <div className="flex items-center space-x-6 pt-4">

@@ -34,122 +34,112 @@ interface MasterDashboardProps {
 
 export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmployees = [] }: MasterDashboardProps) => {
   /*
-    Component Data & Calculation Documentation
+    Component Data & Calculation Documentation (SHIFT-BASED ARCHITECTURE)
     ------------------------------------------
     This parent dashboard is responsible for fetching all necessary data and performing
-    primary calculations. Child components receive this data as props.
+    primary calculations using the workShifts model. Child components receive this data as props.
 
     1. PerformanceHorizon:
-        - Data Requirements:
-            - user doc: 0
-            - timeEntries: All (for today, across the entire org)
-            - projects: 0
-            - screenshots: 0
-        - Calculations (Performed HERE in `useMemo`):
-            - `performanceData`: Creates 24 hourly buckets and sums the `duration` of all org-wide `timeEntries` that fall into each bucket for the current day.
-        - Child Component Role: Purely for VISUALIZATION of the `performanceData` prop.
+        - Data Source: workShifts (hourlyPulse)
+        - Calculations: Aggregates seconds from 24 hourly buckets across all today's shifts.
+        - Role: Visualization of the organization's real-time productivity flow.
 
     2. WorkforceRegistry:
-        - Data Requirements:
-            - user doc: All
-            - timeEntries: 0
-            - projects: 0
-            - screenshots: 0
-        - Calculations (Performed HERE in `useMemo`):
-            - `workforceData`: The `employees` array (derived from all user docs in the org) is processed here to calculate `hoursToday`, `totalHours`, and `topApp` for each employee.
-        - Child Component Role: VISUALIZES the list of employees. Handles its own internal state for pagination (which users are visible).
+        - Data Source: user doc + workShifts
+        - Calculations: Determines "Hours Today" and "Top App" by iterating through daily shifts.
+        - Role: Detailed personnel directory and status audit.
 
     3. OwnerCockpit:
-        - Data Requirements:
-            - user doc: 1 (the owner's document)
-            - timeEntries: All
-            - projects: 0
-            - screenshots: 0
-        - Calculations (Performed HERE in `useMemo`):
-            - All aggregate statistics (`totalStaff`, `totalHoursToday`, `activeEmployees`, `topApp`) are calculated in the parent `stats` object.
-        - Child Component Role: Primarily for VISUALIZATION of owner data and the pre-calculated `stats` prop.
+        - Data Source: stats prop (aggregated from useDashboardStats)
+        - Calculations: Sums output, staff counts, and live session totals org-wide.
+        - Role: High-level management identity and global metrics.
 
     4. IntelligenceUnit:
-        - Data Requirements:
-            - user doc: All
-            - timeEntries: All
-            - projects: 0
-            - screenshots: All
-        - Calculations (Performed HERE in `useMemo`):
-            - `velocity`: Calculated from the average `productivityScore` of all employees.
-            - `topApp`, `activeCount`: Derived from the parent `stats` object.
-        - Child Component Role: VISUALIZES the organization's overall velocity and displays an AI-generated or formatted text brief.
+        - Data Source: stats prop + productivityScores
+        - Calculations: Derives velocity from the average productivity score across today's shifts.
+        - Role: AI-generated organization status brief and performance dial.
 
     5. ApplicationUsage:
-        - Data Requirements:
-            - user doc: 0
-            - timeEntries: All
-            - projects: 0
-            - screenshots: 0
-        - Calculations (Performed HERE in `useMemo`):
-            - The `stats` object calculates `topApps` by aggregating `hoursToday` for each application across all employees.
-        - Child Component Role: Purely for VISUALIZATION of the `topApps` data passed in the `stats` prop.
+        - Data Source: workShifts (liveBreakdown)
+        - Calculations: Aggregates organization-wide application usage into a ranked list.
+        - Role: Resource composition audit.
 
     6. EliteWorkforce:
-        - Data Requirements:
-            - user doc: All
-            - timeEntries: All
-            - projects: 0
-            - screenshots: 10 (per user, for sparkline)
-        - Calculations (Performed HERE in `useMemo`):
-            - The `workforceData` object is passed to this component. It contains pre-calculated `hoursToday` and `prevHours` (sparkline data) for each employee.
-        - Child Component Role: VISUALIZES the top-performing employees and their individual stats.
+        - Data Source: workforceData (derived from workShifts)
+        - Calculations: Processes "prevHours" sparkline by summing keystrokes/clicks from hourlyPulse.
+        - Role: Top-performer spotlight and team activity summary.
 
     7. WorkQualityFlow:
-        - Data Requirements:
-            - user doc: All
-            - timeEntries: 0
-            - projects: 0
-            - screenshots: All
-        - Calculations (Performed HERE in `useMemo`):
-            - `sankeyData`: Creates nodes for the org, employees, and apps, and calculates links between them based on time spent. App usage is determined by analyzing the `activeWindow` in screenshot data.
-        - Child Component Role: Purely for VISUALIZATION of the `sankeyData` prop using the d3-sankey library.
+        - Data Source: workShifts (liveBreakdown)
+        - Calculations: Maps Organization -> Employee -> Application flow using shift totals.
+        - Role: Balanced Sankey diagram showing time utilization.
 
     8. GlobalPresence:
-        - Data Requirements:
-            - user doc: All
-            - timeEntries: 0
-            - projects: 0
-            - screenshots: 0
-        - Calculations (Performed in the CHILD component):
-            - `countryData`: Counts the number of employees per country based on the `lastLoginLocation` in the `employees` prop.
-        - Child Component Role: Calculates and VISUALIZES a world map highlighting the countries where employees are located.
+        - Data Source: user doc (lastLoginLocation)
+        - Calculations: Grouping employees by country code.
+        - Role: Geographic workforce distribution map.
   */
 
   const { stats: realStats, loading, employees: realEmployees } = useDashboardStats();
 
   const employees = isDemo ? demoEmployees : realEmployees;
 
+  // Shared Helper to extract JS Date safely
+  const getDate = React.useCallback((ts: any) => {
+    if (!ts) return new Date(0);
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    try { return new Date(ts); } catch(e) { return new Date(0); }
+  }, []);
+
+  const todayStr = React.useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+
   const workforceData = React.useMemo(() => {
-    const now = new Date();
-    const todayStr = format(now, "yyyy-MM-dd");
-    
     return employees.map(emp => {
-        const entries = emp.timeEntries || [];
+        const shifts = emp.workShifts || [];
         
-        // Sum today's seconds specifically
-        const todaySeconds = entries.reduce((acc: number, entry: any) => {
-            const start = entry.startTime?.toDate ? entry.startTime.toDate() : (entry.startTime?.seconds ? new Date(entry.startTime.seconds * 1000) : null);
-            // Relaxed filter for Demo: use totalHoursClocked as fallback if no entries match current day
-            if (isDemo && acc === 0 && emp.totalHoursClocked) return parseFloat(emp.totalHoursClocked) * 3600;
-            
-            if (start && format(start, "yyyy-MM-dd") === todayStr) return acc + (entry.duration || 0);
-            return acc;
-        }, 0);
-
-        const totalSeconds = entries.reduce((acc: number, entry: any) => acc + (entry.duration || 0), 0);
-
-        // Map most used app for this specific member
+        let todaySeconds = 0;
+        let totalSeconds = 0;
         const appMap: Record<string, number> = {};
-        entries.forEach((e: any) => { 
-            const name = e.projectName || "General";
-            appMap[name] = (appMap[name] || 0) + (e.duration || 0); 
+
+        shifts.forEach((shift: any) => {
+            const shiftStart = getDate(shift.startTime);
+            const shiftTotalSeconds = shift.liveMetrics?.totalSeconds || 0;
+
+            totalSeconds += shiftTotalSeconds;
+
+            if (format(shiftStart, "yyyy-MM-dd") === todayStr) {
+                todaySeconds += shiftTotalSeconds;
+
+                if (shift.liveBreakdown) {
+                    for (const appName in shift.liveBreakdown) {
+                        appMap[appName] = (appMap[appName] || 0) + (shift.liveBreakdown[appName] || 0);
+                    }
+                }
+            }
         });
+
+        const hourlyActivity: { timestamp: number, score: number }[] = [];
+        shifts.forEach((shift: any) => {
+            const shiftDate = format(getDate(shift.startTime), "yyyy-MM-dd");
+            if (shift.hourlyPulse) {
+                Object.entries(shift.hourlyPulse).forEach(([hour, metrics]: [string, any]) => {
+                    const dt = new Date(shiftDate);
+                    dt.setHours(parseInt(hour));
+                    hourlyActivity.push({
+                        timestamp: dt.getTime(),
+                        score: (metrics.keystrokes || 0) + ((metrics.mouseClicks || 0) * 2) + ((metrics.mouseDistance || 0) / 100)
+                    });
+                });
+            }
+        });
+
+        const prevHours = hourlyActivity
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .slice(-10)
+            .map(a => a.score);
+
         const topApp = Object.entries(appMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "---";
 
         return {
@@ -159,14 +149,10 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
             totalHours: (totalSeconds / 3600).toFixed(1),
             topApp,
             isLive: emp.heartbeat?.isCurrentlyRunning || false,
-            prevHours: emp.screenshots?.slice(-10).map((s: any) => {
-                const act = s.activity || {};
-                // Combined activity score: keys + clicks*2 + distance/100
-                return (act.keystrokes || 0) + ((act.mouseClicks || 0) * 2) + ((act.mouseDistance || 0) / 100);
-            }).reverse() || []
+            prevHours
         };
     });
-  }, [employees, isDemo]);
+  }, [employees, todayStr, getDate]);
 
   // Recalculate stats for demo if dynamic employees exist
   const stats = React.useMemo(() => {
@@ -178,32 +164,38 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
         ? employees.reduce((acc, emp) => acc + parseInt(emp.productivityScore || 0), 0) / employees.length 
         : 100;
     
-    // Aggregate top apps from processed workforceData
-    const appMap: Record<string, number> = {};
-    workforceData.forEach(emp => {
-        if (emp.topApp && emp.topApp !== "---") {
-            appMap[emp.topApp] = (appMap[emp.topApp] || 0) + parseFloat(emp.hoursToday);
-        }
+    // Aggregate ALL apps from liveBreakdown for all employees (not just topApp)
+    const orgAppMap: Record<string, number> = {};
+
+    employees.forEach(emp => {
+        const shifts = emp.workShifts || [];
+        shifts.forEach((shift: any) => {
+            const shiftStart = getDate(shift.startTime);
+            if (format(shiftStart, "yyyy-MM-dd") === todayStr && shift.liveBreakdown) {
+                Object.entries(shift.liveBreakdown).forEach(([app, secs]) => {
+                    orgAppMap[app] = (orgAppMap[app] || 0) + (secs as number);
+                });
+            }
+        });
     });
 
-    const topApps = Object.entries(appMap)
+    const allApps = Object.entries(orgAppMap)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, hours]) => ({ 
-            name, 
-            hours: hours.toFixed(1), 
-            percentage: Math.round((hours / (totalHoursToday || 1)) * 100) 
+        .map(([name, seconds]) => ({ 
+            name: name.replace(/_/g, ' '), 
+            hours: (seconds / 3600).toFixed(1), 
+            percentage: Math.round((seconds / (totalHoursToday * 3600 || 1)) * 100) 
         }));
 
     return {
       totalHoursToday: totalHoursToday.toFixed(1),
       velocity: Math.round(avgVelocity),
-      topApps: topApps.length > 0 ? topApps : [{ name: "General", hours: totalHoursToday.toFixed(1), percentage: 100 }],
+      topApps: allApps.length > 0 ? allApps : [{ name: "General", hours: totalHoursToday.toFixed(1), percentage: 100 }],
       activeEmployees: employees.filter(e => e.heartbeat?.isCurrentlyRunning).length,
       totalStaff: employees.length,
       locationsCount: new Set(employees.map(e => e.lastLoginLocation?.country)).size
     };
-  }, [isDemo, workforceData, realStats, employees]);
+  }, [isDemo, workforceData, realStats, employees, todayStr, getDate]);
 
   const performanceData = React.useMemo(() => {
     if (employees.length === 0) return [];
@@ -239,19 +231,20 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
         projectedHours: null as number | null
     }));
 
-    const todayStr = format(now, "yyyy-MM-dd");
-
     employees.forEach(emp => {
-        const entries = emp.timeEntries || [];
-        entries.forEach((entry: any) => {
-            const start = entry.startTime?.toDate ? entry.startTime.toDate() : (entry.startTime?.seconds ? new Date(entry.startTime.seconds * 1000) : null);
-            if (start && format(start, "yyyy-MM-dd") === todayStr) {
-                const hour = start.getHours();
-                hourlyBuckets[hour].actualHours += (entry.duration || 0) / 3600;
+        const shifts = emp.workShifts || [];
+        shifts.forEach((shift: any) => {
+            const shiftStart = getDate(shift.startTime);
+            if (format(shiftStart, "yyyy-MM-dd") === todayStr && shift.hourlyPulse) {
+                Object.entries(shift.hourlyPulse).forEach(([hourKey, metrics]: [string, any]) => {
+                    const hourIdx = parseInt(hourKey);
+                    if (hourIdx >= 0 && hourIdx < 24) {
+                        hourlyBuckets[hourIdx].actualHours += (metrics.seconds || 0) / 3600;
+                    }
+                });
             }
         });
-    });
-    
+    });    
     const totalHoursSoFar = hourlyBuckets.slice(0, currentHour + 1).reduce((acc, b) => acc + b.actualHours, 0);
     const hoursPassed = currentHour + 1;
     const avgHourlyRate = totalHoursSoFar > 0 ? totalHoursSoFar / hoursPassed : 0;
@@ -268,7 +261,7 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
                 : null
         };
     });
-  }, [employees, isDemo, stats]);
+  }, [employees, isDemo, stats, todayStr, getDate]);
 
   // Calculate Sankey Data for WorkQualityFlow
   const sankeyData = React.useMemo(() => {
@@ -278,43 +271,50 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
     
     if (employees.length === 0) return { nodes, links };
 
-    const employeeNodeIndices: Record<string, number> = {};
     const appNodeIndices: Record<string, number> = {};
 
     employees.forEach(emp => {
-      // 1. Add Employee Node
-      const empIdx = nodes.length;
-      employeeNodeIndices[emp.id] = empIdx;
-      nodes.push({ name: emp.name.toUpperCase(), color: "#8b5cf6" });
+      const shifts = emp.workShifts || [];
+      const appMap: Record<string, number> = {};
+      let totalAppSeconds = 0;
 
-      const totalHours = parseFloat(emp.totalHoursClocked || 0);
-      if (totalHours > 0) {
-        // Link Org -> Employee
-        links.push({ source: 0, target: empIdx, value: totalHours });
+      shifts.forEach((shift: any) => {
+          const shiftStart = getDate(shift.startTime);
+          if (format(shiftStart, "yyyy-MM-dd") === todayStr && shift.liveBreakdown) {
+              Object.entries(shift.liveBreakdown).forEach(([app, secs]) => {
+                  const s = secs as number;
+                  appMap[app] = (appMap[app] || 0) + s;
+                  totalAppSeconds += s;
+              });
+          }
+      });
 
-        // 2. Process App Usage for this employee
-        const appFrequency: Record<string, number> = {};
-        const logs = emp.screenshots || [];
-        
-        logs.forEach((log: any) => {
-          const appName = log.activity?.activeWindow?.owner || "General";
-          appFrequency[appName] = (appFrequency[appName] || 0) + 1;
-        });
+      const totalAppHours = totalAppSeconds / 3600;
 
-        Object.entries(appFrequency).forEach(([appName, count]) => {
-          const appPercentage = logs.length > 0 ? count / logs.length : 0;
-          const appHours = totalHours * appPercentage;
+      if (totalAppHours > 0.05) {
+        // 1. Add Employee Node ONLY if they have work today
+        const empIdx = nodes.length;
+        nodes.push({ name: emp.name.toUpperCase(), color: "#8b5cf6" });
 
-          if (appHours > 0.05) {
-            if (!appNodeIndices[appName]) {
-              appNodeIndices[appName] = nodes.length;
-              nodes.push({ name: appName.toUpperCase(), color: "#10b981" });
+        // 2. Link Org -> Employee (using sum of apps for balance)
+        links.push({ source: 0, target: empIdx, value: totalAppHours });
+
+        // 3. Process App Usage
+        Object.entries(appMap).forEach(([appName, seconds]) => {
+          const appHours = seconds / 3600;
+
+          if (appHours > 0.01) {
+            const formattedAppName = appName.replace(/_/g, ' ').toUpperCase();
+            
+            if (!appNodeIndices[formattedAppName]) {
+              appNodeIndices[formattedAppName] = nodes.length;
+              nodes.push({ name: formattedAppName, color: "#10b981" });
             }
             
             // Link Employee -> App
             links.push({
               source: empIdx,
-              target: appNodeIndices[appName],
+              target: appNodeIndices[formattedAppName],
               value: appHours
             });
           }
@@ -323,7 +323,7 @@ export const MasterDashboard = ({ orgData, ownerData, isDemo = false, demoEmploy
     });
 
     return { nodes, links };
-  }, [employees, orgData]);
+  }, [employees, orgData, ownerData, todayStr, getDate]);
 
   if (loading && !isDemo) {
     return (

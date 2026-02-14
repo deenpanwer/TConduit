@@ -20,9 +20,11 @@ const getAppIcon = (name: string) => {
 export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
   const [showAudit, setShowAudit] = React.useState(false);
   
-  const displayApps = apps.length > 0 ? apps : [
+  const displayApps = apps.length > 0 ? apps.slice(0, 3) : [
     { name: "No Data", hours: 0, percentage: 0 }
   ];
+
+  const auditApps = apps.length > 0 ? apps : displayApps;
 
   return (
     <>
@@ -103,7 +105,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                            {displayApps.length === 0 ? (
+                            {auditApps.length === 0 ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                     <tr key={i}>
                                         <td className="px-6 md:px-8 py-5 md:py-6"><Shimmer className="h-4 w-32 rounded-full" /></td>
@@ -112,7 +114,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                                     </tr>
                                 ))
                             ) : (
-                                displayApps.map((app, i) => (
+                                auditApps.map((app, i) => (
                                     <motion.tr 
                                         key={app.name}
                                         initial={{ opacity: 0, x: -10 }}

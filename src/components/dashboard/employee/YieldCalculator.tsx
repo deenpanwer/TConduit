@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 interface YieldCalculatorProps {
   employeeId: string;
   employeeName: string;
-  timeEntries: any[];
+  workShifts: any[];
   screenshots: any[];
+  joinedDate: Date | null;
 }
 
-export function YieldCalculator({ employeeId, employeeName, timeEntries, screenshots }: YieldCalculatorProps) {
+export function YieldCalculator({ employeeId, employeeName, workShifts, screenshots, joinedDate }: YieldCalculatorProps) {
   const [isCalculating, setIsCalculating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -42,11 +43,21 @@ export function YieldCalculator({ employeeId, employeeName, timeEntries, screens
 
     try {
       // 1. Process Time Entries for Total Clocked Time
-      setStatus("Extracting Time Ledger...");
+      setStatus("Extracting Time Ledger from Today's Work Shifts...");
       setProgress(30);
       
-      // Calculate total seconds from all provided entries
-      const totalSeconds = timeEntries.reduce((acc, entry) => acc + (entry.duration || 0), 0);
+      const actualJoinedDate = joinedDate || new Date(0);
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+      // Calculate total seconds from all provided workShifts after joinedDate
+      const totalSeconds = workShifts.reduce((acc, shift) => {
+        const shiftStartDate = getDate(shift.startTime);
+        // Add condition to check if shift is for today
+        if (!shift.id.startsWith(todayStr) || shiftStartDate < actualJoinedDate) {
+          return acc; // Skip shifts not for today or before joined date
+        }
+        return acc + (shift.liveMetrics?.totalSeconds || 0);
+      }, 0);
 
       setProgress(60);
       setStatus("Analyzing Telemetry Packets...");
@@ -103,8 +114,8 @@ export function YieldCalculator({ employeeId, employeeName, timeEntries, screens
                     <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[8px] font-black uppercase tracking-widest border border-primary/20">Experimental</span>
                 </div>
                 <p className="text-xs font-bold text-muted-foreground max-w-md leading-relaxed">
-                    Automatically scans today's activity logs to calculate exact downtime. 
-                    <span className="block mt-1 text-[10px] text-muted-foreground/60 italic font-medium">Timeframe: From first login today until now.</span>
+                    Automatically scans today's activity logs and work shifts to calculate exact downtime. 
+                    <span className="block mt-1 text-[10px] text-muted-foreground/60 italic font-medium">Timeframe: Today's shifts after joining.</span>
                 </p>
             </div>
         </div>
@@ -166,7 +177,7 @@ export function YieldCalculator({ employeeId, employeeName, timeEntries, screens
                     <span className="text-5xl font-black tracking-tighter">{result.totalHours}</span>
                     <span className="text-sm font-bold text-muted-foreground uppercase">Hours</span>
                 </div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Total Logged Shift</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Total Logged Shifts</p>
               </div>
             </div>
 

@@ -34,10 +34,11 @@ import {
 
 interface AttendanceLedgerProps {
   employee: any;
-  timeEntries: any[];
+  workShifts: any[];
+  joinedDate: Date | null;
 }
 
-export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProps) {
+export function AttendanceLedger({ employee, workShifts, joinedDate }: AttendanceLedgerProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Helper to extract JS Date safely
@@ -55,27 +56,26 @@ export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProp
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  const joiningDate = useMemo(() => {
-    // STRICT FILTER: Match the policy in the parent page
-    const attached = getDate(employee?.attachedAt);
-    const created = getDate(employee?.createdAt);
-    
-    if (attached.getTime() > 0) return startOfDay(attached);
-    if (created.getTime() > 0) return startOfDay(created);
-    return startOfDay(new Date(2026, 0, 1)); // Safe fallback
-  }, [employee]);
-
   const attendanceMap = useMemo(() => {
     const map: Record<string, number> = {};
-    timeEntries.forEach(entry => {
-      const entryDate = getDate(entry.startTime);
-      if (entryDate.getTime() > 0) {
-        const dateKey = format(entryDate, 'yyyy-MM-dd');
-        map[dateKey] = (map[dateKey] || 0) + (entry.duration || 0);
+    if (!workShifts) return map;
+
+    const actualJoinedDate = joinedDate || new Date(0); // Use a very old date if joinedDate is null
+
+    workShifts.forEach(shift => {
+      const shiftStartDate = getDate(shift.startTime);
+      // Apply the joinedDate cutoff here
+      if (shiftStartDate < actualJoinedDate) {
+        return; // Skip shifts before the employee joined
+      }
+
+      if (shiftStartDate.getTime() > 0) {
+        const dateKey = format(shiftStartDate, 'yyyy-MM-dd');
+        map[dateKey] = (map[dateKey] || 0) + (shift.liveMetrics?.totalSeconds || 0);
       }
     });
     return map;
-  }, [timeEntries]);
+  }, [workShifts, joinedDate]);
 
   if (!employee) {
     return (
@@ -92,6 +92,8 @@ export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProp
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+
+  const safeJoinedDate = joinedDate || new Date(0); // Ensure joinedDate is always a Date object for comparisons
 
   return (
     <GlassCard className="p-10 relative overflow-hidden" hoverEffect={false}>
@@ -131,7 +133,7 @@ export function AttendanceLedger({ employee, timeEntries }: AttendanceLedgerProp
             const hours = (duration / 3600).toFixed(1);
             const isToday = isSameDay(day, new Date());
             const isFuture = isAfter(startOfDay(day), startOfDay(new Date()));
-            const isBeforeJoining = isBefore(startOfDay(day), joiningDate);
+            const isBeforeJoining = isBefore(startOfDay(day), startOfDay(safeJoinedDate));
             const isPresent = duration > 0;
             const isAbsent = !isPresent && !isFuture && !isBeforeJoining && !isToday;
 

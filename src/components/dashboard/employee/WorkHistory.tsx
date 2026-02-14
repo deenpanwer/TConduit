@@ -46,7 +46,7 @@ export function WorkHistory({ timeEntries, screenshots }: WorkHistoryProps) {
         ...entry,
         startTime: start,
         endTime: end,
-        images: relatedScreenshots.slice(0, 20) // Increased to 20 as requested
+        images: relatedScreenshots.slice(0, 5) // Only five most recent images
       };
     });
   }, [timeEntries, screenshots]);

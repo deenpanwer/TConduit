@@ -107,10 +107,21 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
     return acc + parseFloat(emp.hoursToday || 0);
   }, 0).toFixed(1);
 
-  const totalHoursData = Array.from({ length: 12 }, (_, i) => ({
-    hours: 80 + Math.random() * 40,
-    index: i 
-  }));
+  // Aggregate activity scores for the summary chart
+  const aggregatedData = React.useMemo(() => {
+    const dataPoints = 10;
+    const combined = Array(dataPoints).fill(0);
+    
+    visibleEmployees.forEach(emp => {
+      const scores = emp.prevHours || [];
+      // Align to the last 10 points
+      scores.slice(-dataPoints).forEach((score: number, idx: number) => {
+        combined[idx] += score;
+      });
+    });
+
+    return combined.map((hours, index) => ({ hours, index }));
+  }, [visibleEmployees]);
 
   return (
     <div className="mb-16 space-y-8">
@@ -159,7 +170,7 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
           <div className="mt-auto relative z-10 pt-8">
              <div className="h-16 lg:h-20 w-full mb-8">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={totalHoursData}>
+                  <AreaChart data={aggregatedData}>
                     <defs>
                       <linearGradient id="totalGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>

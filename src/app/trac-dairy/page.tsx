@@ -12,7 +12,7 @@ const downloadOptions = [
     {
       label: "Latest",
       options: [
-        { value: "win-latest", label: "Windows", href: "/dairy/TracDairy-Installer.exe" },
+        { value: "win-latest", label: "Windows", href: "https://github.com/deenpanwer/TConduit/releases/download/1.0.7-1/Trac.Dairy.Setup.1.0.7-1.exe" },
       ]
     }
 ];
@@ -36,7 +36,7 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
           </p>
         ) : (
           <a 
-            href="/dairy/TracDairy-Installer.exe" 
+            href="https://github.com/deenpanwer/TConduit/releases/download/1.0.7-1/Trac.Dairy.Setup.1.0.7-1.exe" 
             download
             className="text-sm font-medium mt-2 text-primary dark:text-white hover:underline block transition-colors"
           >

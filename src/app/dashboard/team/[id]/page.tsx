@@ -41,7 +41,7 @@ export default function EmployeeDetailPage() {
   
   const [employee, setEmployee] = useState<any>(null);
   const [screenshots, setScreenshots] = useState<any[]>([]);
-  const [timeEntries, setTimeEntries] = useState<any[]>([]);
+  const [timeEntries, setTimeEntries] = useState<any[]>([]); // Keep this state for other components for now
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -124,7 +124,7 @@ export default function EmployeeDetailPage() {
             const merged = Object.values(allScreenshots).flat().sort((a, b) => {
                 const tA = a.timestamp?.seconds || 0;
                 const tB = b.timestamp?.seconds || 0;
-                return tA - tB;
+                return tB - tA;
             });
             setScreenshots(merged);
             setLoading(false);
@@ -150,75 +150,94 @@ export default function EmployeeDetailPage() {
   */
 
   // 4. Calculations for Header
-  const { totalHours, hoursToday, topApp, joinedDate } = useMemo(() => {
-    if (!timeEntries.length) return { totalHours: "0.0", hoursToday: "0.0", topApp: "---", joinedDate: null };
-    
-    // Determine the official start date for this org
+  const { totalHours, hoursToday, topApp } = useMemo(() => {
+    // Determine the official start date for this org for filtering shifts
     const officialStart = employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
     
-    const today = format(new Date(), "yyyy-MM-dd");
-    let totalSec = 0;
-    let todaySec = 0;
-    const appCounts: Record<string, number> = {};
+    if (!employee || !employee.workShifts || employee.workShifts.length === 0) {
+      return { totalHours: "0.0", hoursToday: "0.0", topApp: "---" };
+    }
 
-    timeEntries.forEach(entry => {
-      // STRICT FILTER: Skip entries before they joined
-      const entryTime = entry.startTime?.toDate ? entry.startTime.toDate() : new Date(0);
-      if (entryTime < officialStart) return;
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    let overallTotalSeconds = 0;
+    let todayTotalSeconds = 0;
+    const todayAppBreakdown: Record<string, number> = {};
 
-      totalSec += entry.duration || 0;
-      const entryDate = format(entryTime, "yyyy-MM-dd");
-      
-      if (entryDate === today) {
-        todaySec += entry.duration || 0;
+    employee.workShifts.forEach((shift: any) => {
+      // Ensure shift has liveMetrics and check if its within official start date
+      const shiftStartTime = new Date(shift.startTime);
+      if (shiftStartTime < officialStart) return; // Filter out shifts before employee joined
+
+      overallTotalSeconds += shift.liveMetrics?.totalSeconds || 0;
+
+      // Check if the shift is for today
+      if (shift.id.startsWith(todayStr)) {
+        todayTotalSeconds += shift.liveMetrics?.totalSeconds || 0;
+
+        // Aggregate liveBreakdown for today's top app
+        if (shift.liveBreakdown) {
+          for (const appName in shift.liveBreakdown) {
+            todayAppBreakdown[appName] = (todayAppBreakdown[appName] || 0) + (shift.liveBreakdown[appName] || 0);
+          }
+        }
       }
-      const app = entry.projectName || "Unknown";
-      appCounts[app] = (appCounts[app] || 0) + (entry.duration || 0);
     });
 
-    const top = Object.entries(appCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "---";
+    // Calculate today's top app
+    const top = Object.entries(todayAppBreakdown)
+      .sort(([, secondsA], [, secondsB]) => secondsB - secondsA)
+      .find(([appName]) => appName !== "Idle")?.[0] || "---"; // Exclude "Idle" if it appears in liveBreakdown
 
     return {
-      totalHours: (totalSec / 3600).toFixed(1),
-      hoursToday: (todaySec / 3600).toFixed(1),
+      totalHours: (overallTotalSeconds / 3600).toFixed(1),
+      hoursToday: (todayTotalSeconds / 3600).toFixed(1),
       topApp: top,
-      joinedDate: officialStart
     };
-  }, [timeEntries, employee]);
+  }, [employee]); // Dependency on employee object
+
+  // Calculate joinedDate separately as it's independent of timeEntries/workShifts aggregation
+  const joinedDate = useMemo(() => {
+    return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
+  }, [employee]);
 
   // 5. Calculate Live Intensity (Real-time Tension)
   const intensity = useMemo(() => {
-    if (!screenshots.length) return 0;
+    if (!employee || !employee.workShifts || employee.workShifts.length === 0) return 0;
 
-    // Get the most recent logs (last 20 entries)
-    const sorted = [...screenshots].sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-    const recent = sorted.slice(0, 20);
-    
-    if (!recent.length) return 0;
+    // Filter for shifts that have cognitiveReport.velocity and are either active or completed with time
+    const relevantShifts = employee.workShifts
+      .filter((s: any) => 
+        s.cognitiveReport?.velocity !== undefined && s.cognitiveReport.velocity !== null &&
+        (s.status === 'active' || (s.liveMetrics?.totalSeconds > 0 && s.endTime))
+      )
+      .sort((a: any, b: any) => {
+        // Sort by start time, most recent first
+        const dateA = new Date(a.startTime).getTime();
+        const dateB = new Date(b.startTime).getTime();
+        return dateB - dateA;
+      });
+      
+    const mostRecentShiftWithVelocity = relevantShifts[0]; // Get the most recent relevant shift
 
-    // Calculate Average Activity (Keystrokes + Clicks + Mouse Distance)
-    const avgActivity = recent.reduce((acc, curr) => {
-      // Access activity data from the nested 'activity' object
-      const act = curr.activity || {};
-      const score = (act.keystrokes || 0) + ((act.mouseClicks || 0) * 2) + ((act.mouseDistance || 0) / 100);
-      return acc + score;
-    }, 0) / recent.length;
-
-    // Normalize: 150 actions/min = 1.0 intensity (Standard Flow)
-    // Cap at 2.0 (Hyper Intensity)
-    const calculatedIntensity = Math.min(avgActivity / 150, 2.0);
-
-    // If data is older than 10 minutes, we still show it but at a reduced "historical" scale
-    // This ensures dummy data (which isn't always 'live') still looks dynamic
-    const lastLogTime = (recent[0].timestamp?.seconds || 0) * 1000;
-    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-    
-    if (lastLogTime < tenMinutesAgo) {
-        return calculatedIntensity * 0.8; // 20% reduction for non-live data
+    if (!mostRecentShiftWithVelocity) {
+      // If no relevant shift is found, provide a default non-zero intensity if employee is online.
+      return employee?.heartbeat?.isCurrentlyRunning ? 0.1 : 0;
     }
 
-    return calculatedIntensity;
-  }, [screenshots]);
+    const rawVelocity = mostRecentShiftWithVelocity.cognitiveReport.velocity;
+    const minVelocity = 10;
+    const maxVelocity = 70;
+    
+    // Scale velocity from its range to 0-1. Clamp to ensure it's within 0-1.
+    let normalizedIntensity = Math.min(Math.max((rawVelocity - minVelocity) / (maxVelocity - minVelocity), 0), 1.0);
+
+    // If employee is currently running, ensure a minimum visible intensity
+    if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) {
+        normalizedIntensity = 0.1; 
+    }
+
+    return normalizedIntensity;
+  }, [employee]);
 
   if (loading || authLoading) {
     return (
@@ -389,7 +408,7 @@ export default function EmployeeDetailPage() {
 
           {/* Section 2: Attendance Ledger */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-            <AttendanceLedger employee={employee} timeEntries={timeEntries} />
+            <AttendanceLedger employee={employee} workShifts={employee?.workShifts || []} joinedDate={joinedDate} />
           </motion.div>
 
           {/* Section 3: Cognitive Hub (AI + Live Intensity) */}
@@ -407,8 +426,9 @@ export default function EmployeeDetailPage() {
             <YieldCalculator 
                 employeeId={id as string} 
                 employeeName={employee?.name || "Member"} 
-                timeEntries={timeEntries}
+                workShifts={employee?.workShifts || []} 
                 screenshots={screenshots}
+                joinedDate={joinedDate}
             />
           </motion.div>
 

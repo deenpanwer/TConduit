@@ -17,114 +17,188 @@ const randomRange = (min: number, max: number) => faker.number.int({ min, max })
 const generateWorkShifts = (userId: string) => {
   const shifts = [];
   const now = new Date();
-  
-  for (let i = 0; i < 5; i++) {
+
+  // Define shift configurations for early and late shifts
+  // Adjusted durations for more realistic aggregation as per user's example
+  const shiftConfigs = [
+    {
+      startHour: 1, endHour: 4, idSuffix: "_0",
+      minExpectedDurationSeconds: 2 * 3600, // 2 hours
+      maxExpectedDurationSeconds: 3 * 3600, // 3 hours
+      aiBrief: "Morning session analysis: Performance is exceptional, with minimal idle time recorded. Balanced task management observed, successfully utilizing chrome alongside secondary tools. Steady activity levels recorded. Output remains consistent."
+    },
+    {
+      startHour: 16, endHour: 23, idSuffix: "_1",
+      minExpectedDurationSeconds: 6 * 3600, // 6 hours
+      maxExpectedDurationSeconds: 7 * 3600, // 7 hours
+      aiBrief: "Evening wrap-up summary: Output is currently below baseline; monitoring for rhythm adjustment. High-intensity deep work detected. 93% of the session was dedicated exclusively to chrome. Low input velocity detected; likely a period of research or planning."
+    },
+  ];
+
+  for (let i = 0; i < 5; i++) { // Generate shifts for 5 days
     const date = subDays(now, i);
     const dateStr = format(date, "yyyy-MM-dd");
-    const shiftId = `${dateStr}_0`;
-    
-    const isToday = i === 0;
-    const startTime = new Date(date);
-    startTime.setHours(8, 0, 0, 0);
-    
-    const endTime = isToday ? null : new Date(date);
-    if (endTime) endTime.setHours(16, 0, 0, 0);
-    
-    // For 8 hour shift (28800s), generate realistic distribution
-    const baselineSeconds = 28800;
-    const totalSeconds = isToday ? Math.min(baselineSeconds, Math.floor((now.getTime() - startTime.getTime()) / 1000)) : baselineSeconds;
-    
-    const idleSeconds = Math.floor(totalSeconds * (0.05 + Math.random() * 0.1));
-    const activeSeconds = totalSeconds - idleSeconds;
-    
-    // Define proportional distribution for an 8-hour day
-    const hourlyActivityDistribution = {
-        "08": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "09": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "10": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "11": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "12": { seconds: 1800, keys: 0.05, clicks: 0.05, distance: 0.05, screenshots: 0.05, switches: 0.05 }, // Lunch break
-        "13": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "14": { seconds: 3600, keys: 0.15, clicks: 0.15, distance: 0.15, screenshots: 0.15, switches: 0.15 },
-        "15": { seconds: 3600, keys: 0.05, clicks: 0.05, distance: 0.05, screenshots: 0.05, switches: 0.05 }, // Wind down
-    };
 
-    const liveMetrics = {
-        totalSeconds,
-        activeSeconds,
-        idleSeconds,
-        keystrokes: randomRange(5000, 15000),
-        mouseClicks: randomRange(1000, 3000),
-        mouseDistance: randomRange(30000, 60000),
-        screenshotCount: Math.floor(totalSeconds / 300), // 1 every 5 mins
-        appSwitches: randomRange(10, 30)
-    };
+    for (const config of shiftConfigs) { // Generate two shifts per day
+      const shiftId = `${dateStr}${config.idSuffix}`;
 
-    const hourlyPulse: { [key: string]: { seconds: number; keystrokes: number; mouseClicks: number; mouseDistance: number; screenshotCount: number; appSwitches: number; } } = {};
-    let totalSecondsForHourlyDistribution = 0;
+      const isToday = i === 0;
 
-    for (const hourKey in hourlyActivityDistribution) {
-        totalSecondsForHourlyDistribution += hourlyActivityDistribution[hourKey].seconds;
-    }
+      const startTime = new Date(date);
+      startTime.setHours(config.startHour, 0, 0, 0);
 
-    let currentSecondSum = 0;
-    for (const hourKey in hourlyActivityDistribution) {
-        const planned = hourlyActivityDistribution[hourKey];
-        let actualSecondsThisHour = planned.seconds;
+      const endTime = new Date(date);
+      // Handle potential overnight shifts if endHour is less than startHour, though not in current config
+      if (config.endHour < config.startHour) {
+        endTime.setDate(endTime.getDate() + 1);
+      }
+      endTime.setHours(config.endHour, 0, 0, 0);
 
-        if (isToday) {
-            const currentHour = now.getHours();
-            const startHour = parseInt(hourKey);
+      // Determine the actual duration for this specific shift
+      let totalSecondsForShift: number;
+      let shiftStatus: "active" | "completed" = "completed";
+      let shiftEndTime: string | null = endTime.toISOString();
 
-            if (startHour === currentHour) {
-                // For the current hour, use actual elapsed seconds
-                actualSecondsThisHour = Math.min(planned.seconds, Math.floor((now.getTime() - startTime.getTime()) / 1000) - currentSecondSum);
-                if (actualSecondsThisHour < 0) actualSecondsThisHour = 0; // Ensure no negative values
-            } else if (startHour > currentHour) {
-                actualSecondsThisHour = 0; // Future hours are not yet active
-            }
+
+      if (isToday) {
+        const nowMs = now.getTime();
+        const startMs = startTime.getTime();
+        const endMs = endTime.getTime();
+
+        if (nowMs < startMs) { // Shift is in the future
+          totalSecondsForShift = 0;
+          shiftStatus = "completed"; // Or "scheduled" if we had that status
+        } else if (nowMs >= startMs && nowMs < endMs) { // Shift is currently active
+          totalSecondsForShift = Math.floor((nowMs - startMs) / 1000);
+          shiftStatus = "active";
+          shiftEndTime = null; // End time is null for active shifts
+        } else { // Shift already completed today
+          totalSecondsForShift = randomRange(config.minExpectedDurationSeconds, config.maxExpectedDurationSeconds);
+          shiftStatus = "completed";
         }
+      } else { // Past day, shift is completed for its expected duration
+        totalSecondsForShift = randomRange(config.minExpectedDurationSeconds, config.maxExpectedDurationSeconds);
+        shiftStatus = "completed";
+      }
+
+      // Ensure totalSecondsForShift is non-negative and within bounds
+      totalSecondsForShift = Math.max(0, totalSecondsForShift);
+      totalSecondsForShift = Math.min(totalSecondsForShift, config.maxExpectedDurationSeconds);
+
+
+      const idleSeconds = Math.floor(totalSecondsForShift * (0.05 + Math.random() * 0.1));
+      const activeSeconds = totalSecondsForShift - idleSeconds;
+
+      const hourlyPulse: { [key: string]: { seconds: number; keystrokes: number; mouseClicks: number; mouseDistance: number; screenshotCount: number; appSwitches: number; } } = {};
+      
+      let actualActiveHours = 0;
+      // Calculate actual hours between startHour and endHour (exclusive of endHour for simple case)
+      if (config.endHour > config.startHour) {
+          actualActiveHours = config.endHour - config.startHour;
+      } else { // Overnight shift
+          actualActiveHours = (24 - config.startHour) + config.endHour;
+      }
+      
+      if (actualActiveHours === 0) actualActiveHours = 1; // Prevent division by zero if shift is less than an hour
+
+
+      let remainingSecondsToDistribute = totalSecondsForShift;
+      let distributedSeconds = 0;
+
+      const hoursInShift = [];
+      if (config.endHour > config.startHour) {
+          for (let h = config.startHour; h < config.endHour; h++) hoursInShift.push(h);
+      } else {
+          for (let h = config.startHour; h < 24; h++) hoursInShift.push(h);
+          for (let h = 0; h < config.endHour; h++) hoursInShift.push(h);
+      }
+
+      for (const h of hoursInShift) {
+        const hourKey = h.toString().padStart(2, '0');
+        let secondsInThisHour = Math.min(remainingSecondsToDistribute, Math.floor(totalSecondsForShift / actualActiveHours) + randomRange(-300, 300));
+        secondsInThisHour = Math.max(0, secondsInThisHour); // Ensure non-negative
         
-        currentSecondSum += actualSecondsThisHour;
-
-        if (actualSecondsThisHour > 0) {
-            const ratio = actualSecondsThisHour / planned.seconds;
-            hourlyPulse[hourKey] = {
-                seconds: actualSecondsThisHour,
-                keystrokes: Math.floor(liveMetrics.keystrokes * planned.keys * ratio),
-                mouseClicks: Math.floor(liveMetrics.mouseClicks * planned.clicks * ratio),
-                mouseDistance: Math.floor(liveMetrics.mouseDistance * planned.distance * ratio),
-                screenshotCount: Math.floor(liveMetrics.screenshotCount * planned.screenshots * ratio),
-                appSwitches: Math.floor(liveMetrics.appSwitches * planned.switches * ratio)
-            };
+        if (isToday && h === now.getHours() && shiftStatus === "active") {
+            const currentHourStartMs = new Date(date).setHours(h, 0, 0, 0);
+            const elapsedSecondsInCurrentHour = Math.floor((now.getTime() - currentHourStartMs) / 1000);
+            secondsInThisHour = Math.min(secondsInThisHour, elapsedSecondsInCurrentHour);
+        } else if (isToday && h > now.getHours() && shiftStatus === "active") {
+            secondsInThisHour = 0; // Future hours for an active shift
         }
+
+        hourlyPulse[hourKey] = {
+            seconds: Math.floor(secondsInThisHour),
+            keystrokes: Math.floor(secondsInThisHour / 60 * randomRange(50, 200)), // Scale activity per minute
+            mouseClicks: Math.floor(secondsInThisHour / 60 * randomRange(10, 50)),
+            mouseDistance: Math.floor(secondsInThisHour / 60 * randomRange(500, 2000)),
+            screenshotCount: Math.floor(secondsInThisHour / 300), // 1 every 5 mins
+            appSwitches: Math.floor(secondsInThisHour / 3600 * randomRange(5, 15)) // Switched per hour
+        };
+        remainingSecondsToDistribute -= secondsInThisHour;
+        distributedSeconds += secondsInThisHour;
+      }
+      // Distribute any remaining seconds (due to random factors) to the last hour or proportionally
+      if (remainingSecondsToDistribute > 0 && hoursInShift.length > 0) {
+        const lastHourKey = hoursInShift[hoursInShift.length - 1].toString().padStart(2, '0');
+        if (hourlyPulse[lastHourKey]) {
+            hourlyPulse[lastHourKey].seconds += Math.floor(remainingSecondsToDistribute);
+        }
+      }
+
+      // Sum up hourlyPulse to get accurate liveMetrics
+      let totalHourlyKeystrokes = 0;
+      let totalHourlyMouseClicks = 0;
+      let totalHourlyMouseDistance = 0;
+      let totalHourlyScreenshotCount = 0;
+      let totalHourlyAppSwitches = 0;
+      let totalHourlySecondsAggregated = 0;
+
+      for (const hourKey in hourlyPulse) {
+          const hourData = hourlyPulse[hourKey];
+          totalHourlySecondsAggregated += hourData.seconds;
+          totalHourlyKeystrokes += hourData.keystrokes;
+          totalHourlyMouseClicks += hourData.mouseClicks;
+          totalHourlyMouseDistance += hourData.mouseDistance;
+          totalHourlyScreenshotCount += hourData.screenshotCount;
+          totalHourlyAppSwitches += hourData.appSwitches;
+      }
+
+
+      const liveMetrics = {
+          totalSeconds: totalHourlySecondsAggregated,
+          activeSeconds: Math.floor(totalHourlySecondsAggregated * (activeSeconds / totalSecondsForShift)), // Scale active based on ratio
+          idleSeconds: Math.floor(totalHourlySecondsAggregated * (idleSeconds / totalSecondsForShift)), // Scale idle based on ratio
+          keystrokes: totalHourlyKeystrokes,
+          mouseClicks: totalHourlyMouseClicks,
+          mouseDistance: totalHourlyMouseDistance,
+          screenshotCount: totalHourlyScreenshotCount,
+          appSwitches: totalHourlyAppSwitches
+      };
+
+      const shift = {
+        id: shiftId,
+        startTime: startTime.toISOString(),
+        endTime: shiftEndTime,
+        status: shiftStatus,
+        baselineSeconds: 28800, // As per user's example, this remains 8 hours nominal
+        liveMetrics,
+        liveBreakdown: { // Random distribution for demo purposes, can be refined later
+          "Visual_Studio_Code": Math.floor(liveMetrics.activeSeconds * (0.65 + Math.random() * 0.1)),
+          "Google_Chrome": Math.floor(liveMetrics.activeSeconds * (0.20 + Math.random() * 0.05)),
+          "Slack": Math.floor(liveMetrics.activeSeconds * (0.10 + Math.random() * 0.02)),
+          "Terminal": Math.floor(liveMetrics.activeSeconds * (0.05 + Math.random() * 0.01))
+        },
+        hourlyPulse,
+        cognitiveReport: {
+          productivityScore: randomRange(50, 99),
+          focusScore: randomRange(50, 99),
+          velocity: randomRange(10, 70),
+          aiBrief: config.aiBrief,
+        },
+        updatedAt: new Date().toISOString()
+      };
+      shifts.push(shift);
     }
-    
-    const shift = {
-      id: shiftId,
-      startTime: startTime.toISOString(),
-      endTime: endTime ? endTime.toISOString() : null,
-      status: isToday ? "active" : "completed",
-      baselineSeconds,
-      liveMetrics,
-      liveBreakdown: {
-        "Visual_Studio_Code": Math.floor(activeSeconds * 0.65),
-        "Google_Chrome": Math.floor(activeSeconds * 0.20),
-        "Slack": Math.floor(activeSeconds * 0.10),
-        "Terminal": Math.floor(activeSeconds * 0.05)
-      },
-      hourlyPulse,
-      cognitiveReport: {
-        productivityScore: randomRange(88, 96),
-        focusScore: randomRange(85, 94),
-        velocity: randomRange(45, 65),
-        aiBrief: isToday 
-          ? "Mid-day performance update: Performance is exceptional, with minimal idle time recorded. High-intensity deep work detected. Output remains consistent."
-          : "Shift concluded: Target objectives achieved with high focus density. Minimal context switching detected during core development blocks."
-      },
-      updatedAt: new Date().toISOString()
-    };
-    shifts.push(shift);
   }
   return shifts;
 };
