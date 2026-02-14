@@ -10,7 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/2',
     '/legal',
     '/time-tracking',
-    '/trac-dairy',
+    '/trac-diary',
     '/hired',
     '/problems',
     '/search',

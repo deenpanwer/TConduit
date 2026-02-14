@@ -447,7 +447,7 @@ export default function Home() {
             </Link>
             <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
             <p className="text-sm text-muted-foreground text-right md:text-left">15,000+ experts available for hire.</p>
-            <Link href="/trac-dairy">
+            <Link href="/trac-diary">
                 <Button variant="outline" className="h-8 animate-shake">
                 Join the Network
                 </Button>
@@ -572,7 +572,7 @@ export default function Home() {
                         </form>
                         <div className="mt-16">
                             <div className="mb-24 text-center">
-                                <Link href="/trac-dairy" className="text-lg text-foreground hover:text-primary transition-colors block">
+                                <Link href="/trac-diary" className="text-lg text-foreground hover:text-primary transition-colors block">
                                     <span className="font-medium">Looking to get hired?</span> <br /> <span className="font-bold underline text-xl">Download Our Software.</span>
                                 </Link>
                             </div>

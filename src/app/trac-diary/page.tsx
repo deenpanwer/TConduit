@@ -49,7 +49,7 @@ const OtherOSCard = ({ icon, title, comingSoon }: { icon: React.ReactNode; title
 );
 
 
-export default function TracDairyDownloadPage() {
+export default function TracDiaryDownloadPage() {
 
   return (
     <div className="bg-background min-h-screen text-foreground relative isolate">
@@ -70,22 +70,22 @@ export default function TracDairyDownloadPage() {
             <div className="max-w-3xl mx-auto text-center mb-16">
                 <h2 className="text-3xl md:text-4xl font-bold font-poppins mb-4">Cross-Platform Support</h2>
                 <p className="text-muted-foreground text-lg">
-                    Download Trac Dairy for your preferred operating system and start building your verifiable profile today.
+                    Download Trac Diary for your preferred operating system and start building your verifiable profile today.
                 </p>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <OtherOSCard
-                icon={<img src="/dairy/windows.png" alt="Windows Icon" className="h-10 w-10" />}
+                icon={<img src="/diary/windows.png" alt="Windows Icon" className="h-10 w-10" />}
                 title="Windows OS"
               />
               <OtherOSCard
-                icon={<img src="/dairy/apple-logo.png" alt="macOS Icon" className="h-10 w-10" />}
+                icon={<img src="/diary/apple-logo.png" alt="macOS Icon" className="h-10 w-10" />}
                 title="MacOS"
                 comingSoon
               />
               <OtherOSCard
-                icon={<img src="/dairy/linux.png" alt="Linux Icon" className="h-10 w-10" />}
+                icon={<img src="/diary/linux.png" alt="Linux Icon" className="h-10 w-10" />}
                 title="Linux"
                 comingSoon
               />

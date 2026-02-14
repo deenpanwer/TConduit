@@ -114,7 +114,7 @@ export default function EmployeeDetailPage() {
     if (orgData?.inviteCode) {
       navigator.clipboard.writeText(orgData.inviteCode);
       setCopied(true);
-      toast({ title: "Code Copied!", description: "Invite code ready for the Electron app." });
+      toast({ title: "Code Copied!", description: "Invite code ready for the Trac Diary app." });
       setTimeout(() => setCopied(false), 2000);
     }
   };

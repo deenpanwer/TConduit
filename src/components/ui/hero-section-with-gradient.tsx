@@ -135,7 +135,7 @@ export default function HeroSection() {
             <div className="inset-shadow-2xs ring-foreground/5 bg-background relative max-w-6xl overflow-hidden rounded-t-2xl border border-border border-b-0 p-2 sm:p-4 shadow-2xl shadow-foreground/5 ring-1">
                     <video
                         className="relative rounded-xl w-full aspect-[16/12] object-cover border border-border dark:hidden pointer-events-none"
-                        src="/dairy/demo-light.mp4"
+                        src="/diary/demo-light.mp4"
                         autoPlay
                         loop
                         muted
@@ -143,7 +143,7 @@ export default function HeroSection() {
                     />
                     <video
                         className="relative rounded-xl w-full aspect-[16/12] object-cover border border-border hidden dark:block pointer-events-none"
-                        src="/dairy/demo-dark.mp4"
+                        src="/diary/demo-dark.mp4"
                         autoPlay
                         loop
                         muted

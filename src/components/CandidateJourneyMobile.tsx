@@ -244,7 +244,7 @@ export function CandidateJourneyMobile() {
                             </p>
 
                             {activeSection === SECTIONS.length - 1 ? (
-                                <Link href="/trac-dairy" className="w-full">
+                                <Link href="/trac-diary" className="w-full">
                                     <Button className="w-full rounded-xl py-6 text-lg font-semibold shadow-lg group">
                                         Join the Network
                                         <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />

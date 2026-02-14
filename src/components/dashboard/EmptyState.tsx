@@ -51,7 +51,7 @@ export function EmptyState({ orgName, inviteCode, onCopy, onShare, copied }: Emp
               <p className="text-xs text-muted-foreground font-medium leading-relaxed uppercase">
                 Direct your candidates to download the Trac EMS desktop client.
               </p>
-              <Link href="/trac-dairy" className="inline-flex items-center text-[10px] font-black text-primary uppercase hover:underline">
+              <Link href="/trac-diary" className="inline-flex items-center text-[10px] font-black text-primary uppercase hover:underline">
                 View Download Page <ExternalLink size={12} className="ml-1" />
               </Link>
             </div>

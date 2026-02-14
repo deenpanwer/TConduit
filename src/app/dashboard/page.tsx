@@ -53,7 +53,7 @@ export default function DashboardPage() {
     if (orgData?.inviteCode) {
       navigator.clipboard.writeText(orgData.inviteCode);
       setCopied(true);
-      toast({ title: "Code Copied!", description: "Invite code ready for the Electron app." });
+      toast({ title: "Code Copied!", description: "Invite code ready for the Trac Diary app." });
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -63,7 +63,7 @@ export default function DashboardPage() {
     const shareData = {
       title: 'Join Trac AI',
       text: `Connect to ${userData?.orgName} using code: ${orgData.inviteCode}`,
-      url: 'https://traconomics.com/trac-dairy'
+      url: 'https://traconomics.com/trac-diary'
     };
     try {
       if (navigator.share) await navigator.share(shareData);

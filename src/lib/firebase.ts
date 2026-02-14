@@ -7,7 +7,7 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 
-// TODO: Replace with your actual config from the Electron app
+// TODO: Replace with your actual config from the Trac Dairy app
 const firebaseConfig = {
   apiKey: "AIzaSyAfdF1ehCAkGOQOkPxQQftsk_GxUycYS5o",
   authDomain: "trac-dairy.firebaseapp.com",

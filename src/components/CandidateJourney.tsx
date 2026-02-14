@@ -233,7 +233,7 @@ export function CandidateJourney() {
                              
                              {index === SECTIONS.length - 1 && (
                                 <motion.div variants={itemVariants}>
-                                    <Link href="/trac-dairy">
+                                    <Link href="/trac-diary">
                                         <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg hover:scale-105 transition-transform">
                                             Join the Network
                                         </Button>

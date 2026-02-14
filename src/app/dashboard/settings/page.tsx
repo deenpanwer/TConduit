@@ -212,7 +212,7 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                         <p className="mt-4 text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
-                            Share this code with your employees. They can enter it in the Electron app to link their profile to your organization.
+                            Share this code with your employees. They can enter it in the Trac Diary app to link their profile to your organization.
                         </p>
                     </div>
                 </div>

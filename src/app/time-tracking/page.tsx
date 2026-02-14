@@ -21,7 +21,7 @@ export default function TimeTrackingPage() {
   };
 
   const handleStartTrial = () => {
-    const trialUrl = '/trac-dairy';
+    const trialUrl = '/trac-diary';
     if (typeof window !== 'undefined' && (window as any).gtag_report_conversion) {
       (window as any).gtag_report_conversion(trialUrl);
     } else {

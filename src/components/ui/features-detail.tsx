@@ -13,25 +13,25 @@ const dashboardTabs = [
   {
     id: 1,
     title: "Activity Logging",
-    src: "/dairy/demo1.png",
+    src: "/diary/demo1.png",
     alt: "Smart Activity Logging",
   },
   {
     id: 2,
     title: "Performance Metrics",
-    src: "/dairy/demo2.png",
+    src: "/diary/demo2.png",
     alt: "Performance Metrics Overview",
   },
   {
     id: 3,
     title: "Trend Analysis",
-    src: "/dairy/demo3.png",
+    src: "/diary/demo3.png",
     alt: "Activity Trend Analysis",
   },
   {
     id: 4,
     title: "Verifiable Profile",
-    src: "/dairy/demo4.png",
+    src: "/diary/demo4.png",
     alt: "Verifiable Work Profile",
   }
 ]
@@ -116,7 +116,7 @@ export default function FeaturesDetail() {
       <div className="mx-auto">
         <div className="container mx-auto px-4 mb-12 text-center md:text-left">
             <h1 ref={headingRef} className="text-4xl font-poppins font-bold tracking-tight text-foreground sm:text-5xl">
-              Experience Trac Dairy
+              Experience Trac Diary
             </h1>
             <p ref={textRef} className="mt-4 text-lg text-muted-foreground max-w-2xl font-poppins">
               See how our intelligent logging and analytics empower your productivity with verifiable proof of work.
