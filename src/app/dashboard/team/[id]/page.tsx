@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { db, updateDoc } from "@/lib/firebase";
-import { doc, onSnapshot, collection, query, where, orderBy, limit } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, MoreHorizontal } from "lucide-react";
@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Ticket, Copy, Check } from "lucide-react";
-import { getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 import { useTeam } from "@/hooks/use-team";
