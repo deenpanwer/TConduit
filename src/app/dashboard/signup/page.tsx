@@ -112,7 +112,12 @@ export default function SignupPage() {
 
       router.push("/dashboard/onboarding");
     } catch (error: any) {
-      toast({ title: "Google signup failed", description: error.message, variant: "destructive" });
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User intentionally closed the popup, do nothing and reset loading state
+        console.log("Google sign-up popup closed by user.");
+      } else {
+        toast({ title: "Google signup failed", description: error.message, variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }

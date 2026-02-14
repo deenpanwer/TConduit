@@ -463,6 +463,7 @@ export default function EmployeeDetailPage() {
                 defaultValue={employee?.name}
                 className="col-span-3"
                 name="name"
+                readOnly
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -520,7 +521,6 @@ export default function EmployeeDetailPage() {
                 <SelectContent>
                   <SelectItem value="employee">Employee</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="owner">Owner</SelectItem>
                 </SelectContent>
               </Select>
             </div>

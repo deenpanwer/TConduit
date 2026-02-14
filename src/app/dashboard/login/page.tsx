@@ -92,7 +92,12 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
-      toast({ title: "Google sign in failed", description: error.message, variant: "destructive" });
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User intentionally closed the popup, do nothing and reset loading state
+        console.log("Google sign-in popup closed by user.");
+      } else {
+        toast({ title: "Google sign in failed", description: error.message, variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
