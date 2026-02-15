@@ -16,6 +16,9 @@ docs
 /.idx
 node_modules
 
+# Ignore large installer file
+public/diary/TracDairy-Installer.exe
+
 # testing
 /coverage
 
