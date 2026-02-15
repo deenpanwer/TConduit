@@ -151,7 +151,8 @@ export default function OnboardingPage() {
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionExpiry: trialExpiry,
           subscriptionStatus: "trialing",
-          createdAt: serverTimestamp()
+          subscriptionExpiry: trialExpiry,
+          subscriptionStatus: "trialing",
         });
       } else {
         await updateDoc(doc(db, "organizations", finalOrgId), {
