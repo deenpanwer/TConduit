@@ -10,7 +10,7 @@ interface PaywallScreenProps {
 }
 
 export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
-  const whatsappNumber = "923178005465";
+  const whatsappNumber = "923057631663";
   const orgName = orgData?.name || "My Organization";
   const orgId = orgData?.id || "Unknown ID";
   
