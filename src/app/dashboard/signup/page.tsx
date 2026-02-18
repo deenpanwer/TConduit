@@ -18,7 +18,7 @@ import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, User } from "lucide-react";
 
-const SIGNUP_TIMEOUT_MS = 30000; // 30 seconds
+
 
 export default function SignupPage() {
   const router = useRouter();
@@ -44,112 +44,83 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), SIGNUP_TIMEOUT_MS);
-
     try {
-      const signupPromise = (async () => {
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        const user = userCredential.user;
-        await updateProfile(user, { displayName: formData.fullName });
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+      await updateProfile(user, { displayName: formData.fullName });
 
-        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+      const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
 
-        // 1. Create Organization
-        await setDoc(doc(db, "organizations", orgId), {
-          name: formData.orgName,
-          ownerId: user.uid,
-          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-          createdAt: serverTimestamp()
-        }, { signal: abortController.signal as any }); // Pass signal to Firestore operation, if supported
-                                                 // Firestore setDoc does not directly support AbortSignal.
-                                                 // This signal will primarily be for any fetch requests.
+      // 1. Create Organization
+      await setDoc(doc(db, "organizations", orgId), {
+        name: formData.orgName,
+        ownerId: user.uid,
+        inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+        createdAt: serverTimestamp()
+      });
 
-        // 2. Create User Profile WITH ownedOrgId
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          name: formData.fullName,
-          role: "owner",
-          orgName: formData.orgName,
-          ownedOrgId: orgId,
-          uid: user.uid,
-          onboardingCompleted: false,
-          createdAt: serverTimestamp()
-        }, { signal: abortController.signal as any }); // Pass signal to Firestore operation, if supported
+      // 2. Create User Profile WITH ownedOrgId
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        name: formData.fullName,
+        role: "owner",
+        orgName: formData.orgName,
+        ownedOrgId: orgId,
+        uid: user.uid,
+        onboardingCompleted: false,
+        createdAt: serverTimestamp()
+      });
 
-        toast({ title: "Account created", description: "Your organization has been set up successfully." });
-        router.push("/dashboard/onboarding");
-      })();
-
-      await Promise.race([
-        signupPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Signup timed out")), SIGNUP_TIMEOUT_MS))
-      ]);
+      toast({ title: "Account created", description: "Your organization has been set up successfully." });
+      router.push("/dashboard/onboarding");
     } catch (error: any) {
-      if (error.name === 'AbortError' || error.message === "Signup timed out") {
-        toast({ title: "Signup failed", description: "The signup process took too long. Please try again.", variant: "destructive" });
-      } else {
-        toast({ title: "Signup failed", description: error.message, variant: "destructive" });
-      }
+      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
   const handleGoogleSignup = async () => {
     setLoading(true);
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), SIGNUP_TIMEOUT_MS);
-
+    const provider = new GoogleAuthProvider();
     try {
-      const googleSignupPromise = (async () => {
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (!userDoc.exists()) {
-          const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-          const orgName = formData.orgName || `${user.displayName || 'Enterprise'}'s Org`;
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+        const orgName = formData.orgName || `${user.displayName || 'Enterprise'}'s Org`;
 
-          await setDoc(doc(db, "organizations", orgId), {
-            name: orgName,
-            ownerId: user.uid,
-            inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-            createdAt: serverTimestamp()
-          }, { signal: abortController.signal as any });
+        await setDoc(doc(db, "organizations", orgId), {
+          name: orgName,
+          ownerId: user.uid,
+          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          createdAt: serverTimestamp()
+        });
 
-          await setDoc(doc(db, "users", user.uid), {
-            email: user.email,
-            name: user.displayName,
-            photoUrl: user.photoURL,
-            role: "owner",
-            orgName: orgName,
-            ownedOrgId: orgId,
-            uid: user.uid,
-            onboardingCompleted: false,
-            createdAt: serverTimestamp()
-          }, { signal: abortController.signal as any });
-        }
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName,
+          photoUrl: user.photoURL,
+          role: "owner",
+          orgName: orgName,
+          ownedOrgId: orgId,
+          uid: user.uid,
+          onboardingCompleted: false,
+          createdAt: serverTimestamp()
+        });
+      }
 
-        router.push("/dashboard/onboarding");
-      })();
-
-      await Promise.race([
-        googleSignupPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Google signup timed out")), SIGNUP_TIMEOUT_MS))
-      ]);
+      router.push("/dashboard/onboarding");
     } catch (error: any) {
-      if (error.name === 'AbortError' || error.message === "Google signup timed out") {
-        toast({ title: "Google signup failed", description: "The Google signup process took too long. Please try again.", variant: "destructive" });
-      } else if (error.code === 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User intentionally closed the popup, do nothing and reset loading state
         console.log("Google sign-up popup closed by user.");
       } else {
         toast({ title: "Google signup failed", description: error.message, variant: "destructive" });
       }
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
     }
   };

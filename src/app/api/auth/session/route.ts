@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
     httpOnly: true,
-    secure: true, // Required for HTTPS environments like your cloud workstation
+    secure: process.env.NODE_ENV === 'production', // Set to true only in production (HTTPS)
     sameSite: "lax",
   });
 

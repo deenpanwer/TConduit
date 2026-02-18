@@ -16,6 +16,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
+
+
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -45,7 +47,7 @@ export default function LoginPage() {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-        const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name
+        const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name for organization
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,
@@ -57,7 +59,7 @@ export default function LoginPage() {
         await setDoc(doc(db, "users", user.uid), {
           email: user.email,
           name: user.displayName,
-          photoUrl: user.photoURL, // Will be null for email/password, but safe to include
+          photoUrl: user.photoURL, // Will be null for email/password users, which is fine
           role: "owner",
           orgName: orgName,
           ownedOrgId: orgId,
