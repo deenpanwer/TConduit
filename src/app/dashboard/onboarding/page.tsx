@@ -110,7 +110,7 @@ export default function OnboardingPage() {
       }
     });
     return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   const handleFile = (file: File) => {
     // Removed type check to allow any file type

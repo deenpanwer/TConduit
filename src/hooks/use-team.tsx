@@ -146,7 +146,21 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners]);
 
   // Derive final data
-  const employees = Object.values(personnelData).filter(p => p.id !== user?.uid && p.active !== false);
+  const employees = Object.values(personnelData).filter(p => {
+    // Always exclude inactive users
+    if (p.active === false) {
+      return false;
+    }
+
+    // Handle owners
+    if (p.role === 'Owner') {
+      // Include owner ONLY if they have 'lastLoginAppVersion'
+      return p.hasOwnProperty('lastLoginAppVersion');
+    }
+
+    // For non-owners, include them unless they are the currently logged-in user
+    return p.id !== user?.uid;
+  });
   const owner = Object.values(personnelData).find(p => p.id === user?.uid) || 
                 Object.values(personnelData).find(p => p.role === 'Owner') || 
                 userData;
