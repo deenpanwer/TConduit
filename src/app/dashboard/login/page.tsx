@@ -35,9 +35,48 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      toast({ title: "Welcome back", description: "You have successfully signed in." });
-      router.push("/dashboard");
+      const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
+
+      // Check if user exists in Firestore
+      const { db } = await import("@/lib/firebase");
+      const { doc, getDoc, setDoc, serverTimestamp } = await import("firebase/firestore");
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+        const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name
+
+        await setDoc(doc(db, "organizations", orgId), {
+          name: orgName,
+          ownerId: user.uid,
+          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          createdAt: serverTimestamp()
+        });
+
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName,
+          photoUrl: user.photoURL, // Will be null for email/password, but safe to include
+          role: "owner",
+          orgName: orgName,
+          ownedOrgId: orgId,
+          uid: user.uid,
+          onboardingCompleted: false,
+          createdAt: serverTimestamp()
+        });
+
+        toast({ title: "Welcome", description: "Let's set up your workspace." });
+        router.push("/dashboard/onboarding");
+      } else {
+        const userData = userDoc.data();
+        if (!userData.onboardingCompleted) {
+          router.push("/dashboard/onboarding");
+        } else {
+          toast({ title: "Welcome back", description: "You have successfully signed in." });
+          router.push("/dashboard");
+        }
+      }
     } catch (error: any) {
       toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
     } finally {

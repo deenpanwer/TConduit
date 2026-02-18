@@ -91,7 +91,7 @@ export default function OnboardingPage() {
         setUser(user);
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        if (userData?.onboardingCompleted) {
+        if (userData?.onboardingCompleted && router.pathname !== "/dashboard") {
           router.push("/dashboard");
           return;
         }
