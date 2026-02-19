@@ -50,12 +50,16 @@ export default function SignupPage() {
       await updateProfile(user, { displayName: formData.fullName });
 
       const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+      const trialExpiry = new Date();
+      trialExpiry.setDate(trialExpiry.getDate() + 14);
 
       // 1. Create Organization
       await setDoc(doc(db, "organizations", orgId), {
         name: formData.orgName,
         ownerId: user.uid,
         inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+        subscriptionStatus: "trialing",
+        subscriptionExpiry: trialExpiry,
         createdAt: serverTimestamp()
       });
 
@@ -91,11 +95,15 @@ export default function SignupPage() {
       if (!userDoc.exists()) {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = formData.orgName || `${user.displayName || 'Enterprise'}'s Org`;
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + 14);
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,
           ownerId: user.uid,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          subscriptionStatus: "trialing",
+          subscriptionExpiry: trialExpiry,
           createdAt: serverTimestamp()
         });
 

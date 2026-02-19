@@ -48,11 +48,15 @@ export default function LoginPage() {
       if (!userDoc.exists()) {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name for organization
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + 14);
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,
           ownerId: user.uid,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          subscriptionStatus: "trialing",
+          subscriptionExpiry: trialExpiry,
           createdAt: serverTimestamp()
         });
 
@@ -101,11 +105,15 @@ export default function LoginPage() {
       if (!userDoc.exists()) {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`;
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + 14);
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,
           ownerId: user.uid,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          subscriptionStatus: "trialing",
+          subscriptionExpiry: trialExpiry,
           createdAt: serverTimestamp()
         });
 

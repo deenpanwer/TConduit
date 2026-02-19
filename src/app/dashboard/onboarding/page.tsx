@@ -6,36 +6,28 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Building2, ChevronRight, CheckCircle2, Loader2, 
-  Upload, Image as ImageIcon, Link as LinkIcon, Plus
+  Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged } from "firebase/auth";
-import { useAuth } from "@/hooks/use-auth"; // Import useAuth
-
-const GOALS = [
-  { id: "billing", label: "Billing & Invoicing" },
-  { id: "productivity", label: "Team Productivity" },
-  { id: "budgeting", label: "Project Budgeting" },
-  { id: "payroll", label: "Payroll & Compliance" },
-];
+import { useAuth } from "@/hooks/use-auth";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import TimezoneSelect, { type ITimezone, allTimezones } from 'react-timezone-select';
 
 const TEAM_SIZES = [
-  { id: "solo", label: "Just me" },
-  { id: "small", label: "2 - 10 people" },
-  { id: "medium", label: "11 - 50 people" },
-  { id: "large", label: "50+ people" },
-];
-
-const WORKFLOWS = [
-  { id: "client", label: "Client Projects" },
-  { id: "internal", label: "Internal Ops" },
-  { id: "product", label: "Product / R&D" },
-  { id: "sales", label: "Sales & Marketing" },
+  { id: "1", label: "1 (Just me)" },
+  { id: "2-10", label: "2 - 10" },
+  { id: "11-50", label: "11 - 50" },
+  { id: "51-200", label: "51 - 200" },
+  { id: "201-500", label: "201 - 500" },
+  { id: "501+", label: "501+" },
 ];
 
 const SHIFTS = [
@@ -47,13 +39,13 @@ const SHIFTS = [
 ];
 
 const DAYS = [
-  { id: 1, label: "M" },
-  { id: 2, label: "T" },
-  { id: 3, label: "W" },
-  { id: 4, label: "T" },
-  { id: 5, label: "F" },
-  { id: 6, label: "S" },
-  { id: 0, label: "S" },
+  { id: 1, label: "Mon" },
+  { id: 2, label: "Tue" },
+  { id: 3, label: "Wed" },
+  { id: 4, label: "Thu" },
+  { id: 5, label: "Fri" },
+  { id: 6, label: "Sat" },
+  { id: 0, label: "Sun" },
 ];
 
 export default function OnboardingPage() {
@@ -66,23 +58,23 @@ export default function OnboardingPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditingTimezone, setIsEditingTimezone] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { refreshUserData } = useAuth(); // Destructure refreshUserData
+  const { refreshUserData } = useAuth();
 
   const [formData, setFormData] = useState({
     role: "",
     orgName: "",
-    goal: "",
     teamSize: "",
-    workflow: "",
     logoUrl: "",
-    industry: "",
+    motivation: "",
+    whatsapp: "",
     shift: "8",
-    workdays: [1, 2, 3, 4, 5],
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    workdays: [1, 2, 3, 4, 5], // User selects workdays
+    timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC"
   });
 
   useEffect(() => {
@@ -91,7 +83,7 @@ export default function OnboardingPage() {
         setUser(user);
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const userData = userDoc.data();
-        if (userData?.onboardingCompleted && router.pathname !== "/dashboard") {
+        if (userData?.onboardingCompleted) {
           router.push("/dashboard");
           return;
         }
@@ -110,11 +102,9 @@ export default function OnboardingPage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleFile = (file: File) => {
-    // Removed type check to allow any file type
-    
     setIsUploading(true);
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -134,34 +124,32 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       let finalOrgId = orgData?.id;
+      const offDays = DAYS.filter(d => !formData.workdays.includes(d.id)).map(d => d.label);
 
       if (!finalOrgId) {
         finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14); // 14 Day Trial
+        trialExpiry.setDate(trialExpiry.getDate() + 14);
 
         await setDoc(doc(db, "organizations", finalOrgId), {
           name: formData.orgName || "My Organization",
           ownerId: user.uid,
           logoUrl: formData.logoUrl || null,
-          industry: formData.industry,
-          goals: formData.goal,
           teamSize: formData.teamSize,
-          workflow: formData.workflow,
+          whatsapp: formData.whatsapp,
+          motivation: formData.motivation,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionExpiry: trialExpiry,
           subscriptionStatus: "trialing",
-          subscriptionExpiry: trialExpiry,
-          subscriptionStatus: "trialing",
+          createdAt: serverTimestamp()
         });
       } else {
         await updateDoc(doc(db, "organizations", finalOrgId), {
           name: formData.orgName,
-          industry: formData.industry,
           logoUrl: formData.logoUrl || null,
-          goals: formData.goal,
           teamSize: formData.teamSize,
-          workflow: formData.workflow,
+          whatsapp: formData.whatsapp,
+          motivation: formData.motivation,
           onboardingCompleted: true,
           updatedAt: serverTimestamp()
         });
@@ -175,16 +163,16 @@ export default function OnboardingPage() {
         orgName: formData.orgName,
         ownedOrgId: finalOrgId,
         onboardingCompleted: true,
+        whatsapp: formData.whatsapp,
         settings: {
           defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
-          workdays: formData.workdays,
-          timezone: formData.timezone
+          offDays: offDays,
+          timezone: typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value
         },
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      await refreshUserData(); // Call to refresh user data in context
-
+      await refreshUserData();
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
       router.push("/dashboard");
     } catch (error: any) {
@@ -204,7 +192,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
         <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
@@ -216,7 +203,6 @@ export default function OnboardingPage() {
         </div>
 
         <div className="bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 backdrop-blur-sm relative">
-          {/* Progress Header */}
           <div className="flex items-center justify-between mb-10">
             <div className="flex gap-2">
               {[1, 2, 3, 4].map((i) => (
@@ -244,8 +230,8 @@ export default function OnboardingPage() {
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Professional Profile</h1>
-                  <p className="text-muted-foreground">Tell us about your role and industry.</p>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome</h1>
+                  <p className="text-muted-foreground">Let's start with your basic details.</p>
                 </div>
 
                 <div className="space-y-6">
@@ -260,7 +246,7 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Your Capacity</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Your Role</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {["Founder", "Manager", "Ops", "HR"].map((r) => (
                         <button
@@ -278,18 +264,23 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Industry</Label>
-                    <Input
-                      placeholder="e.g. Technology, Healthcare"
-                      value={formData.industry}
-                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                      className="h-14 rounded-2xl px-6 bg-background/50"
-                    />
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1 flex items-center gap-2">
+                      <Phone size={14} className="text-primary" /> WhatsApp Number
+                    </Label>
+                    <div className="phone-input-container">
+                      <PhoneInput
+                        international
+                        defaultCountry="PK"
+                        value={formData.whatsapp}
+                        onChange={(value) => setFormData({ ...formData, whatsapp: value || "" })}
+                        className="flex h-14 w-full rounded-2xl border border-input bg-background/50 px-4 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <Button 
-                  disabled={!formData.role || !formData.industry || !formData.orgName} 
+                  disabled={!formData.role || !formData.orgName || !formData.whatsapp} 
                   onClick={handleNext} 
                   className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide group"
                 >
@@ -308,33 +299,14 @@ export default function OnboardingPage() {
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Objectives</h1>
-                  <p className="text-muted-foreground">Select your primary goals for time tracking.</p>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Organization Context</h1>
+                  <p className="text-muted-foreground">Tell us more about how you operate.</p>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Primary Goal</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {GOALS.map((g) => (
-                        <button
-                          key={g.id}
-                          onClick={() => setFormData({ ...formData, goal: g.id })}
-                          className={cn(
-                            "px-4 py-4 rounded-xl border-2 text-[10px] font-bold uppercase tracking-widest text-left transition-all flex items-center justify-between",
-                            formData.goal === g.id ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10" : "border-transparent bg-secondary/50 hover:bg-secondary"
-                          )}
-                        >
-                          {g.label}
-                          {formData.goal === g.id && <CheckCircle2 size={16} />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
                     <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Team Size</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {TEAM_SIZES.map((t) => (
                         <button
                           key={t.id}
@@ -351,21 +323,16 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Typical Workflow</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {WORKFLOWS.map((w) => (
-                        <button
-                          key={w.id}
-                          onClick={() => setFormData({ ...formData, workflow: w.id })}
-                          className={cn(
-                            "px-2 py-3 rounded-xl border-2 text-[9px] font-bold uppercase tracking-tight transition-all text-center",
-                            formData.workflow === w.id ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10" : "border-transparent bg-secondary/50 hover:bg-secondary"
-                          )}
-                        >
-                          {w.label}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between ml-1">
+                      <Label className="text-xs font-semibold tracking-wider">What problem made you look for employee monitoring / tracking software?</Label>
+                      <span className="text-[9px] font-bold uppercase text-muted-foreground">(Optional)</span>
                     </div>
+                    <Textarea
+                      placeholder="Tell us what led you here."
+                      value={formData.motivation}
+                      onChange={(e) => setFormData({ ...formData, motivation: e.target.value })}
+                      className="min-h-[120px] rounded-2xl p-6 bg-background/50 resize-none border-border/50"
+                    />
                   </div>
                 </div>
 
@@ -374,7 +341,7 @@ export default function OnboardingPage() {
                     Back
                   </Button>
                   <Button 
-                    disabled={!formData.goal || !formData.teamSize || !formData.workflow} 
+                    disabled={!formData.teamSize} 
                     onClick={handleNext} 
                     className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
                   >
@@ -394,11 +361,125 @@ export default function OnboardingPage() {
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Operational Standards</h1>
-                  <p className="text-muted-foreground">Define the baseline for your workspace.</p>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Operations</h1>
+                  <p className="text-muted-foreground">Define your workspace standards.</p>
                 </div>
 
                 <div className="space-y-8">
+                  <div className="space-y-4">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1 flex items-center gap-2">
+                      <MapPin size={14} className="text-primary" /> Location & Timezone
+                    </Label>
+                    
+                    {isEditingTimezone ? (
+                      <div className="relative">
+                        <TimezoneSelect
+                          timezones={
+                            // Prioritize the current timezone at the top of the list
+                            (() => {
+                                const currentTzValue = typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value;
+                                const currentTz = allTimezones[currentTzValue];
+                                if (currentTz) {
+                                    const reorderedTimezones = { [currentTzValue]: currentTz, ...allTimezones };
+                                    return reorderedTimezones;
+                                }
+                                return allTimezones;
+                            })()
+                          }
+                          value={formData.timezone}
+                          onChange={(tz) => {
+                            setFormData({ ...formData, timezone: tz });
+                            setIsEditingTimezone(false);
+                          }}
+                          styles={{
+                                                      control: (base, state) => ({
+                                                        ...base,
+                                                        height: '56px',
+                                                        borderRadius: '1rem',
+                                                        // Background based on image: A darker background, potentially card or secondary
+                                                        backgroundColor: 'hsl(var(--card))', // Assuming card or a slightly darker background
+                                                        borderColor: state.isFocused ? 'hsl(var(--primary))' : 'hsl(var(--border)/0.5)',
+                                                        boxShadow: state.isFocused ? '0 0 0 1px hsl(var(--primary))' : 'none',
+                                                        '&:hover': {
+                                                          borderColor: 'hsl(var(--primary))',
+                                                        },
+                                                        paddingLeft: '1rem',
+                                                        color: 'hsl(var(--foreground))',
+                                                      }),
+                                                      singleValue: (base) => ({
+                                                        ...base,
+                                                        color: 'hsl(var(--foreground))',
+                                                      }),
+                                                      input: (base) => ({
+                                                        ...base,
+                                                        color: 'hsl(var(--foreground))',
+                                                      }),
+                                                      placeholder: (base) => ({
+                                                        ...base,
+                                                        color: 'hsl(var(--muted-foreground))',
+                                                      }),
+                                                      menu: (base) => ({
+                                                        ...base,
+                                                        borderRadius: '1rem',
+                                                        overflow: 'hidden',
+                                                        zIndex: 50,
+                                                        // Background based on image: A darker card-like background
+                                                        backgroundColor: 'hsl(var(--card))',
+                                                        borderColor: 'hsl(var(--border)/0.5)',
+                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', // Example shadow
+                                                      }),
+                                                      option: (base, state) => ({
+                                                        ...base,
+                                                        backgroundColor: state.isSelected 
+                                                          ? 'hsl(var(--primary))' 
+                                                          : state.isFocused 
+                                                          ? 'hsl(var(--secondary))' 
+                                                          : 'hsl(var(--card))', // Default option background
+                                                        color: state.isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+                                                        '&:hover': {
+                                                          backgroundColor: 'hsl(var(--secondary))',
+                                                          color: 'hsl(var(--foreground))',
+                                                        },
+                                                      }),
+                                                      dropdownIndicator: (base) => ({
+                                                        ...base,
+                                                        color: 'hsl(var(--muted-foreground))',
+                                                        '&:hover': {
+                                                          color: 'hsl(var(--foreground))',
+                                                        },
+                                                      }),
+                                                      indicatorSeparator: (base) => ({
+                                                        ...base,
+                                                        backgroundColor: 'hsl(var(--border))',
+                                                      }),
+                                                    }}                        />
+                      </div>
+                    ) : (
+                      <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          <div className="size-8 rounded-lg bg-background flex items-center justify-center border shadow-sm text-primary">
+                            <Loader2 size={16} className={loading ? "animate-spin" : ""} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Detected Zone</span>
+                            <span className="text-[11px] font-bold text-foreground">
+                              {typeof formData.timezone === 'string' ? formData.timezone : formData.timezone.value}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => setIsEditingTimezone(true)}
+                            className="p-2 hover:bg-background rounded-lg transition-colors text-muted-foreground hover:text-primary"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <CheckCircle2 className="text-emerald-500" size={20} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-4">
                     <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Standard Workday</Label>
                     <div className="grid grid-cols-5 gap-2">
@@ -418,39 +499,27 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Weekly Schedule</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Weekly Schedule (Workdays)</Label>
                     <div className="flex justify-between gap-1">
                       {DAYS.map((d) => (
                         <button
                           key={d.id}
                           onClick={() => {
-                            const newDays = formData.workdays.includes(d.id)
+                            const newWorkdays = formData.workdays.includes(d.id)
                               ? formData.workdays.filter(id => id !== d.id)
                               : [...formData.workdays, d.id].sort();
-                            setFormData({ ...formData, workdays: newDays });
+                            setFormData({ ...formData, workdays: newWorkdays });
                           }}
                           className={cn(
                             "flex-1 py-4 rounded-xl border-2 text-[10px] font-bold transition-all",
-                            formData.workdays.includes(d.id) ? "border-primary bg-primary/5 text-primary" : "border-transparent bg-secondary/50 text-muted-foreground"
+                            formData.workdays.includes(d.id) ? "border-primary bg-primary/5 text-primary shadow-sm" : "border-transparent bg-secondary/50 text-muted-foreground"
                           )}
                         >
                           {d.label}
                         </button>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <div className="size-8 rounded-lg bg-background flex items-center justify-center border shadow-sm text-primary">
-                        <Loader2 size={16} className={loading ? "animate-spin" : ""} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Detected Zone</span>
-                        <span className="text-[11px] font-bold text-foreground">{formData.timezone}</span>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="text-emerald-500" size={20} />
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest text-center mt-2">Unselected days will be marked as holidays.</p>
                   </div>
                 </div>
 
@@ -518,14 +587,13 @@ export default function OnboardingPage() {
                       className={cn(
                         "relative aspect-video rounded-[2rem] border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center gap-4 overflow-hidden",
                         logoPreview ? "border-solid border-primary/20 bg-primary/5" : "border-border bg-secondary/30 hover:bg-secondary/50",
-                        isDragging && "border-solid border-primary bg-primary/10" // Visual feedback for dragging
+                        isDragging && "border-solid border-primary bg-primary/10"
                       )}
                     >
                       <input 
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        // Removed accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) handleFile(file);
@@ -608,6 +676,22 @@ export default function OnboardingPage() {
           Professional Performance Monitoring • v1.0
         </p>
       </div>
+
+      <style jsx global>{`
+        .phone-input-container .PhoneInputInput {
+          background: transparent;
+          border: none;
+          outline: none;
+          font-size: 0.875rem;
+          color: inherit;
+        }
+        .phone-input-container .PhoneInputCountry {
+          margin-right: 0.5rem;
+        }
+        .phone-input-container .PhoneInputCountrySelect {
+          cursor: pointer;
+        }
+      `}</style>
     </div>
   );
 }
