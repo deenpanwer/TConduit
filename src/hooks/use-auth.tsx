@@ -5,6 +5,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
+import posthog from 'posthog-js';
 
 interface AuthContextType {
   user: User | null;
@@ -30,9 +31,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchAndSetUserData = async (firebaseUser: User) => {
     const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
     if (userDoc.exists()) {
-      setUserData(userDoc.data());
+      const data = userDoc.data();
+      setUserData(data);
+      
+      // Identify the user and link properties
+      posthog.identify(firebaseUser.uid, {
+        email: firebaseUser.email,
+        name: data.displayName || data.name,
+        role: data.role,
+        is_verified: firebaseUser.emailVerified,
+        ...data
+      });
+
+      // Group the user into their organization
+      const orgId = data.ownedOrgId || data.orgId;
+      if (orgId) {
+        posthog.group('organization', orgId, {
+          name: data.companyName || orgId,
+          id: orgId
+        });
+      }
     } else {
       setUserData(null);
+      // Fallback identify if no user document exists yet
+      posthog.identify(firebaseUser.uid, {
+        email: firebaseUser.email,
+        is_verified: firebaseUser.emailVerified,
+      });
     }
   };
 
@@ -53,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetch("/api/auth/session", { method: "DELETE" });
         setUser(null);
         setUserData(null);
+        posthog.reset(); // Reset PostHog on logout
       }
       setLoading(false);
     });
