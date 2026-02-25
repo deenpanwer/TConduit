@@ -98,7 +98,7 @@ export default function HeroSection({
                         {/*
                         Companies use Trac to hire based on actual output. Your background, location, and credentials don’t matter, only the work does.
                         */}
-                        Our AI-powered monitoring system provides a clear, real-time view of your team's activity. Eliminate productivity gaps and ensure every hour is an hour worked.
+                        Trac Diary is the definitive employee monitoring system that separates busy work from real results. Increase productivity and make every payroll decision data-driven.
                     </p>
                 </div>
                 
