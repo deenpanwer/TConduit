@@ -85,12 +85,20 @@ export default function HeroSection({
             <div className="relative max-w-6xl flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <div className="max-w-3xl">
                     <h1 className="text-4xl sm:text-6xl md:text-7xl font-poppins font-bold tracking-tighter-custom text-foreground leading-[1.1] uppercase">
+                        {/*
                         No resumes.<br />
                         No interviews.<br />
                         Just competence.
+                        */}
+                        Full Visibility.<br />
+                        True Performance.<br />
+                        Zero Guesswork.
                     </h1>
                     <p className="mt-6 text-lg sm:text-xl text-muted-foreground font-poppins max-w-2xl leading-[1.4] tracking-tighter-custom">
+                        {/*
                         Companies use Trac to hire based on actual output. Your background, location, and credentials don’t matter, only the work does.
+                        */}
+                        Our AI-powered monitoring system provides a clear, real-time view of your team's activity. Eliminate productivity gaps and ensure every hour is an hour worked.
                     </p>
                 </div>
                 
