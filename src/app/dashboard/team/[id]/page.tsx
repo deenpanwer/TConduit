@@ -10,6 +10,8 @@ import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, MoreHorizontal } from "lucide-react";
 import { EmployeeHeader } from "@/components/dashboard/employee/EmployeeHeader";
+import { ShiftPulse } from "@/components/dashboard/employee/ShiftPulse";
+import { RecentEvidence } from "@/components/dashboard/employee/RecentEvidence";
 import { ActivityMatrix } from "@/components/dashboard/employee/ActivityMatrix";
 import { WorkHistory } from "@/components/dashboard/employee/WorkHistory";
 import { AttendanceLedger } from "@/components/dashboard/employee/AttendanceLedger";
@@ -38,6 +40,8 @@ import { useToast } from "@/hooks/use-toast";
 
 import { useTeam } from "@/hooks/use-team";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
+import { InviteModal } from "@/components/dashboard/InviteModal";
+import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -88,6 +92,13 @@ export default function EmployeeDetailPage() {
   const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
+  const [selectedModalRole, setSelectedModalRole] = useState("");
+
+  useEffect(() => {
+    if (employee?.role) {
+      setSelectedModalRole(employee.role.toLowerCase());
+    }
+  }, [showMemberAccessModal, employee]);
 
   const liveEmployee = useMemo(() => {
     if (owner?.id === id) return owner;
@@ -233,6 +244,10 @@ export default function EmployeeDetailPage() {
     return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
   }, [employee]);
 
+  const activeShift = useMemo(() => {
+    return workShifts.find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
+  }, [workShifts]);
+
   const { intensity, aiBrief } = useMemo(() => {
     const shiftsForIntensity = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
     if (shiftsForIntensity.length === 0) return { intensity: 0, aiBrief: null };
@@ -353,29 +368,10 @@ export default function EmployeeDetailPage() {
         onInviteClick={() => setShowInviteModal(true)}
       />
 
-      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
-        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
-          <DialogHeader className="items-center text-center">
-            <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <Ticket size={32} className="text-primary" />
-            </div>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Invite Staff Member</DialogTitle>
-            <DialogDescription className="text-xs font-bold uppercase tracking-tight text-muted-foreground">
-              Direct your team to enter this code in the Trac EMS Profile.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center space-y-6 pt-4">
-            <div className="w-full p-8 bg-secondary/50 rounded-3xl border-2 border-dashed border-border flex flex-col items-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">Organization Code</p>
-                <h3 className="text-5xl font-black tracking-[0.3em] text-foreground mb-6 pl-4 tabular-nums">{orgData?.inviteCode || "------"}</h3>
-                <Button onClick={copyInviteCode} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8 shadow-lg shadow-primary/20">
-                    {copied ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
-                    {copied ? "Copied" : "Copy Code"}
-                </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <InviteModal 
+        isOpen={showInviteModal}
+        onOpenChange={setShowInviteModal}
+      />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
@@ -387,6 +383,7 @@ export default function EmployeeDetailPage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <SubscriptionBadge orgData={orgData} userData={userData} />
             <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
             </Button>
@@ -419,6 +416,14 @@ export default function EmployeeDetailPage() {
                     topApp={topApp}
                     joinedDate={joinedDate}
                 />
+              </motion.div>
+
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <ShiftPulse activeShift={activeShift} isOnline={employee?.heartbeat?.isCurrentlyRunning} />
+              </motion.div>
+
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <RecentEvidence screenshots={screenshots} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -513,31 +518,129 @@ export default function EmployeeDetailPage() {
 
       {/* Member Access Modal */}
       <Dialog open={showMemberAccessModal} onOpenChange={setShowMemberAccessModal}>
-        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
-          <DialogHeader>
-            <DialogTitle>Member Access for {employee?.name}</DialogTitle>
-            <DialogDescription>
-              Manage {employee?.name}'s role within the organization.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleChangeMemberAccess} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="memberRole" className="text-right">
-                Role
-              </Label>
-              <Select defaultValue={employee?.role} name="memberRole">
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                </SelectContent>
-              </Select>
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-border bg-card shadow-2xl p-0 overflow-hidden">
+          <div className="p-8 pb-4">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase tracking-widest">Manage Access & Authority</DialogTitle>
+              <DialogDescription className="text-xs font-bold uppercase tracking-tight text-muted-foreground/60 pt-1">
+                Changing {employee?.name}'s tier will impact their reach across the organization.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <form onSubmit={handleChangeMemberAccess}>
+            <div className="px-8 py-2 space-y-6">
+              <div className="grid grid-cols-3 gap-3">
+                {["Employee", "Manager", "Founder"].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setSelectedModalRole(r.toLowerCase())}
+                    className={cn(
+                      "px-4 py-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all",
+                      selectedModalRole === r.toLowerCase()
+                        ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10"
+                        : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+
+              <input type="hidden" name="memberRole" value={selectedModalRole} />
+
+              <div className="bg-secondary/30 rounded-3xl p-6 border border-border/50">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">Authority Preview</h4>
+                
+                <div className="space-y-5">
+                  {selectedModalRole === "employee" ? (
+                    <>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Self-Monitoring Only</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">Can only view their own screenshots and productivity pulse.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Task Execution</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">Can update status and subtasks for items explicitly assigned to them.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4 opacity-40">
+                        <div className="h-2 w-2 rounded-full bg-rose-500 mt-1.5 shrink-0" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Restricted Architecture</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">Cannot create organization tasks or edit high-level metadata.</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : selectedModalRole === "manager" ? (
+                    <>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Full Team Visibility</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed font-medium">Can audit screenshots and pulses for ALL organization members.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Task Architecture</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed font-medium">Full permission to create, delete, and architect the organization's task list.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-rose-500 mt-1.5 shrink-0" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">No Org Control</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed">Cannot modify billing, invite other managers, or delete the organization.</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Full Organizational Reach</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed font-medium">Unrestricted access to all data, settings, and team monitoring.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider leading-none mb-1">Founder Privileges</p>
+                          <p className="text-[10px] text-muted-foreground leading-relaxed font-medium">Can manage subscription, billing, and the organization's existence.</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            <DialogFooter>
-              <Button type="submit">Save changes</Button>
-            </DialogFooter>
+
+            <div className="p-8 flex gap-3">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowMemberAccessModal(false)}
+                className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest border-border/50"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={selectedModalRole === (employee?.role?.toLowerCase() || "")}
+                className="flex-1 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
+              >
+                Confirm {selectedModalRole} Access
+              </Button>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

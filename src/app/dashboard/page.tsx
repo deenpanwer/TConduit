@@ -11,11 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { MasterDashboard } from "@/components/dashboard/main/MasterDashboard";
 import { useTeam } from "@/hooks/use-team";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Ticket, Copy, Check } from "lucide-react";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
 import { useRouter } from "next/navigation";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
+import { InviteModal } from "@/components/dashboard/InviteModal";
+import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -106,30 +106,10 @@ export default function DashboardPage() {
         onInviteClick={() => setShowInviteModal(true)}
       />
 
-      {/* Persistent Invite Modal (Access via Add More) */}
-      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
-        <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
-          <DialogHeader className="items-center text-center">
-            <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <Ticket size={32} className="text-primary" />
-            </div>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Invite Staff Member</DialogTitle>
-            <DialogDescription className="text-xs font-bold uppercase tracking-tight text-muted-foreground">
-              Direct your team to enter this code in the Trac EMS Profile.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center space-y-6 pt-4">
-            <div className="w-full p-8 bg-secondary/50 rounded-3xl border-2 border-dashed border-border flex flex-col items-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">Organization Code</p>
-                <h3 className="text-5xl font-black tracking-[0.3em] text-foreground mb-6 pl-4 tabular-nums">{orgData?.inviteCode || "------"}</h3>
-                <Button onClick={copyInviteCode} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8 shadow-lg shadow-primary/20">
-                    {copied ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
-                    {copied ? "Copied" : "Copy Code"}
-                </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <InviteModal 
+        isOpen={showInviteModal}
+        onOpenChange={setShowInviteModal}
+      />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -142,6 +122,7 @@ export default function DashboardPage() {
           </div>
           
           <div className="flex items-center gap-4">
+            <SubscriptionBadge orgData={orgData} userData={userData} />
             {employees.length > 0 && (
                 <Button 
                   onClick={() => setShowInviteModal(true)} 

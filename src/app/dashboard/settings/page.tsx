@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { auth, db } from "@/lib/firebase";
+import { cn } from "@/lib/utils";
 import { signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -10,9 +11,13 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTeam } from "@/hooks/use-team";
+import { InviteModal } from "@/components/dashboard/InviteModal";
+import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { 
   LogOut, User, Building2, Ticket, 
-  Check, Copy, Moon, Sun, Menu, X, ArrowLeft
+  Check, Copy, Moon, Sun, Menu, X, ArrowLeft,
+  Clock, Calendar, Save, Fingerprint, Loader2
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
@@ -23,17 +28,53 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
+const SHIFTS = [
+  { id: "4", label: "4h", seconds: 14400 },
+  { id: "6", label: "6h", seconds: 21600 },
+  { id: "8", label: "8h", seconds: 28800 },
+  { id: "9", label: "9h", seconds: 32400 },
+  { id: "10", label: "10h", seconds: 36000 },
+];
+
+const DAYS = [
+  { id: 1, label: "Mon" },
+  { id: 2, label: "Tue" },
+  { id: 3, label: "Wed" },
+  { id: 4, label: "Thu" },
+  { id: 5, label: "Fri" },
+  { id: 6, label: "Sat" },
+  { id: 0, label: "Sun" },
+];
+
 export default function SettingsPage() {
-  const { user, userData } = useAuth();
+  const { user, userData, refreshUserData } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
   const [orgData, setOrgData] = useState<any>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedOrgId, setCopiedOrgId] = useState(false);
   const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
   const [loading, setLoading] = useState(false); // Add loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const { employees, loading: teamLoading } = useTeam();
+
+  const [settings, setSettings] = useState({
+    defaultShiftSeconds: 28800,
+    offDays: ["Sun"]
+  });
+
+  useEffect(() => {
+    if (userData?.settings) {
+      setSettings({
+        defaultShiftSeconds: userData.settings.defaultShiftSeconds || 28800,
+        offDays: userData.settings.offDays || ["Sun"]
+      });
+    }
+  }, [userData]);
 
   useEffect(() => {
     async function fetchOrg() {
@@ -58,11 +99,46 @@ export default function SettingsPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, isOrgId = false) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast({ title: "Copied!", description: "Invite code copied to clipboard." });
-    setTimeout(() => setCopied(false), 2000);
+    if (isOrgId) {
+        setCopiedOrgId(true);
+        setTimeout(() => setCopiedOrgId(false), 2000);
+    } else {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+    toast({ title: "Copied!", description: `${isOrgId ? 'Organization ID' : 'Invite code'} copied to clipboard.` });
+  };
+
+  const saveSettings = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        "settings.defaultShiftSeconds": settings.defaultShiftSeconds,
+        "settings.offDays": settings.offDays,
+        updatedAt: serverTimestamp()
+      });
+      await refreshUserData();
+      toast({ title: "Settings Saved", description: "Organization defaults have been updated." });
+    } catch (error: any) {
+      toast({ title: "Save Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleDay = (dayLabel: string) => {
+    setSettings(prev => {
+      const isOff = prev.offDays.includes(dayLabel);
+      return {
+        ...prev,
+        offDays: isOff 
+          ? prev.offDays.filter(d => d !== dayLabel) 
+          : [...prev.offDays, dayLabel]
+      };
+    });
   };
 
   const handleDeleteOrganization = async () => {
@@ -111,7 +187,13 @@ export default function SettingsPage() {
         setIsCollapsed={setIsCollapsed}
         isMobileSidebarOpen={isMobileOpen}
         setIsMobileSidebarOpen={setIsMobileOpen}
-        employees={[]} 
+        employees={employees} 
+        onInviteClick={() => setShowInviteModal(true)}
+      />
+
+      <InviteModal 
+        isOpen={showInviteModal}
+        onOpenChange={setShowInviteModal}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
@@ -127,6 +209,7 @@ export default function SettingsPage() {
           </div>
           
           <div className="flex items-center gap-4">
+            <SubscriptionBadge orgData={orgData} userData={userData} />
             <Button 
                 variant="ghost" 
                 size="icon" 
@@ -214,6 +297,99 @@ export default function SettingsPage() {
                         <p className="mt-4 text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
                             Share this code with your employees. They can enter it in the Trac Diary app to link their profile to your organization.
                         </p>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-secondary/30 border-2 border-dashed border-border">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="size-10 bg-background rounded-xl flex items-center justify-center border shadow-sm text-muted-foreground">
+                                    <Fingerprint size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization ID</p>
+                                    <p className="text-xs font-bold tracking-tight text-muted-foreground">{userData?.ownedOrgId || userData?.orgId || "------"}</p>
+                                </div>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => copyToClipboard(userData?.ownedOrgId || userData?.orgId || "", true)}
+                                className="rounded-xl font-black uppercase tracking-widest text-[10px] h-8"
+                            >
+                                {copiedOrgId ? <Check size={12} className="mr-2 text-green-500" /> : <Copy size={12} className="mr-2" />}
+                                {copiedOrgId ? "Copied" : "Copy ID"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Operations Section */}
+            <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                        <div className="size-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                            <Clock size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black uppercase tracking-tighter">Operations</h3>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-tight">Organization Defaults</p>
+                        </div>
+                    </div>
+                    <Button 
+                        onClick={saveSettings} 
+                        disabled={isSaving}
+                        className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-6 shadow-lg shadow-primary/20"
+                    >
+                        {isSaving ? <Loader2 className="size-3 mr-2 animate-spin" /> : <Save className="size-3 mr-2" />}
+                        {isSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                </div>
+
+                <div className="space-y-8">
+                    <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1 flex items-center gap-2">
+                            Default Shift Duration
+                        </Label>
+                        <div className="grid grid-cols-5 gap-2">
+                            {SHIFTS.map((s) => (
+                                <button
+                                    key={s.id}
+                                    onClick={() => setSettings({ ...settings, defaultShiftSeconds: s.seconds })}
+                                    className={cn(
+                                        "py-3 rounded-xl border-2 text-[10px] font-black uppercase transition-all",
+                                        settings.defaultShiftSeconds === s.seconds 
+                                            ? "border-primary bg-primary/5 text-primary shadow-sm" 
+                                            : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                                    )}
+                                >
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1 flex items-center gap-2">
+                            Weekly Off-Days
+                        </Label>
+                        <div className="flex justify-between gap-1">
+                            {DAYS.map((d) => (
+                                <button
+                                    key={d.id}
+                                    onClick={() => toggleDay(d.label)}
+                                    className={cn(
+                                        "flex-1 py-3 rounded-xl border-2 text-[10px] font-black transition-all",
+                                        settings.offDays.includes(d.label) 
+                                            ? "border-primary bg-primary/5 text-primary shadow-sm" 
+                                            : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                                    )}
+                                >
+                                    {d.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-widest text-center">Selected days are marked as non-working holidays.</p>
                     </div>
                 </div>
             </section>

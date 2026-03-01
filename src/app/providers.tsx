@@ -9,10 +9,8 @@ if (typeof window !== 'undefined') {
     person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
     capture_performance: true,
     session_recording: {
-      maskAllInputFields: false,
+      maskAllInputs: false,
       maskTextSelector: '.mask-me', // Example: how to selectively mask
-      record_logs: true,
-      network_ignore_methods: ['HEAD', 'OPTIONS'],
     }
   });
   clarity.init('twaztmnjmm');

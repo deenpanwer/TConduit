@@ -71,7 +71,7 @@ export default function TracDiaryDownloadPage() {
   return (
     <div className="bg-background min-h-screen text-foreground relative isolate">
        <header className="px-6 py-6 flex justify-between items-center z-50 relative">
-        <Link href="/">
+        <Link href="/dashboard">
             <h1 className="font-poppins font-bold text-2xl text-foreground">
             TRAC AI
             </h1>

@@ -21,7 +21,7 @@ export function TrackerHeader({ onBookDemo }: TrackerHeaderProps) {
         <div className="flex justify-between items-center max-w-5xl mx-auto gap-2">
           {/* Logo Island */}
           <div className="bg-background border-2 border-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] rounded-xl px-4 md:px-6 py-2 md:py-3 pointer-events-auto">
-            <Link href="/" className="font-poppins font-black text-sm md:text-xl tracking-tighter uppercase flex items-center gap-2">
+            <Link href="/dashboard" className="font-poppins font-black text-sm md:text-xl tracking-tighter uppercase flex items-center gap-2">
               <span className="w-2 md:w-3 h-2 md:h-3 bg-primary rounded-sm animate-pulse" />
               Trac AI
             </Link>

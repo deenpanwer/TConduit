@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,6 +31,79 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isYesterday, formatDistanceToNow } from "date-fns";
 import { useTheme } from "next-themes";
 import { Toaster, toast } from "sonner"; // Using sonner for cleaner toasts
+import { Textarea } from "@/components/ui/textarea";
+
+const MAX_TEXTAREA_HEIGHT_QUICK_ADD = 180;
+const MAX_TEXTAREA_HEIGHT_TITLE = 150;
+
+interface AutoResizingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  setShowTopFade?: (show: boolean) => void;
+  setShowBottomFade?: (show: boolean) => void;
+  maxHeight: number; // Prop to specify max height
+}
+
+const AutoResizingTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizingTextareaProps>(
+  ({ className, setShowTopFade, setShowBottomFade, maxHeight, ...props }, ref) => {
+    const internalRef = React.useRef<HTMLTextAreaElement>(null);
+    React.useImperativeHandle(ref, () => internalRef.current!);
+
+    const handleInput = () => {
+      const textarea = internalRef.current;
+      if (textarea) {
+        textarea.style.height = "auto";
+        const scrollHeight = textarea.scrollHeight;
+        textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+        if (setShowTopFade && setShowBottomFade) { // Only call handleScroll if fade props are provided
+            handleScroll();
+        }
+      }
+    };
+
+    const handleScroll = React.useCallback(() => {
+      const textarea = internalRef.current;
+      if (textarea && setShowTopFade && setShowBottomFade) {
+        const { scrollTop, scrollHeight, clientHeight } = textarea;
+        setShowTopFade(scrollTop > 0);
+        setShowBottomFade(scrollTop < scrollHeight - clientHeight - 1);
+      }
+    }, [setShowTopFade, setShowBottomFade]);
+
+    React.useEffect(() => {
+        handleInput();
+    }, [props.value]);
+
+    React.useEffect(() => {
+      const textarea = internalRef.current;
+      if (textarea) {
+        textarea.addEventListener('scroll', handleScroll);
+        window.addEventListener('resize', handleInput);
+        return () => {
+            if (textarea) {
+              textarea.removeEventListener('scroll', handleScroll);
+            }
+            window.removeEventListener('resize', handleInput);
+        }
+      }
+    }, [handleScroll]);
+
+    return (
+      <div className="relative w-full">
+        <textarea
+          ref={internalRef}
+          rows={1}
+          onInput={handleInput}
+          className={cn(
+            "w-full resize-none bg-transparent placeholder:text-muted-foreground focus:outline-none p-4 text-base",
+            className
+          )}
+          {...props}
+        />
+      </div>
+    );
+  }
+);
+AutoResizingTextarea.displayName = 'AutoResizingTextarea';
 
 // --- 1. Types & Constants ---
 
@@ -190,7 +262,11 @@ const TaskCard = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
+  const [showFullDescription, setShowFullDescription] = useState(false); // New state for description
+  const [showFullTitle, setShowFullTitle] = useState(false); // New state for title
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const MAX_TITLE_LENGTH = 60;
   
   const completedSubtasks = task.subtasks.filter(s => s.completed).length;
   const dateInfo = task.dueDate ? formatDateSmart(task.dueDate) : null;
@@ -235,36 +311,59 @@ const TaskCard = ({
         whileHover={{ scale: 1.02, zIndex: 10, boxShadow: "0 8px 24px -8px rgba(0,0,0,0.12)" }}
         transition={{ type: "spring", stiffness: 400, damping: 28 }}
         className={cn(
-          "group relative bg-card p-3.5 rounded-xl shadow-sm border border-border/40 mb-2.5 select-none transition-shadow",
+          "group relative bg-card rounded-xl shadow-sm border border-border/40 mb-3 mx-0.5 select-none transition-shadow", // Changed mb-2.5 to mb-3
           isEditing ? "ring-2 ring-primary/20 cursor-text" : "cursor-grab active:cursor-grabbing hover:border-border/80"
         )}
       >
-      <div className={cn("absolute left-3.5 top-4 w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card", PRIORITIES[task.priority].color)} />
+      {task.coverImage && (
+         <div className="relative w-full h-24 rounded-t-xl overflow-hidden mb-3">
+            <img src={task.coverImage} alt="Task Cover" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+         </div>
+      )}
 
-      <div className="pl-5">
-        <div className="flex justify-between items-start mb-1.5 min-h-[20px]">
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-2"> {/* Adjusted for vertical alignment */}
           {isEditing ? (
-            <Input
-              ref={inputRef}
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onBlur={() => {
-                 onQuickEdit(task.id, editTitle);
-                 setIsEditing(false);
-              }}
-              onKeyDown={handleKeyDown}
-              className="h-6 py-0 px-1 text-sm font-semibold border-none shadow-none focus-visible:ring-0 -ml-1.5 w-full bg-secondary/30 rounded"
-            />
+            <div className="flex items-center flex-1"> {/* Flex container for dot and input */}
+              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", PRIORITIES[task.priority].color)} /> {/* Dot next to input */}
+              <Input
+                ref={inputRef}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={() => {
+                   onQuickEdit(task.id, editTitle);
+                   setIsEditing(false);
+                }}
+                onKeyDown={handleKeyDown}
+                className="h-6 py-0 px-1 text-sm font-semibold border-none shadow-none focus-visible:ring-0 -ml-1.5 w-full bg-secondary/30 rounded"
+              />
+            </div>
           ) : (
-            <h3 
-              className="font-semibold text-sm text-foreground leading-snug pr-6 break-words"
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-              }}
-            >
-              {task.title}
-            </h3>
+            <div className="flex items-center flex-1"> {/* Flex container for dot and h3 */}
+              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", PRIORITIES[task.priority].color)} /> {/* Dot next to title */}
+              <h3 
+                className="font-semibold text-sm text-foreground leading-snug pr-6 break-words"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
+              >
+                {showFullTitle || task.title.length <= MAX_TITLE_LENGTH
+                  ? task.title
+                  : `${task.title.substring(0, MAX_TITLE_LENGTH)}...`}
+                {task.title.length > MAX_TITLE_LENGTH && (
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-xs font-medium ml-1"
+                    onClick={(e) => { e.stopPropagation(); setShowFullTitle(!showFullTitle); }}
+                  >
+                    {showFullTitle ? "Show less" : "Read more"}
+                  </Button>
+                )}
+              </h3>
+            </div>
           )}
           
           <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex gap-1">
@@ -275,13 +374,13 @@ const TaskCard = ({
         </div>
         
         {/* Metadata Row */}
-        <div className="flex items-center gap-3 mt-2 min-h-[16px]">
-          {dateInfo && (
+        <div className="flex items-center gap-4 mt-2 min-h-[16px]">
+          {dateInfo ? ( // Changed to ternary
             <div className={cn("text-[10px] font-medium flex items-center gap-1", dateInfo.color)}>
               <Clock size={10} />
               {dateInfo.text}
             </div>
-          )}
+          ) : null} {/* Explicitly return null */}
 
           {task.subtasks.length > 0 && (
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title={`${completedSubtasks} of ${task.subtasks.length} completed`}>
@@ -290,7 +389,7 @@ const TaskCard = ({
             </div>
           )}
           
-          <div className="ml-auto flex -space-x-1.5">
+          <div className="ml-auto flex -space-x-2">
             {task.assignees.length > 0 ? (
               task.assignees.slice(0, 3).map((u, i) => (
                 <TooltipProvider key={u.id}>
@@ -314,6 +413,27 @@ const TaskCard = ({
             )}
           </div>
         </div>
+
+        {/* Description */}
+        {task.description && (
+          <div className="text-xs text-muted-foreground leading-snug mt-2 mb-3">
+            {showFullDescription || task.description.length <= 120
+              ? task.description
+              : `${task.description.substring(0, 120)}...`}
+            {task.description.length > 120 && (
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-xs font-medium ml-1"
+                onClick={(e) => { e.stopPropagation(); setShowFullDescription(!showFullDescription); }}
+              >
+                {showFullDescription ? "Show less" : "Read more"}
+              </Button>
+            )}
+          </div>
+        )}
+
+
       </div>
       </motion.div>
     </div>
@@ -334,13 +454,15 @@ const Column = ({
   tasks: Task[]; 
   onTaskClick: (id: string) => void;
   onDeleteTask: (id: string) => void;
-  onDropTask: (taskId: string, status: Status) => void; // Reverted signature
-  onQuickAdd: (status: Status, title: string) => void;
+  onDropTask: (taskId: string, status: Status) => void; 
+  onQuickAdd: (status: Status, title: string, coverImage?: string) => void;
   onQuickEdit: (id: string, title: string) => void;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [quickAddValue, setQuickAddValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showTopFade, setShowTopFade] = useState(false);
+  const [showBottomFade, setShowBottomFade] = useState(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -393,7 +515,7 @@ const Column = ({
          </div>
       </div>
 
-      <ScrollArea className="flex-1 px-2.5 pb-2">
+      <ScrollArea className="flex-1 px-4 pb-4">
         <div className="flex flex-col min-h-[150px] gap-1">
           <AnimatePresence mode="popLayout" initial={false}>
             {tasks.length === 0 && (
@@ -420,20 +542,181 @@ const Column = ({
           </AnimatePresence>
           
           <motion.div layout className="mt-1 px-1">
-             <Input
-                ref={inputRef}
-                placeholder="+ Add task"
-                className="h-9 bg-transparent border-none shadow-none text-sm text-muted-foreground hover:bg-secondary/30 focus:bg-background focus:ring-1 focus:ring-ring/20 transition-all rounded-lg placeholder:text-muted-foreground/40"
-                value={quickAddValue}
-                onChange={(e) => setQuickAddValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    submitQuickAdd();
-                  }
-                }}
-             />
+             <div className={cn("relative w-full",
+                 {"fade-top": showTopFade, "fade-bottom": showBottomFade}
+             )}>
+                 <AutoResizingTextarea
+                    ref={inputRef as unknown as React.RefObject<HTMLTextAreaElement>}
+                    placeholder="+ Add task"
+                    className="bg-transparent border-none shadow-none text-sm text-muted-foreground hover:bg-secondary/30 focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all rounded-lg placeholder:text-muted-foreground/40 min-h-[36px] p-2 scrollbar-hide"
+                    value={quickAddValue}
+                    onChange={(e) => setQuickAddValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        submitQuickAdd();
+                      }
+                    }}
+                    rows={1}
+                    setShowTopFade={setShowTopFade}
+                    setShowBottomFade={setShowBottomFade}
+                    maxHeight={MAX_TEXTAREA_HEIGHT_QUICK_ADD}
+                 />
+             </div>
           </motion.div>
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
+// 3.3. Timeline View
+const TimelineView = ({
+  tasks,
+  onTaskClick,
+  onDropTask, // Still passing this for now, will adapt or replace
+  onUpdateTask,
+  onDeleteTask,
+}: {
+  tasks: Task[];
+  onTaskClick: (id: string) => void;
+  onDropTask: (taskId: string, status: Status) => void; // This needs to be adapted for dueDate
+  onUpdateTask: (id: string, updates: Partial<Task>) => void;
+  onDeleteTask: (id: string) => void;
+}) => {
+  // Generate a range of dates
+  const today = new Date();
+  const startDate = new Date(today.setDate(today.getDate() - 3)); // 3 days before today
+  const endDate = new Date(today.setDate(today.getDate() + 10)); // 10 days after today (from original today)
+
+  const dateRange: Date[] = [];
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    dateRange.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Group tasks by date
+  const tasksByDate = useMemo(() => {
+    const grouped = new Map<string, Task[]>();
+    dateRange.forEach(date => grouped.set(format(date, 'yyyy-MM-dd'), [])); // Initialize all dates
+
+    tasks.forEach(task => {
+      if (task.dueDate) {
+        const dueDateKey = format(new Date(task.dueDate), 'yyyy-MM-dd');
+        if (grouped.has(dueDateKey)) {
+          grouped.get(dueDateKey)?.push(task);
+        } else {
+          // If a task has a due date outside our current range, add it to an "overflow" category or simply ignore
+          // For now, let's just add it if the date wasn't initialized
+          grouped.set(dueDateKey, [...(grouped.get(dueDateKey) || []), task]);
+        }
+      }
+    });
+    return grouped;
+  }, [tasks, dateRange]);
+
+  const handleDateDrop = (taskId: string, targetDate: Date) => {
+    onUpdateTask(taskId, { dueDate: targetDate.toISOString() });
+  };
+
+  return (
+    <div className="flex h-full gap-4 sm:gap-6 min-w-full lg:w-full lg:max-w-[1920px] mx-auto">
+      <ScrollArea className="flex-1 w-full h-full">
+        <div className="flex h-full py-1">
+          {dateRange.map(date => {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            const dayTasks = tasksByDate.get(dateKey) || [];
+            const isTodayDate = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+            return (
+              <TimelineDayColumn
+                key={dateKey}
+                date={date}
+                tasks={dayTasks}
+                isToday={isTodayDate}
+                onTaskClick={onTaskClick}
+                onDateDrop={handleDateDrop}
+                onDeleteTask={onDeleteTask}
+                onUpdateTask={onUpdateTask}
+              />
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
+const TimelineDayColumn = ({
+  date,
+  tasks,
+  isToday,
+  onTaskClick,
+  onDateDrop,
+  onDeleteTask,
+  onUpdateTask
+}: {
+  date: Date;
+  tasks: Task[];
+  isToday: boolean;
+  onTaskClick: (id: string) => void;
+  onDateDrop: (taskId: string, targetDate: Date) => void;
+  onDeleteTask: (id: string) => void;
+  onUpdateTask: (id: string, updates: Partial<Task>) => void;
+}) => {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dateKey = format(date, 'yyyy-MM-dd');
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const taskId = e.dataTransfer.getData("taskId");
+    if (taskId) {
+      onDateDrop(taskId, date);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col h-full min-w-[200px] flex-1 rounded-2xl p-2 transition-all duration-300 border-2",
+        isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-transparent border-transparent",
+        isToday && "bg-blue-100/20 border-blue-200/50"
+      )}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={handleDrop}
+    >
+      <div className="flex items-center justify-between shrink-0 mb-3">
+        <h3 className={cn("font-bold text-sm", isToday ? "text-blue-600" : "text-foreground/80")}>
+          {format(date, 'EEE, MMM d')}
+        </h3>
+        <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
+          {tasks.length}
+        </span>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col min-h-[100px] gap-2">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {tasks.length === 0 && (
+              <motion.div 
+                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                 className="h-24 flex items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1"
+              >
+                 <span className="text-[10px] font-medium uppercase tracking-widest">No tasks</span>
+              </motion.div>
+            )}
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onClick={onTaskClick}
+                onDelete={onDeleteTask}
+                onQuickEdit={(id, title) => onUpdateTask(id, { title })}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       </ScrollArea>
     </div>
@@ -445,10 +728,38 @@ const Column = ({
 export default function Test15Page() {
   const [tasks, dispatch] = useReducer(taskReducer, INITIAL_TASKS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [editingNewTask, setEditingNewTask] = useState<Task | null>(null); // New state for task being created
+  const [activeView, setActiveView] = useState<"board" | "timeline">("board"); // New state for active view
   const [searchQuery, setSearchQuery] = useState("");
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [lastDeleted, setLastDeleted] = useState<{ task: Task, index: number } | null>(null);
+  const [showTopFadeTitle, setShowTopFadeTitle] = useState(false);
+  const [showBottomFadeTitle, setShowBottomFadeTitle] = useState(false);
+  const [showTopFadeDescription, setShowTopFadeDescription] = useState(false);
+  const [showBottomFadeDescription, setShowBottomFadeDescription] = useState(false);
+
+const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
+const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
+
+  const handleAddNewTaskClick = useCallback(() => {
+    const newTask: Task = {
+      id: "new", // Temporary ID for a new task
+      title: "",
+      description: "",
+      status: "todo", // Default status
+      priority: "medium", // Default priority
+      assignees: [],
+      subtasks: [],
+      comments: [],
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      dueDate: new Date().toISOString(), // Default to today's date
+    };
+    setEditingNewTask(newTask);
+    setSelectedTaskId("new"); // Set selectedId to a special value for new task
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -469,9 +780,12 @@ export default function Test15Page() {
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, [lastDeleted]);
 
-  const selectedTask = useMemo(() => 
-    tasks.find(t => t.id === selectedTaskId) || null
-  , [tasks, selectedTaskId]);
+  const selectedTask = useMemo(() => {
+    if (selectedTaskId === "new") {
+      return editingNewTask;
+    }
+    return tasks.find(t => t.id === selectedTaskId) || null;
+  }, [tasks, selectedTaskId, editingNewTask]);
 
   const filteredTasks = useMemo(() => {
     if (!searchQuery) return tasks;
@@ -494,7 +808,7 @@ export default function Test15Page() {
     // toast.success(`Moved to ${COLUMNS.find(c => c.id === status)?.title}`);
   }, []);
 
-  const handleQuickAdd = useCallback((status: Status, title: string) => {
+  const handleQuickAdd = useCallback((status: Status, title: string, coverImage?: string) => {
     const newTask: Task = {
       id: `t-${Date.now()}`,
       title,
@@ -507,13 +821,27 @@ export default function Test15Page() {
       tags: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...(coverImage && { coverImage }), // Conditionally add coverImage
     };
     dispatch({ type: "ADD_TASK", task: newTask });
   }, []);
 
   const handleUpdateTask = useCallback((id: string, updates: Partial<Task>) => {
-    dispatch({ type: "UPDATE_TASK", taskId: id, updates });
-  }, []);
+    if (id === "new" && editingNewTask) {
+      setEditingNewTask(prev => prev ? { ...prev, ...updates } : null);
+    } else {
+      dispatch({ type: "UPDATE_TASK", taskId: id, updates });
+    }
+  }, [editingNewTask]);
+
+  const handleSaveNewTask = useCallback(() => {
+    if (editingNewTask && selectedTaskId === "new") {
+      const finalTask = { ...editingNewTask, id: `t-${Date.now()}` }; // Assign real ID
+      dispatch({ type: "ADD_TASK", task: finalTask });
+      setEditingNewTask(null);
+      setSelectedTaskId(null); // Close the detail sheet
+    }
+  }, [editingNewTask, selectedTaskId]);
 
   const handleDeleteTask = useCallback((id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
@@ -559,41 +887,79 @@ export default function Test15Page() {
             />
           </div>
 
-          <div className="flex items-center border-l border-border/40 pl-3 gap-2">
+          <div className="flex items-center gap-1 border-l border-border/40 pl-3">
             <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 rounded-full hover:bg-secondary"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              variant={activeView === "board" ? "secondary" : "ghost"} 
+              size="sm" 
+              className="h-8 text-xs px-3"
+              onClick={() => setActiveView("board")}
             >
-                {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+              <LayoutGrid size={14} className="mr-2" /> Board
             </Button>
-            <Avatar className="h-8 w-8 border border-border/50">
-                <AvatarImage src={CURRENT_USER.avatar} />
-                <AvatarFallback>ME</AvatarFallback>
-            </Avatar>
+            <Button 
+              variant={activeView === "timeline" ? "secondary" : "ghost"} 
+              size="sm" 
+              className="h-8 text-xs px-3"
+              onClick={() => setActiveView("timeline")}
+            >
+              <ListIcon size={14} className="mr-2" /> Timeline
+            </Button>
           </div>
-        </div>
+
+                    <div className="flex items-center gap-3">
+                      <Button
+                          className="font-semibold text-xs h-8 px-3 rounded-md"
+                          onClick={handleAddNewTaskClick} // New handler
+                      >
+                          <Plus size={14} className="mr-2" /> Add Task
+                      </Button>
+                      <div className="flex items-center border-l border-border/40 pl-3 gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full hover:bg-secondary"
+                            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                        >
+                            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                        </Button>
+                        <Avatar className="h-8 w-8 border border-border/50">
+                            <AvatarImage src={CURRENT_USER.avatar} />
+                            <AvatarFallback>ME</AvatarFallback>
+                        </Avatar>
+                      </div>
+                    </div>        </div>
       </header>
 
       {/* 4.2. Board Canvas (Responsive Flex) */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
-        <div className="flex h-full gap-4 sm:gap-6 min-w-full lg:w-full lg:max-w-[1920px] mx-auto">
-          <LayoutGroup>
-            {COLUMNS.map(column => (
-              <Column 
-                key={column.id}
-                column={column}
-                tasks={filteredTasks.filter(t => t.status === column.id)}
-                onTaskClick={setSelectedTaskId}
-                onDeleteTask={handleDeleteTask}
-                onDropTask={handleDropTask}
-                onQuickAdd={handleQuickAdd}
-                onQuickEdit={(id, title) => handleUpdateTask(id, { title })}
-              />
-            ))}
-          </LayoutGroup>
-        </div>
+        {activeView === "board" && (
+          <div className="flex h-full gap-4 sm:gap-6 min-w-full lg:w-full lg:max-w-[1920px] mx-auto">
+            <LayoutGroup>
+              {COLUMNS.map(column => (
+                <Column 
+                  key={column.id}
+                  column={column}
+                  tasks={filteredTasks.filter(t => t.status === column.id)}
+                  onTaskClick={setSelectedTaskId}
+                  onDeleteTask={handleDeleteTask}
+                  onDropTask={handleDropTask}
+                  onQuickAdd={handleQuickAdd}
+                  onQuickEdit={(id, title) => handleUpdateTask(id, { title })}
+                />
+              ))}
+            </LayoutGroup>
+          </div>
+        )}
+
+        {activeView === "timeline" && (
+          <TimelineView // This will be our new component
+            tasks={filteredTasks}
+            onTaskClick={setSelectedTaskId}
+            onDropTask={handleDropTask} // Re-using, will need modification
+            onUpdateTask={handleUpdateTask} // For dragging between dates
+            onDeleteTask={handleDeleteTask}
+          />
+        )}
       </main>
 
       {/* 4.3. Functional Detail Sheet */}
@@ -650,7 +1016,13 @@ export default function Test15Page() {
                    <Button 
                       size="icon" variant="secondary" 
                       className="h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm"
-                      onClick={() => setSelectedTaskId(null)}
+                      onClick={() => {
+                        if (selectedTaskId === "new") {
+                          handleSaveNewTask();
+                        } else {
+                          setSelectedTaskId(null);
+                        }
+                      }}
                    >
                       <ArrowUpRight size={14} />
                    </Button>
@@ -697,12 +1069,19 @@ export default function Test15Page() {
                  </div>
 
                  {/* Title */}
-                 <Textarea 
-                    value={selectedTask.title}
-                    onChange={(e) => handleUpdateTask(selectedTask.id, { title: e.target.value })}
-                    className="text-3xl font-bold bg-transparent border-none p-0 shadow-none resize-none focus-visible:ring-0 leading-tight min-h-[48px] mb-6 placeholder:text-muted-foreground/30"
-                    placeholder="Task Title"
-                 />
+                 <div className={cn("relative w-full",
+                    {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
+                 )}>
+                    <AutoResizingTextarea
+                       value={selectedTask.title}
+                       onChange={(e) => handleUpdateTask(selectedTask.id, { title: e.target.value })}
+                       className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
+                       placeholder="Task Title"
+                       setShowTopFade={setShowTopFadeTitle}
+                       setShowBottomFade={setShowBottomFadeTitle}
+                       maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
+                    />
+                 </div>
 
                  {/* Assignees */}
                  <div className="mb-8">
@@ -772,12 +1151,19 @@ export default function Test15Page() {
                     <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2 group-focus-within:text-primary transition-colors">
                        Description
                     </label>
-                    <Textarea 
-                       value={selectedTask.description}
-                       onChange={(e) => handleUpdateTask(selectedTask.id, { description: e.target.value })}
-                       className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:border-border/50 resize-none rounded-xl leading-relaxed"
-                       placeholder="Add details about this task..."
-                    />
+                    <div className={cn("relative w-full rounded-xl",
+                        {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
+                    )}>
+                       <AutoResizingTextarea
+                          value={selectedTask.description}
+                          onChange={(e) => handleUpdateTask(selectedTask.id, { description: e.target.value })}
+                          className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
+                          placeholder="Add details about this task..."
+                          setShowTopFade={setShowTopFadeDescription}
+                          setShowBottomFade={setShowBottomFadeDescription}
+                          maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
+                       />
+                    </div>
                  </div>
 
                  {/* Subtasks */}
@@ -808,18 +1194,19 @@ export default function Test15Page() {
                              >
                                 {sub.completed && <Check size={12} />}
                              </button>
-                             <Input 
-                                value={sub.title}
-                                onChange={(e) => {
-                                   const newSub = [...selectedTask.subtasks];
-                                   newSub[idx].title = e.target.value;
-                                   handleUpdateTask(selectedTask.id, { subtasks: newSub });
-                                }}
-                                className={cn(
-                                   "h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm flex-1",
-                                   sub.completed && "text-muted-foreground line-through decoration-border"
-                                )}
-                             />
+                             <AutoResizingTextarea
+                                   value={sub.title}
+                                   onChange={(e) => {
+                                      const newSub = [...selectedTask.subtasks];
+                                      newSub[idx].title = e.target.value;
+                                      handleUpdateTask(selectedTask.id, { subtasks: newSub });
+                                   }}
+                                   className={cn(
+                                      "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
+                                      sub.completed && "text-muted-foreground line-through decoration-border"
+                                   )}
+                                   maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
+                                />
                              
                              {/* Completed By Badge */}
                              {sub.completed && sub.completedBy && (
@@ -847,6 +1234,28 @@ export default function Test15Page() {
                        </Button>
                     </div>
                  </div>
+              </div>
+
+              {/* Detail Sheet Footer with Save/Cancel */}
+              <div className="flex items-center justify-end gap-2 p-4 border-t border-border/50 bg-card shrink-0">
+                 <Button variant="outline" onClick={() => {
+                    if (selectedTaskId === "new") {
+                       setEditingNewTask(null); // Discard new task
+                    }
+                    setSelectedTaskId(null); // Close without saving for existing or after discard
+                 }}>
+                    Cancel
+                 </Button>
+                 <Button onClick={() => {
+                    if (selectedTaskId === "new") {
+                       handleSaveNewTask();
+                    } else {
+                       setSelectedTaskId(null); // Close for existing, changes are already saved
+                       toast.success("Task updated!"); // Explicit feedback for existing tasks
+                    }
+                 }}>
+                    Save
+                 </Button>
               </div>
             </motion.div>
           </>
