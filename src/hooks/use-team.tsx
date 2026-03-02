@@ -18,6 +18,8 @@ interface TeamContextType {
   owner: any | null;
   stats: any | null;
   loading: boolean;
+  selectedDate: Date;
+  setSelectedDate: (date: Date) => void;
 }
 
 const TeamContext = createContext<TeamContextType>({
@@ -25,12 +27,15 @@ const TeamContext = createContext<TeamContextType>({
   owner: null,
   stats: null,
   loading: true,
+  selectedDate: new Date(),
+  setSelectedDate: () => {},
 });
 
 export function TeamProvider({ children }: { children: React.ReactNode }) {
   const { user, userData, loading: authLoading } = useAuth();
   const [personnelData, setPersonnelData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Track active sub-listeners globally to prevent duplicate attachments
   const listenersRef = useRef<Record<string, (() => void)[]>>({});
@@ -54,6 +59,10 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Clear sub-listeners when date changes to force fresh sync for the new range
+    Object.values(listenersRef.current).forEach(unsubs => unsubs.forEach(unsub => unsub()));
+    listenersRef.current = {};
+
     // --- STEP 1: SYNC PERSONNEL LIST ---
     const q = query(
       collection(db, "users"), 
@@ -62,7 +71,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribePersonnel = onSnapshot(q, (snapshot) => {
       const allPersonnel = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      const todayStr = format(new Date(), "yyyy-MM-dd");
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
       const currentUids = allPersonnel.map(p => p.id);
 
       // Handle removals
@@ -111,13 +120,23 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
         }, (err) => console.warn(`HB Error ${p.id}:`, err.message));
         userUnsubs.push(unsubHb);
 
-        // --- STEP 3: SYNC TODAY'S SHIFTS (TARGETED) ---
+        // --- STEP 3: SYNC SELECTED DATE'S SHIFTS (TARGETED) ---
+        /**
+         * SCHEMA COMPATIBILITY NOTICE:
+         * This query handles both Legacy (flat) and Modern (nested) shift documents.
+         * The normalization happens in the derivation logic (stats calculation).
+         * 
+         * PHASE-OUT GUIDE (For Future Maintainers):
+         * 1. Ensure all users' 'lastLoginAppVersion' is >= 2.0.0.
+         * 2. Remove 'cognitiveReport' fallbacks in stats derivation.
+         * 3. Assume liveBreakdown[app] is always an object, not a number.
+         */
         const shiftsRef = collection(db, "users", p.id, "workShifts");
         const qShifts = query(
             shiftsRef, 
             orderBy("__name__"), 
-            startAt(todayStr), 
-            endAt(todayStr + "\uf8ff")
+            startAt(dateStr), 
+            endAt(dateStr + "\uf8ff")
         );
 
         const unsubShifts = onSnapshot(qShifts, (snap) => {
@@ -143,7 +162,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       // Note: We don't clear sub-listeners here to maintain the cache across navigation
       // They are only cleared if the user/org context actually changes.
     };
-  }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners]);
+  }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners, selectedDate]);
 
   // Derive final data
   const employees = Object.values(personnelData).filter(p => {
@@ -178,14 +197,22 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       totalSecondsAllTime += (p.totalSeconds || 0);
 
       p.workShifts?.forEach((s: any) => {
-        totalSecondsToday += (s.liveMetrics?.totalSeconds || 0);
+        // Source of Truth: liveMetrics.totalSeconds
+        const shiftSeconds = s.liveMetrics?.totalSeconds || 0;
+        totalSecondsToday += shiftSeconds;
+
+        // Breakdown Aggregation (Legacy: number, New: object)
         if (s.liveBreakdown) {
-          Object.entries(s.liveBreakdown).forEach(([app, secs]) => {
-            orgAppMap[app] = (orgAppMap[app] || 0) + (secs as number);
+          Object.entries(s.liveBreakdown).forEach(([app, data]) => {
+            const secs = typeof data === 'number' ? data : (data as any)?.totalSeconds || 0;
+            orgAppMap[app] = (orgAppMap[app] || 0) + secs;
           });
         }
-        if (s.cognitiveReport?.velocity) {
-          totalVelocity += s.cognitiveReport.velocity;
+
+        // Cognitive Fallback (New: root, Legacy: cognitiveReport)
+        const velocity = s.velocity ?? s.cognitiveReport?.velocity;
+        if (velocity !== undefined && velocity !== null) {
+          totalVelocity += velocity;
           velocityCount++;
         }
       });
@@ -211,7 +238,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   })();
 
   return (
-    <TeamContext.Provider value={{ employees, owner, stats, loading }}>
+    <TeamContext.Provider value={{ employees, owner, stats, loading, selectedDate, setSelectedDate }}>
       {children}
     </TeamContext.Provider>
   );

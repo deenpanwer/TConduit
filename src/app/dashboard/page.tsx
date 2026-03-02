@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
+import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
+import { BrainCircuit, Sparkles, ArrowRight, ShieldAlert } from "lucide-react";
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -25,6 +27,7 @@ export default function DashboardPage() {
     loading: teamLoading,
   } = useTeam();
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   
@@ -152,19 +155,23 @@ export default function DashboardPage() {
               orgData={orgData}
               userData={userData}
             />
-          ) : employees.length === 0 ? (
-            <EmptyState 
-                orgName={userData?.orgName || "Your Organization"}
-                inviteCode={orgData?.inviteCode}
-                onCopy={copyInviteCode}
-                onShare={shareInvite}
-                copied={copied}
-            />
           ) : (
-            <MasterDashboard 
-              orgData={orgData} 
-              ownerData={userData} 
-            />
+            <div className="space-y-8">
+              {employees.length === 0 ? (
+                <EmptyState 
+                    orgName={userData?.orgName || "Your Organization"}
+                    inviteCode={orgData?.inviteCode}
+                    onCopy={copyInviteCode}
+                    onShare={shareInvite}
+                    copied={copied}
+                />
+              ) : (
+                <MasterDashboard 
+                  orgData={orgData} 
+                  ownerData={userData} 
+                />
+              )}
+            </div>
           )}
         </div>
       </main>

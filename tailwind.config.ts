@@ -70,6 +70,9 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      transitionTimingFunction: {
+        'apple-ease': 'cubic-bezier(0.32, 0.72, 0, 1)',
+      },
       keyframes: {
         'accordion-down': {
           from: {

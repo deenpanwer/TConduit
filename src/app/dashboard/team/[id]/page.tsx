@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { EmployeeHeader } from "@/components/dashboard/employee/EmployeeHeader";
 import { ShiftPulse } from "@/components/dashboard/employee/ShiftPulse";
 import { RecentEvidence } from "@/components/dashboard/employee/RecentEvidence";
@@ -19,8 +19,8 @@ import { CognitiveHub } from "@/components/dashboard/employee/CognitiveHub";
 import { YieldCalculator } from "@/components/dashboard/employee/YieldCalculator";
 import { motion } from "framer-motion";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Ticket, Copy, Check } from "lucide-react";
@@ -42,11 +42,13 @@ import { useTeam } from "@/hooks/use-team";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
+import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
+import { cn } from "@/lib/utils";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
+  visible: {
+    opacity: 1,
     y: 0,
     transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
   }
@@ -56,13 +58,13 @@ const sectionVariants = {
  * EmployeeDetailPage: Deep-Dive Data Orchestration
  * -----------------------------------------------
  * This page manages temporary listeners for historical and deep-dive data.
- * 
+ *
  * COST OPTIMIZATION (Surgical Reads):
  * 1. Shifts: Limited to last 30 at base (Bills only for existing docs).
  * 2. Time Entries: Limited to 5 at base.
  * 3. Screenshots: 1 listener for TODAY only at base.
- * 
- * NOTE ON NEW USERS: If a user joined today, a "limit(30)" query only bills for 
+ *
+ * NOTE ON NEW USERS: If a user joined today, a "limit(30)" query only bills for
  * the 1 or 2 shifts they actually have. Firestore does not bill for the "empty" limit.
  */
 export default function EmployeeDetailPage() {
@@ -84,8 +86,8 @@ export default function EmployeeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [orgData, setOrgData] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [orgData, setOrgData] = useState<any>(null);  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   // Modals for employee actions
@@ -93,12 +95,6 @@ export default function EmployeeDetailPage() {
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
   const [selectedModalRole, setSelectedModalRole] = useState("");
-
-  useEffect(() => {
-    if (employee?.role) {
-      setSelectedModalRole(employee.role.toLowerCase());
-    }
-  }, [showMemberAccessModal, employee]);
 
   const liveEmployee = useMemo(() => {
     if (owner?.id === id) return owner;
@@ -109,6 +105,12 @@ export default function EmployeeDetailPage() {
     if (!employeeDoc && !liveEmployee) return null;
     return { ...employeeDoc, ...liveEmployee };
   }, [employeeDoc, liveEmployee]);
+
+  useEffect(() => {
+    if (employee?.role) {
+      setSelectedModalRole(employee.role.toLowerCase());
+    }
+  }, [showMemberAccessModal, employee]);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -221,9 +223,12 @@ export default function EmployeeDetailPage() {
         const shiftDuration = shift.liveMetrics?.totalSeconds || 0;
         todayTotalSeconds += shiftDuration;
         if (shift.status === 'active') activeShiftSeconds = shiftDuration;
+        
         if (shift.liveBreakdown) {
           for (const appName in shift.liveBreakdown) {
-            todayAppBreakdown[appName] = (todayAppBreakdown[appName] || 0) + (shift.liveBreakdown[appName] || 0);
+            const data = shift.liveBreakdown[appName];
+            const secs = typeof data === 'number' ? data : (data as any)?.totalSeconds || 0;
+            todayAppBreakdown[appName] = (todayAppBreakdown[appName] || 0) + secs;
           }
         }
       }
@@ -266,11 +271,13 @@ export default function EmployeeDetailPage() {
     const mostRecentShift = relevantShifts[0]; 
     if (!mostRecentShift) return { intensity: employee?.heartbeat?.isCurrentlyRunning ? 0.1 : 0, aiBrief: null };
 
-    const focus = mostRecentShift.cognitiveReport.focusScore || 0;
-    const productivity = mostRecentShift.cognitiveReport.productivityScore || 0;
-    const velocity = mostRecentShift.cognitiveReport.velocity || 0;
+    // Root-level fallback for New Schema
+    const focus = mostRecentShift.focusScore ?? mostRecentShift.cognitiveReport?.focusScore ?? 0;
+    const productivity = mostRecentShift.productivityScore ?? mostRecentShift.cognitiveReport?.productivityScore ?? 0;
+    const velocity = mostRecentShift.velocity ?? mostRecentShift.cognitiveReport?.velocity ?? 0;
+    const brief = mostRecentShift.aiBrief ?? mostRecentShift.cognitiveReport?.aiBrief;
+
     const compositeScore = (focus + productivity + velocity) / 3;
-    const brief = mostRecentShift.cognitiveReport.aiBrief;
     let normalizedIntensity = Math.min(Math.max(compositeScore / 70, 0), 1.5);
     if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
@@ -373,6 +380,13 @@ export default function EmployeeDetailPage() {
         onOpenChange={setShowInviteModal}
       />
 
+      <IntelligenceModal 
+        isOpen={showIntelligenceModal}
+        onOpenChange={setShowIntelligenceModal}
+        userId={id as string}
+        userName={employee?.name || "Member"}
+      />
+
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
@@ -384,6 +398,14 @@ export default function EmployeeDetailPage() {
           
           <div className="flex items-center gap-2">
             <SubscriptionBadge orgData={orgData} userData={userData} />
+            <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowIntelligenceModal(true)} 
+                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+            >
+                <ShieldCheck size={14} className="mr-2" /> Tracking Rules
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
             </Button>

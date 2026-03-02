@@ -29,14 +29,20 @@ interface MasterDashboardProps {
 }
 
 export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: MasterDashboardProps) => {
-  const { employees, owner: enrichedOwner, stats, loading } = useTeam();
+  const { employees, owner: enrichedOwner, stats, loading, selectedDate, setSelectedDate } = useTeam();
   const ownerData = enrichedOwner || initialOwnerData;
 
-  const todayStr = React.useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const dateStr = React.useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
   // --- SINGLE-PASS DATA ENGINE ---
-  // This central processing block transforms raw Firestore personnel data into
-  // optimized structures for all visualization components in one go.
+  // SCHEMA COMPATIBILITY NOTICE:
+  // This engine processes both Legacy and Modern workShift JSON structures.
+  // Legacy: liveBreakdown[app] is a number.
+  // Modern: liveBreakdown[app] is an object with { totalSeconds, activeSeconds, ... }.
+  //
+  // PHASE-OUT GUIDE:
+  // Once 100% of employees migrate to modern app versions, simplify this engine
+  // to remove 'typeof data === "number"' checks.
   const processedData = React.useMemo(() => {
     if (employees.length === 0) return { workforce: [], performance: [], sankey: { nodes: [], links: [] } };
 
@@ -47,7 +53,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
     // 1. Initialize Performance Buckets
     const hourlyBuckets = Array.from({ length: 24 }, (_, i) => ({
         date: `${i.toString().padStart(2, '0')}:00`,
-        fullDate: `Today at ${i.toString().padStart(2, '0')}:00`,
+        fullDate: `Selected Day at ${i.toString().padStart(2, '0')}:00`,
         actualHours: 0,
         projectedHours: null as number | null
     }));
@@ -60,7 +66,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
     // 3. Process Workforce Table
     const workforce = employees.map(emp => {
         const shifts = emp.workShifts || [];
-        let todaySeconds = 0;
+        let totalDaySeconds = 0;
         let totalSeconds = 0;
         const empAppMap: Record<string, number> = {};
         const sparklineActivity: { timestamp: number, score: number }[] = [];
@@ -69,23 +75,25 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             const shiftTotalSeconds = shift.liveMetrics?.totalSeconds || 0;
             totalSeconds += shiftTotalSeconds;
 
-            // Metrics aggregation for Today
-            if (shift.id.startsWith(todayStr)) {
-                todaySeconds += shiftTotalSeconds;
+            // Metrics aggregation for Selected Date
+            if (shift.id.startsWith(dateStr)) {
+                totalDaySeconds += shiftTotalSeconds;
 
-                // Process App Breakdown for Sankey and Employee Stats
+                // Process App Breakdown (Legacy: number, New: object)
                 if (shift.liveBreakdown) {
-                    Object.entries(shift.liveBreakdown).forEach(([appName, secs]) => {
-                        const s = secs as number;
+                    Object.entries(shift.liveBreakdown).forEach(([appName, data]) => {
+                        const s = typeof data === 'number' ? data : (data as any)?.totalSeconds || 0;
                         empAppMap[appName] = (empAppMap[appName] || 0) + s;
                     });
                 }
 
-                // Process Hourly Pulse for Performance Horizon Chart
+                // Process Hourly Pulse (Legacy: flat, New: nested metrics)
                 if (shift.hourlyPulse) {
-                    Object.entries(shift.hourlyPulse).forEach(([hourKey, metrics]: [string, any]) => {
+                    Object.entries(shift.hourlyPulse).forEach(([hourKey, data]: [string, any]) => {
                         const hourIdx = parseInt(hourKey);
-                        const hourSeconds = metrics.seconds || 0;
+                        const metrics = data?.metrics || data; 
+                        const hourSeconds = metrics.seconds || metrics.totalSeconds || 0;
+                        
                         if (hourIdx >= 0 && hourIdx < 24) {
                             hourlyBuckets[hourIdx].actualHours += hourSeconds / 3600;
                         }
@@ -101,11 +109,11 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
         });
 
         // Finalize Employee Node & Links for Sankey
-        const empTotalHoursToday = todaySeconds / 3600;
-        if (empTotalHoursToday > 0.05) {
+        const empTotalHoursSelectedDay = totalDaySeconds / 3600;
+        if (empTotalHoursSelectedDay > 0.05) {
             const empIdx = sankeyNodes.length;
             sankeyNodes.push({ name: emp.name.toUpperCase(), color: "#8b5cf6" });
-            sankeyLinks.push({ source: 0, target: empIdx, value: empTotalHoursToday });
+            sankeyLinks.push({ source: 0, target: empIdx, value: empTotalHoursSelectedDay });
 
             Object.entries(empAppMap).forEach(([appName, seconds]) => {
                 const appHours = seconds / 3600;
@@ -123,7 +131,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
         return {
             ...emp, 
             location: emp.lastLoginLocation?.city || "Remote",
-            hoursToday: (todaySeconds / 3600).toFixed(1),
+            hoursToday: (totalDaySeconds / 3600).toFixed(1),
             totalHours: (totalSeconds / 3600).toFixed(1),
             topApp: Object.entries(empAppMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "---",
             isLive: emp.heartbeat?.isCurrentlyRunning || false,
@@ -132,16 +140,17 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
     });
 
     // 4. Finalize Performance Chart (Projections)
+    const isToday = format(new Date(), "yyyy-MM-dd") === dateStr;
     const totalHoursSoFar = hourlyBuckets.slice(0, currentHour + 1).reduce((acc, b) => acc + b.actualHours, 0);
     const avgHourlyRate = totalHoursSoFar > 0 ? totalHoursSoFar / (currentHour + 1) : 0;
 
     const performance = hourlyBuckets.map((b, i) => {
-        const isPast = i <= currentHour;
-        const projectedValue = avgHourlyRate > 0 ? Math.max(0.1, parseFloat(avgHourlyRate.toFixed(1))) : null;
+        const isPast = !isToday || i <= currentHour;
+        const projectedValue = isToday && avgHourlyRate > 0 ? Math.max(0.1, parseFloat(avgHourlyRate.toFixed(1))) : null;
         return {
             ...b,
-            actualHours: isPast ? parseFloat(b.actualHours.toFixed(1)) : null,
-            projectedHours: i >= currentHour ? (i === currentHour ? parseFloat(b.actualHours.toFixed(1)) : projectedValue) : null
+            actualHours: isPast ? parseFloat(b.actualHours.toFixed(1)) : (isToday ? null : parseFloat(b.actualHours.toFixed(1))),
+            projectedHours: isToday && i >= currentHour ? (i === currentHour ? parseFloat(b.actualHours.toFixed(1)) : projectedValue) : null
         };
     });
 
@@ -150,7 +159,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
         performance, 
         sankey: { nodes: sankeyNodes, links: sankeyLinks } 
     };
-  }, [employees, todayStr, ownerData, orgData]);
+  }, [employees, dateStr, ownerData, orgData, selectedDate]);
 
   if (loading) {
     return (

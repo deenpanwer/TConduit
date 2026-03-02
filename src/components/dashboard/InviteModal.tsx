@@ -42,21 +42,22 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-[2.5rem] border-border bg-card shadow-2xl p-8">
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[95vh] overflow-y-auto rounded-[1.5rem] sm:rounded-[2.5rem] border-border bg-card shadow-2xl p-6 sm:p-8 custom-scrollbar outline-none">
         <DialogHeader className="items-center text-center">
-          <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-              <Ticket size={32} className="text-primary" />
+          <div className="size-12 sm:size-16 bg-primary/10 rounded-xl sm:rounded-2xl flex items-center justify-center mb-4">
+              <Ticket size={32} className="text-primary hidden sm:block" />
+              <Ticket size={24} className="text-primary sm:hidden" />
           </div>
-          <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Invite Staff Member</DialogTitle>
-          <DialogDescription className="text-xs font-bold uppercase tracking-tight text-muted-foreground">
+          <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tighter">Invite Staff Member</DialogTitle>
+          <DialogDescription className="text-[10px] sm:text-xs font-bold uppercase tracking-tight text-muted-foreground">
             Direct your team to enter this code in the Trac EMS Profile.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center space-y-6 pt-4">
-          <div className="w-full p-8 bg-secondary/50 rounded-3xl border-2 border-dashed border-border flex flex-col items-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">Organization Code</p>
-              <h3 className="text-5xl font-black tracking-[0.3em] text-foreground mb-6 pl-4 tabular-nums">{orgData?.inviteCode || "------"}</h3>
-              <Button onClick={copyInviteCode} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8 shadow-lg shadow-primary/20">
+          <div className="w-full p-6 sm:p-8 bg-secondary/50 rounded-2xl sm:rounded-3xl border-2 border-dashed border-border flex flex-col items-center">
+              <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-2">Organization Code</p>
+              <h3 className="text-3xl sm:text-5xl font-black tracking-[0.2em] sm:tracking-[0.3em] text-foreground mb-6 pl-2 sm:pl-4 tabular-nums">{orgData?.inviteCode || "------"}</h3>
+              <Button onClick={copyInviteCode} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 sm:h-12 px-6 sm:px-8 shadow-lg shadow-primary/20 w-full sm:w-auto">
                   {copied ? <Check size={16} className="mr-2" /> : <Copy size={16} className="mr-2" />}
                   {copied ? "Copied" : "Copy Code"}
               </Button>

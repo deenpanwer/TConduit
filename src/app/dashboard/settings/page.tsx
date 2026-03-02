@@ -14,10 +14,11 @@ import { Label } from "@/components/ui/label";
 import { useTeam } from "@/hooks/use-team";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
+import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
 import { 
   LogOut, User, Building2, Ticket, 
   Check, Copy, Moon, Sun, Menu, X, ArrowLeft,
-  Clock, Calendar, Save, Fingerprint, Loader2
+  Clock, Calendar, Save, Fingerprint, Loader2, BrainCircuit, ShieldCheck, Zap, Ban, ArrowRight, Users
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +56,8 @@ export default function SettingsPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [selectedUserForIntelligence, setSelectedUserForIntelligence] = useState<{id: string, name: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedOrgId, setCopiedOrgId] = useState(false);
   const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
@@ -196,6 +199,13 @@ export default function SettingsPage() {
         onOpenChange={setShowInviteModal}
       />
 
+      <IntelligenceModal 
+        isOpen={showIntelligenceModal}
+        onOpenChange={setShowIntelligenceModal}
+        userId={selectedUserForIntelligence?.id || ""}
+        userName={selectedUserForIntelligence?.name || ""}
+      />
+
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30">
           <div className="flex items-center gap-4">
@@ -251,6 +261,68 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest ml-1">Account Role</Label>
                         <Input value={userData?.role || "Organization Owner"} disabled className="bg-secondary/50 h-12 rounded-xl font-bold" />
+                    </div>
+                </div>
+            </section>
+
+            {/* Tracking Intelligence Section (User Specific) */}
+            <section className="bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <BrainCircuit size={120} />
+                </div>
+                
+                <div className="space-y-8 relative z-10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-4">
+                                <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border-2 border-primary/20 shadow-inner">
+                                    <ShieldCheck size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black uppercase tracking-tighter">Tracking Intelligence</h3>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Employee-Specific Work Rules</p>
+                                </div>
+                            </div>
+                            <p className="text-sm font-bold leading-relaxed max-w-xl text-muted-foreground">
+                                Set custom "Work Powerhouses" and "Focus Killers" for each team member to refine their productivity reports.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                        {employees.map((emp) => (
+                            <div 
+                                key={emp.id} 
+                                className="flex items-center justify-between p-4 bg-secondary/30 rounded-2xl border-2 border-transparent hover:border-black dark:hover:border-white transition-all group/item"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="size-10 rounded-full overflow-hidden border-2 border-border">
+                                        <img src={emp.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.id}`} alt={emp.name} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black uppercase tracking-tight">{emp.name}</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{emp.role || 'Staff'}</p>
+                                    </div>
+                                </div>
+                                
+                                <Button 
+                                    variant="outline"
+                                    onClick={() => {
+                                        setSelectedUserForIntelligence({ id: emp.id, name: emp.name });
+                                        setShowIntelligenceModal(true);
+                                    }}
+                                    className="bg-background border-2 border-black dark:border-white rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-y-[-2px] transition-all active:translate-y-[1px]"
+                                >
+                                    Configure
+                                </Button>
+                            </div>
+                        ))}
+                        {employees.length === 0 && (
+                            <div className="text-center py-12 bg-secondary/20 rounded-3xl border-2 border-dashed border-border">
+                                <Users className="size-12 mx-auto mb-4 text-muted-foreground/30" />
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">No staff members found</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>

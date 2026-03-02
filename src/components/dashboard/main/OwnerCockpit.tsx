@@ -2,20 +2,34 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, Clock, Activity, Globe, Target, Calendar } from 'lucide-react';
+import { Users, Clock, Activity, Globe, Target, Calendar as CalendarIcon } from 'lucide-react';
 import { GlassCard } from './shared/GlassCard';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { useTeam } from '@/hooks/use-team';
+import { cn } from "@/lib/utils";
 
 interface MetricProps {
   icon: any;
   label: string;
   value: string | number;
   subValue?: string;
+  onClick?: () => void;
+  className?: string;
 }
 
-const MetricBox = ({ icon: Icon, label, value, subValue }: MetricProps) => (
-  <div className="flex flex-col p-4 md:p-6 rounded-[2rem] bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 group hover:scale-[1.02] transition-all duration-500 relative overflow-hidden h-full min-w-0">
+const MetricBox = ({ icon: Icon, label, value, subValue, onClick, className }: MetricProps) => (
+  <div 
+    onClick={onClick}
+    className={cn(
+      "flex flex-col p-4 md:p-6 rounded-[2rem] bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/5 group hover:scale-[1.02] transition-all duration-500 relative overflow-hidden h-full min-w-0",
+      onClick && "cursor-pointer hover:bg-blue-500/5 dark:hover:bg-blue-500/5 hover:border-blue-500/30",
+      className
+    )}
+  >
     <div className="absolute inset-0 pointer-events-none opacity-0 group-hover/cockpit:opacity-100 transition-opacity duration-1000">
         <motion.div
             initial={{ x: '-100%' }}
@@ -41,6 +55,7 @@ const MetricBox = ({ icon: Icon, label, value, subValue }: MetricProps) => (
 
 export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any, stats = null as any, logoUrl = null as string | null }) => {
   const isOrgActive = (stats?.activeEmployees || 0) > 0;
+  const { selectedDate, setSelectedDate } = useTeam();
   const router = useRouter();
   
   const getDate = (ts: any) => {
@@ -51,8 +66,9 @@ export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any,
     return new Date(ts);
   };
 
-  const memberSince = format(getDate(ownerData?.createdAt), 'MMMM dd, yyyy');
   const primaryApp = stats?.topApps?.[0]?.name || "Analytics";
+  const displayDate = format(selectedDate, 'MMMM dd, yyyy');
+  const isSelectedToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   return (
     <GlassCard elevated className="mb-12 p-6 md:p-12 relative overflow-hidden group/cockpit" hoverEffect={false}>
@@ -136,12 +152,29 @@ export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any,
             value={ownerData?.lastLoginLocation?.city || "Remote"} 
             subValue={ownerData?.lastLoginLocation?.country || "Global"}
           />
-          <MetricBox 
-            icon={Calendar} 
-            label="Member Since" 
-            value={memberSince} 
-            subValue="Original Commission"
-          />
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <div>
+                <MetricBox 
+                  icon={CalendarIcon} 
+                  label="Operational Date" 
+                  value={isSelectedToday ? "Today" : format(selectedDate, 'MMM dd')} 
+                  subValue={displayDate}
+                  className="border-blue-500/40 shadow-lg shadow-blue-500/10"
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 rounded-[2rem] border-border bg-card shadow-2xl" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                initialFocus
+                className="p-4"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </GlassCard>

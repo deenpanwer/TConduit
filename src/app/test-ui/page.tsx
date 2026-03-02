@@ -234,7 +234,7 @@ export default function TestUIPage() {
       
       {/* --- Left Panel: Master List --- */}
       <div className={cn(
-          "flex flex-col h-full bg-white border-r border-slate-200 shadow-sm z-10 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "flex flex-col h-full bg-white border-r border-slate-200 shadow-sm z-10 transition-all duration-500 ease-apple-ease",
           selectedCandidate ? "w-full md:w-[450px]" : "w-full md:w-full max-w-6xl mx-auto border-r-0 bg-[#F0F2F5] shadow-none"
       )}>
         
@@ -359,7 +359,7 @@ export default function TestUIPage() {
 
       {/* --- Right Panel: The Dossier --- */}
       <div className={cn(
-          "flex-1 bg-[#FAFAFA] relative overflow-hidden flex flex-col transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "flex-1 bg-[#FAFAFA] relative overflow-hidden flex flex-col transition-all duration-500 ease-apple-ease",
           selectedCandidate ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 absolute inset-0 md:static md:w-0 md:flex-none"
       )}>
         {selectedCandidate && (
