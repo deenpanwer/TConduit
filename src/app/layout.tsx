@@ -10,6 +10,7 @@ import { PHProvider } from './providers';
 import { AuthProvider } from '@/hooks/use-auth';
 import { TeamProvider } from '@/hooks/use-team';
 import { TasksProvider } from '@/hooks/useTasks';
+import { Suspense } from 'react';
 
 const poppins = Poppins({
   subsets: ['latin'],

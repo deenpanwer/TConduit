@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt } from "firebase/firestore";
 import { useAuth } from "./use-auth";
@@ -32,50 +32,38 @@ const TeamContext = createContext<TeamContextType>({
   setSelectedDate: () => {},
 });
 
-export function TeamProvider({ children }: { children: React.ReactNode }) {
-  const { user, userData, loading: authLoading } = useAuth();
+function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const [personnelData, setPersonnelData] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(true);
   
-  // Initialize date from URL or default to today
-  const initialDate = (() => {
-    const dateParam = searchParams.get('date');
-    if (dateParam) {
-      try {
-        return parse(dateParam, 'yyyy-MM-dd', new Date());
-      } catch (e) {
-        return new Date();
-      }
-    }
-    return new Date();
-  })();
-
-  const [selectedDate, _setSelectedDate] = useState(initialDate);
-
-  // Sync state if URL changes (back/forward buttons)
   useEffect(() => {
     const dateParam = searchParams.get('date');
     if (dateParam) {
       try {
         const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
-        if (format(parsed, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-          _setSelectedDate(parsed);
-        }
+        onDateFound(parsed);
       } catch (e) {}
     }
-  }, [searchParams]);
+  }, [searchParams, onDateFound]);
 
-  const setSelectedDate = (date: Date) => {
+  return null;
+}
+
+export function TeamProvider({ children }: { children: React.ReactNode }) {
+  const { user, userData, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [personnelData, setPersonnelData] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, _setSelectedDate] = useState(new Date());
+
+  const setSelectedDate = useCallback((date: Date) => {
     _setSelectedDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set('date', dateStr);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
+  }, [pathname, router]);
   
   // Track active sub-listeners globally to prevent duplicate attachments
   const listenersRef = useRef<Record<string, (() => void)[]>>({});
@@ -279,6 +267,9 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <TeamContext.Provider value={{ employees, owner, stats, loading, selectedDate, setSelectedDate }}>
+      <Suspense fallback={null}>
+        <URLSync onDateFound={_setSelectedDate} />
+      </Suspense>
       {children}
     </TeamContext.Provider>
   );
