@@ -86,6 +86,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (userData) {
+      console.log("useAuth: userData updated", new Date().toISOString(), {
+        uid: user?.uid,
+        orgId: userData.orgId,
+        ownedOrgId: userData.ownedOrgId,
+        role: userData.role,
+        // Add other relevant fields if needed
+      });
+    }
+  }, [userData, user]);
+
   const refreshUserData = async () => {
     if (user) {
       setLoading(true);

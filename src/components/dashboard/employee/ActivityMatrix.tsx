@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { MousePointer2, Keyboard, Move } from "lucide-react";
 import { format } from "date-fns";
+import { useTeam } from "@/hooks/use-team";
 
 interface ActivityMatrixProps {
   workShifts: any[];
@@ -11,7 +12,8 @@ interface ActivityMatrixProps {
 }
 
 export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const { selectedDate } = useTeam();
+  const dateStr = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
   const { chartData, totals } = useMemo(() => {
     // 1. Initialize 24-hour buckets
@@ -31,14 +33,17 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
     let totalClicks = 0;
     let totalDistance = 0;
 
-    // 2. Aggregate data from today's workShifts
+    // 2. Aggregate data from the selected date's workShifts
     workShifts.forEach((shift) => {
-      // Ensure we only process today's shifts
-      if (!shift.id.startsWith(todayStr)) return;
+      // Ensure we only process shifts for the selected date
+      if (!shift.id.startsWith(dateStr)) return;
 
       if (shift.hourlyPulse) {
-        Object.entries(shift.hourlyPulse).forEach(([hour, metrics]: [string, any]) => {
+        Object.entries(shift.hourlyPulse).forEach(([hour, data]: [string, any]) => {
           if (hourlyBuckets[hour]) {
+            // SCHEMA NORMALIZATION: Handle Modern (nested metrics) vs Legacy (flat)
+            const metrics = data?.metrics || data;
+            
             const ks = metrics.keystrokes || 0;
             const mc = metrics.mouseClicks || 0;
             const md = metrics.mouseDistance || 0;
@@ -63,7 +68,7 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
         distance: totalDistance,
       },
     };
-  }, [workShifts, todayStr]);
+  }, [workShifts, dateStr]);
 
   if (workShifts.length === 0) {
     return (
@@ -87,8 +92,8 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
       <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
         <div className="flex items-center justify-between mb-8">
              <div>
-                <h3 className="text-xl font-black uppercase tracking-tighter">Activity Intensity</h3>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Full Day Interaction Matrix (24 Hours)</p>
+                <h3 className="text-xl font-black uppercase tracking-tighter">Activity Chart</h3>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Today's Activity Across The Day</p>
              </div>
              <div className="flex gap-4">
                 <LegendItem color="bg-primary" label="Keys" />
@@ -149,13 +154,6 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
             value={totals.clicks.toLocaleString()}
             sub="Clicks & Selects"
             color="text-purple-500"
-        />
-        <StatCard
-            icon={Move}
-            label="Cursor Distance"
-            value={totals.distance >= 1000000 ? `${(totals.distance / 1000000).toFixed(2)}M` : `${(totals.distance / 1000).toFixed(1)}k`}
-            sub="Pixels Traversed"
-            color="text-blue-500"
         />
       </div>
     </div>

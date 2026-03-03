@@ -66,8 +66,8 @@ export const PerformanceHorizon = ({ data = [] }: PerformanceHorizonProps) => {
     <GlassCard className="p-10" hoverEffect={false}>
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black font-poppins text-gray-900 dark:text-white leading-none tracking-tighter uppercase">Productivity Flow</h2>
-          <p className="text-gray-400 mt-3 text-[10px] font-black font-poppins uppercase tracking-[0.3em] italic">Hourly activity audit and shift projections</p>
+          <h2 className="text-3xl font-black font-poppins text-gray-900 dark:text-white leading-none tracking-tighter uppercase">Activity Chart</h2>
+          <p className="text-gray-400 mt-3 text-[10px] font-black font-poppins uppercase tracking-[0.3em] italic">Today's activity across the day</p>
         </div>
         <div className="flex items-center gap-8 pb-1">
           <div className="flex items-center gap-3">

@@ -33,7 +33,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
           <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500 shadow-sm border border-blue-500/10">
             <Code className="w-5 h-5" />
           </div>
-          <h3 className="text-xl font-black font-poppins text-gray-900 dark:text-white uppercase tracking-tight">Resource Composition</h3>
+          <h3 className="text-xl font-black font-poppins text-gray-900 dark:text-white uppercase tracking-tight">Most Used Apps</h3>
         </div>
 
         <div className="space-y-8 flex-1">
@@ -75,7 +75,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
           onClick={() => setShowAudit(true)}
           className="w-full mt-10 py-4 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-[10px] font-black font-poppins uppercase tracking-[0.2em] text-gray-400 hover:text-blue-500 hover:border-blue-500/20 transition-all duration-500 active:scale-95"
         >
-          Detailed Resource Audit
+          View All Apps
         </button>
       </GlassCard>
 
@@ -87,8 +87,8 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                     <Target size={20} />
                 </div>
                 <div className="text-left">
-                    <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tighter">Application Intelligence</DialogTitle>
-                    <DialogDescription className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-0.5">Granular resource allocation audit</DialogDescription>
+                    <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tighter">App Usage Overview</DialogTitle>
+                    <DialogDescription className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-0.5">Most Used Apps Today</DialogDescription>
                 </div>
             </div>
           </DialogHeader>
@@ -100,8 +100,8 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                         <thead>
                             <tr className="bg-muted/30 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                                 <th className="px-6 md:px-8 py-4 md:py-5">Application</th>
-                                <th className="px-6 md:px-8 py-4 md:py-5">Daily Yield</th>
-                                <th className="px-6 md:px-8 py-4 md:py-5 text-right">Saturation</th>
+                                <th className="px-6 md:px-8 py-4 md:py-5">Time Used</th>
+                                <th className="px-6 md:px-8 py-4 md:py-5 text-right">Usage %</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">

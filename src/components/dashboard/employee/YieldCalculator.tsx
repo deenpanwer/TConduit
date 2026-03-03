@@ -102,13 +102,12 @@ export function YieldCalculator({ employeeId, employeeName, workShifts, screensh
             </div>
             <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-black uppercase tracking-tighter">Shift Idle Audit</h3>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter">Non-Active Time Audit</h3>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest border border-emerald-500/20">System-Verified</span>
                 </div>
-                <p className="text-xs font-bold text-muted-foreground max-w-md leading-relaxed">
-                    Analyzes real-time shift telemetry and activity pulses to calculate exact downtime vs active execution.
-                    <span className="block mt-1 text-[10px] text-muted-foreground/60 italic font-medium">Timeframe: Today's active sessions.</span>
-                </p>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground/60 italic font-medium uppercase tracking-widest">Timeframe: Today's active and non-active time.</span>
+                </div>
             </div>
         </div>
 
@@ -117,7 +116,7 @@ export function YieldCalculator({ employeeId, employeeName, workShifts, screensh
             onClick={runCalculation}
             className="rounded-[2rem] h-20 px-10 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest text-sm shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 group"
           >
-            <Zap size={20} className="mr-3 fill-current" /> Audit Active Yield
+            <Zap size={20} className="mr-3 fill-current" /> Check Now
           </Button>
         )}
 
@@ -169,7 +168,7 @@ export function YieldCalculator({ employeeId, employeeName, workShifts, screensh
                     <span className="text-5xl font-black tracking-tighter text-emerald-500">{result.activeHours}</span>
                     <span className="text-sm font-bold text-muted-foreground uppercase">Hours</span>
                 </div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Verified Active Production</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Verified Active Time</p>
               </div>
             </div>
 
@@ -183,7 +182,7 @@ export function YieldCalculator({ employeeId, employeeName, workShifts, screensh
                     <span className="text-5xl font-black tracking-tighter text-orange-500">{result.idleHours}</span>
                     <span className="text-sm font-bold text-muted-foreground uppercase">Hours</span>
                 </div>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Calculated Downtime</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-2">Calculated Non-Active Time</p>
               </div>
             </div>
             

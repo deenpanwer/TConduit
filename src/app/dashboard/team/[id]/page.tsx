@@ -17,6 +17,7 @@ import { WorkHistory } from "@/components/dashboard/employee/WorkHistory";
 import { AttendanceLedger } from "@/components/dashboard/employee/AttendanceLedger";
 import { CognitiveHub } from "@/components/dashboard/employee/CognitiveHub";
 import { YieldCalculator } from "@/components/dashboard/employee/YieldCalculator";
+import { WorkflowTimeline } from "@/components/dashboard/employee/WorkflowTimeline";
 import { motion } from "framer-motion";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
 import {
@@ -44,6 +45,9 @@ import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
 import { cn } from "@/lib/utils";
+import { GlobalDateSelector } from "@/components/dashboard/shared/GlobalDateSelector";
+
+import { AIPersonnelPulse } from "@/components/dashboard/employee/AIPersonnelPulse";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -62,7 +66,7 @@ const sectionVariants = {
  * COST OPTIMIZATION (Surgical Reads):
  * 1. Shifts: Limited to last 30 at base (Bills only for existing docs).
  * 2. Time Entries: Limited to 5 at base.
- * 3. Screenshots: 1 listener for TODAY only at base.
+ * 3. Screenshots: 1 listener for SELECTED_DATE only at base.
  *
  * NOTE ON NEW USERS: If a user joined today, a "limit(30)" query only bills for
  * the 1 or 2 shifts they actually have. Firestore does not bill for the "empty" limit.
@@ -71,7 +75,7 @@ export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
-  const { employees, owner, loading: teamLoading } = useTeam();
+  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
   
   const [employeeDoc, setEmployeeDoc] = useState<any>(null);
   const [workShifts, setWorkShifts] = useState<any[]>([]);
@@ -81,7 +85,7 @@ export default function EmployeeDetailPage() {
   // --- PAGINATION STATES ---
   const [historyLimit, setHistoryLimit] = useState(5);
   const [shiftsLimit, setShiftsLimit] = useState(30); // Decreased from 100
-  const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base
+  // const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base - now dynamic based on selectedDate
 
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
@@ -95,6 +99,15 @@ export default function EmployeeDetailPage() {
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
   const [selectedModalRole, setSelectedModalRole] = useState("");
+
+  // Helper to extract JS Date safely
+  const getDate = (ts: any) => {
+    if (!ts) return undefined;
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  };
 
   const liveEmployee = useMemo(() => {
     if (owner?.id === id) return owner;
@@ -112,40 +125,31 @@ export default function EmployeeDetailPage() {
     }
   }, [showMemberAccessModal, employee]);
 
-  const isSubscriptionActive = orgData?.subscriptionExpiry 
-    ? orgData.subscriptionExpiry.toDate() > new Date() 
-    : true;
-
   useEffect(() => {
-    fetchOrgDetails();
-  }, [userData]);
+    if (!id) return;
 
-  const fetchOrgDetails = async () => {
-    const targetOrgId = userData?.ownedOrgId || userData?.orgId;
-    if (targetOrgId) {
-      const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
-      if (orgDoc.exists()) setOrgData(orgDoc.data());
-    }
-  };
+    // Full loading only on employee change
+    setLoading(true);
+    
+    // 1. Profile Document
+    const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
+      if (snapshot.exists()) {
+        setEmployeeDoc(snapshot.data());
+        // We set loading false here because profile is the core identity
+        setLoading(false); 
+      } else {
+        setLoading(false); 
+      }
+    }, () => setLoading(false));
 
-  const copyInviteCode = () => {
-    if (orgData?.inviteCode) {
-      navigator.clipboard.writeText(orgData.inviteCode);
-      setCopied(true);
-      toast({ title: "Code Copied!", description: "Invite code ready for the Trac Diary app." });
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+    return () => unsubProfile();
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
 
-    setLoading(true);
-    // 1. Profile Document
-    const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
-      if (snapshot.exists()) setEmployeeDoc(snapshot.data());
-      else setLoading(false); 
-    });
+    // We do NOT call setLoading(true) here for date/limit changes
+    // This allows the UI to stay interactive while the new snapshot arrives.
 
     // 2. Shift History (Limited for Ledger preview)
     const shiftsRef = collection(db, "users", id as string, "workShifts");
@@ -162,44 +166,34 @@ export default function EmployeeDetailPage() {
     });
 
     // 4. Visual Evidence (Snapshot per day)
-    const today = new Date();
-    const dates = Array.from({ length: screenshotDays }, (_, i) => 
-        format(subDays(today, i), "yyyy-MM-dd")
-    );
-
-    const unsubscribers: (() => void)[] = [];
-    const allScreenshots: Record<string, any[]> = {};
-
-    dates.forEach(dateStr => {
-        const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
-        const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
-        
-        const unsub = onSnapshot(screenQuery, (snapshot) => {
-            allScreenshots[dateStr] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            const merged = Object.values(allScreenshots).flat().sort((a, b) => {
-                const tA = a.timestamp?.seconds || 0;
-                const tB = b.timestamp?.seconds || 0;
-                return tB - tA;
-            });
-            setScreenshots(merged);
-            setLoading(false);
-        }, () => setLoading(false)); 
-        unsubscribers.push(unsub);
-    });
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    
+    const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
+    const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
+    
+    const unsubScreenshots = onSnapshot(screenQuery, (snapshot) => {
+        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }); 
 
     return () => {
-      unsubProfile();
       unsubShifts();
       unsubTime();
-      unsubscribers.forEach(u => u());
+      unsubScreenshots();
     };
-  }, [id, historyLimit, shiftsLimit, screenshotDays]);
+  }, [id, historyLimit, shiftsLimit, selectedDate]);
+
+  const isSubscriptionActive = orgData?.subscriptionExpiry 
+    ? orgData.subscriptionExpiry.toDate() > new Date() 
+    : true;
+
+  const minEmployeeDate = useMemo(() => {
+    return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : undefined);
+  }, [employee]);
 
   const handleLoadMore = () => {
     setHistoryLimit(prev => prev + 5);
-    // Progressively load more shifts and visual evidence when digging into history
+    // Progressively load more shifts when digging into history
     if (historyLimit >= shiftsLimit - 5) setShiftsLimit(prev => prev + 30);
-    if (screenshotDays < 3) setScreenshotDays(prev => prev + 1);
   };
 
   const { currentShiftHours, todayTotalHours, topApp } = useMemo(() => {
@@ -210,16 +204,16 @@ export default function EmployeeDetailPage() {
       return { currentShiftHours: "0.0", todayTotalHours: "0.0", topApp: "---" };
     }
 
-    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
     let activeShiftSeconds = 0;
     let todayTotalSeconds = 0;
     const todayAppBreakdown: Record<string, number> = {};
 
     shiftsToProcess.forEach((shift: any) => {
       const shiftStartTime = shift.startTime?.toDate ? shift.startTime.toDate() : new Date(shift.startTime);
-      if (shiftStartTime < officialStart && !shift.id.startsWith(todayStr)) return; 
+      if (shiftStartTime < officialStart && !shift.id.startsWith(dateStr)) return; 
 
-      if (shift.id.startsWith(todayStr)) {
+      if (shift.id.startsWith(dateStr)) {
         const shiftDuration = shift.liveMetrics?.totalSeconds || 0;
         todayTotalSeconds += shiftDuration;
         if (shift.status === 'active') activeShiftSeconds = shiftDuration;
@@ -393,7 +387,11 @@ export default function EmployeeDetailPage() {
             <Button variant="ghost" size="icon" onClick={() => router.back()}>
               <ArrowLeft size={20} />
             </Button>
-            <h2 className="font-black uppercase tracking-widest text-xs">Personnel Intel / {employee?.name || 'Detail'}</h2>
+            <GlobalDateSelector 
+              selectedDate={selectedDate} 
+              setSelectedDate={setSelectedDate} 
+              minDate={minEmployeeDate} 
+            />
           </div>
           
           <div className="flex items-center gap-2">
@@ -402,9 +400,9 @@ export default function EmployeeDetailPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowIntelligenceModal(true)} 
-                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-orange-500/20 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 dark:bg-orange-500/20 dark:text-orange-400 dark:hover:bg-orange-500/30"
             >
-                <ShieldCheck size={14} className="mr-2" /> Tracking Rules
+                <ShieldCheck size={14} className="mr-2" /> Define Prime Apps for {employee?.name?.split(' ')[0] || "Member"}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
@@ -441,6 +439,14 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <AIPersonnelPulse 
+                  employee={employee} 
+                  workShifts={liveEmployee?.workShifts || workShifts} 
+                  screenshots={screenshots} 
+                />
+              </motion.div>
+
+              <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <ShiftPulse activeShift={activeShift} isOnline={employee?.heartbeat?.isCurrentlyRunning} />
               </motion.div>
 
@@ -453,8 +459,12 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <CognitiveHub employee={employee} intensity={intensity} aiBrief={aiBrief} />
+                <WorkflowTimeline workShifts={workShifts} />
               </motion.div>
+
+              {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+                <CognitiveHub employee={employee} intensity={intensity} aiBrief={aiBrief} />
+              </motion.div> */}
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
                 <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />

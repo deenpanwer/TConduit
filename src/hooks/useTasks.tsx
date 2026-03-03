@@ -108,7 +108,7 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 interface TasksContextType {
   tasks: Task[];
   loading: boolean;
-  addTask: (title: string, status: Status) => Promise<string | null>;
+  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[]) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
@@ -176,16 +176,24 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [orgId, authLoading]);
 
   const addTask = useCallback(
-    async (title: string, status: Status): Promise<string | null> => {
-      if (!orgId || !user) return null;
-      if (!canManageTasks) return null;
+    async (title: string, status: Status, description: string = "", priority: Priority = "medium", assignees: string[] = []): Promise<string | null> => {
+      console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
+      
+      if (!orgId || !user) {
+        console.error("useTasks: Missing orgId or user");
+        return null;
+      }
+      if (!canManageTasks) {
+        console.error("useTasks: User does not have permission to manage tasks");
+        return null;
+      }
 
       const newTask: Omit<Task, 'id'> = {
         title,
-        description: "",
+        description,
         status,
-        priority: "medium",
-        assignees: [],
+        priority,
+        assignees,
         subtasks: [],
         comments: [],
         tags: [],
@@ -196,7 +204,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status },
+                details: { title, status, description, priority, assignees },
                 createdAt: new Date(),
             }
         ],
@@ -207,6 +215,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       try {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");
         const docRef = await addDoc(tasksCollection, newTask);
+        console.log("useTasks: Task created successfully", docRef.id);
         return docRef.id;
       } catch (error) {
         console.error("Error adding task: ", error);

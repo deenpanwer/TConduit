@@ -37,8 +37,8 @@ function BrandIcon({ name, className }: { name: string; className?: string }) {
 }
 
 interface TrackingSettings {
-  workApps: string[];
-  distractionApps: string[];
+  primeApps: string[];
+  noiseApps: string[];
 }
 
 interface IntelligenceModalProps {
@@ -48,18 +48,18 @@ interface IntelligenceModalProps {
   userName: string;
 }
 
-const DEFAULT_WORK_APPS = ["Chrome", "Slack", "VS Code", "Figma", "Notion", "Linear", "Zoom", "Excel", "Discord", "Cursor", "Microsoft Teams"];
-const DEFAULT_DISTRACTION_APPS = ["Netflix", "YouTube", "Twitter", "Facebook", "Instagram", "Reddit", "Steam", "Roblox", "Epic Games", "Disney+", "Spotify"];
+const DEFAULT_PRIME_APPS = ["Chrome", "Slack", "VS Code", "Figma", "Notion", "Linear", "Zoom", "Excel", "Discord", "Cursor", "Microsoft Teams"];
+const DEFAULT_NOISE_APPS = ["Netflix", "YouTube", "Twitter", "Facebook", "Instagram", "Reddit", "Steam", "Roblox", "Epic Games", "Disney+", "Spotify"];
 
 export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: IntelligenceModalProps) {
   const [settings, setSettings] = useState<TrackingSettings>({
-    workApps: [],
-    distractionApps: []
+    primeApps: [],
+    noiseApps: []
   });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [newWorkApp, setNewWorkApp] = useState("");
-  const [newDistractionApp, setNewDistractionApp] = useState("");
+  const [newPrimeApp, setNewPrimeApp] = useState("");
+  const [newNoiseApp, setNewNoiseApp] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -70,9 +70,10 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
         const userDoc = await getDoc(doc(db, "users", userId));
         if (userDoc.exists()) {
           const data = userDoc.data();
+          // Support both new 'prime/noise' keys and legacy 'work/distraction' keys
           setSettings({
-            workApps: data.trackingSettings?.workApps || [],
-            distractionApps: data.trackingSettings?.distractionApps || []
+            primeApps: data.trackingSettings?.primeApps || data.trackingSettings?.workApps || [],
+            noiseApps: data.trackingSettings?.noiseApps || data.trackingSettings?.distractionApps || []
           });
         }
       } catch (err) {
@@ -89,12 +90,16 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
     setIsSaving(true);
     try {
       await updateDoc(doc(db, "users", userId), {
-        trackingSettings: settings,
+        trackingSettings: {
+          primeApps: settings.primeApps,
+          noiseApps: settings.noiseApps,
+        },
         updatedAt: serverTimestamp()
       });
       toast({ title: "Intelligence Updated", description: `Rules for ${userName} have been updated.` });
       onOpenChange(false);
     } catch (err: any) {
+      console.error("Update Failed:", err);
       toast({ title: "Update Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -103,27 +108,27 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
 
   const suggestDefaults = () => {
     setSettings({
-      workApps: Array.from(new Set([...settings.workApps, ...DEFAULT_WORK_APPS])),
-      distractionApps: Array.from(new Set([...settings.distractionApps, ...DEFAULT_DISTRACTION_APPS]))
+      primeApps: Array.from(new Set([...settings.primeApps, ...DEFAULT_PRIME_APPS])),
+      noiseApps: Array.from(new Set([...settings.noiseApps, ...DEFAULT_NOISE_APPS]))
     });
     toast({ title: "Rules Suggested", description: "Default industry apps added." });
   };
 
-  const removeApp = (list: 'workApps' | 'distractionApps', app: string) => {
+  const removeApp = (list: 'primeApps' | 'noiseApps', app: string) => {
     setSettings(prev => ({
       ...prev,
       [list]: prev[list].filter(a => a !== app)
     }));
   };
 
-  const addApp = (list: 'workApps' | 'distractionApps', app: string) => {
+  const addApp = (list: 'primeApps' | 'noiseApps', app: string) => {
     if (!app.trim()) return;
     setSettings(prev => ({
       ...prev,
       [list]: Array.from(new Set([...prev[list], app.trim()]))
     }));
-    if (list === 'workApps') setNewWorkApp("");
-    else setNewDistractionApp("");
+    if (list === 'primeApps') setNewPrimeApp("");
+    else setNewNoiseApp("");
   };
 
   return (
@@ -169,7 +174,7 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                   <HelpCircle size={48} />
                </div>
                <p className="text-xs md:text-sm font-bold leading-relaxed max-w-2xl relative z-10">
-                 Define which applications represent direct work for <span className="text-primary">{userName}</span> and which ones are distractions. Rules are applied instantly.
+                 Identify <span className="text-primary">{userName}'s</span> work-critical applications (Prime Apps) and non-work distractions (Noise Apps) to refine performance tracking.
                </p>
             </div>
           </div>
@@ -183,16 +188,16 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                          <Zap size={16} />
                       </div>
                       <div>
-                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Work Powerhouses</h3>
-                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Drives business</p>
+                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Prime Apps</h3>
+                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Core work tools</p>
                       </div>
                    </div>
-                   <span className="text-[9px] md:text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">{settings.workApps.length}</span>
+                   <span className="text-[9px] md:text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">{settings.primeApps.length}</span>
                 </div>
 
                 <div className="min-h-[150px] md:min-h-[250px] bg-secondary/30 rounded-2xl md:rounded-3xl p-3 md:p-4 border-4 border-black dark:border-white flex flex-col gap-2 overflow-y-auto max-h-[250px] md:max-h-[350px] custom-scrollbar shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                    <div className="flex flex-wrap gap-2">
-                      {settings.workApps.map((app) => (
+                      {settings.primeApps.map((app) => (
                         <AnimatePresence key={app}>
                           <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
@@ -202,13 +207,13 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                           >
                              <BrandIcon name={app} className="text-emerald-500" />
                              <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tight">{app}</span>
-                             <button onClick={() => removeApp('workApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
+                             <button onClick={() => removeApp('primeApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
                                 <X size={12} />
                              </button>
                           </motion.div>
                         </AnimatePresence>
                       ))}
-                      {settings.workApps.length === 0 && (
+                      {settings.primeApps.length === 0 && (
                         <div className="w-full h-24 md:h-32 flex flex-col items-center justify-center text-muted-foreground/30">
                            <Zap size={32} className="mb-2" />
                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">No work apps</p>
@@ -220,12 +225,12 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                 <div className="flex gap-2">
                    <Input 
                       placeholder="Add App Name..." 
-                      value={newWorkApp}
-                      onChange={(e) => setNewWorkApp(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addApp('workApps', newWorkApp)}
+                      value={newPrimeApp}
+                      onChange={(e) => setNewPrimeApp(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addApp('primeApps', newPrimeApp)}
                       className="h-10 md:h-12 rounded-xl border-4 border-black dark:border-white font-bold text-xs"
                    />
-                   <Button onClick={() => addApp('workApps', newWorkApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
+                   <Button onClick={() => addApp('primeApps', newPrimeApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
                       <Plus size={20} />
                    </Button>
                 </div>
@@ -239,16 +244,16 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                          <Ban size={16} />
                       </div>
                       <div>
-                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Focus Killers</h3>
-                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Costs money</p>
+                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Noise Apps</h3>
+                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Distractions</p>
                       </div>
                    </div>
-                   <span className="text-[9px] md:text-[10px] font-black text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20">{settings.distractionApps.length}</span>
+                   <span className="text-[9px] md:text-[10px] font-black text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20">{settings.noiseApps.length}</span>
                 </div>
 
                 <div className="min-h-[150px] md:min-h-[250px] bg-secondary/30 rounded-2xl md:rounded-3xl p-3 md:p-4 border-4 border-black dark:border-white flex flex-col gap-2 overflow-y-auto max-h-[250px] md:max-h-[350px] custom-scrollbar shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                    <div className="flex flex-wrap gap-2">
-                      {settings.distractionApps.map((app) => (
+                      {settings.noiseApps.map((app) => (
                         <AnimatePresence key={app}>
                           <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
@@ -258,13 +263,13 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                           >
                              <BrandIcon name={app} className="text-destructive" />
                              <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tight">{app}</span>
-                             <button onClick={() => removeApp('distractionApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
+                             <button onClick={() => removeApp('noiseApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
                                 <X size={12} />
                              </button>
                           </motion.div>
                         </AnimatePresence>
                       ))}
-                      {settings.distractionApps.length === 0 && (
+                      {settings.noiseApps.length === 0 && (
                         <div className="w-full h-24 md:h-32 flex flex-col items-center justify-center text-muted-foreground/30">
                            <Ban size={32} className="mb-2" />
                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">No distractions</p>
@@ -276,12 +281,12 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                 <div className="flex gap-2">
                    <Input 
                       placeholder="Add App Name..." 
-                      value={newDistractionApp}
-                      onChange={(e) => setNewDistractionApp(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addApp('distractionApps', newDistractionApp)}
+                      value={newNoiseApp}
+                      onChange={(e) => setNewNoiseApp(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addApp('noiseApps', newNoiseApp)}
                       className="h-10 md:h-12 rounded-xl border-4 border-black dark:border-white font-bold text-xs"
                    />
-                   <Button onClick={() => addApp('distractionApps', newDistractionApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-destructive hover:bg-destructive/90 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
+                   <Button onClick={() => addApp('noiseApps', newNoiseApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-destructive hover:bg-destructive/90 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
                       <Plus size={20} />
                    </Button>
                 </div>

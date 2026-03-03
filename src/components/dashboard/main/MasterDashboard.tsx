@@ -4,6 +4,7 @@ import React from 'react';
 import { useTeam } from '@/hooks/use-team';
 import { OwnerCockpit } from './OwnerCockpit';
 import { IntelligenceUnit } from './IntelligenceUnit';
+import { AIOrgPulse } from './AIOrgPulse';
 import { PerformanceHorizon } from './PerformanceHorizon';
 import { ApplicationUsage } from './ApplicationUsage';
 import { WorkQualityFlow } from './WorkQualityFlow';
@@ -186,15 +187,24 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
         />
       </motion.div>
 
-      {/* HUB 2: Intelligence Brief */}
+      {/* NEW HUB: AI Collective Pulse */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+        <AIOrgPulse 
+          employees={[...employees, ownerData].filter(Boolean)} 
+          selectedDate={selectedDate} 
+          orgName={ownerData?.orgName || orgData?.orgName || orgData?.name || "Your Organization"}
+        />
+      </motion.div>
+
+      {/* HUB 2: Intelligence Brief */}
+      {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
         <IntelligenceUnit 
             velocity={stats?.velocity || 100} 
             topApp={stats?.topApps?.[0]?.name}
             activeCount={stats?.activeEmployees}
             totalHoursToday={stats?.totalHoursToday || "0.0"}
         />
-      </motion.div>
+      </motion.div> */}
 
       {/* HUB 3: Performance & Resources */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -222,9 +232,9 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
       </motion.div>
 
       {/* HUB 6: Global Reach */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+      {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
         <GlobalPresence employees={employees} />
-      </motion.div>
+      </motion.div> */}
 
       {/* HUB 7: Ledger */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>

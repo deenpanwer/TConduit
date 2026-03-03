@@ -18,6 +18,8 @@ import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
 import { BrainCircuit, Sparkles, ArrowRight, ShieldAlert } from "lucide-react";
+import { GlobalDateSelector } from "@/components/dashboard/shared/GlobalDateSelector";
+import { addDays } from "date-fns"; // For minDate adjustment
 
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -25,6 +27,8 @@ export default function DashboardPage() {
   const {
     employees,
     loading: teamLoading,
+    selectedDate,
+    setSelectedDate,
   } = useTeam();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
@@ -34,6 +38,15 @@ export default function DashboardPage() {
   const { user, userData, loading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  // Helper to extract JS Date safely
+  const getDate = (ts: any) => {
+    if (!ts) return undefined;
+    if (ts.toDate) return ts.toDate();
+    if (ts instanceof Date) return ts;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    return new Date(ts);
+  };
 
   useEffect(() => {
     if (!loading && user) {
@@ -52,6 +65,8 @@ export default function DashboardPage() {
       if (orgDoc.exists()) setOrgData(orgDoc.data());
     }
   };
+
+  const minOrgDate = getDate(orgData?.createdAt);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -121,7 +136,11 @@ export default function DashboardPage() {
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
               <Menu />
             </Button>
-            <h2 className="font-black uppercase tracking-widest text-sm">Dashboard</h2>
+            <GlobalDateSelector 
+              selectedDate={selectedDate} 
+              setSelectedDate={setSelectedDate} 
+              minDate={minOrgDate} 
+            />
           </div>
           
           <div className="flex items-center gap-4">
