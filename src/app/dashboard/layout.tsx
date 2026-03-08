@@ -1,14 +1,64 @@
-import { Metadata } from 'next';
+"use client";
 
-export const metadata: Metadata = {
-  title: 'Team Dashboard | TRAC AI Productivity Monitor',
-  description: 'Manage your organization, view real-time employee work streams, and analyze team productivity through the TRAC AI Master Dashboard.',
-};
+import { SidebarProvider, useSidebar } from "@/hooks/use-sidebar";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { useTeam } from "@/hooks/use-team";
+import { InviteModal } from "@/components/dashboard/InviteModal";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
+
+function DashboardLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const { employees } = useTeam();
+  const pathname = usePathname();
+
+  // Define pages that should NOT show the sidebar
+  const isAuthPage = pathname?.includes("/login") || 
+                     pathname?.includes("/signup") || 
+                     pathname?.includes("/forgot-password") ||
+                     pathname?.includes("/onboarding");
+
+  if (isAuthPage) {
+    return <div className="flex-1 h-screen">{children}</div>;
+  }
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden relative">
+      <DashboardSidebar
+        isCollapsed={isCollapsed}
+        setIsCollapsed={setIsCollapsed}
+        isMobileSidebarOpen={isMobileOpen}
+        setIsMobileSidebarOpen={setIsMobileOpen}
+        employees={employees}
+        onInviteClick={() => setShowInviteModal(true)}
+      />
+
+      <InviteModal 
+        isOpen={showInviteModal}
+        onOpenChange={setShowInviteModal}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <SidebarProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </SidebarProvider>
+  );
 }

@@ -48,14 +48,15 @@ const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
 
+import { useSidebar } from "@/hooks/use-sidebar";
+
 function TasksPageContent() {
   const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { setIsMobileOpen } = useSidebar();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const [activeView, setActiveView] = useState<"board" | "timeline">("board");
@@ -224,7 +225,7 @@ function TasksPageContent() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex-1 flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           <p className="text-muted-foreground font-medium animate-pulse">Syncing your workspace...</p>
@@ -234,16 +235,7 @@ function TasksPageContent() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-primary/20">
-      <DashboardSidebar
-          isCollapsed={isCollapsed}
-          setIsCollapsed={setIsCollapsed}
-          isMobileSidebarOpen={isMobileOpen}
-          setIsMobileSidebarOpen={setIsMobileOpen}
-          employees={employees}
-          onInviteClick={() => setShowInviteModal(true)} 
-        />
-
+    <>
       <InviteModal 
           isOpen={showInviteModal}
           onOpenChange={setShowInviteModal}
@@ -866,7 +858,7 @@ function TasksPageContent() {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 

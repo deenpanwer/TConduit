@@ -48,22 +48,21 @@ const DAYS = [
   { id: 0, label: "Sun" },
 ];
 
-export default function OnboardingPage() {
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [orgData, setOrgData] = useState<any>(null);
-  const [logoMode, setLogoMode] = useState<"upload" | "url">("upload");
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isEditingTimezone, setIsEditingTimezone] = useState(false);
-  
-  const router = useRouter();
-  const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { refreshUserData } = useAuth();
+  export default function OnboardingPage() {
+    const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [user, setUser] = useState<any>(null);
+    const [orgData, setOrgData] = useState<any>(null);
+    const [logoMode, setLogoMode] = useState<"upload" | "url">("upload");
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [isEditingTimezone, setIsEditingTimezone] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const router = useRouter();
+    const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { refreshUserData } = useAuth();
 
   const [formData, setFormData] = useState({
     role: "",
@@ -77,6 +76,7 @@ export default function OnboardingPage() {
     timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC"
   });
 
+  // Handle Initial Redirects and Org Fetching
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -87,7 +87,7 @@ export default function OnboardingPage() {
           router.push("/dashboard");
           return;
         }
-        
+
         if (userData?.ownedOrgId) {
             const orgDoc = await getDoc(doc(db, "organizations", userData.ownedOrgId));
             const data = orgDoc.data();

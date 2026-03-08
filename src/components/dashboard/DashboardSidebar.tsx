@@ -18,6 +18,12 @@ import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useTeam } from "@/hooks/use-team";
+import { toast } from "sonner";
+import { Loader2, Sparkles, Minus, Plus as PlusIcon, Trash2 } from "lucide-react";
+
+import { db } from "@/lib/firebase";
+import { getDocs, collection, query, where, limit } from "firebase/firestore";
 
 interface DashboardSidebarProps {
   isCollapsed: boolean;
@@ -38,13 +44,33 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
+  const { addDemoEmployees } = useTeam();
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isTeamExpanded, setIsTeamExpanded] = useState(true);
+  const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true); 
+    
+    // Fetch Partner Branding if attributed
+    async function fetchPartnerBranding() {
+      if (userData?.partnerSlug) {
+        try {
+          const q = query(collection(db, "partners"), where("slug", "==", userData.partnerSlug), limit(1));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            setPartnerBrand(snap.docs[0].data().brandName);
+          }
+        } catch (err) {
+          console.error("Error fetching sidebar branding:", err);
+        }
+      }
+    }
+    fetchPartnerBranding();
+  }, [userData?.partnerSlug]);
 
   if (!mounted) return null;
 
@@ -93,8 +119,18 @@ export function DashboardSidebar({
         <div className="p-4 flex flex-col h-full relative">
           
           <div className="flex items-center justify-between mb-8 overflow-hidden whitespace-nowrap pt-8 lg:pt-0">
-            {(!isCollapsed || isMobileSidebarOpen) && <Link href="/dashboard" className="font-bold text-2xl tracking-tighter">{orgName || "Trac Admin"}</Link>}
-            <Link href="/dashboard">
+            {(!isCollapsed || isMobileSidebarOpen) && (
+              <Link href="/dashboard" className="truncate">
+                {partnerBrand ? (
+                  <div className="font-poppins font-black text-xl tracking-tighter">
+                    TRAC AI SUBSIDIARY OF {partnerBrand}
+                  </div>
+                ) : (
+                  <span className="font-bold text-2xl tracking-tighter">{orgName || "Trac Admin"}</span>
+                )}
+              </Link>
+            )}
+            <Link href="/dashboard" className="shrink-0">
               <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert" />
             </Link>
           </div>
@@ -119,6 +155,8 @@ export function DashboardSidebar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+
 
             <div className="space-y-1">
                 <NavItem icon={LayoutDashboard} label="Overview" href="/dashboard" active={pathname === "/dashboard"} />

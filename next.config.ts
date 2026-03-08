@@ -1,7 +1,7 @@
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false, // SIGNIFICANT performance boost in dev demos (no double-renders)
   /* config options here */
   async redirects() {
     return [

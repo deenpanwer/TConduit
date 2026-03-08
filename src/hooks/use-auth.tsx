@@ -106,13 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Safety Net: Client-side redirect if session is lost
-  useEffect(() => {
-    if (!loading && !user && pathname?.startsWith("/dashboard") && !pathname?.includes("/login") && !pathname?.includes("/signup") && !pathname?.includes("/forgot-password")) {
-      router.push("/dashboard/login");
-    }
-  }, [user, loading, pathname, router]);
-
+    // Safety Net: Client-side redirect if session is lost
+    useEffect(() => {
+      if (!loading && !user && pathname?.startsWith("/dashboard") && !pathname?.includes("/login") && !pathname?.includes("/signup") && !pathname?.includes("/forgot-password")) {
+        router.push("/dashboard/login");
+      }
+    }, [user, loading, pathname, router]);
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
       {children}

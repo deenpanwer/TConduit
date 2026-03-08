@@ -14,7 +14,7 @@ import {
   GoogleAuthProvider,
   updateProfile 
 } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc, query, where, limit, getDocs, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, User } from "lucide-react";
 
@@ -45,6 +45,11 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
+      const partnerSlug = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('trac_partner_slug='))
+        ?.split('=')[1];
+
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
       await updateProfile(user, { displayName: formData.fullName });
@@ -60,6 +65,7 @@ export default function SignupPage() {
         inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
         subscriptionStatus: "trialing",
         subscriptionExpiry: trialExpiry,
+        partnerSlug: partnerSlug || null, // For whitelabel branding
         createdAt: serverTimestamp()
       });
 
@@ -72,13 +78,35 @@ export default function SignupPage() {
         ownedOrgId: orgId,
         uid: user.uid,
         onboardingCompleted: false,
+        partnerSlug: partnerSlug || null, // For whitelabel branding
         createdAt: serverTimestamp()
       });
 
-      toast({ title: "Account created", description: "Your organization has been set up successfully." });
+      // 3. SECURE ATTRIBUTION: Write to Partner's private ledger
+      // DO NOT AWAIT THIS: Fire and forget so the user redirects instantly
+      if (partnerSlug) {
+        (async () => {
+          try {
+            const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+            const partnerSnap = await getDocs(partnerQ);
+            if (!partnerSnap.empty) {
+              const partnerDoc = partnerSnap.docs[0];
+              await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                orgName: formData.orgName,
+                clientEmail: formData.email,
+                createdAt: serverTimestamp(),
+              });
+            }
+          } catch (e) { 
+            // Silent catch for background attribution
+          }
+        })();
+      }
+
+      toast({ title: "Account created", description: "Welcome to the network. Let's finish your setup." });
       router.push("/dashboard/onboarding");
     } catch (error: any) {
-      toast({ title: "Signup failed", description: error.message, variant: "destructive" });
+      toast({ title: "Signup failed", description: "We couldn't create your account. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -88,6 +116,11 @@ export default function SignupPage() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
+      const partnerSlug = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('trac_partner_slug='))
+        ?.split('=')[1];
+
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -104,6 +137,7 @@ export default function SignupPage() {
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionStatus: "trialing",
           subscriptionExpiry: trialExpiry,
+          partnerSlug: partnerSlug || null, // For whitelabel branding
           createdAt: serverTimestamp()
         });
 
@@ -116,17 +150,35 @@ export default function SignupPage() {
           ownedOrgId: orgId,
           uid: user.uid,
           onboardingCompleted: false,
+          partnerSlug: partnerSlug || null, // For whitelabel branding
           createdAt: serverTimestamp()
         });
+
+        // SECURE ATTRIBUTION: Write to Partner's private ledger
+        try {
+          if (partnerSlug) {
+            const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+            const partnerSnap = await getDocs(partnerQ);
+            if (!partnerSnap.empty) {
+              const partnerDoc = partnerSnap.docs[0];
+              await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                orgName: orgName,
+                clientEmail: user.email,
+                createdAt: serverTimestamp(),
+              });
+            }
+          }
+        } catch (attrError) {
+          // Silent catch
+        }
       }
 
       router.push("/dashboard/onboarding");
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
-        // User intentionally closed the popup, do nothing and reset loading state
-        console.log("Google sign-up popup closed by user.");
+        // Silent close
       } else {
-        toast({ title: "Google signup failed", description: error.message, variant: "destructive" });
+        toast({ title: "Google signup failed", description: "We couldn't link your Google account. Please try again.", variant: "destructive" });
       }
     } finally {
       setLoading(false);

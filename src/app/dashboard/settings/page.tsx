@@ -47,23 +47,23 @@ const DAYS = [
   { id: 0, label: "Sun" },
 ];
 
+import { useSidebar } from "@/hooks/use-sidebar";
+
 export default function SettingsPage() {
   const { user, userData, refreshUserData } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
   const [orgData, setOrgData] = useState<any>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedUserForIntelligence, setSelectedUserForIntelligence] = useState<{id: string, name: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedOrgId, setCopiedOrgId] = useState(false);
-  const [showDeleteOrgModal, setShowDeleteOrgModal] = useState(false);
   const [loading, setLoading] = useState(false); // Add loading state
   const [isSaving, setIsSaving] = useState(false);
   const { employees, loading: teamLoading } = useTeam();
+  const { setIsMobileOpen } = useSidebar();
 
   const [settings, setSettings] = useState({
     defaultShiftSeconds: 28800,
@@ -184,16 +184,7 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <DashboardSidebar
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
-        isMobileSidebarOpen={isMobileOpen}
-        setIsMobileSidebarOpen={setIsMobileOpen}
-        employees={employees} 
-        onInviteClick={() => setShowInviteModal(true)}
-      />
-
+    <>
       <InviteModal 
         isOpen={showInviteModal}
         onOpenChange={setShowInviteModal}
@@ -495,20 +486,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
-
-      {/* Mobile Sidebar Overlay */}
-      {isMobileOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden" 
-          onClick={() => setIsMobileOpen(false)}
-        >
-          <div className="absolute right-4 top-4">
-            <Button variant="ghost" size="icon" className="text-white">
-              <X />
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

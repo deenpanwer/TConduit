@@ -25,18 +25,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
-    password: ""
-  });
-
-  useEffect(() => {
-    // Force clear session on mount to prevent redirect loops
-    fetch("/api/auth/session", { method: "DELETE" });
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
+      password: ""
+    });
+    
+      useEffect(() => {
+        // Force clear session on mount to prevent redirect loops
+        fetch("/api/auth/session", { method: "DELETE" });
+      }, []);
+    
+      const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);    try {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
@@ -46,6 +45,11 @@ export default function LoginPage() {
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
+        const partnerSlug = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('trac_partner_slug='))
+          ?.split('=')[1];
+
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name for organization
         const trialExpiry = new Date();
@@ -57,6 +61,7 @@ export default function LoginPage() {
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionStatus: "trialing",
           subscriptionExpiry: trialExpiry,
+          partnerSlug: partnerSlug || null,
           createdAt: serverTimestamp()
         });
 
@@ -69,8 +74,28 @@ export default function LoginPage() {
           ownedOrgId: orgId,
           uid: user.uid,
           onboardingCompleted: false,
+          partnerSlug: partnerSlug || null,
           createdAt: serverTimestamp()
         });
+
+        // Background Attribution
+        if (partnerSlug) {
+          (async () => {
+            try {
+              const { query, where, limit, getDocs, collection } = await import("firebase/firestore");
+              const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+              const partnerSnap = await getDocs(partnerQ);
+              if (!partnerSnap.empty) {
+                const partnerDoc = partnerSnap.docs[0];
+                await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                  orgName: orgName,
+                  clientEmail: user.email,
+                  createdAt: serverTimestamp(),
+                });
+              }
+            } catch (e) {}
+          })();
+        }
 
         toast({ title: "Welcome", description: "Let's set up your workspace." });
         router.push("/dashboard/onboarding");
@@ -103,6 +128,11 @@ export default function LoginPage() {
       
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
+        const partnerSlug = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('trac_partner_slug='))
+          ?.split('=')[1];
+
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`;
         const trialExpiry = new Date();
@@ -114,6 +144,7 @@ export default function LoginPage() {
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionStatus: "trialing",
           subscriptionExpiry: trialExpiry,
+          partnerSlug: partnerSlug || null,
           createdAt: serverTimestamp()
         });
 
@@ -126,8 +157,28 @@ export default function LoginPage() {
           ownedOrgId: orgId,
           uid: user.uid,
           onboardingCompleted: false,
+          partnerSlug: partnerSlug || null,
           createdAt: serverTimestamp()
         });
+
+        // Background Attribution
+        if (partnerSlug) {
+          (async () => {
+            try {
+              const { query, where, limit, getDocs, collection } = await import("firebase/firestore");
+              const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+              const partnerSnap = await getDocs(partnerQ);
+              if (!partnerSnap.empty) {
+                const partnerDoc = partnerSnap.docs[0];
+                await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                  orgName: orgName,
+                  clientEmail: user.email,
+                  createdAt: serverTimestamp(),
+                });
+              }
+            } catch (e) {}
+          })();
+        }
         
         toast({ title: "Welcome", description: "Let's set up your workspace." });
         router.push("/dashboard/onboarding");

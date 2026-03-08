@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck, Menu } from "lucide-react";
 import { EmployeeHeader } from "@/components/dashboard/employee/EmployeeHeader";
 import { ShiftPulse } from "@/components/dashboard/employee/ShiftPulse";
 import { RecentEvidence } from "@/components/dashboard/employee/RecentEvidence";
@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Ticket, Copy, Check } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 import { useTeam } from "@/hooks/use-team";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
@@ -75,30 +74,31 @@ export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
-  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
+  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate, removeDemoEmployee } = useTeam();
+  const { setIsMobileOpen } = useSidebar();
   
   const [employeeDoc, setEmployeeDoc] = useState<any>(null);
-  const [workShifts, setWorkShifts] = useState<any[]>([]);
-  const [screenshots, setScreenshots] = useState<any[]>([]);
-  const [timeEntries, setTimeEntries] = useState<any[]>([]); 
+  // Remove local state for data now sourced from useTeam
+  // const [workShifts, setWorkShifts] = useState<any[]>([]);
+  // const [screenshots, setScreenshots] = useState<any[]>([]);
+  // const [timeEntries, setTimeEntries] = useState<any[]>([]); 
   
   // --- PAGINATION STATES ---
   const [historyLimit, setHistoryLimit] = useState(5);
-  const [shiftsLimit, setShiftsLimit] = useState(30); // Decreased from 100
-  // const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base - now dynamic based on selectedDate
+  const [shiftsLimit, setShiftsLimit] = useState(30);
 
   const [loading, setLoading] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
-  const [orgData, setOrgData] = useState<any>(null);  const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
+  const [orgData, setOrgData] = useState<any>(null);
 
   // Modals for employee actions
   const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
   const [selectedModalRole, setSelectedModalRole] = useState("");
+
+  const isDemoEmployee = (id as string)?.startsWith('demo_');
 
   // Helper to extract JS Date safely
   const getDate = (ts: any) => {
@@ -110,14 +110,21 @@ export default function EmployeeDetailPage() {
   };
 
   const liveEmployee = useMemo(() => {
+    // For demo employees, their full data is already in the `employees` array from useTeam
+    if (isDemoEmployee) {
+      return employees.find(e => e.id === id);
+    }
+    // For real employees
     if (owner?.id === id) return owner;
     return employees.find(e => e.id === id);
-  }, [employees, owner, id]);
+  }, [employees, owner, id, isDemoEmployee]);
 
+  // Consolidate employee data source
   const employee = useMemo(() => {
+    if (isDemoEmployee) return liveEmployee; // Demo data is the source of truth
     if (!employeeDoc && !liveEmployee) return null;
     return { ...employeeDoc, ...liveEmployee };
-  }, [employeeDoc, liveEmployee]);
+  }, [employeeDoc, liveEmployee, isDemoEmployee]);
 
   useEffect(() => {
     if (employee?.role) {
@@ -125,44 +132,47 @@ export default function EmployeeDetailPage() {
     }
   }, [showMemberAccessModal, employee]);
 
+  // This effect will ONLY run for REAL employees to fetch their document.
   useEffect(() => {
     if (!id) return;
+    
+    if (isDemoEmployee) {
+      setLoading(false);
+      return;
+    };
 
     // Full loading only on employee change
     setLoading(true);
     
-    // 1. Profile Document
+    // 1. Profile Document for REAL employees
     const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
       if (snapshot.exists()) {
         setEmployeeDoc(snapshot.data());
-        // We set loading false here because profile is the core identity
-        setLoading(false); 
-      } else {
-        setLoading(false); 
       }
+      setLoading(false); 
     }, () => setLoading(false));
 
     return () => unsubProfile();
-  }, [id]);
+  }, [id, isDemoEmployee]);
 
+  // This effect is now redundant for demo employees, as their data is already in liveEmployee
   useEffect(() => {
-    if (!id) return;
+    if (!id || isDemoEmployee) return;
 
-    // We do NOT call setLoading(true) here for date/limit changes
-    // This allows the UI to stay interactive while the new snapshot arrives.
+    // ... (This block now only runs for REAL employees) ...
 
     // 2. Shift History (Limited for Ledger preview)
     const shiftsRef = collection(db, "users", id as string, "workShifts");
     const shiftsQuery = query(shiftsRef, orderBy("startTime", "desc"), limit(shiftsLimit));
     const unsubShifts = onSnapshot(shiftsQuery, (snapshot) => {
-      setWorkShifts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      // For real employees, we might want to update employeeDoc or local state if we had it
     });
 
     // 3. Time Entries (Paginated Engagement Log)
     const timeRef = collection(db, "users", id as string, "timeEntries");
     const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(historyLimit));
     const unsubTime = onSnapshot(timeQuery, (snapshot) => {
-      setTimeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Similar to shifts
     });
 
     // 4. Visual Evidence (Snapshot per day)
@@ -172,7 +182,7 @@ export default function EmployeeDetailPage() {
     const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
     
     const unsubScreenshots = onSnapshot(screenQuery, (snapshot) => {
-        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        // Similar to shifts
     }); 
 
     return () => {
@@ -180,7 +190,7 @@ export default function EmployeeDetailPage() {
       unsubTime();
       unsubScreenshots();
     };
-  }, [id, historyLimit, shiftsLimit, selectedDate]);
+  }, [id, historyLimit, shiftsLimit, selectedDate, isDemoEmployee]);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -198,7 +208,7 @@ export default function EmployeeDetailPage() {
 
   const { currentShiftHours, todayTotalHours, topApp } = useMemo(() => {
     const officialStart = employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
-    const shiftsToProcess = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
+    const shiftsToProcess = liveEmployee?.workShifts || [];
     
     if (shiftsToProcess.length === 0) {
       return { currentShiftHours: "0.0", todayTotalHours: "0.0", topApp: "---" };
@@ -237,18 +247,18 @@ export default function EmployeeDetailPage() {
       todayTotalHours: (todayTotalSeconds / 3600).toFixed(1),
       topApp: top.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     };
-  }, [employee, liveEmployee, workShifts]); 
+  }, [employee, liveEmployee, selectedDate]); 
 
   const joinedDate = useMemo(() => {
     return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
   }, [employee]);
 
   const activeShift = useMemo(() => {
-    return workShifts.find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
-  }, [workShifts]);
+    return (liveEmployee?.workShifts || []).find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
+  }, [liveEmployee]);
 
   const { intensity, aiBrief } = useMemo(() => {
-    const shiftsForIntensity = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
+    const shiftsForIntensity = liveEmployee?.workShifts || [];
     if (shiftsForIntensity.length === 0) return { intensity: 0, aiBrief: null };
 
     const relevantShifts = shiftsForIntensity
@@ -276,7 +286,7 @@ export default function EmployeeDetailPage() {
     if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
     return { intensity: normalizedIntensity, aiBrief: brief };
-  }, [employee, liveEmployee, workShifts]);
+  }, [employee, liveEmployee]);
 
   const handleEditEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,37 +353,20 @@ export default function EmployeeDetailPage() {
 
   if (loading || authLoading || teamLoading) {
     return (
-      <div className="flex h-screen bg-background">
-        <div className="w-16 lg:w-64 border-r animate-pulse bg-card" />
-        <main className="flex-1 p-8 space-y-12 overflow-hidden">
-          <Shimmer className="h-16 w-full rounded-2xl" />
-          <Shimmer className="h-96 w-full rounded-[3rem]" />
-          <Shimmer className="h-48 w-full rounded-[2.5rem]" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Shimmer className="h-[400px] rounded-[2.5rem]" />
-            <Shimmer className="h-[400px] rounded-[2.5rem]" />
-          </div>
-        </main>
-      </div>
+      <main className="flex-1 p-8 space-y-12 overflow-hidden">
+        <Shimmer className="h-16 w-full rounded-2xl" />
+        <Shimmer className="h-96 w-full rounded-[3rem]" />
+        <Shimmer className="h-48 w-full rounded-[2.5rem]" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Shimmer className="h-[400px] rounded-[2.5rem]" />
+          <Shimmer className="h-[400px] rounded-[2.5rem]" />
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
-      <DashboardSidebar
-        isCollapsed={isSidebarCollapsed}
-        setIsCollapsed={setIsSidebarCollapsed}
-        isMobileSidebarOpen={false}
-        setIsMobileSidebarOpen={() => {}}
-        employees={employees} 
-        onInviteClick={() => setShowInviteModal(true)}
-      />
-
-      <InviteModal 
-        isOpen={showInviteModal}
-        onOpenChange={setShowInviteModal}
-      />
-
+    <>
       <IntelligenceModal 
         isOpen={showIntelligenceModal}
         onOpenChange={setShowIntelligenceModal}
@@ -384,6 +377,9 @@ export default function EmployeeDetailPage() {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
+              <Menu size={20} />
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => router.back()}>
               <ArrowLeft size={20} />
             </Button>
@@ -441,8 +437,8 @@ export default function EmployeeDetailPage() {
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <AIPersonnelPulse 
                   employee={employee} 
-                  workShifts={liveEmployee?.workShifts || workShifts} 
-                  screenshots={screenshots} 
+                  workShifts={liveEmployee?.workShifts || []} 
+                  screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} 
                 />
               </motion.div>
 
@@ -451,15 +447,15 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <RecentEvidence screenshots={screenshots} />
+                <RecentEvidence screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
+                <AttendanceLedger employee={employee} workShifts={liveEmployee?.workShifts || []} joinedDate={joinedDate} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <WorkflowTimeline workShifts={workShifts} />
+                <WorkflowTimeline workShifts={liveEmployee?.workShifts || []} />
               </motion.div>
 
               {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -467,23 +463,23 @@ export default function EmployeeDetailPage() {
               </motion.div> */}
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-                <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
+                <ActivityMatrix workShifts={liveEmployee?.workShifts || []} screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <YieldCalculator 
                     employeeId={id as string} 
                     employeeName={employee?.name || "Member"} 
-                    workShifts={workShifts} 
-                    screenshots={screenshots}
+                    workShifts={liveEmployee?.workShifts || []} 
+                    screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []}
                     joinedDate={joinedDate}
                 />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <WorkHistory 
-                  timeEntries={timeEntries} 
-                  screenshots={screenshots} 
+                  timeEntries={liveEmployee?.timeEntries || []} 
+                  screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} 
                   onLoadMore={handleLoadMore}
                 />
               </motion.div>
@@ -676,6 +672,6 @@ export default function EmployeeDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

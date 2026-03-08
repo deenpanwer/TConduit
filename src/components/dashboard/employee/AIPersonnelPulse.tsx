@@ -52,7 +52,7 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
         timestamp: s.timestamp?.toDate ? s.timestamp.toDate().toISOString() : (s.timestamp?.seconds ? new Date(s.timestamp.seconds * 1000).toISOString() : s.timestamp),
         activeWindow: (typeof s.activeWindow === 'object' ? s.activeWindow?.title : s.activeWindow) || s.activity?.windowTitle || s.activity?.activeWindow || "Unknown Window",
         appName: (typeof s.activeWindow === 'object' ? s.activeWindow?.owner : s.appName) || s.activity?.appName || s.activity?.processName || "Unknown App",
-        url: s.url || s.activity?.cloudinaryUrl || ""
+        url: s.url || s.imageUrl || s.activity?.cloudinaryUrl || ""
       })),
     };
 

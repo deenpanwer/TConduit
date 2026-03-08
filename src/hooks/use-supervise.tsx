@@ -52,6 +52,48 @@ export function useSupervise(selectedDate: Date = new Date()) {
     const unsubscribers: (() => void)[] = [];
 
     monitoredPersonnel.forEach((emp) => {
+      // --- DEMO EMPLOYEE HANDLER ---
+      if (emp.id.startsWith('demo_')) {
+        const screenshotsForDay = (emp.screenshots || {})[dateStr] || [];
+        if (screenshotsForDay.length > 0) {
+          // Sort by timestamp desc and take the first one
+          const latest = [...screenshotsForDay].sort((a, b) => {
+              const tA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+              const tB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+              return tB - tA;
+          })[0];
+          
+          setLatestScreenshots((prev) => ({
+            ...prev,
+            [emp.id]: { ...latest, employeeName: emp.name, isFallback: false },
+          }));
+        } else {
+            // Check for fallback if it's today
+            if (isDateToday(selectedDate)) {
+                // Find latest available day with screenshots
+                const allDates = Object.keys(emp.screenshots || {}).sort().reverse();
+                if (allDates.length > 0) {
+                    const latestDate = allDates[0];
+                    const fallbackScreenshots = emp.screenshots[latestDate] || [];
+                    if (fallbackScreenshots.length > 0) {
+                        const latest = [...fallbackScreenshots].sort((a, b) => {
+                            const tA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+                            const tB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+                            return tB - tA;
+                        })[0];
+                        
+                        setLatestScreenshots((prev) => ({
+                            ...prev,
+                            [emp.id]: { ...latest, employeeName: emp.name, isFallback: true },
+                        }));
+                    }
+                }
+            }
+        }
+        return; // Skip firestore listener for demo employees
+      }
+
+      // --- REAL EMPLOYEE HANDLER (FIRESTORE) ---
       // Step A: Primary listener for the selected date's collection
       const screenshotRef = collection(db, "users", emp.id, "screenshots", dateStr, "images");
       const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(1));

@@ -21,11 +21,14 @@ import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
+import { useSidebar } from "@/hooks/use-sidebar";
+
 export default function ChatPage() {
   const { user, userData, loading: authLoading } = useAuth();
   const { employees, owner, loading: teamLoading } = useTeam();
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [orgData, setOrgData] = useState<any>(null);
+  const { setIsMobileOpen } = useSidebar();
   
   const targetOrgId = userData?.ownedOrgId || userData?.orgId;
 
@@ -37,8 +40,6 @@ export default function ChatPage() {
   } = useEmployeeChat(selectedEmployee, owner, targetOrgId); // Use the new hook
   
   const [inputText, setInputText] = useState("");
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false); // Correctly initialized
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function ChatPage() {
 
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim() || !chatId || !user?.uid || !sendEmployeeMessage) {
-      console.warn("Message not sent: Missing inputText, chatId, user.uid, or sendEmployeeMessage", { inputText, chatId, userUid: user?.uid });
+      console.warn("Message not sent: Missing inputText, chatId, userUid: user?.uid", { inputText, chatId, userUid: user?.uid });
       return;
     }
 
@@ -91,8 +92,6 @@ export default function ChatPage() {
 
   if (isLoadingInitialData) {
     return (
-      <div className="flex h-screen bg-background overflow-hidden">
-        <Shimmer className="w-16 lg:w-64 h-full rounded-2xl mr-4" /> {/* Sidebar Shimmer */}
         <main className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-card/50 flex items-center px-8 shrink-0">
             <Shimmer className="h-4 w-32 rounded-full" />
@@ -105,7 +104,6 @@ export default function ChatPage() {
             </div>
           </div>
         </main>
-      </div>
     );
   }
 
@@ -120,16 +118,7 @@ export default function ChatPage() {
   const staffMembers = employees.filter(emp => emp.id !== user.uid);
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
-      <DashboardSidebar
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
-        isMobileSidebarOpen={isMobileOpen}
-        setIsMobileSidebarOpen={setIsMobileOpen}
-        employees={employees}
-        onInviteClick={() => setShowInviteModal(true)}
-      />
-
+    <>
       <InviteModal 
         isOpen={showInviteModal}
         onOpenChange={setShowInviteModal}
@@ -208,13 +197,6 @@ export default function ChatPage() {
           )}
         </div>
       </main>
-
-      {/* Mobile Sidebar Overlay */}
-      {isMobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileOpen(false)}>
-          <div className="absolute right-4 top-4"><Button variant="ghost" size="icon" className="text-white"><X /></Button></div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };

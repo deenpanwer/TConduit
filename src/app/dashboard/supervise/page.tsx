@@ -23,9 +23,9 @@ import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 
 
 
+import { useSidebar } from "@/hooks/use-sidebar";
+
 export default function SupervisePage() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
   const { employees, loading: teamLoading } = useTeam();
@@ -35,9 +35,8 @@ export default function SupervisePage() {
   const [selectedScreenshot, setSelectedScreenshot] = useState<any>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
+  const { setIsMobileOpen } = useSidebar();
   const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,8 +64,6 @@ export default function SupervisePage() {
 
   if (authLoading || teamLoading) {
     return (
-      <div className="flex h-screen bg-background overflow-hidden">
-        <div className="w-16 lg:w-64 border-r animate-pulse bg-card" />
         <main className="flex-1 flex flex-col">
           <header className="h-16 border-b bg-card/50 flex items-center px-8 shrink-0">
             <Shimmer className="h-4 w-32 rounded-full" />
@@ -77,21 +74,11 @@ export default function SupervisePage() {
             ))}
           </div>
         </main>
-      </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
-      <DashboardSidebar
-        isCollapsed={isCollapsed}
-        setIsCollapsed={setIsCollapsed}
-        isMobileSidebarOpen={isMobileOpen}
-        setIsMobileSidebarOpen={setIsMobileOpen}
-        employees={employees}
-        onInviteClick={() => setShowInviteModal(true)}
-      />
-
+    <>
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
@@ -166,7 +153,7 @@ export default function SupervisePage() {
                     <div className="aspect-video w-full bg-secondary relative overflow-hidden">
                       {screenshot ? (
                         <img 
-                          src={screenshot.url} 
+                          src={screenshot.url || screenshot.imageUrl || screenshot.activity?.cloudinaryUrl} 
                           alt={`Screenshot for ${emp.name}`}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 cursor-pointer"
                           onClick={() => setSelectedScreenshot({ ...screenshot, employeeName: emp.name })}
@@ -266,7 +253,7 @@ export default function SupervisePage() {
           <div className="w-full h-full min-h-[80vh] flex items-center justify-center p-4">
             {selectedScreenshot && (
               <img 
-                src={selectedScreenshot.url} 
+                src={selectedScreenshot.url || selectedScreenshot.imageUrl || selectedScreenshot.activity?.cloudinaryUrl} 
                 alt="Enlarged screenshot" 
                 className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/5"
               />
@@ -279,12 +266,6 @@ export default function SupervisePage() {
         isOpen={showInviteModal}
         onOpenChange={setShowInviteModal}
       />
-
-      {isMobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsMobileOpen(false)}>
-          <div className="absolute right-4 top-4"><Button variant="ghost" size="icon" className="text-white"><X /></Button></div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
