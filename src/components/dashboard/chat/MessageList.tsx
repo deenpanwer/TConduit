@@ -47,25 +47,27 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="flex-1 p-4 space-y-4 custom-scrollbar">
-      {messages.map((msg) => {
-        const isCurrentUserSender = msg.senderId === userUid;
-        const senderAvatar = isCurrentUserSender
-          ? ownerPhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${ownerName}`
-          : selectedEmployeePhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${selectedEmployeeName}`;
-        const senderDisplayName = isCurrentUserSender ? ownerName : selectedEmployeeName;
+    <ScrollArea className="flex-1 px-6 py-4 custom-scrollbar">
+      <div className="flex flex-col gap-6">
+        {messages.map((msg, index) => {
+          const isCurrentUserSender = msg.senderId === userUid;
+          const senderAvatar = isCurrentUserSender
+            ? ownerPhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${ownerName}`
+            : selectedEmployeePhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${selectedEmployeeName}`;
+          const senderDisplayName = isCurrentUserSender ? ownerName : selectedEmployeeName;
 
-        return (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            isCurrentUserSender={isCurrentUserSender}
-            senderAvatarUrl={senderAvatar || ""} // Provide fallback for undefined
-            senderName={senderDisplayName || "Unknown"} // Provide fallback for undefined
-          />
-        );
-      })}
-      <div ref={messagesEndRef} />
+          return (
+            <MessageBubble
+              key={msg.id || index}
+              message={msg}
+              isCurrentUserSender={isCurrentUserSender}
+              senderAvatarUrl={senderAvatar || ""}
+              senderName={senderDisplayName || "Unknown"}
+            />
+          );
+        })}
+        <div ref={messagesEndRef} className="h-4" />
+      </div>
     </ScrollArea>
   );
 }

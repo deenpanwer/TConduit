@@ -38,7 +38,7 @@ FORMAT:
 `;
 
     const { text } = await generateText({
-      model: mistral('mistral-large-2411'),
+      model: mistral('mistral-small-2506'),
       prompt: prompt,
     });
 

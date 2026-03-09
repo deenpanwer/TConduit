@@ -50,11 +50,14 @@ const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
 
 import { useSidebar } from "@/hooks/use-sidebar";
 
+import { useIsMobile } from "@/hooks/use-mobile";
+
 function TasksPageContent() {
   const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
   const { theme, setTheme } = useTheme();
+  const isMobile = useIsMobile();
 
   const { setIsMobileOpen } = useSidebar();
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -267,28 +270,28 @@ function TasksPageContent() {
                     <Button 
                         variant={activeView === "board" ? "secondary" : "ghost"} 
                         size="sm" 
-                        className="h-8 text-xs px-3"
+                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
                         onClick={() => setActiveView("board")}
                     >
-                        <LayoutGrid size={14} className="mr-2" /> Board
+                        <LayoutGrid size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Board"}
                     </Button>
                     <Button 
                         variant={activeView === "timeline" ? "secondary" : "ghost"} 
                         size="sm" 
-                        className="h-8 text-xs px-3"
+                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
                         onClick={() => setActiveView("timeline")}
                     >
-                        <ListIcon size={14} className="mr-2" /> Timeline
+                        <ListIcon size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Timeline"}
                     </Button>
                 </div>
 
                 <div className="flex items-center gap-3 border-l border-border/40 pl-3">
-                    <SubscriptionBadge orgData={orgData} userData={userData} />
+                    {!isMobile && <SubscriptionBadge orgData={orgData} userData={userData} />}
                     <Button
-                        className="font-semibold text-xs h-8 px-3 rounded-md"
+                        className={cn("font-semibold text-xs h-8 rounded-md", isMobile ? "px-2" : "px-3")}
                         onClick={handleAddNewTaskClick}
                     >
-                        <Plus size={14} className="mr-2" /> Add Task
+                        <Plus size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Add Task"}
                     </Button>
                     <div className="flex items-center gap-2">
                         <Button
@@ -308,7 +311,7 @@ function TasksPageContent() {
             </div>
         </header>
 
-        <div className="flex-1 overflow-x-hidden overflow-y-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
+        <div className="flex-1 overflow-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
             {!isSubscriptionActive ? (
                 <PaywallScreen 
                     orgData={orgData}
@@ -353,7 +356,10 @@ function TasksPageContent() {
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 100 }}
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-card border-l border-border/50 shadow-2xl flex flex-col"
+              className={cn(
+                "fixed inset-y-0 right-0 z-50 bg-card border-l border-border/50 shadow-2xl flex flex-col",
+                isMobile ? "w-full" : "w-full max-w-sm"
+              )}
             >
                 <div className="h-14 px-6 border-b border-border/40 flex items-center justify-between shrink-0">
                     <h3 className="font-bold text-sm tracking-tight">Organization Activity</h3>
@@ -418,11 +424,14 @@ function TasksPageContent() {
             />
             
             <motion.div
-              initial={{ opacity: 0, x: 100, scale: 0.95 }}
+              initial={isMobile ? { x: "100%" } : { opacity: 0, x: 100, scale: 0.95 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 100, scale: 0.95 }}
+              exit={isMobile ? { x: "100%" } : { opacity: 0, x: 100, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-y-4 right-4 z-50 w-full max-w-lg bg-card border border-border/50 shadow-2xl rounded-2xl overflow-hidden flex flex-col outline-none"
+              className={cn(
+                "fixed z-50 bg-card border border-border/50 shadow-2xl overflow-hidden flex flex-col outline-none",
+                isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-full max-w-lg rounded-2xl"
+              )}
             >
               <div className="h-40 shrink-0 relative bg-secondary/30 group">
                 {selectedTask.coverImage ? (

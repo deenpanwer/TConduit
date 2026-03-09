@@ -22,35 +22,41 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
   return (
     <div
       className={cn(
-        "flex items-end gap-3",
-        isCurrentUserSender ? "justify-end" : "justify-start"
+        "flex gap-3 mb-1",
+        isCurrentUserSender ? "flex-row-reverse" : "flex-row"
       )}
     >
-      {!isCurrentUserSender && (
-        <Avatar className="h-8 w-8">
+      <div className="flex-shrink-0 self-end mb-1">
+        <Avatar className="h-8 w-8 border border-border/50">
           <AvatarImage src={senderAvatarUrl} alt={senderName} />
-          <AvatarFallback>{senderName?.charAt(0) || "?"}</AvatarFallback>
+          <AvatarFallback className="text-[10px]">{senderName?.charAt(0) || "?"}</AvatarFallback>
         </Avatar>
-      )}
+      </div>
+
       <div
         className={cn(
-          "max-w-[70%] p-3 rounded-lg flex flex-col",
-          isCurrentUserSender
-            ? "bg-primary text-primary-foreground rounded-br-none"
-            : "bg-muted text-muted-foreground rounded-bl-none"
+          "max-w-[85%] flex flex-col group",
+          isCurrentUserSender ? "items-end" : "items-start"
         )}
       >
-        <p className="text-sm">{message.text}</p>
-        <span className="block self-end text-xs opacity-70 mt-1">
+        <div
+          className={cn(
+            "px-4 py-2.5 shadow-sm transition-all duration-200",
+            isCurrentUserSender
+              ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm"
+              : "bg-muted text-muted-foreground rounded-2xl rounded-bl-sm"
+          )}
+        >
+          <p className="text-[13px] leading-relaxed font-medium">{message.text}</p>
+        </div>
+        
+        <span className={cn(
+          "text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity",
+          isCurrentUserSender ? "text-right" : "text-left"
+        )}>
           {time}
         </span>
       </div>
-      {isCurrentUserSender && (
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={senderAvatarUrl} alt={senderName} />
-          <AvatarFallback>{senderName?.charAt(0) || "?"}</AvatarFallback>
-        </Avatar>
-      )}
     </div>
   );
 }

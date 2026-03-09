@@ -20,7 +20,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Minus, Plus as PlusIcon, Trash2 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit } from "firebase/firestore";
@@ -44,7 +43,6 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
-  const { addDemoEmployees } = useTeam();
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();

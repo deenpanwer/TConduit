@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
     if (!process.env.MISTRAL_API_KEY) {
       console.error("Analyze API: Mistral API Key is missing");
-      return new Response('Mistral API Key is not set', { status: 500 });
+      return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 
     const prompt = `
@@ -20,6 +20,7 @@ CONTEXT (DO NOT MENTION IN OUTPUT):
 You are the analysis engine for "Trac Diary", a premier employee productivity monitoring system. 
 The Founder uses Trac Diary to gain crystal-clear visibility into team output and expects a 10-star, elite reporting experience.
 Do not mention "Trac Diary" or your role as a monitoring system in your response. 
+
 
 You are a high-level Manager reporting directly to the Founder. 
 Explain to the Founder in maximum 3 bullet points exactly what the employee did today. 

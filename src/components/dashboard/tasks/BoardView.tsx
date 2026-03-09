@@ -34,8 +34,9 @@ import { useTasks, Task, Status, Priority, Subtask, Comment, HistoryEntry } from
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-// --- Utility Components (Ported from test15) ---
+// --- Utility Components ---
 
 const MAX_TEXTAREA_HEIGHT_QUICK_ADD = 180;
 
@@ -503,24 +504,70 @@ export function BoardView({
   canManage: boolean;
   personnel: any[];
 }) {
+  const isMobile = useIsMobile();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const scrollLeft = scrollRef.current.scrollLeft;
+      const width = scrollRef.current.offsetWidth;
+      const index = Math.round(scrollLeft / width);
+      setActiveIndex(index);
+    }
+  }, []);
+
   return (
-    <div className="flex h-full gap-4 sm:gap-6 min-w-full lg:w-full lg:max-w-[1920px] mx-auto">
-      <LayoutGroup>
-        {COLUMNS.map(column => (
-          <Column 
-            key={column.id}
-            column={column}
-            tasks={tasks.filter(t => t.status === column.id)}
-            onTaskClick={onTaskClick}
-            onDeleteTask={onDeleteTask}
-            onDropTask={onDropTask}
-            onQuickAdd={onQuickAdd}
-            onQuickEdit={onQuickEdit}
-            canManage={canManage}
-            personnel={personnel}
-          />
-        ))}
-      </LayoutGroup>
+    <div className="flex flex-col h-full w-full">
+      <div 
+        ref={scrollRef}
+        onScroll={isMobile ? handleScroll : undefined}
+        className={cn(
+          "flex h-full mx-auto w-full",
+          isMobile ? "overflow-x-auto snap-x snap-mandatory gap-4 pb-4 scrollbar-hide" : "lg:max-w-[1920px] gap-4 sm:gap-6"
+        )}
+      >
+        <LayoutGroup>
+          {COLUMNS.map(column => (
+            <div key={column.id} className={cn(
+              "h-full",
+              isMobile ? "min-w-[calc(100vw-3rem)] shrink-0 snap-center" : "flex-1 min-w-0"
+            )}>
+              <Column 
+                column={column}
+                tasks={tasks.filter(t => t.status === column.id)}
+                onTaskClick={onTaskClick}
+                onDeleteTask={onDeleteTask}
+                onDropTask={onDropTask}
+                onQuickAdd={onQuickAdd}
+                onQuickEdit={onQuickEdit}
+                canManage={canManage}
+                personnel={personnel}
+              />
+            </div>
+          ))}
+        </LayoutGroup>
+      </div>
+
+      {isMobile && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          {COLUMNS.map((_, idx) => (
+            <motion.div
+              key={idx}
+              initial={false}
+              animate={{
+                width: activeIndex === idx ? 24 : 8,
+                backgroundColor: activeIndex === idx ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.3)",
+                opacity: activeIndex === idx ? 1 : 0.5,
+              }}
+              className={cn(
+                "h-2 rounded-full transition-colors duration-300 shadow-sm",
+                activeIndex === idx ? "bg-primary" : "bg-muted-foreground/30"
+              )}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

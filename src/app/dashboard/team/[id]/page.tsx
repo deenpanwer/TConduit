@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Ticket, Copy, Check } from "lucide-react";
-
+import { useToast } from "@/hooks/use-toast";
 import { useTeam } from "@/hooks/use-team";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { InviteModal } from "@/components/dashboard/InviteModal";
@@ -45,7 +45,6 @@ import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
 import { cn } from "@/lib/utils";
 import { GlobalDateSelector } from "@/components/dashboard/shared/GlobalDateSelector";
-
 import { AIPersonnelPulse } from "@/components/dashboard/employee/AIPersonnelPulse";
 
 const sectionVariants = {
@@ -74,31 +73,30 @@ export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user, userData, loading: authLoading } = useAuth();
-  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate, removeDemoEmployee } = useTeam();
+  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
   const { setIsMobileOpen } = useSidebar();
   
   const [employeeDoc, setEmployeeDoc] = useState<any>(null);
-  // Remove local state for data now sourced from useTeam
-  // const [workShifts, setWorkShifts] = useState<any[]>([]);
-  // const [screenshots, setScreenshots] = useState<any[]>([]);
-  // const [timeEntries, setTimeEntries] = useState<any[]>([]); 
+  const [workShifts, setWorkShifts] = useState<any[]>([]);
+  const [screenshots, setScreenshots] = useState<any[]>([]);
+  const [timeEntries, setTimeEntries] = useState<any[]>([]); 
   
   // --- PAGINATION STATES ---
   const [historyLimit, setHistoryLimit] = useState(5);
-  const [shiftsLimit, setShiftsLimit] = useState(30);
+  const [shiftsLimit, setShiftsLimit] = useState(30); // Decreased from 100
+  // const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base - now dynamic based on selectedDate
 
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
+  const { toast } = useToast();
 
   // Modals for employee actions
   const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
   const [selectedModalRole, setSelectedModalRole] = useState("");
-
-  const isDemoEmployee = (id as string)?.startsWith('demo_');
 
   // Helper to extract JS Date safely
   const getDate = (ts: any) => {
@@ -110,21 +108,15 @@ export default function EmployeeDetailPage() {
   };
 
   const liveEmployee = useMemo(() => {
-    // For demo employees, their full data is already in the `employees` array from useTeam
-    if (isDemoEmployee) {
-      return employees.find(e => e.id === id);
-    }
-    // For real employees
     if (owner?.id === id) return owner;
     return employees.find(e => e.id === id);
-  }, [employees, owner, id, isDemoEmployee]);
+  }, [employees, owner, id]);
 
   // Consolidate employee data source
   const employee = useMemo(() => {
-    if (isDemoEmployee) return liveEmployee; // Demo data is the source of truth
     if (!employeeDoc && !liveEmployee) return null;
     return { ...employeeDoc, ...liveEmployee };
-  }, [employeeDoc, liveEmployee, isDemoEmployee]);
+  }, [employeeDoc, liveEmployee]);
 
   useEffect(() => {
     if (employee?.role) {
@@ -132,47 +124,43 @@ export default function EmployeeDetailPage() {
     }
   }, [showMemberAccessModal, employee]);
 
-  // This effect will ONLY run for REAL employees to fetch their document.
   useEffect(() => {
     if (!id) return;
-    
-    if (isDemoEmployee) {
-      setLoading(false);
-      return;
-    };
-
     // Full loading only on employee change
     setLoading(true);
     
-    // 1. Profile Document for REAL employees
+    // 1. Profile Document
     const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
       if (snapshot.exists()) {
         setEmployeeDoc(snapshot.data());
+        // We set loading false here because profile is the core identity
+        setLoading(false); 
+      } else {
+        setLoading(false); 
       }
-      setLoading(false); 
     }, () => setLoading(false));
 
     return () => unsubProfile();
-  }, [id, isDemoEmployee]);
+  }, [id]);
 
-  // This effect is now redundant for demo employees, as their data is already in liveEmployee
   useEffect(() => {
-    if (!id || isDemoEmployee) return;
+    if (!id) return;
 
-    // ... (This block now only runs for REAL employees) ...
+    // We do NOT call setLoading(true) here for date/limit changes
+    // This allows the UI to stay interactive while the new snapshot arrives.
 
     // 2. Shift History (Limited for Ledger preview)
     const shiftsRef = collection(db, "users", id as string, "workShifts");
     const shiftsQuery = query(shiftsRef, orderBy("startTime", "desc"), limit(shiftsLimit));
     const unsubShifts = onSnapshot(shiftsQuery, (snapshot) => {
-      // For real employees, we might want to update employeeDoc or local state if we had it
+      setWorkShifts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     // 3. Time Entries (Paginated Engagement Log)
     const timeRef = collection(db, "users", id as string, "timeEntries");
     const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(historyLimit));
     const unsubTime = onSnapshot(timeQuery, (snapshot) => {
-      // Similar to shifts
+      setTimeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     // 4. Visual Evidence (Snapshot per day)
@@ -182,7 +170,7 @@ export default function EmployeeDetailPage() {
     const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
     
     const unsubScreenshots = onSnapshot(screenQuery, (snapshot) => {
-        // Similar to shifts
+        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }); 
 
     return () => {
@@ -190,7 +178,7 @@ export default function EmployeeDetailPage() {
       unsubTime();
       unsubScreenshots();
     };
-  }, [id, historyLimit, shiftsLimit, selectedDate, isDemoEmployee]);
+  }, [id, historyLimit, shiftsLimit, selectedDate]);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -208,7 +196,7 @@ export default function EmployeeDetailPage() {
 
   const { currentShiftHours, todayTotalHours, topApp } = useMemo(() => {
     const officialStart = employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
-    const shiftsToProcess = liveEmployee?.workShifts || [];
+    const shiftsToProcess = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
     
     if (shiftsToProcess.length === 0) {
       return { currentShiftHours: "0.0", todayTotalHours: "0.0", topApp: "---" };
@@ -247,18 +235,18 @@ export default function EmployeeDetailPage() {
       todayTotalHours: (todayTotalSeconds / 3600).toFixed(1),
       topApp: top.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     };
-  }, [employee, liveEmployee, selectedDate]); 
+  }, [employee, liveEmployee, workShifts]);  
 
   const joinedDate = useMemo(() => {
     return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
   }, [employee]);
 
   const activeShift = useMemo(() => {
-    return (liveEmployee?.workShifts || []).find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
-  }, [liveEmployee]);
+    return workShifts.find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
+  }, [workShifts]);
 
   const { intensity, aiBrief } = useMemo(() => {
-    const shiftsForIntensity = liveEmployee?.workShifts || [];
+    const shiftsForIntensity = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
     if (shiftsForIntensity.length === 0) return { intensity: 0, aiBrief: null };
 
     const relevantShifts = shiftsForIntensity
@@ -286,7 +274,7 @@ export default function EmployeeDetailPage() {
     if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
     return { intensity: normalizedIntensity, aiBrief: brief };
-  }, [employee, liveEmployee]);
+  }, [employee, liveEmployee, workShifts]);
 
   const handleEditEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,8 +425,8 @@ export default function EmployeeDetailPage() {
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <AIPersonnelPulse 
                   employee={employee} 
-                  workShifts={liveEmployee?.workShifts || []} 
-                  screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} 
+                  workShifts={liveEmployee?.workShifts || workShifts} 
+                  screenshots={screenshots} 
                 />
               </motion.div>
 
@@ -447,15 +435,15 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <RecentEvidence screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} />
+                <RecentEvidence screenshots={screenshots} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <AttendanceLedger employee={employee} workShifts={liveEmployee?.workShifts || []} joinedDate={joinedDate} />
+                <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <WorkflowTimeline workShifts={liveEmployee?.workShifts || []} />
+                <WorkflowTimeline workShifts={workShifts} />
               </motion.div>
 
               {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -463,23 +451,23 @@ export default function EmployeeDetailPage() {
               </motion.div> */}
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-                <ActivityMatrix workShifts={liveEmployee?.workShifts || []} screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} />
+                <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <YieldCalculator 
                     employeeId={id as string} 
                     employeeName={employee?.name || "Member"} 
-                    workShifts={liveEmployee?.workShifts || []} 
-                    screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []}
+                    workShifts={workShifts} 
+                    screenshots={screenshots}
                     joinedDate={joinedDate}
                 />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <WorkHistory 
-                  timeEntries={liveEmployee?.timeEntries || []} 
-                  screenshots={(liveEmployee?.screenshots || {})[format(selectedDate, "yyyy-MM-dd")] || []} 
+                  timeEntries={timeEntries} 
+                  screenshots={screenshots} 
                   onLoadMore={handleLoadMore}
                 />
               </motion.div>

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Task, Status } from "@/hooks/useTasks";
 import { TaskCard } from "./BoardView";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // --- Timeline View Component ---
 export const TimelineView = ({
@@ -29,6 +30,7 @@ export const TimelineView = ({
   personnel: any[];
 }) => {
   const [viewOffset, setViewOffset] = useState(0);
+  const isMobile = useIsMobile();
 
   // Generate a range of dates
   const dateRange = useMemo(() => {
@@ -69,7 +71,7 @@ export const TimelineView = ({
   };
 
   return (
-    <div className="flex flex-col h-full gap-4 min-w-full lg:w-full lg:max-w-[1920px] mx-auto">
+    <div className="flex flex-col h-full gap-4 min-w-full lg:w-full lg:max-w-[1920px] mx-auto overflow-hidden">
       <div className="flex items-center justify-between px-2 shrink-0">
         <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-full border border-border/40">
           <Button 
@@ -109,7 +111,10 @@ export const TimelineView = ({
       </div>
 
       <ScrollArea className="flex-1 w-full h-full">
-        <div className="flex h-full py-1">
+        <div className={cn(
+            "flex py-1",
+            isMobile ? "flex-col gap-6 px-2 h-auto" : "h-full"
+        )}>
           {dateRange.map(date => {
             const dateKey = format(date, 'yyyy-MM-dd');
             const dayTasks = tasksByDate.get(dateKey) || [];
@@ -128,6 +133,7 @@ export const TimelineView = ({
                 onQuickEdit={onQuickEdit}
                 canManage={canManage}
                 personnel={personnel}
+                isMobile={isMobile}
               />
             );
           })}
@@ -149,6 +155,7 @@ const TimelineDayColumn = ({
   onQuickEdit,
   canManage,
   personnel,
+  isMobile,
 }: {
   date: Date;
   tasks: Task[];
@@ -160,6 +167,7 @@ const TimelineDayColumn = ({
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
+  isMobile: boolean;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -176,7 +184,8 @@ const TimelineDayColumn = ({
   return (
     <div
       className={cn(
-        "flex flex-col h-full min-w-[200px] flex-1 rounded-2xl p-2 transition-all duration-300 border-2",
+        "flex flex-col rounded-2xl p-2 transition-all duration-300 border-2",
+        isMobile ? "min-w-full h-auto min-h-[140px]" : "min-w-[200px] flex-1 h-full",
         isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-transparent border-transparent",
         isToday && "bg-blue-100/20 border-blue-200/50"
       )}
@@ -192,13 +201,16 @@ const TimelineDayColumn = ({
           {tasks.length}
         </span>
       </div>
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col min-h-[100px] gap-2 px-1">
+      <div className={cn("flex-1", isMobile ? "" : "overflow-hidden")}>
+        <div className={cn(
+            "flex flex-col gap-2 px-1",
+            isMobile ? "" : "min-h-[100px]"
+        )}>
           <AnimatePresence mode="popLayout" initial={false}>
             {tasks.length === 0 && (
               <motion.div 
                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                 className="h-24 flex items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1"
+                 className="h-20 flex items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1"
               >
                  <span className="text-[10px] font-medium uppercase tracking-widest">No tasks</span>
               </motion.div>
@@ -216,7 +228,7 @@ const TimelineDayColumn = ({
             ))}
           </AnimatePresence>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
