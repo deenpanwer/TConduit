@@ -23,6 +23,8 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { useAuth } from "./use-auth";
+import { requestNotificationPermission, sendBrowserNotification } from "@/lib/notifications";
+import { toast } from "sonner";
 
 // --- 1. Types & Constants ---
 
@@ -73,6 +75,9 @@ export interface Task {
   history: HistoryEntry[];
   flagged?: boolean;
   isDeleted?: boolean;
+  audioBase64?: string; // TESTING ONLY: Direct Base64 audio
+  audioMimeType?: string; // e.g. 'audio/webm;codecs=opus'
+  audioDuration?: number; // Duration in seconds
   createdAt: any;
   updatedAt: any;
 }
@@ -108,7 +113,7 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 interface TasksContextType {
   tasks: Task[];
   loading: boolean;
-  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[]) => Promise<string | null>;
+  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[], audioData?: { base64: string; mimeType: string; duration: number }) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
@@ -135,6 +140,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const userRole = userData?.role?.toLowerCase();
   const canManageTasks = userRole === 'owner' || userRole === 'manager' || userRole === 'founder';
+
+  useEffect(() => {
+    // Request permission for notifications when the app loads.
+    // This is a simple approach; a more robust solution might tie this
+    // to a user action in the settings.
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     if (!orgId) {
@@ -176,7 +188,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [orgId, authLoading]);
 
   const addTask = useCallback(
-    async (title: string, status: Status, description: string = "", priority: Priority = "medium", assignees: string[] = []): Promise<string | null> => {
+    async (
+      title: string, 
+      status: Status, 
+      description: string = "", 
+      priority: Priority = "medium", 
+      assignees: string[] = [],
+      audioData?: { base64: string; mimeType: string; duration: number }
+    ): Promise<string | null> => {
       console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
       
       if (!orgId || !user) {
@@ -199,12 +218,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         tags: [],
         flagged: false,
         isDeleted: false,
+        audioBase64: audioData?.base64,
+        audioMimeType: audioData?.mimeType,
+        audioDuration: audioData?.duration,
         history: [
             {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status, description, priority, assignees },
+                details: { title, status, description, priority, assignees, hasAudio: !!audioData },
                 createdAt: new Date(),
             }
         ],
@@ -260,6 +282,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       try {
         await updateDoc(taskDocRef, taskToUpdate);
+        if (updates.flagged) {
+          const notificationTitle = `Task Completed`;
+          const notificationBody = `"${currentTask.title}" has been marked as complete.`;
+          toast.success(notificationBody);
+          sendBrowserNotification(notificationTitle, {
+            body: notificationBody,
+            tag: `task-completed-${taskId}`,
+          });
+        }
       } catch (error) {
         console.error("Error updating task: ", error);
       }
@@ -285,6 +316,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       };
 
       await updateTask(taskId, updates, 'comment_added');
+      toast.success(`Comment added to "${currentTask.title}"`);
+      
+      // Send browser notification
+      sendBrowserNotification(`New comment on "${currentTask.title}"`, {
+        body: newComment.text,
+        tag: `comment-${taskId}`, // Use a tag to prevent spamming notifications for the same task
+      });
     },
     [orgId, user, tasks, updateTask]
   );

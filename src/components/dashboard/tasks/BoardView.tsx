@@ -35,6 +35,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { InlineAudioPlayer } from "./InlineAudioPlayer";
 
 // --- Utility Components ---
 
@@ -277,6 +278,17 @@ export const TaskCard = ({
               </div>
             )}
         </div>
+
+        {task.audioBase64 && task.audioMimeType && task.audioDuration !== undefined && (
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <InlineAudioPlayer 
+              audioBase64={task.audioBase64}
+              audioMimeType={task.audioMimeType}
+              audioDuration={task.audioDuration}
+              className="scale-90 origin-left"
+            />
+          </div>
+        )}
         
         <div className="flex items-center gap-4 mt-2 min-h-[16px]">
           {dateInfo ? (

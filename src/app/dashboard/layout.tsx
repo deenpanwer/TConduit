@@ -4,6 +4,7 @@ import { SidebarProvider, useSidebar } from "@/hooks/use-sidebar";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { useTeam } from "@/hooks/use-team";
 import { InviteModal } from "@/components/dashboard/InviteModal";
+import { PWAInstallPrompt } from "@/components/dashboard/PWAInstallPrompt";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -24,7 +25,12 @@ function DashboardLayoutContent({
                      pathname?.includes("/onboarding");
 
   if (isAuthPage) {
-    return <div className="flex-1 h-screen">{children}</div>;
+    return (
+      <div className="flex-1 h-screen relative">
+        {children}
+        <PWAInstallPrompt />
+      </div>
+    );
   }
 
   return (
@@ -46,6 +52,7 @@ function DashboardLayoutContent({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {children}
+        <PWAInstallPrompt />
       </div>
     </div>
   );

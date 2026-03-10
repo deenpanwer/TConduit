@@ -48,7 +48,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)} suppressHydrationWarning>
         <head>
-          
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="theme-color" content="#000000" />
+          <link rel="apple-touch-icon" href="/logo.svg" />
         </head>
         <body className="font-sans">
           <PHProvider>
