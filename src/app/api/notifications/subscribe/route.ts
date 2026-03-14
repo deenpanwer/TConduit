@@ -1,0 +1,26 @@
+import { adminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const { userId, subscription } = await req.json();
+
+    if (!userId || !subscription) {
+      return NextResponse.json({ error: "Missing userId or subscription" }, { status: 400 });
+    }
+
+    // Save subscription using Firebase Admin SDK for server-side reliability
+    const userRef = adminDb.collection("users").doc(userId);
+    
+    await userRef.set({
+      pushSubscriptions: FieldValue.arrayUnion(JSON.stringify(subscription)),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Error saving push subscription:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

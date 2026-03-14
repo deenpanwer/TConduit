@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Mic, StopCircle, Play, Pause, Check, Save, Undo2, User, Flag, Plus, Calendar } from "lucide-react";
+import { X, Mic, StopCircle, Play, Pause, Check, Save, Undo2, Plus, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Priority, Status, Task } from "@/hooks/useTasks";
-import { PRIORITIES } from "./BoardView"; // Assuming PRIORITIES is exported
+import { Priority, Task } from "@/hooks/useTasks";
+import { PRIORITIES } from "./BoardView"; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTeam } from "@/hooks/use-team";
@@ -24,7 +24,7 @@ interface VoiceTaskCreatorProps {
   canManage: boolean;
 }
 
-const MAX_AUDIO_DURATION_SECONDS = 300; // 5 minutes for testing with Firestore 1MB limit
+const MAX_AUDIO_DURATION_SECONDS = 300; 
 
 export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: VoiceTaskCreatorProps) {
   const [isRecording, setIsRecording] = useState(false);
@@ -48,12 +48,21 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
 
   const { employees } = useTeam();
   const { userData, user } = useAuth();
+  
   const personnel = React.useMemo(() => {
-    const list = [...employees];
-    if (userData && !list.find(p => p.id === user?.uid)) {
-      list.push({ id: user?.uid, ...userData } as any); // Add current user to personnel if not already there
+    const personnelMap = new Map<string, any>();
+    
+    employees.forEach(emp => {
+      if (emp && emp.id) {
+        personnelMap.set(emp.id, emp);
+      }
+    });
+
+    if (userData && user?.uid) {
+      personnelMap.set(user.uid, { id: user.uid, ...userData });
     }
-    return list.filter(Boolean);
+    
+    return Array.from(personnelMap.values()).filter(Boolean);
   }, [employees, userData, user]);
 
   const [taskTitle, setTaskTitle] = useState("");
@@ -61,10 +70,7 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
   const [taskAssignees, setTaskAssignees] = useState<string[]>([]);
   const [taskDueDate, setTaskDueDate] = useState<Date | undefined>(undefined);
 
-  const currentUserId = user?.uid; // Assuming current user can assign themselves
-
   useEffect(() => {
-    // Cleanup on unmount
     return () => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -80,7 +86,7 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [audioUrl]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -104,15 +110,25 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
     };
   }, [isPlaying]);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording && !isPaused) {
+      interval = setInterval(() => {
+        setCurrentPlaybackTime((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecording, isPaused]);
+
   const startRecording = async () => {
-    // ... same as before but ensure state is reset
     setAudioBlob(null);
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
     setAudioDuration(0);
     setCurrentPlaybackTime(0);
     setIsPlaying(false);
-    // ... rest of startRecording
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -133,7 +149,6 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
         setAudioUrl(newAudioUrl);
         stream.getTracks().forEach(track => track.stop());
 
-        // Get duration
         const tempAudio = new Audio(newAudioUrl);
         tempAudio.onloadedmetadata = () => {
           setAudioDuration(isFinite(tempAudio.duration) ? tempAudio.duration : 0);
@@ -147,7 +162,6 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
       setIsPaused(false);
       toast.info("Recording started. Max 5 minutes.");
 
-      // Enforce max duration
       setTimeout(() => {
         if (recorder.state === 'recording') {
           recorder.stop();
@@ -239,7 +253,7 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
         priority: taskPriority,
         assignees: taskAssignees,
         dueDate: taskDueDate?.toISOString(),
-        status: "todo", // Default status for new tasks
+        status: "todo",
       });
     };
   };
@@ -258,7 +272,6 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
   };
 
   const waveformProgress = (currentPlaybackTime / audioDuration) * 100 || 0;
-  const recordingProgress = (currentPlaybackTime / MAX_AUDIO_DURATION_SECONDS) * 100 || 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -295,18 +308,31 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
                 className="flex flex-col items-center"
               >
                 <div className="relative w-48 h-24 flex items-center justify-center">
-                  {/* Pulsing Mic */}
                   <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
+                    animate={!isPaused ? { scale: [1, 1.2, 1], opacity: [0.3, 0.7, 0.3] } : { scale: 1, opacity: 0.3 }}
                     transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
                     className="absolute inset-0 flex items-center justify-center"
                   >
-                    <Mic className="size-24 text-red-500 opacity-70" />
+                    <Mic className="size-24 text-red-500" />
                   </motion.div>
-                  <Mic className="size-16 text-red-500 z-10" />
+                  <Mic className={cn("size-16 z-10 transition-colors", isPaused ? "text-gray-400" : "text-red-500")} />
                 </div>
-                <p className="text-sm font-medium mt-4">Recording...</p>
-                <p className="text-xl font-mono mt-1">{formatDuration(audioDuration > 0 ? audioDuration : currentPlaybackTime)}</p>
+                <div className="flex flex-col items-center mt-4 w-full px-4">
+                  <p className="text-sm font-bold uppercase tracking-widest text-red-500/80 animate-pulse">
+                    {isPaused ? "Paused" : "Recording..."}
+                  </p>
+                  <p className="text-3xl font-mono font-black mt-1">
+                    {formatDuration(currentPlaybackTime)}
+                  </p>
+                  <div className="w-full max-w-[200px] h-1.5 bg-secondary rounded-full mt-4 overflow-hidden border border-black/10 dark:border-white/10">
+                    <motion.div 
+                      className="h-full bg-red-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(currentPlaybackTime / MAX_AUDIO_DURATION_SECONDS) * 100}%` }}
+                      transition={{ ease: "linear", duration: 1 }}
+                    />
+                  </div>
+                </div>
               </motion.div>
             ) : audioUrl ? (
               <motion.div
@@ -326,9 +352,9 @@ export function VoiceTaskCreator({ onSave, onCancel, isLoading, canManage }: Voi
                     style={{ left: 0, top: '50%', transform: 'translateY(-50%)' }}
                   />
                   {isPlaying ? (
-                    <Pause className="size-16 text-primary" onClick={stopAudio} />
+                    <Pause className="size-16 text-primary cursor-pointer" onClick={stopAudio} />
                   ) : (
-                    <Play className="size-16 text-primary" onClick={playAudio} />
+                    <Play className="size-16 text-primary cursor-pointer" onClick={playAudio} />
                   )}
                 </div>
                 <p className="text-xl font-mono mt-4">{formatDuration(currentPlaybackTime)} / {formatDuration(audioDuration)}</p>

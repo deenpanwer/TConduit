@@ -23,7 +23,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { useAuth } from "./use-auth";
-import { requestNotificationPermission, sendBrowserNotification } from "@/lib/notifications";
+import { requestNotificationPermission, sendBrowserNotification, subscribeUserToPush } from "@/lib/notifications";
 import { toast } from "sonner";
 
 // --- 1. Types & Constants ---
@@ -143,10 +143,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Request permission for notifications when the app loads.
-    // This is a simple approach; a more robust solution might tie this
-    // to a user action in the settings.
-    requestNotificationPermission();
-  }, []);
+    requestNotificationPermission().then(permission => {
+        if (permission === 'granted' && user?.uid) {
+            subscribeUserToPush(user.uid);
+        }
+    });
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!orgId) {
@@ -238,6 +240,25 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");
         const docRef = await addDoc(tasksCollection, newTask);
         console.log("useTasks: Task created successfully", docRef.id);
+
+        // Notify assignees (if any) about the new task
+        if (assignees.length > 0) {
+          assignees.forEach(assigneeId => {
+            if (assigneeId !== user.uid) {
+              fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: assigneeId,
+                  title: `New Task Assigned`,
+                  body: `You've been assigned to: "${title}"`,
+                  data: { taskId: docRef.id }
+                })
+              });
+            }
+          });
+        }
+
         return docRef.id;
       } catch (error) {
         console.error("Error adding task: ", error);
@@ -282,14 +303,31 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       try {
         await updateDoc(taskDocRef, taskToUpdate);
-        if (updates.flagged) {
-          const notificationTitle = `Task Completed`;
-          const notificationBody = `"${currentTask.title}" has been marked as complete.`;
-          toast.success(notificationBody);
-          sendBrowserNotification(notificationTitle, {
-            body: notificationBody,
-            tag: `task-completed-${taskId}`,
-          });
+        
+        // If task is completed, notify the assignees or others
+        if (updates.status === 'done') {
+            const notificationTitle = `Task Completed`;
+            const notificationBody = `"${currentTask.title}" has been marked as complete.`;
+            toast.success(notificationBody);
+            
+            // Send push notifications to all other assignees and the owner
+            const notifyList = new Set([...(currentTask.assignees || [])]);
+            // If the org owner is someone else, we'd ideally notify them too
+            
+            notifyList.forEach(uId => {
+                if (uId !== user.uid) {
+                    fetch('/api/notifications/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: uId,
+                            title: notificationTitle,
+                            body: notificationBody,
+                            data: { taskId }
+                        })
+                    });
+                }
+            });
         }
       } catch (error) {
         console.error("Error updating task: ", error);
@@ -318,14 +356,26 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       await updateTask(taskId, updates, 'comment_added');
       toast.success(`Comment added to "${currentTask.title}"`);
       
-      // Send browser notification
-      sendBrowserNotification(`New comment on "${currentTask.title}"`, {
-        body: newComment.text,
-        tag: `comment-${taskId}`, // Use a tag to prevent spamming notifications for the same task
+      // Send push notification to all assignees (except current user)
+      const notifyList = new Set(currentTask.assignees || []);
+      notifyList.forEach(uId => {
+        if (uId !== user.uid) {
+            fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: uId,
+                    title: `New comment on "${currentTask.title}"`,
+                    body: text,
+                    data: { taskId }
+                })
+            });
+        }
       });
     },
     [orgId, user, tasks, updateTask]
   );
+
 
   const deleteTask = useCallback(
     async (taskId: string) => {

@@ -30,6 +30,15 @@ const TEAM_SIZES = [
   { id: "501+", label: "501+" },
 ];
 
+const REPORTING_PLATFORMS = [
+  { id: "dashboard", label: "Trac Dashboard" },
+  { id: "whatsapp", label: "WhatsApp" },
+  { id: "telegram", label: "Telegram" },
+  { id: "slack", label: "Slack" },
+  { id: "notifications", label: "App Notifications" },
+  { id: "others", label: "Others" },
+];
+
 const SHIFTS = [
   { id: "4", label: "4h", seconds: 14400 },
   { id: "6", label: "6h", seconds: 21600 },
@@ -68,6 +77,8 @@ const DAYS = [
     role: "",
     orgName: "",
     teamSize: "",
+    reportingPlatforms: ["dashboard"] as string[],
+    otherPlatform: "",
     logoUrl: "",
     motivation: "",
     whatsapp: "",
@@ -136,6 +147,8 @@ const DAYS = [
           ownerId: user.uid,
           logoUrl: formData.logoUrl || null,
           teamSize: formData.teamSize,
+          reportingPlatforms: formData.reportingPlatforms,
+          otherPlatform: formData.otherPlatform || null,
           whatsapp: formData.whatsapp,
           motivation: formData.motivation,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
@@ -148,6 +161,8 @@ const DAYS = [
           name: formData.orgName,
           logoUrl: formData.logoUrl || null,
           teamSize: formData.teamSize,
+          reportingPlatforms: formData.reportingPlatforms,
+          otherPlatform: formData.otherPlatform || null,
           whatsapp: formData.whatsapp,
           motivation: formData.motivation,
           onboardingCompleted: true,
@@ -323,6 +338,38 @@ const DAYS = [
                   </div>
 
                   <div className="space-y-3">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Reporting Platforms</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {REPORTING_PLATFORMS.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            const isSelected = formData.reportingPlatforms.includes(p.id);
+                            const newPlatforms = isSelected
+                              ? formData.reportingPlatforms.filter((id) => id !== p.id)
+                              : [...formData.reportingPlatforms, p.id];
+                            setFormData({ ...formData, reportingPlatforms: newPlatforms });
+                          }}
+                          className={cn(
+                            "px-2 py-3 rounded-xl border-2 text-[9px] font-bold uppercase tracking-tight transition-all",
+                            formData.reportingPlatforms.includes(p.id) ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10" : "border-transparent bg-secondary/50 hover:bg-secondary"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    {formData.reportingPlatforms.includes("others") && (
+                      <Input
+                        placeholder="Please specify other platforms"
+                        value={formData.otherPlatform}
+                        onChange={(e) => setFormData({ ...formData, otherPlatform: e.target.value })}
+                        className="h-12 rounded-xl px-4 bg-background/50 mt-2"
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between ml-1">
                       <Label className="text-xs font-semibold tracking-wider">What problem made you look for employee monitoring / tracking software?</Label>
                       <span className="text-[9px] font-bold uppercase text-muted-foreground">(Optional)</span>
@@ -341,7 +388,11 @@ const DAYS = [
                     Back
                   </Button>
                   <Button 
-                    disabled={!formData.teamSize} 
+                    disabled={
+                      !formData.teamSize || 
+                      formData.reportingPlatforms.length === 0 || 
+                      (formData.reportingPlatforms.includes("others") && !formData.otherPlatform.trim())
+                    } 
                     onClick={handleNext} 
                     className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
                   >

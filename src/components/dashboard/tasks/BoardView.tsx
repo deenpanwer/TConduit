@@ -142,7 +142,8 @@ export const TaskCard = ({
   onDelete,
   onQuickEdit,
   canManage,
-  personnel
+  personnel,
+  onDragStartManual
 }: { 
   task: Task; 
   onClick: (id: string) => void;
@@ -150,6 +151,7 @@ export const TaskCard = ({
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
+  onDragStartManual?: (e: React.PointerEvent, task: Task) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -184,16 +186,24 @@ export const TaskCard = ({
 
   return (
     <div
-      draggable={true}
+      draggable={!onDragStartManual}
       onDragStart={(e: React.DragEvent) => {
+        if (onDragStartManual) return;
         e.dataTransfer.setData("taskId", task.id);
         e.dataTransfer.effectAllowed = "move";
         const el = e.currentTarget as HTMLElement;
         setTimeout(() => el.style.opacity = "0.5", 0);
       }}
       onDragEnd={(e: React.DragEvent) => {
+        if (onDragStartManual) return;
         (e.currentTarget as HTMLElement).style.opacity = "1";
       }}
+      onPointerDown={(e) => {
+        if (onDragStartManual && !isEditing) {
+          onDragStartManual(e, task);
+        }
+      }}
+      className="touch-none"
     >
       <motion.div
         layoutId={task.id}
@@ -371,7 +381,9 @@ const Column = ({
   onQuickAdd,
   onQuickEdit,
   canManage,
-  personnel
+  personnel,
+  onDragStartManual,
+  draggedTaskId
 }: { 
   column: typeof COLUMNS[0]; 
   tasks: Task[]; 
@@ -382,6 +394,8 @@ const Column = ({
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
+  onDragStartManual?: (e: React.PointerEvent, task: Task) => void;
+  draggedTaskId: string | null;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [quickAddValue, setQuickAddValue] = useState("");
@@ -409,6 +423,7 @@ const Column = ({
 
   return (
     <div 
+      data-column-id={column.id}
       className={cn(
         "flex flex-col h-full min-w-0 flex-1 rounded-2xl transition-all duration-300 border-2",
         isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-transparent border-transparent"
@@ -454,15 +469,20 @@ const Column = ({
             )}
 
             {tasks.map((task) => (
-              <TaskCard 
+              <div 
                 key={task.id} 
-                task={task} 
-                onClick={onTaskClick} 
-                onDelete={onDeleteTask}
-                onQuickEdit={onQuickEdit}
-                canManage={canManage}
-                personnel={personnel}
-              />
+                style={{ opacity: draggedTaskId === task.id ? 0.3 : 1 }}
+              >
+                <TaskCard 
+                  task={task} 
+                  onClick={onTaskClick} 
+                  onDelete={onDeleteTask}
+                  onQuickEdit={onQuickEdit}
+                  canManage={canManage}
+                  personnel={personnel}
+                  onDragStartManual={onDragStartManual}
+                />
+              </div>
             ))}
           </AnimatePresence>
           
@@ -520,6 +540,13 @@ export function BoardView({
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Manual Drag State
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dropTarget, setDropTarget] = useState<Status | null>(null);
+  const scrollInterval = useRef<NodeJS.Timeout | null>(null);
+
   const handleScroll = useCallback(() => {
     if (scrollRef.current) {
       const scrollLeft = scrollRef.current.scrollLeft;
@@ -528,6 +555,86 @@ export function BoardView({
       setActiveIndex(index);
     }
   }, []);
+
+  const onDragStartManual = (e: React.PointerEvent, task: Task) => {
+    if (!isMobile) return;
+    
+    // Check if it's a long press or we just want immediate drag for mobile?
+    // Let's go with immediate but we need to ensure we don't block clicks
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDraggedTask(task);
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setDragPosition({ x: e.clientX, y: e.clientY });
+    
+    // Add global listeners
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  const onPointerMove = (e: PointerEvent) => {
+    setDragPosition({ x: e.clientX, y: e.clientY });
+
+    // Find drop target column
+    const elements = document.elementsFromPoint(e.clientX, e.clientY);
+    const colElement = elements.find(el => (el as HTMLElement).dataset.columnId);
+    if (colElement) {
+      setDropTarget((colElement as HTMLElement).dataset.columnId as Status);
+    } else {
+      setDropTarget(null);
+    }
+
+    // Auto-scroll logic
+    if (scrollRef.current) {
+      const scrollArea = scrollRef.current;
+      const rect = scrollArea.getBoundingClientRect();
+      const edgeSize = 80;
+      const speed = 10;
+
+      if (e.clientX < rect.left + edgeSize) {
+        // Scroll left
+        if (!scrollInterval.current) {
+          scrollInterval.current = setInterval(() => {
+            scrollArea.scrollLeft -= speed;
+          }, 16);
+        }
+      } else if (e.clientX > rect.right - edgeSize) {
+        // Scroll right
+        if (!scrollInterval.current) {
+          scrollInterval.current = setInterval(() => {
+            scrollArea.scrollLeft += speed;
+          }, 16);
+        }
+      } else {
+        if (scrollInterval.current) {
+          clearInterval(scrollInterval.current);
+          scrollInterval.current = null;
+        }
+      }
+    }
+  };
+
+  const onPointerUp = (e: PointerEvent) => {
+    if (scrollInterval.current) {
+      clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+
+    // Use a ref-like approach to get latest state in listener
+    // Or just use the state from the last move
+    setDraggedTask(prev => {
+      if (prev && dropTarget) {
+        onDropTask(prev.id, dropTarget);
+      }
+      return null;
+    });
+    setDropTarget(null);
+
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+  };
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -555,6 +662,8 @@ export function BoardView({
                 onQuickEdit={onQuickEdit}
                 canManage={canManage}
                 personnel={personnel}
+                onDragStartManual={isMobile ? onDragStartManual : undefined}
+                draggedTaskId={draggedTask?.id || null}
               />
             </div>
           ))}
@@ -580,6 +689,43 @@ export function BoardView({
           ))}
         </div>
       )}
+
+      {/* Drag Overlay for Mobile */}
+      <AnimatePresence>
+        {draggedTask && (
+          <motion.div
+            initial={{ scale: 1, opacity: 0 }}
+            animate={{ 
+              scale: 1.05, 
+              opacity: 0.9,
+              x: dragPosition.x - dragOffset.x,
+              y: dragPosition.y - dragOffset.y
+            }}
+            exit={{ scale: 1, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
+            className="fixed top-0 left-0 z-[100] pointer-events-none w-[calc(100vw-4rem)] shadow-2xl"
+          >
+            <div className="bg-card rounded-xl border-2 border-primary ring-4 ring-primary/10 overflow-hidden">
+               {/* Simplified TaskCard Preview */}
+               <div className="p-4 bg-card">
+                  <div className="flex items-center gap-2 mb-2">
+                     <div className={cn("w-1.5 h-1.5 rounded-full", PRIORITIES[draggedTask.priority || 'medium'].color)} />
+                     <h3 className="font-bold text-sm truncate">{draggedTask.title}</h3>
+                  </div>
+                  {draggedTask.description && (
+                     <p className="text-xs text-muted-foreground line-clamp-2">{draggedTask.description}</p>
+                  )}
+               </div>
+               {dropTarget && (
+                  <div className="bg-primary/10 px-4 py-2 border-t border-primary/20 flex items-center justify-between">
+                     <span className="text-[10px] font-black uppercase tracking-widest text-primary">Drop in {COLUMNS.find(c => c.id === dropTarget)?.title}</span>
+                     <ChevronRight size={12} className="text-primary" />
+                  </div>
+               )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

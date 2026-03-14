@@ -116,16 +116,21 @@ export function DashboardSidebar({
       )}>
         <div className="p-4 flex flex-col h-full relative">
           
-          <div className="flex items-center justify-between mb-8 overflow-hidden whitespace-nowrap pt-8 lg:pt-0">
+          <div className="flex items-center justify-between mb-8 pt-8 lg:pt-0 shrink-0 min-h-8">
             {(!isCollapsed || isMobileSidebarOpen) && (
-              <Link href="/dashboard" className="truncate">
-                {partnerBrand ? (
-                  <div className="font-poppins font-black text-xl tracking-tighter">
-                    TRAC AI SUBSIDIARY OF {partnerBrand}
-                  </div>
-                ) : (
-                  <span className="font-bold text-2xl tracking-tighter">{orgName || "Trac Admin"}</span>
-                )}
+              <Link href="/dashboard" className="flex-1 min-w-0 pr-3">
+                <div className="font-poppins font-black tracking-tighter uppercase leading-[0.85] flex flex-col">
+                  {userData?.partnerSlug ? (
+                    <>
+                      <div className="text-xl">TRAC AI</div>
+                      <div className="text-xl mt-0.25 break-words">
+                        SUBSIDIARY OF {partnerBrand || 'DASH'}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xl">TRAC AI</div>
+                  )}
+                </div>
               </Link>
             )}
             <Link href="/dashboard" className="shrink-0">
@@ -133,7 +138,7 @@ export function DashboardSidebar({
             </Link>
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -209,9 +214,7 @@ export function DashboardSidebar({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2" />
-
-          <div className="pt-4 border-t border-border flex flex-col items-center space-y-4">
+          <div className="pt-4 border-t border-border flex flex-col items-center space-y-4 shrink-0">
             
             <TooltipProvider delayDuration={0}>
               <Tooltip>

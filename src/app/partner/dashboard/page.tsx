@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 function PartnerDashboardContent() {
@@ -121,18 +122,34 @@ function PartnerDashboardContent() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/partner")} className="rounded-2xl border transition-all active:scale-90">
-              <ArrowLeft size={20} />
+      <header className="h-16 border-b bg-card/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-6 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => router.push("/partner")} className="rounded-xl border-2 h-10 w-10 shrink-0 transition-all active:scale-90 shadow-sm">
+              <ArrowLeft size={18} />
             </Button>
-            <div>
-              <h1 className="text-2xl font-black uppercase tracking-tighter leading-none font-poppins">
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-black uppercase tracking-tighter leading-[0.9] font-poppins truncate">
                 TRAC AI SUBSIDIARY OF {partner.brandName}
               </h1>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1.5">Status: Online • Partner: {partner.contactName}</p>
+              <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 truncate">
+                Status: Online • Partner: {partner.contactName}
+              </p>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-4 shrink-0">
+             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                <div className="size-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Live Partner Node</span>
+             </div>
+             <div className="size-8 md:size-10 rounded-full bg-secondary border-2 border-border overflow-hidden">
+                <img 
+                  src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${partner.email || 'partner'}`} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover" 
+                />
+             </div>
           </div>
         </div>
       </header>
@@ -176,14 +193,18 @@ function PartnerDashboardContent() {
             <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Recent Conversions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {clients.map((client) => (
-                <div key={client.id} className="bg-card border-2 border-border p-6 rounded-3xl relative overflow-hidden group">
+                <div key={client.id} className="bg-card border-2 border-emerald-500/20 p-6 rounded-3xl relative overflow-hidden group hover:border-emerald-500/50 transition-all shadow-sm">
                   <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                      <Check size={20} />
+                    <div className="size-12 rounded-xl bg-secondary overflow-hidden border-2 border-emerald-500/20 shadow-inner shrink-0">
+                      <img 
+                        src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${client.clientEmail}`} 
+                        alt="Client Avatar"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-tight">{client.orgName}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground">{client.clientEmail}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black uppercase tracking-tight truncate">{client.orgName}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground truncate">{client.clientEmail}</p>
                     </div>
                   </div>
                   <p className="text-[10px] font-bold text-muted-foreground/70 uppercase mt-4">
@@ -222,41 +243,77 @@ function PartnerDashboardContent() {
                 </div>
             )}
 
-            {recordings.map((rec, idx) => (
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }} 
-                animate={{ opacity: 1, x: 0 }} 
-                transition={{ delay: idx * 0.05 }}
-                key={rec.id} 
-                className="bg-card border-2 border-border p-6 md:p-8 rounded-[2rem] flex flex-col md:flex-row items-start md:items-center justify-between hover:border-black dark:hover:border-white transition-all group hover:shadow-xl hover:shadow-primary/5 gap-6"
-              >
-                <div className="flex items-center gap-6 md:gap-8">
-                  <div className="size-12 md:size-16 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-inner">
-                    <MonitorPlay className="size-6 md:size-8" />
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-2">
-                        <span className="text-base md:text-lg font-black uppercase tracking-tight">Someone Visiting</span>
-                        <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                            <Clock size={12} className="text-primary" /> {(rec.active_seconds / 60).toFixed(1)}m Active
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 md:gap-6 text-[10px] md:text-[11px] font-bold text-muted-foreground/80 uppercase tracking-[0.2em]">
-                        <span className="flex items-center gap-2"><Calendar size={12} /> {formatDistanceToNow(new Date(rec.start_time), { addSuffix: true })}</span>
-                        <span className="size-1 bg-border rounded-full hidden md:block" />
-                        <span>{rec.viewed ? "Already Watched" : "New Video"}</span>
-                    </div>
-                  </div>
-                </div>
+            {recordings.map((rec, idx) => {
+              // Try to find if this visitor is one of our converted clients
+              const visitorEmail = rec.person?.properties?.email;
+              const visitorName = rec.person?.properties?.name || rec.person?.properties?.displayName;
+              const isConverted = clients.some(c => c.clientEmail === visitorEmail);
+              
+              const activeSeconds = rec.active_seconds || 0;
+              const mins = Math.floor(activeSeconds / 60);
+              const secs = activeSeconds % 60;
+              const durationFormatted = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-                <Button 
-                    onClick={() => handleWatchInteraction(rec)}
-                    className="w-full md:w-auto rounded-xl border-2 font-black uppercase text-[10px] tracking-widest h-12 px-8 transition-all hover:translate-y-[-2px] active:translate-y-[1px]"
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  transition={{ delay: idx * 0.05 }}
+                  key={rec.id} 
+                  className={cn(
+                    "bg-card border-2 p-6 md:p-8 rounded-[2rem] flex flex-col md:flex-row items-start md:items-center justify-between transition-all group hover:shadow-xl hover:shadow-primary/5 gap-6",
+                    isConverted ? "border-emerald-500/20 bg-emerald-500/[0.01]" : "border-border hover:border-black dark:hover:border-white"
+                  )}
                 >
-                    <Play size={16} className="mr-3 fill-current" /> Watch Video
-                </Button>
-              </motion.div>
-            ))}
+                  <div className="flex items-center gap-6 md:gap-8 min-w-0 flex-1">
+                    <div className={cn(
+                      "size-12 md:size-16 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-inner shrink-0 overflow-hidden border-2",
+                      visitorEmail 
+                        ? "border-primary/20 bg-secondary" 
+                        : "bg-secondary text-muted-foreground/30 border-transparent"
+                    )}>
+                      {visitorEmail ? (
+                        <img 
+                          src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${visitorEmail}`} 
+                          alt="Visitor"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <MonitorPlay className="size-6 md:size-8 opacity-20" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-2">
+                          <span className={cn(
+                            "text-base md:text-lg font-black uppercase tracking-tight truncate max-w-[200px] md:max-w-none",
+                            visitorEmail ? "text-foreground" : "text-muted-foreground"
+                          )}>
+                            {visitorEmail || "Anonymous Visitor"}
+                          </span>
+                          <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                              <Clock size={12} className="text-primary" /> {durationFormatted} Active
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-4 md:gap-6 text-[10px] md:text-[11px] font-bold text-muted-foreground/80 uppercase tracking-[0.2em] truncate">
+                          <span className="flex items-center gap-2 shrink-0"><Calendar size={12} /> {formatDistanceToNow(new Date(rec.start_time), { addSuffix: true })}</span>
+                          <span className="size-1 bg-border rounded-full hidden md:block shrink-0" />
+                          <span className="truncate">{visitorName || (visitorEmail ? "Identified User" : "Unidentified Session")}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                      onClick={() => handleWatchInteraction(rec)}
+                      className={cn(
+                        "w-full md:w-auto rounded-xl border-2 font-black uppercase text-[10px] tracking-widest h-12 px-8 transition-all hover:translate-y-[-2px] active:translate-y-[1px]",
+                        isConverted ? "border-emerald-500/50 hover:bg-emerald-500 hover:text-white" : ""
+                      )}
+                  >
+                      <Play size={16} className="mr-3 fill-current" /> Watch Video
+                  </Button>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </main>
