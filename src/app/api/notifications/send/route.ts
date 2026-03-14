@@ -3,7 +3,6 @@ import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 
-// Configure Web Push with VAPID keys from environment variables
 const vapidEmail = process.env.VAPID_EMAIL;
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -11,7 +10,7 @@ const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 if (vapidEmail && vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 } else {
-  console.warn("VAPID details are missing in environment variables. Push notifications will not work.");
+  console.warn("VAPID details are missing.");
 }
 
 export async function POST(req: Request) {
@@ -22,7 +21,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
-    // Get user's subscriptions from Firestore using Admin SDK
     const userRef = adminDb.collection("users").doc(userId);
     const userSnap = await userRef.get();
 
@@ -32,11 +30,10 @@ export async function POST(req: Request) {
 
     const userData = userSnap.data();
     if (!userData || !userData.pushSubscriptions) {
-      console.log(`No push subscriptions found for user: ${userId}`);
       return NextResponse.json({ success: true, info: "No subscriptions found" });
     }
     
-    const subscriptions: string[] = userData.pushSubscriptions;
+    const subscriptions: any[] = userData.pushSubscriptions;
 
     const payload = JSON.stringify({
       title,
@@ -47,15 +44,16 @@ export async function POST(req: Request) {
     });
 
     const sendResults = await Promise.all(
-      subscriptions.map(async (subStr: string) => {
+      subscriptions.map(async (subStr: any) => {
         try {
-          const subscription = JSON.parse(subStr);
+          // HYBRID CHECK: If it's a string, parse it. If it's a Map (object), use it directly.
+          const subscription = typeof subStr === 'string' ? JSON.parse(subStr) : subStr;
+          
           await webpush.sendNotification(subscription, payload);
           return { success: true };
         } catch (error: any) {
-          console.error(`Error sending push to subscription for user ${userId}:`, error.statusCode);
+          console.error(`Push Error for ${userId}:`, error.statusCode);
           
-          // If subscription is expired or invalid (410 Gone or 404 Not Found), remove it
           if (error.statusCode === 410 || error.statusCode === 404) {
             await userRef.update({
               pushSubscriptions: FieldValue.arrayRemove(subStr)

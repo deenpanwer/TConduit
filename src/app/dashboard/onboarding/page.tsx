@@ -140,7 +140,7 @@ const DAYS = [
       if (!finalOrgId) {
         finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14);
+        trialExpiry.setDate(trialExpiry.getDate() + 7); // Changed from 14 to 7
 
         await setDoc(doc(db, "organizations", finalOrgId), {
           name: formData.orgName || "My Organization",

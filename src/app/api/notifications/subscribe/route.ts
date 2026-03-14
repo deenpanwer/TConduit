@@ -10,11 +10,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing userId or subscription" }, { status: 400 });
     }
 
-    // Save subscription using Firebase Admin SDK for server-side reliability
+    // Save subscription using Firebase Admin SDK
     const userRef = adminDb.collection("users").doc(userId);
     
     await userRef.set({
-      pushSubscriptions: FieldValue.arrayUnion(JSON.stringify(subscription)),
+      // REMOVED JSON.stringify here so it saves as a Firestore Map
+      pushSubscriptions: FieldValue.arrayUnion(subscription), 
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
