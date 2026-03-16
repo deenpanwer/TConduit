@@ -1,118 +1,114 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
-import { format, parseISO } from 'date-fns'; // For date parsing
+import { parseISO } from 'date-fns';
 
 export const maxDuration = 60;
 
-// Helper to sort screenshots by timestamp and get the latest 3
+/**
+ * Sorts and cleans screenshots to prevent massive payload sizes.
+ * Filters out blurred images and returns the top 3 latest valid screenshots.
+ */
 function getLatestScreenshots(screenshotUrls: string[], screenshotMetadata: any[]): { url: string, metadata: any }[] {
-    if (!screenshotUrls || !screenshotMetadata || screenshotUrls.length === 0 || screenshotMetadata.length === 0) {
+    if (!screenshotUrls || !screenshotMetadata || screenshotUrls.length === 0) {
         return [];
     }
 
-    // Combine URLs and metadata, filter out blurred images
     const validScreenshots = screenshotUrls
         .map((url, index) => ({ url, metadata: screenshotMetadata[index] }))
-        .filter(({ metadata }) => !(metadata && metadata.isBlurred === true));
+        .filter(({ metadata }) => metadata && !metadata.isBlurred);
 
-    // Sort by timestamp, assuming metadata.timestamp is a Firestore Timestamp or ISO string
     validScreenshots.sort((a, b) => {
-        const tsA = a.metadata?.timestamp?.toDate ? a.metadata.timestamp.toDate() : parseISO(a.metadata?.timestamp);
-        const tsB = b.metadata?.timestamp?.toDate ? b.metadata.timestamp.toDate() : parseISO(b.metadata?.timestamp);
-
-        if (!tsA || !tsB) return 0; // Cannot compare if timestamps are invalid
-
-        return tsB.getTime() - tsA.getTime(); // Descending order (latest first)
+        const getTs = (m: any) => {
+            if (!m?.timestamp) return 0;
+            // Handle Firestore Timestamps
+            if (m.timestamp.toDate) return m.timestamp.toDate().getTime();
+            // Handle ISO strings
+            try {
+                return parseISO(m.timestamp).getTime();
+            } catch {
+                return 0;
+            }
+        };
+        return getTs(b.metadata) - getTs(a.metadata);
     });
 
-    return validScreenshots.slice(0, 3); // Return the top 3
+    return validScreenshots.slice(0, 3);
 }
 
-
 export async function POST(req: Request) {
-    console.log("Supervise API: Request received");
+    // This log will appear in your terminal, not the browser console.
+    console.log(">>> SUPERVISE API: POST request received");
+
     try {
         const body = await req.json();
-        // Removed 'shifts' from destructuring
         const { employeeName, date, screenshotUrls, screenshotMetadata } = body;
-        
-        // Adjusted console log
-        console.log(`Supervise API: Analyzing intent for ${employeeName} on ${date}. Screenshots: ${screenshotUrls?.length}`);
 
         if (!process.env.MISTRAL_API_KEY) {
-            console.error("Supervise API: Mistral API Key is missing");
-            return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+            console.error("Supervise API: MISTRAL_API_KEY is missing from environment variables");
+            return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { 
+                status: 500, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
         }
-        console.log("Supervise API: MISTRAL_API_KEY present.");
 
-        // Get the latest 3 valid screenshots
         const latestScreenshots = getLatestScreenshots(screenshotUrls, screenshotMetadata);
         
         if (latestScreenshots.length === 0) {
-            console.warn("Supervise API: No valid screenshots found to analyze intent.");
-            return new Response(JSON.stringify({ inferredIntent: "No recent activity data available to infer intent." }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify({ inferredIntent: "No clear activity detected to analyze." }), { 
+                status: 200, 
+                headers: { 'Content-Type': 'application/json' } 
+            });
         }
 
-        const content: any[] = [];
+        // Clean metadata: Extracting only text context to keep the request body slim
+        const cleanContext = latestScreenshots.map(s => ({
+            app: s.metadata?.activity?.name || "Unknown Application",
+            title: s.metadata?.activity?.title || "No Window Title",
+        }));
 
-        // Updated prompt for intent inference
-        content.push({
-            type: "text",
-            text: `
-                CONTEXT: You are an AI assistant for "Trac Diary", analyzing employee activity to infer their current intent.
-                Analyze the provided screenshots and activity data to determine precisely what ${employeeName} is trying to accomplish right now on ${date}.
-                
-                CRITICAL INSTRUCTIONS:
-                1. INFER SPECIFIC INTENT: Go beyond general application usage. Infer specific actions like "fixing a bug on the login page", "researching marketing strategies for Q4", "collaborating on a design mock-up", "debugging a new feature rollout", or "onboarding a new client".
-                2. FOCUS ON PURPOSE: Determine the likely goal or purpose behind the observed activities.
-                3. BASE ON RECENT ACTIVITY: Prioritize analysis based on the latest 3 screenshots provided and any contextual metadata.
-                4. CONCISE OUTPUT: Provide a single, clear sentence summarizing the inferred intent.
-                5. FACTUAL BASIS: Your inference must be directly supported by the visual and contextual data. If intent cannot be precisely determined, state that clearly.
-                6. IGNORE SCORES: Do not mention or rely on any numerical productivity scores.
-            `
-        });
-
-        // Add the latest 3 screenshots as image inputs
-        latestScreenshots.forEach(({ url, metadata }) => {
-            content.push({
-                type: "image",
-                image: url
-            });
-        });
-
-        // Added screenshot metadata as text for context, removed shifts
-        content.push({
-            type: "text",
-            text: `
-                SCREENSHOT METADATA (JSON - provides context about activity during screenshots):
-                ${JSON.stringify(screenshotMetadata, null, 2)}
-            `
-        });
-        
-        console.log("Supervise API: Sending prompt to Mistral for intent inference...");
         const { text } = await generateText({
-            model: mistral('pixtral-large-2411'), // Using the same model
-            messages: [{ role: "user", content: content }],
+            model: mistral('pixtral-large-2411'),
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: `Analyze the activity of ${employeeName} on ${date}. 
+                            Context: ${JSON.stringify(cleanContext)}.
+                            Instruction: Write a single, concise sentence (max 15 words) describing their current work intent. 
+                            Focus on the goal (e.g., "Reviewing financial spreadsheets" or "Coding a new feature").`
+                        },
+                        ...latestScreenshots.map(s => ({
+                            type: "image" as const,
+                            image: s.url
+                        }))
+                    ],
+                },
+            ],
         });
-        console.log("Supervise API: Received response from Mistral");
 
-        // Changed return value to inferredIntent
+        console.log(">>> SUPERVISE API: Successfully generated intent");
+
         return new Response(JSON.stringify({ inferredIntent: text.trim() }), {
+            status: 200,
             headers: { 'Content-Type': 'application/json' },
         });
+
     } catch (error: any) {
         console.error('Supervise API Error:', error);
+        
         let statusCode = 500;
-        let errorMessage = error.message;
+        let errorMessage = error.message || "An internal error occurred";
 
-        if (error.message && (error.message.includes("Unauthorized") || error.message.includes("api key"))) {
+        if (errorMessage.includes("Unauthorized") || errorMessage.includes("api key")) {
             statusCode = 401;
-            errorMessage = "AI Provider Authorization Failed. Please check your API key.";
+            errorMessage = "AI Provider Authorization Failed. Check MISTRAL_API_KEY.";
         }
 
-        return new Response(JSON.stringify({ error: errorMessage, stack: error.stack }), { 
-            status: statusCode,
-            headers: { 'Content-Type': 'application/json' }
+        return new Response(JSON.stringify({ error: errorMessage }), { 
+            status: statusCode, 
+            headers: { 'Content-Type': 'application/json' } 
         });
     }
 }

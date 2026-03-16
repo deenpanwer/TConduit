@@ -11,38 +11,22 @@ if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && proce
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
-} else {
-  console.warn("VAPID details are missing. Push notifications will be disabled for this cron job.");
 }
 
-// --- Helper Functions ---
-
-/**
- * Generates a concise summary of team activity using an AI model.
- * Replicates the logic from /api/org/analyze
- */
+// --- AI Summary Logic ---
 async function generateActivitySummary(orgData: any, orgName: string): Promise<string> {
   const prompt = `
-  CONTEXT (DO NOT MENTION IN OUTPUT): 
-  You are the organizational analysis engine for "Trac Diary", a premier employee productivity monitoring system.
-  The Founder uses Trac Diary to gain crystal-clear visibility into collective team output.
-  Do not mention "Trac Diary" or your role as a monitoring system in your response. 
-
-  You are sending a daily summary push notification to the Founder of ${orgName}.
-  Explain in 1-2 very short, plain English bullet points what the team did today.
-
-  Organization Data (JSON):
+  CONTEXT: You are an organizational analyzer for the founder of ${orgName}.
+  Analyze the following employee shift data and provide a 1-2 sentence summary of progress.
+  
+  Organization Data:
   ${JSON.stringify(orgData, null, 2)}
 
-  CRITICAL INSTRUCTIONS:
-  1. BE EXTREMELY SHORT: Aim for a total of 15-20 words max. This is for a push notification.
-  2. PLAIN & DIRECT: Use simple words. No business jargon.
-  3. FOCUS ON HIGHLIGHTS: What is the single most important thing the founder should know?
-  4. NO AI FLUFF: Just the facts. Be direct and honest.
-
-  EXAMPLE FORMAT:
-  - Team focused on R&D for 3 hours.
-  - John spent 2 hours on the new website design.
+  INSTRUCTIONS:
+  1. Max 20 words.
+  2. Plain English.
+  3. Focus on what was actually done in the latest shifts.
+  4. No fluff.
   `;
 
   try {
@@ -52,123 +36,128 @@ async function generateActivitySummary(orgData: any, orgName: string): Promise<s
     });
     return text.replace(/\n/g, " ").trim();
   } catch (error) {
-    console.error("AI summary generation failed:", error);
-    return "Couldn't generate a summary for today's activity.";
+    console.error(`[AI Error] Summary failed for ${orgName}:`, error);
+    return "Team activity recorded. Check dashboard for details.";
   }
 }
 
-/**
- * Sends a push notification to a user.
- */
+// --- Push Execution ---
 async function sendPushNotification(subscription: any, payload: string) {
   try {
     await webpush.sendNotification(subscription, payload);
     return { success: true };
   } catch (error: any) {
-    console.error("Push notification send error:", error.statusCode);
-    if (error.statusCode === 410 || error.statusCode === 404) {
-      // Subscription is no longer valid, should be removed.
-      return { success: false, error: "Subscription expired." };
-    }
-    return { success: false, error: error.message };
+    // 410 (Gone) or 404 (Not Found) means the token is no longer valid
+    return { success: false, statusCode: error.statusCode };
   }
 }
 
-
-// --- Main API Route ---
-
+// --- Main Cron Handler ---
 export async function GET(req: Request) {
-  // Temporarily disabled for testing of the single-org route.
-  return NextResponse.json(
-    { message: "The daily-summary cron job is temporarily disabled." },
-    { status: 503, statusText: "Service Unavailable" }
-  );
+  const startTime = Date.now();
+  console.log(`[Cron Job Started] 4-Hour Summary Sync: ${new Date().toISOString()}`);
 
-  // 1. Secure the endpoint
+  // 1. Security Check
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (!adminDb) {
-    return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
-  }
+  if (!adminDb) return NextResponse.json({ error: "Firebase Not Ready" }, { status: 500 });
 
   try {
-    // 2. Fetch all organizations
     const orgsSnap = await adminDb.collection("organizations").get();
-    if (orgsSnap.empty) {
-      return NextResponse.json({ message: "No organizations found." });
-    }
+    const reports = [];
 
-    const processedOrgs = [];
-
-    // 3. Process each organization
+    // 2. Iterate through Organizations
     for (const orgDoc of orgsSnap.docs) {
-      const orgData = orgDoc.data();
       const orgId = orgDoc.id;
-      const orgName = orgData.name || "the company";
+      const orgName = orgDoc.data().name || "Company";
 
-      // Find the owner of the organization
+      // A. Identify Owner & Subscriptions
       const ownerSnap = await adminDb.collection("users").where("ownedOrgId", "==", orgId).limit(1).get();
-      if (ownerSnap.empty) {
-        processedOrgs.push({ orgId, orgName, status: "Skipped", reason: "No owner found." });
-        continue;
-      }
-      
-      const owner = ownerSnap.docs[0].data();
-      const ownerId = ownerSnap.docs[0].id;
-      
-      // Ensure owner has push subscriptions
-      if (!owner.pushSubscriptions || owner.pushSubscriptions.length === 0) {
-        processedOrgs.push({ orgId, orgName, status: "Skipped", reason: "Owner has no push subscriptions." });
+      if (ownerSnap.empty) continue;
+
+      const ownerDoc = ownerSnap.docs[0];
+      const ownerData = ownerDoc.data();
+      const subscriptions = ownerData.pushSubscriptions || [];
+
+      if (subscriptions.length === 0) {
+        console.log(`[Cron Log] Skipped ${orgName}: No subscriptions.`);
         continue;
       }
 
-      // We need to gather the org's employee data to generate a summary
-      // This is a placeholder for the actual data structure your /analyze route expects
+      // B. Fetch Employee Activity (Same logic as your test route)
       const staffSnap = await adminDb.collection("users").where("orgId", "==", orgId).get();
-      const staffData = staffSnap.docs.map(doc => doc.data());
       
-      const analysisPayload = {
-          employees: staffData.map(s => ({
-              name: s.name,
-              // This is a simplified example. You should populate this with
-              // the actual productivity data needed for the AI summary.
-              tasksCompleted: s.tasksCompleted || 0, 
-              timeTracked: s.timeTracked || 0,
-          }))
-      };
+      const activityPayload = await Promise.all(staffSnap.docs.map(async (doc) => {
+        const employee = doc.data();
+        const shiftsSnap = await adminDb.collection("users").doc(doc.id)
+          .collection("workShifts")
+          .orderBy('startTime', 'desc')
+          .limit(1)
+          .get();
 
-      // 4. Generate AI Summary
-      const summaryText = await generateActivitySummary(analysisPayload, orgName);
-      
-      // 5. Send Notification
-      const notificationPayload = JSON.stringify({
-        title: `Your Team's Daily Brief`,
-        body: summaryText,
-        data: { url: "/dashboard/tasks" } // Deep link to the dashboard
-      });
-      
-      let notificationsSent = 0;
-      for (const sub of owner.pushSubscriptions) {
-        const result = await sendPushNotification(sub, notificationPayload);
-        if (result.success) {
-          notificationsSent++;
-        }
-        // Optional: Handle expired subscriptions by removing them from the user doc
+        return {
+          employeeName: employee.name,
+          latestShift: shiftsSnap.docs.map(s => s.data())[0] || null
+        };
+      }));
+
+      const activeActivity = activityPayload.filter(a => a.latestShift !== null);
+
+      if (activeActivity.length === 0) {
+        console.log(`[Cron Log] Skipped ${orgName}: No recent activity.`);
+        continue;
       }
-      
-      processedOrgs.push({ orgId, orgName, ownerId, status: "Processed", summary: summaryText, notificationsSent });
+
+      // C. Generate AI Summary
+      const summaryText = await generateActivitySummary(activeActivity, orgName);
+
+      // D. Dispatch Notifications
+      const payload = JSON.stringify({
+        title: "Team Update",
+        body: summaryText,
+        data: { url: "/dashboard" }
+      });
+
+      let sentCount = 0;
+      let failedSubs: any[] = [];
+
+      for (const sub of subscriptions) {
+        const res = await sendPushNotification(sub, payload);
+        if (res.success) sentCount++;
+        else if (res.statusCode === 410 || res.statusCode === 404) {
+            failedSubs.push(sub);
+        }
+      }
+
+      // E. Cleanup Expired Subs (Production-level maintenance)
+      if (failedSubs.length > 0) {
+        const updatedSubs = subscriptions.filter((s: any) => !failedSubs.includes(s));
+        await adminDb.collection("users").doc(ownerDoc.id).update({ pushSubscriptions: updatedSubs });
+        console.log(`[Cron Log] Cleaned up ${failedSubs.length} expired subs for user ${ownerDoc.id}`);
+      }
+
+      reports.push({
+        orgName,
+        recipient: ownerData.email,
+        summary: summaryText,
+        notificationsSent: sentCount
+      });
     }
+
+    const duration = (Date.now() - startTime) / 1000;
+    console.log(`[Cron Job Finished] Processed ${reports.length} orgs in ${duration}s`);
 
     return NextResponse.json({
-      message: "Daily summary cron job completed.",
-      results: processedOrgs,
+      status: "Success",
+      processedCount: reports.length,
+      details: reports
     });
 
   } catch (error: any) {
-    console.error("Cron Daily Summary Error:", error);
+    console.error("[Cron Fatal Error]:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
