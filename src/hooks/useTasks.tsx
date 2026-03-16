@@ -209,7 +209,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      const newTask: Omit<Task, 'id'> = {
+      const newTask: any = {
         title,
         description,
         status,
@@ -220,9 +220,6 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         tags: [],
         flagged: false,
         isDeleted: false,
-        audioBase64: audioData?.base64,
-        audioMimeType: audioData?.mimeType,
-        audioDuration: audioData?.duration,
         history: [
             {
                 id: Date.now().toString(),
@@ -235,6 +232,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      if (audioData) {
+        newTask.audioBase64 = audioData.base64;
+        newTask.audioMimeType = audioData.mimeType;
+        newTask.audioDuration = audioData.duration;
+      }
 
       try {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");
@@ -284,19 +287,26 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const isComment = actionName === 'comment_added';
       const isDeletion = actionName === 'deleted';
 
+      const cleanUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+
       if (!skipHistory && (isMovingToDone || isManualSave || isComment || isDeletion)) {
         const historyEntry = {
             id: Date.now().toString(),
             userId: user.uid,
             action: actionName,
-            details: updates,
+            details: cleanUpdates,
             createdAt: new Date(),
         };
         history = [...history, historyEntry];
       }
       
       const taskToUpdate = {
-        ...updates,
+        ...cleanUpdates,
         updatedAt: serverTimestamp(),
         history
       };
@@ -305,7 +315,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         await updateDoc(taskDocRef, taskToUpdate);
         
         // If task is completed, notify the assignees or others
-        if (updates.status === 'done') {
+        if (cleanUpdates.status === 'done') {
             const notificationTitle = `Task Completed`;
             const notificationBody = `"${currentTask.title}" has been marked as complete.`;
             toast.success(notificationBody);

@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { 
   SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
   UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
@@ -229,7 +229,7 @@ export function DashboardSidebar({
                   >
                     <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0 transition-transform group-hover:scale-105">
                        <img 
-                          src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userEmail || 'admin'}`}
+                          src={getUserAvatar(userData)}
                           alt="User Avatar"
                           className="w-full h-full object-cover"
                         />

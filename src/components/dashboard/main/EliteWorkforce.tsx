@@ -4,6 +4,7 @@ import React from 'react';
 import { TrendingUp, MapPin, Users, Zap, Clock } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { GlassCard } from './shared/GlassCard';
+import { getUserAvatar } from '@/lib/utils';
 
 const EmployeeCard = ({ emp, isLoading = false }: { emp: any, isLoading?: boolean }) => {
   if (isLoading) {
@@ -35,7 +36,7 @@ const EmployeeCard = ({ emp, isLoading = false }: { emp: any, isLoading?: boolea
         <div className="relative shrink-0">
             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="size-14 rounded-2xl overflow-hidden relative z-10 border-2 border-background shadow-xl transition-transform duration-700 group-hover:scale-110 bg-muted/20">
-                <img src={emp.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.email}`} className="w-full h-full object-cover" alt={emp.name} />
+                <img src={getUserAvatar(emp)} className="w-full h-full object-cover" alt={emp.name} />
             </div>
             <div className={`absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-card z-20 ${isLive ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`} />
         </div>

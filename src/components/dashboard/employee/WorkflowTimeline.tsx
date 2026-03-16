@@ -238,6 +238,28 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
                                     </p>
                                 </div>
                              </div>
+
+                             {/* Detailed Window Titles (Wonderfully Placed) */}
+                             {app.details && Object.keys(app.details).length > 0 && (
+                                <div className="pt-2 border-t border-white/10 space-y-2">
+                                    <p className="text-[7px] font-black text-white/40 uppercase tracking-widest">Focused Windows</p>
+                                    <div className="space-y-1.5">
+                                        {Object.entries(app.details)
+                                            .sort(([, a], [, b]) => (b as number) - (a as number))
+                                            .slice(0, 5)
+                                            .map(([title, seconds]) => (
+                                                <div key={title} className="flex items-start justify-between gap-3 min-w-0">
+                                                    <span className="text-[9px] font-bold text-white/70 truncate uppercase tracking-tighter leading-tight flex-1">
+                                                        {title}
+                                                    </span>
+                                                    <span className="text-[8px] font-black text-primary shrink-0 pt-0.5">
+                                                        {Math.round((seconds as number) / 60)}m
+                                                    </span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </div>
+                             )}
                           </TooltipContent>
                         </Tooltip>
                       );

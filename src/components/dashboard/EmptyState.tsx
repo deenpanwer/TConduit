@@ -36,10 +36,10 @@ export function EmptyState({ orgName, inviteCode, onCopy, onShare, copied }: Emp
           
           <div className="space-y-4 max-w-2xl">
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none">
-              Deploy Your Workforce
+              Add Your First Employee
             </h1>
             <p className="text-muted-foreground font-medium text-base md:text-lg uppercase tracking-tight">
-              Link your first employee to <span className="text-foreground font-bold">{orgName}</span> to unlock the dashboard below.
+              Your dashboard will stay empty until you connect <span className="text-foreground font-bold">{orgName}</span> to your first staff member.
             </p>
           </div>
 
@@ -47,23 +47,23 @@ export function EmptyState({ orgName, inviteCode, onCopy, onShare, copied }: Emp
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
             <div className="bg-secondary/30 p-6 rounded-[2rem] border border-border/50 text-left space-y-4">
               <div className="size-10 bg-background rounded-xl flex items-center justify-center border shadow-sm font-black text-primary">1</div>
-              <h3 className="font-black uppercase tracking-widest text-xs">Provision Software</h3>
+              <h3 className="font-black uppercase tracking-widest text-xs">Send the App Link</h3>
               <p className="text-xs text-muted-foreground font-medium leading-relaxed uppercase">
-                Direct your candidates to download the Trac EMS desktop client.
+                Ask your employee to download the Trac Diary app on their computer.
               </p>
               <Link href="/trac-diary" className="inline-flex items-center text-[10px] font-black text-primary uppercase hover:underline">
-                View Download Page <ExternalLink size={12} className="ml-1" />
+                View App Link <ExternalLink size={12} className="ml-1" />
               </Link>
             </div>
 
             <div className="bg-secondary/30 p-6 rounded-[2rem] border border-border/50 text-left space-y-4">
               <div className="size-10 bg-background rounded-xl flex items-center justify-center border shadow-sm font-black text-primary">2</div>
-              <h3 className="font-black uppercase tracking-widest text-xs">Establish Handshake</h3>
+              <h3 className="font-black uppercase tracking-widest text-xs">Share Your Code</h3>
               <p className="text-xs text-muted-foreground font-medium leading-relaxed uppercase">
-                Employee enters your unique Organization Code into their profile.
+                Give them the unique code below to paste into their app profile to connect.
               </p>
               <div className="flex items-center gap-2 text-[10px] font-black text-green-500 uppercase">
-                <Check size={12} /> Syncs Instantly
+                <Check size={12} /> Connects Instantly
               </div>
             </div>
           </div>
@@ -71,16 +71,25 @@ export function EmptyState({ orgName, inviteCode, onCopy, onShare, copied }: Emp
           {/* Code Container */}
           <div className="w-full max-w-md bg-card border border-border rounded-[2.5rem] p-8 shadow-xl space-y-6">
             <div className="flex flex-col items-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-4">Unique Invite Code</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-4">Your Invite Code</p>
                 <div className="text-5xl font-black tracking-[0.4em] text-foreground tabular-nums mb-8 pl-4">
                     {inviteCode || "------"}
                 </div>
-                <div className="grid grid-cols-2 gap-4 w-full">
-                    <Button onClick={onCopy} size="lg" className="rounded-2xl h-14 font-black uppercase tracking-widest gap-2 shadow-xl shadow-primary/20">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
+                    <Button 
+                        onClick={onCopy} 
+                        size="lg" 
+                        className="rounded-2xl min-h-[3.5rem] h-auto py-3 font-black uppercase tracking-tight sm:tracking-widest gap-2 shadow-xl shadow-primary/20 text-xs sm:text-sm whitespace-normal text-center"
+                    >
                         {copied ? <Check size={18} /> : <Copy size={18} />}
                         {copied ? "Copied" : "Copy Code"}
                     </Button>
-                    <Button onClick={onShare} variant="outline" size="lg" className="rounded-2xl h-14 font-black uppercase tracking-widest gap-2">
+                    <Button 
+                        onClick={onShare} 
+                        variant="outline" 
+                        size="lg" 
+                        className="rounded-2xl min-h-[3.5rem] h-auto py-3 font-black uppercase tracking-tight sm:tracking-widest gap-2 text-xs sm:text-sm whitespace-normal text-center"
+                    >
                         <Share2 size={18} />
                         Share
                     </Button>
@@ -96,7 +105,7 @@ export function EmptyState({ orgName, inviteCode, onCopy, onShare, copied }: Emp
         <div className="absolute inset-0 z-20 flex items-center justify-center">
             <div className="bg-background/80 backdrop-blur-md border border-border px-8 py-4 rounded-full shadow-2xl flex items-center gap-3">
                 <div className="size-3 bg-yellow-500 rounded-full animate-pulse" />
-                <span className="text-sm font-black uppercase tracking-widest text-muted-foreground">Waiting for connection...</span>
+                <span className="text-sm font-black uppercase tracking-widest text-muted-foreground">Waiting for your first employee...</span>
             </div>
         </div>
 

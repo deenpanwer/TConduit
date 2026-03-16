@@ -8,9 +8,10 @@ import {
   Plus, Calendar, Flag, X, Check, Search, 
   Trash2, CheckSquare, Clock, ArrowUpRight, 
   Sun, Moon, MoreHorizontal, LayoutGrid, List as ListIcon, 
-  ChevronRight, GripVertical, Image as ImageIcon,
+  ChevronRight, Image as ImageIcon,
   User as UserIcon, AtSign, Undo2, Link as LinkIcon, Bold, Italic,
-  History, MessageSquare
+  History, MessageSquare,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -379,6 +380,7 @@ const Column = ({
   onDeleteTask,
   onDropTask,
   onQuickAdd,
+  onAddClick,
   onQuickEdit,
   canManage,
   personnel,
@@ -391,6 +393,7 @@ const Column = ({
   onDeleteTask: (id: string) => void;
   onDropTask: (taskId: string, status: Status) => void; 
   onQuickAdd: (status: Status, title: string) => void;
+  onAddClick: (status?: Status) => void;
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
@@ -442,7 +445,7 @@ const Column = ({
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500" title={`${highPriorityCount} High Priority items`} />
            )}
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity rounded-md" onClick={() => inputRef.current?.focus()}>
+        <Button variant="ghost" size="icon" className="h-6 w-6 transition-opacity rounded-md" onClick={() => onAddClick(column.id)}>
            <Plus size={14} />
         </Button>
       </div>
@@ -459,9 +462,10 @@ const Column = ({
             {tasks.length === 0 && (
                <motion.div 
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="h-32 flex flex-col items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1"
+                  className="h-32 flex flex-col items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1 cursor-pointer hover:bg-secondary/20 hover:border-primary/30 hover:text-primary transition-all group/empty"
+                  onClick={() => onAddClick(column.id)}
                >
-                  <div className="w-8 h-8 rounded-full bg-secondary/30 flex items-center justify-center mb-2">
+                  <div className="w-8 h-8 rounded-full bg-secondary/30 flex items-center justify-center mb-2 group-hover/empty:scale-110 transition-transform">
                      <Plus size={14} />
                   </div>
                   <span className="text-[10px] font-medium uppercase tracking-widest">Start here</span>
@@ -515,6 +519,155 @@ const Column = ({
   );
 };
 
+// --- Mobile Board View (Vertical Stack) ---
+
+const MobileBoardView = ({
+  tasks,
+  onTaskClick,
+  onDeleteTask,
+  onQuickAdd,
+  onAddClick,
+  onQuickEdit,
+  canManage,
+  personnel
+}: {
+  tasks: Task[];
+  onTaskClick: (id: string) => void;
+  onDeleteTask: (id: string) => void;
+  onQuickAdd: (status: Status, title: string) => void;
+  onAddClick: (status?: Status) => void;
+  onQuickEdit: (id: string, title: string) => void;
+  canManage: boolean;
+  personnel: any[];
+}) => {
+  const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({
+    todo: true,
+    in_progress: true,
+    review: false,
+    done: false
+  });
+  
+  const [quickAddValues, setQuickAddValues] = useState<Record<string, string>>({});
+
+  const toggleColumn = (id: string) => {
+    setExpandedColumns(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleQuickAddChange = (id: string, value: string) => {
+    setQuickAddValues(prev => ({ ...prev, [id]: value }));
+  };
+
+  const submitQuickAdd = (status: Status) => {
+    const val = quickAddValues[status];
+    if (val?.trim()) {
+      onQuickAdd(status, val.trim());
+      setQuickAddValues(prev => ({ ...prev, [status]: "" }));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4 pb-20">
+      {COLUMNS.map(column => {
+        const columnTasks = tasks.filter(t => t.status === column.id);
+        const isOpen = expandedColumns[column.id];
+        const highPriorityCount = columnTasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
+
+        return (
+          <div key={column.id} className="flex flex-col bg-background/50 rounded-2xl border border-border/50 overflow-hidden shadow-sm">
+            {/* Header */}
+            <div 
+              onClick={() => toggleColumn(column.id)}
+              className={cn(
+                "flex items-center justify-between p-4 cursor-pointer transition-colors hover:bg-secondary/30",
+                isOpen && "bg-secondary/20 border-b border-border/40"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                {isOpen ? <ChevronDown size={16} className="text-muted-foreground" /> : <ChevronRight size={16} className="text-muted-foreground" />}
+                <h2 className="font-bold text-sm tracking-tight">{column.title}</h2>
+                <Badge variant="secondary" className="text-[10px] font-bold px-1.5 h-5 min-w-[20px] justify-center">
+                  {columnTasks.length}
+                </Badge>
+                {highPriorityCount > 0 && !isOpen && (
+                  <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-full hover:bg-background shadow-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddClick(column.id);
+                }}
+              >
+                <Plus size={16} />
+              </Button>
+            </div>
+
+            {/* Content */}
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-3 space-y-3 bg-secondary/5">
+                    {columnTasks.length === 0 && (
+                      <div 
+                        className="py-8 flex flex-col items-center justify-center text-muted-foreground/30 border-2 border-dashed border-border/30 rounded-xl cursor-pointer hover:bg-secondary/20 hover:border-primary/30 hover:text-primary transition-all group/empty"
+                        onClick={() => onAddClick(column.id)}
+                      >
+                         <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center mb-3 group-hover/empty:scale-110 transition-transform">
+                            <Plus size={20} />
+                         </div>
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Start here</span>
+                      </div>
+                    )}
+                    
+                    {columnTasks.map(task => (
+                      <TaskCard 
+                        key={task.id}
+                        task={task}
+                        onClick={onTaskClick}
+                        onDelete={onDeleteTask}
+                        onQuickEdit={onQuickEdit}
+                        canManage={canManage}
+                        personnel={personnel}
+                        // No manual drag for vertical view, standard click to edit is better
+                      />
+                    ))}
+
+                    <div className="relative">
+                       <div className="absolute left-3 top-3 text-muted-foreground">
+                          <Plus size={14} />
+                       </div>
+                       <Input 
+                          placeholder="Add a task..."
+                          value={quickAddValues[column.id] || ""}
+                          onChange={(e) => handleQuickAddChange(column.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              submitQuickAdd(column.id);
+                            }
+                          }}
+                          className="pl-9 bg-background border-border/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+                       />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // --- Main Board View ---
 
 export function BoardView({
@@ -523,6 +676,7 @@ export function BoardView({
   onDeleteTask,
   onDropTask,
   onQuickAdd,
+  onAddClick,
   onQuickEdit,
   canManage,
   personnel
@@ -532,126 +686,36 @@ export function BoardView({
   onDeleteTask: (id: string) => void;
   onDropTask: (taskId: string, status: Status) => void;
   onQuickAdd: (status: Status, title: string) => void;
+  onAddClick: (status: Status) => void;
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
 }) {
   const isMobile = useIsMobile();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Manual Drag State
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
-  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [dropTarget, setDropTarget] = useState<Status | null>(null);
-  const scrollInterval = useRef<NodeJS.Timeout | null>(null);
-
-  const handleScroll = useCallback(() => {
-    if (scrollRef.current) {
-      const scrollLeft = scrollRef.current.scrollLeft;
-      const width = scrollRef.current.offsetWidth;
-      const index = Math.round(scrollLeft / width);
-      setActiveIndex(index);
-    }
-  }, []);
-
-  const onDragStartManual = (e: React.PointerEvent, task: Task) => {
-    if (!isMobile) return;
-    
-    // Check if it's a long press or we just want immediate drag for mobile?
-    // Let's go with immediate but we need to ensure we don't block clicks
-    const rect = e.currentTarget.getBoundingClientRect();
-    setDraggedTask(task);
-    setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    });
-    setDragPosition({ x: e.clientX, y: e.clientY });
-    
-    // Add global listeners
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-  };
-
-  const onPointerMove = (e: PointerEvent) => {
-    setDragPosition({ x: e.clientX, y: e.clientY });
-
-    // Find drop target column
-    const elements = document.elementsFromPoint(e.clientX, e.clientY);
-    const colElement = elements.find(el => (el as HTMLElement).dataset.columnId);
-    if (colElement) {
-      setDropTarget((colElement as HTMLElement).dataset.columnId as Status);
-    } else {
-      setDropTarget(null);
-    }
-
-    // Auto-scroll logic
-    if (scrollRef.current) {
-      const scrollArea = scrollRef.current;
-      const rect = scrollArea.getBoundingClientRect();
-      const edgeSize = 80;
-      const speed = 10;
-
-      if (e.clientX < rect.left + edgeSize) {
-        // Scroll left
-        if (!scrollInterval.current) {
-          scrollInterval.current = setInterval(() => {
-            scrollArea.scrollLeft -= speed;
-          }, 16);
-        }
-      } else if (e.clientX > rect.right - edgeSize) {
-        // Scroll right
-        if (!scrollInterval.current) {
-          scrollInterval.current = setInterval(() => {
-            scrollArea.scrollLeft += speed;
-          }, 16);
-        }
-      } else {
-        if (scrollInterval.current) {
-          clearInterval(scrollInterval.current);
-          scrollInterval.current = null;
-        }
-      }
-    }
-  };
-
-  const onPointerUp = (e: PointerEvent) => {
-    if (scrollInterval.current) {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = null;
-    }
-
-    // Use a ref-like approach to get latest state in listener
-    // Or just use the state from the last move
-    setDraggedTask(prev => {
-      if (prev && dropTarget) {
-        onDropTask(prev.id, dropTarget);
-      }
-      return null;
-    });
-    setDropTarget(null);
-
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-  };
+  if (isMobile) {
+    return (
+      <MobileBoardView 
+        tasks={tasks}
+        onTaskClick={onTaskClick}
+        onDeleteTask={onDeleteTask}
+        onQuickAdd={onQuickAdd}
+        onAddClick={onAddClick}
+        onQuickEdit={onQuickEdit}
+        canManage={canManage}
+        personnel={personnel}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-full w-full">
       <div 
-        ref={scrollRef}
-        onScroll={isMobile ? handleScroll : undefined}
-        className={cn(
-          "flex h-full mx-auto w-full",
-          isMobile ? "overflow-x-auto snap-x snap-mandatory gap-4 pb-4 scrollbar-hide" : "lg:max-w-[1920px] gap-4 sm:gap-6"
-        )}
+        className="flex h-full mx-auto w-full lg:max-w-[1920px] gap-4 sm:gap-6"
       >
         <LayoutGroup>
           {COLUMNS.map(column => (
-            <div key={column.id} className={cn(
-              "h-full",
-              isMobile ? "min-w-[calc(100vw-3rem)] shrink-0 snap-center" : "flex-1 min-w-0"
-            )}>
+            <div key={column.id} className="h-full flex-1 min-w-0">
               <Column 
                 column={column}
                 tasks={tasks.filter(t => t.status === column.id)}
@@ -659,73 +723,16 @@ export function BoardView({
                 onDeleteTask={onDeleteTask}
                 onDropTask={onDropTask}
                 onQuickAdd={onQuickAdd}
+                onAddClick={onAddClick}
                 onQuickEdit={onQuickEdit}
                 canManage={canManage}
                 personnel={personnel}
-                onDragStartManual={isMobile ? onDragStartManual : undefined}
-                draggedTaskId={draggedTask?.id || null}
+                draggedTaskId={null}
               />
             </div>
           ))}
         </LayoutGroup>
       </div>
-
-      {isMobile && (
-        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
-          {COLUMNS.map((_, idx) => (
-            <motion.div
-              key={idx}
-              initial={false}
-              animate={{
-                width: activeIndex === idx ? 24 : 8,
-                backgroundColor: activeIndex === idx ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.3)",
-                opacity: activeIndex === idx ? 1 : 0.5,
-              }}
-              className={cn(
-                "h-2 rounded-full transition-colors duration-300 shadow-sm",
-                activeIndex === idx ? "bg-primary" : "bg-muted-foreground/30"
-              )}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Drag Overlay for Mobile */}
-      <AnimatePresence>
-        {draggedTask && (
-          <motion.div
-            initial={{ scale: 1, opacity: 0 }}
-            animate={{ 
-              scale: 1.05, 
-              opacity: 0.9,
-              x: dragPosition.x - dragOffset.x,
-              y: dragPosition.y - dragOffset.y
-            }}
-            exit={{ scale: 1, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30, mass: 0.8 }}
-            className="fixed top-0 left-0 z-[100] pointer-events-none w-[calc(100vw-4rem)] shadow-2xl"
-          >
-            <div className="bg-card rounded-xl border-2 border-primary ring-4 ring-primary/10 overflow-hidden">
-               {/* Simplified TaskCard Preview */}
-               <div className="p-4 bg-card">
-                  <div className="flex items-center gap-2 mb-2">
-                     <div className={cn("w-1.5 h-1.5 rounded-full", PRIORITIES[draggedTask.priority || 'medium'].color)} />
-                     <h3 className="font-bold text-sm truncate">{draggedTask.title}</h3>
-                  </div>
-                  {draggedTask.description && (
-                     <p className="text-xs text-muted-foreground line-clamp-2">{draggedTask.description}</p>
-                  )}
-               </div>
-               {dropTarget && (
-                  <div className="bg-primary/10 px-4 py-2 border-t border-primary/20 flex items-center justify-between">
-                     <span className="text-[10px] font-black uppercase tracking-widest text-primary">Drop in {COLUMNS.find(c => c.id === dropTarget)?.title}</span>
-                     <ChevronRight size={12} className="text-primary" />
-                  </div>
-               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

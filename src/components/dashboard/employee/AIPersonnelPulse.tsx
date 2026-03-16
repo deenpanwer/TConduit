@@ -33,6 +33,8 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
     setLoading(true);
     setAnalysis(null);
 
+    const screenshotData = (screenshots || []).slice(0, 15);
+
     const payload = {
       employeeName: employee?.name || "Member",
       date: dateStr,
@@ -47,12 +49,17 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
         velocity: s.velocity,
         productivityScore: s.productivityScore,
         focusScore: s.focusScore,
-        hourlyPulse: s.hourlyPulse, // Ensure hourlyPulse is included
+        hourlyPulse: s.hourlyPulse,
       })),
-      screenshots: (screenshots || []).slice(0, 15).map(s => ({ // Defensive check
+      screenshotUrls: screenshotData
+        .filter(s => !s.isBlurred) // CONSERVE TOKENS: Don't send images for blurred screenshots
+        .map(s => s.url || s.activity?.cloudinaryUrl || "")
+        .filter(url => url !== ""),
+      screenshotMetadata: screenshotData.map(s => ({
         timestamp: s.timestamp?.toDate ? s.timestamp.toDate().toISOString() : (s.timestamp?.seconds ? new Date(s.timestamp.seconds * 1000).toISOString() : s.timestamp),
         activeWindow: (typeof s.activeWindow === 'object' ? s.activeWindow?.title : s.activeWindow) || s.activity?.windowTitle || s.activity?.activeWindow || "Unknown Window",
         appName: (typeof s.activeWindow === 'object' ? s.activeWindow?.owner : s.appName) || s.activity?.appName || s.activity?.processName || "Unknown App",
+        isBlurred: !!s.isBlurred,
         url: s.url || s.activity?.cloudinaryUrl || ""
       })),
     };

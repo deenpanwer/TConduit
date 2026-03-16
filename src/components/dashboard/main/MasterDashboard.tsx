@@ -71,14 +71,23 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
         let totalSeconds = 0;
         const empAppMap: Record<string, number> = {};
         const sparklineActivity: { timestamp: number, score: number }[] = [];
+        
+        let totalDayKeystrokes = 0;
+        let totalDayClicks = 0;
+        let totalDayDistance = 0;
 
         shifts.forEach((shift: any) => {
-            const shiftTotalSeconds = shift.liveMetrics?.totalSeconds || 0;
+            const shiftTotalSeconds = (shift.liveMetrics?.totalSeconds || shift.totalSeconds || 0);
             totalSeconds += shiftTotalSeconds;
 
             // Metrics aggregation for Selected Date
             if (shift.id.startsWith(dateStr)) {
                 totalDaySeconds += shiftTotalSeconds;
+                
+                const metrics = shift.liveMetrics || shift.metrics || {};
+                totalDayKeystrokes += (metrics.keystrokes || 0);
+                totalDayClicks += (metrics.mouseClicks || 0);
+                totalDayDistance += (metrics.mouseDistance || 0);
 
                 // Process App Breakdown (Legacy: number, New: object)
                 if (shift.liveBreakdown) {
@@ -92,17 +101,19 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
                 if (shift.hourlyPulse) {
                     Object.entries(shift.hourlyPulse).forEach(([hourKey, data]: [string, any]) => {
                         const hourIdx = parseInt(hourKey);
-                        const metrics = data?.metrics || data; 
-                        const hourSeconds = metrics.seconds || metrics.totalSeconds || 0;
+                        const hMetrics = data?.metrics || data; 
+                        const hourSeconds = hMetrics.seconds || hMetrics.totalSeconds || 0;
                         
                         if (hourIdx >= 0 && hourIdx < 24) {
                             hourlyBuckets[hourIdx].actualHours += hourSeconds / 3600;
                         }
                         
                         // Collect for sparkline (Keystrokes + Clicks + Distance)
+                        const activityScore = (hMetrics.keystrokes || 0) + ((hMetrics.mouseClicks || 0) * 5) + ((hMetrics.mouseDistance || 0) / 100);
+                        
                         sparklineActivity.push({
                             timestamp: hourIdx,
-                            score: (metrics.keystrokes || 0) + ((metrics.mouseClicks || 0) * 2) + ((metrics.mouseDistance || 0) / 100)
+                            score: activityScore
                         });
                     });
                 }
@@ -134,6 +145,9 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             location: emp.lastLoginLocation?.city || "Remote",
             hoursToday: (totalDaySeconds / 3600).toFixed(1),
             totalHours: (totalSeconds / 3600).toFixed(1),
+            totalDayKeystrokes,
+            totalDayClicks,
+            totalDayDistance,
             topApp: Object.entries(empAppMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "---",
             isLive: emp.heartbeat?.isCurrentlyRunning || false,
             prevHours: sparklineActivity.sort((a, b) => a.timestamp - b.timestamp).slice(-10).map(a => a.score)

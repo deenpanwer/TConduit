@@ -28,7 +28,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { format, isToday, isTomorrow, isYesterday, formatDistanceToNow } from "date-fns";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -124,7 +124,14 @@ function TasksPageContent() {
     if (userData && !list.find(p => p.id === user?.uid)) {
       list.push({ id: user?.uid, ...userData });
     }
-    return list.filter(Boolean);
+    
+    // Strict deduplication by ID and filtering out nulls/undefineds
+    const seen = new Set();
+    return list.filter(p => {
+        if (!p || !p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+    });
   }, [owner, employees, userData, user]);
 
   // Helper to format history actions
@@ -187,17 +194,17 @@ function TasksPageContent() {
     return tasks.find(t => t.id === selectedTaskId) || null;
   }, [tasks, selectedTaskId, editingNewTask]);
 
-  const handleAddNewTaskClick = useCallback(() => {
+  const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
     const newTask: Partial<Task> = {
       title: "",
       description: "",
-      status: "todo",
+      status: initialStatus || "todo",
       priority: "medium",
       assignees: [],
       subtasks: [],
       comments: [],
       tags: [],
-      dueDate: new Date().toISOString(),
+      dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -337,7 +344,7 @@ function TasksPageContent() {
                             <History size={14} />
                         </Button>
                         <Avatar className="h-8 w-8 border border-border/50">
-                            <AvatarImage src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`} />
+                            <AvatarImage src={getUserAvatar(userData)} />
                             <AvatarFallback>ME</AvatarFallback>
                         </Avatar>
                     </div>
@@ -358,6 +365,7 @@ function TasksPageContent() {
                     onDeleteTask={handleDeleteTaskLocal}
                     onDropTask={(taskId, status) => updateTask(taskId, { status })}
                     onQuickAdd={(status, title) => addTask(title, status)}
+                    onAddClick={handleAddNewTaskClick}
                     onQuickEdit={(id, title) => updateTask(id, { title })}
                     canManage={canManageTasks}
                     personnel={personnel}
@@ -369,6 +377,7 @@ function TasksPageContent() {
                     onUpdateTask={handleUpdateTaskLocal}
                     onDeleteTask={handleDeleteTaskLocal}
                     onQuickEdit={(id, title) => updateTask(id, { title })}
+                    onAddClick={handleAddNewTaskClick}
                     canManage={canManageTasks}
                     personnel={personnel}
                 />
@@ -409,7 +418,7 @@ function TasksPageContent() {
                             return (
                                 <div key={uniqueKey} className="flex gap-3 items-start group">
                                     <Avatar className="h-8 w-8 shrink-0 border border-border/50 mt-0.5">
-                                        <AvatarImage src={entryUser?.photoUrl} />
+                                        <AvatarImage src={getUserAvatar(entryUser)} />
                                         <AvatarFallback>{entryUser?.name?.[0]}</AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
@@ -583,7 +592,7 @@ function TasksPageContent() {
                            <CalendarComponent
                              mode="single"
                              selected={selectedTask.dueDate ? new Date(selectedTask.dueDate) : undefined}
-                             onSelect={(date) => handleUpdateTaskLocal(selectedTaskId!, { dueDate: date?.toISOString() })}
+                             onSelect={(date) => handleUpdateTaskLocal(selectedTaskId!, { dueDate: date ? date.toISOString() : undefined })}
                              initialFocus
                            />
                          </PopoverContent>
@@ -630,9 +639,9 @@ function TasksPageContent() {
                              const u = personnel.find(p => p.id === uid);
                              if (!u) return null;
                              return (
-                                <Badge key={uid} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
+                                <Badge key={`assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
                                     <Avatar className="h-5 w-5">
-                                        <AvatarImage src={u.photoUrl} />
+                                        <AvatarImage src={getUserAvatar(u)} />
                                         <AvatarFallback>{u.name?.[0]}</AvatarFallback>
                                     </Avatar>
                                     <span>{u.name}</span>
@@ -669,7 +678,7 @@ function TasksPageContent() {
                                        const isAssigned = (selectedTask.assignees || []).some(uid => uid === user.id);
                                        return (
                                            <DropdownMenuItem 
-                                               key={user.id}
+                                               key={`assign-user-${user.id}`}
                                                onClick={() => {
                                                    if (isAssigned) return;
                                                    handleUpdateTaskLocal(selectedTaskId!, { assignees: [...(selectedTask.assignees || []), user.id] }, 'assignees_updated');
@@ -677,7 +686,7 @@ function TasksPageContent() {
                                                disabled={isAssigned}
                                            >
                                                <Avatar className="h-5 w-5 mr-2">
-                                                   <AvatarImage src={user.photoUrl} />
+                                                   <AvatarImage src={getUserAvatar(user)} />
                                                    <AvatarFallback>{user.name?.[0]}</AvatarFallback>
                                                </Avatar>
                                                {user.name}
@@ -805,7 +814,7 @@ function TasksPageContent() {
                           return (
                              <div key={comment.id} className="flex gap-3 group/comment">
                                 <Avatar className="h-7 w-7 border border-border/50 shrink-0 mt-0.5 shadow-sm">
-                                   <AvatarImage src={commenter?.photoUrl} />
+                                   <AvatarImage src={getUserAvatar(commenter)} />
                                    <AvatarFallback className="text-[10px]">{commenter?.name?.[0]}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
@@ -831,7 +840,7 @@ function TasksPageContent() {
 
                     <div className="flex gap-4 items-start bg-secondary/20 p-4 rounded-2xl border border-border/30 focus-within:border-primary/30 focus-within:bg-background transition-all">
                        <Avatar className="h-8 w-8 border border-border/50 shrink-0 shadow-sm">
-                          <AvatarImage src={userData?.photoUrl} />
+                          <AvatarImage src={getUserAvatar(userData)} />
                           <AvatarFallback className="text-[10px]">ME</AvatarFallback>
                        </Avatar>
                        <div className="flex-1 space-y-3">
@@ -1090,7 +1099,7 @@ function TasksPageContent() {
                           <CalendarComponent
                             mode="single"
                             selected={editingNewTask?.dueDate ? new Date(editingNewTask.dueDate) : undefined}
-                            onSelect={(date) => handleUpdateTaskLocal("new", { dueDate: date?.toISOString() })}
+                            onSelect={(date) => handleUpdateTaskLocal("new", { dueDate: date ? date.toISOString() : undefined })}
                             initialFocus
                           />
                         </PopoverContent>
@@ -1138,7 +1147,7 @@ function TasksPageContent() {
                                        const isAssigned = (editingNewTask?.assignees || []).some(uid => uid === p.id);
                                        return (
                                            <DropdownMenuItem 
-                                               key={p.id}
+                                               key={`new-task-assign-user-${p.id}`}
                                                onClick={() => {
                                                    if (isAssigned) {
                                                       handleUpdateTaskLocal("new", { assignees: (editingNewTask?.assignees || []).filter(uid => uid !== p.id) }, 'assignees_updated');
@@ -1149,7 +1158,7 @@ function TasksPageContent() {
                                                className="flex items-center"
                                            >
                                                <Avatar className="h-5 w-5 mr-2">
-                                                   <AvatarImage src={p.photoUrl} />
+                                                   <AvatarImage src={getUserAvatar(p)} />
                                                    <AvatarFallback>{p.name?.[0]}</AvatarFallback>
                                                </Avatar>
                                                {p.name}
@@ -1166,9 +1175,9 @@ function TasksPageContent() {
                                  const u = personnel.find(p => p.id === uid);
                                  if (!u) return null;
                                  return (
-                                    <Badge key={uid} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
+                                    <Badge key={`new-task-assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
                                         <Avatar className="h-5 w-5">
-                                            <AvatarImage src={u.photoUrl} />
+                                            <AvatarImage src={getUserAvatar(u)} />
                                             <AvatarFallback>{u.name?.[0]}</AvatarFallback>
                                         </Avatar>
                                         <span>{u.name}</span>

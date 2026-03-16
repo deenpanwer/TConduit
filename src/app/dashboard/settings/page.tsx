@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { auth, db } from "@/lib/firebase";
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -233,7 +233,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 mb-8">
                     <div className="size-16 rounded-2xl overflow-hidden border border-border bg-secondary shadow-inner">
                         <img 
-                            src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`}
+                            src={getUserAvatar(userData)}
                             alt="User Avatar"
                             className="w-full h-full object-cover"
                         />
@@ -281,14 +281,14 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
-                        {employees.map((emp) => (
+                        {employees.map((emp: any) => (
                             <div 
                                 key={emp.id} 
                                 className="flex items-center justify-between p-4 bg-secondary/30 rounded-2xl border-2 border-transparent hover:border-black dark:hover:border-white transition-all group/item"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="size-10 rounded-full overflow-hidden border-2 border-border">
-                                        <img src={emp.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.id}`} alt={emp.name} className="w-full h-full object-cover" />
+                                        <img src={getUserAvatar(emp)} alt={emp.name} className="w-full h-full object-cover" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-black uppercase tracking-tight">{emp.name}</p>

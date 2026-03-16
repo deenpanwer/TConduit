@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
 import posthog from 'posthog-js';
+import { getPageLoadTime } from "@/lib/performance";
 
 interface AuthContextType {
   user: User | null;
@@ -27,12 +28,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  
+  // Track if session start has been logged for this load
+  const sessionLogged = useRef(false);
+  const sessionId = useRef<string | null>(null);
+  const sessionStartTime = useRef<number>(Date.now());
+
+  // Page View Tracker
+  useEffect(() => {
+    if (user && sessionId.current && pathname?.startsWith("/dashboard")) {
+      const userDocRef = doc(db, "users", user.uid);
+      // Dot notation to increment nested counter
+      // sanitized path for firestore key
+      const safePath = pathname.replace(/\//g, '_') || "root";
+      
+      updateDoc(userDocRef, {
+        [`visits.${sessionId.current}.pageViews.${safePath}`]: increment(1)
+      }).catch(() => {});
+    }
+  }, [pathname, user]);
 
   const fetchAndSetUserData = async (firebaseUser: User) => {
-    const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+    const userDocRef = doc(db, "users", firebaseUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    
     if (userDoc.exists()) {
       const data = userDoc.data();
       setUserData(data);
+      
+      // LOG SESSION START (Only once per load)
+      if (!sessionLogged.current) {
+        sessionLogged.current = true;
+        sessionId.current = Date.now().toString();
+        const loadTime = getPageLoadTime();
+        
+        try {
+          // Atomic update: increment count AND add to the visits map
+          const safePath = (window.location.pathname || "/").replace(/\//g, '_') || "root";
+          await updateDoc(userDocRef, {
+            totalVisits: increment(1),
+            lastVisitAt: serverTimestamp(),
+            [`visits.${sessionId.current}`]: {
+              startTime: serverTimestamp(),
+              pathname: window.location.pathname,
+              initialLoadTimeMs: loadTime,
+              userAgent: navigator.userAgent,
+              durationSeconds: 0,
+              pageViews: {
+                [safePath]: 1
+              }
+            }
+          });
+        } catch (e) {
+          console.error("Failed to log visit stats:", e);
+        }
+      }
       
       // Identify the user and link properties
       posthog.identify(firebaseUser.uid, {
@@ -60,6 +110,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     }
   };
+
+  // LOG SESSION DURATION (on cleanup/unload)
+  useEffect(() => {
+    const logDuration = async () => {
+      if (user && sessionId.current) {
+        const durationSeconds = Math.round((Date.now() - sessionStartTime.current) / 1000);
+        const userDocRef = doc(db, "users", user.uid);
+        
+        try {
+          await updateDoc(userDocRef, {
+            [`visits.${sessionId.current}.durationSeconds`]: durationSeconds,
+            [`visits.${sessionId.current}.endTime`]: serverTimestamp()
+          });
+        } catch (e) {
+          // Silently fail on exit
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        logDuration();
+      }
+    };
+
+    window.addEventListener("beforeunload", logDuration);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      logDuration();
+      window.removeEventListener("beforeunload", logDuration);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {

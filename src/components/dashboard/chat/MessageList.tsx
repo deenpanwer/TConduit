@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./MessageBubble";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer"; // Assuming Shimmer is here
+import { getUserAvatar } from "@/lib/utils";
 
 interface ChatMessage {
   id?: string;
@@ -18,6 +19,8 @@ interface MessageListProps {
   ownerPhotoUrl: string | undefined;
   ownerName: string | undefined;
   isLoading: boolean;
+  ownerData: any; // Add ownerData
+  selectedEmployeeData: any; // Add selectedEmployeeData
 }
 
 export function MessageList({
@@ -28,6 +31,8 @@ export function MessageList({
   ownerPhotoUrl,
   ownerName,
   isLoading,
+  ownerData,
+  selectedEmployeeData,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,9 +56,11 @@ export function MessageList({
       <div className="flex flex-col gap-6">
         {messages.map((msg, index) => {
           const isCurrentUserSender = msg.senderId === userUid;
+          
           const senderAvatar = isCurrentUserSender
-            ? ownerPhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${ownerName}`
-            : selectedEmployeePhotoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${selectedEmployeeName}`;
+            ? getUserAvatar(ownerData)
+            : getUserAvatar(selectedEmployeeData);
+
           const senderDisplayName = isCurrentUserSender ? ownerName : selectedEmployeeName;
 
           return (
@@ -61,7 +68,7 @@ export function MessageList({
               key={msg.id || index}
               message={msg}
               isCurrentUserSender={isCurrentUserSender}
-              senderAvatarUrl={senderAvatar || ""}
+              senderAvatarUrl={senderAvatar}
               senderName={senderDisplayName || "Unknown"}
             />
           );

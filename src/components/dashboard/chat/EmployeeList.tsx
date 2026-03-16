@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 interface Employee {
   id: string;
   name?: string;
   photoUrl?: string;
+  imageUrl?: string;
 }
 
 interface EmployeeListProps {
@@ -59,7 +60,7 @@ export function EmployeeList({ employees, selectedEmployee, onSelectEmployee, is
                 )}
                 <div className="relative">
                   <Avatar className="h-9 w-9 border border-border/50 transition-transform group-hover:scale-105">
-                    <AvatarImage src={emp.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.name}`} alt={emp.name} />
+                    <AvatarImage src={getUserAvatar(emp)} alt={emp.name} />
                     <AvatarFallback className="text-xs">{emp.name?.charAt(0) || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />

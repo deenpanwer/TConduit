@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isTomorrow, isYesterday } from "date-fns";
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,7 @@ export const TimelineView = ({
   onUpdateTask,
   onDeleteTask,
   onQuickEdit,
+  onAddClick,
   canManage,
   personnel,
 }: {
@@ -26,6 +27,7 @@ export const TimelineView = ({
   onUpdateTask: (id: string, updates: Partial<Task>, action?: string) => void;
   onDeleteTask: (id: string) => void;
   onQuickEdit: (id: string, title: string) => void;
+  onAddClick: (status?: Status, date?: Date) => void;
   canManage: boolean;
   personnel: any[];
 }) => {
@@ -131,6 +133,7 @@ export const TimelineView = ({
                 onDeleteTask={onDeleteTask}
                 onUpdateTask={onUpdateTask}
                 onQuickEdit={onQuickEdit}
+                onAddClick={onAddClick}
                 canManage={canManage}
                 personnel={personnel}
                 isMobile={isMobile}
@@ -153,6 +156,7 @@ const TimelineDayColumn = ({
   onDeleteTask,
   onUpdateTask,
   onQuickEdit,
+  onAddClick,
   canManage,
   personnel,
   isMobile,
@@ -165,6 +169,7 @@ const TimelineDayColumn = ({
   onDeleteTask: (id: string) => void;
   onUpdateTask: (id: string, updates: Partial<Task>, action?: string) => void;
   onQuickEdit: (id: string, title: string) => void;
+  onAddClick: (status?: Status, date?: Date) => void;
   canManage: boolean;
   personnel: any[];
   isMobile: boolean;
@@ -197,9 +202,19 @@ const TimelineDayColumn = ({
         <h3 className={cn("font-bold text-sm", isToday ? "text-blue-600" : "text-foreground/80")}>
           {format(date, 'EEE, MMM d')}
         </h3>
-        <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
+            {tasks.length}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 rounded-md hover:bg-background/80"
+            onClick={() => onAddClick('todo', date)}
+          >
+             <Plus size={14} />
+          </Button>
+        </div>
       </div>
       <div className={cn("flex-1", isMobile ? "" : "overflow-hidden")}>
         <div className={cn(
@@ -210,9 +225,11 @@ const TimelineDayColumn = ({
             {tasks.length === 0 && (
               <motion.div 
                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                 className="h-20 flex items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1"
+                 className="h-20 flex flex-col items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/20 rounded-xl m-1 cursor-pointer hover:bg-secondary/20 hover:border-primary/30 hover:text-primary transition-all group/empty"
+                 onClick={() => onAddClick('todo', date)}
               >
-                 <span className="text-[10px] font-medium uppercase tracking-widest">No tasks</span>
+                 <Plus size={16} className="mb-1 opacity-50 group-hover/empty:scale-110 transition-transform" />
+                 <span className="text-[10px] font-medium uppercase tracking-widest">Start here</span>
               </motion.div>
             )}
             {tasks.map((task) => (

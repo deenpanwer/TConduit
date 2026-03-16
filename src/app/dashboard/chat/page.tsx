@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { useEmployeeChat } from "@/hooks/use-employee-chat"; // New import
 import { Menu, MessageSquare, X } from "lucide-react"; 
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 // New Chat Components
@@ -216,7 +216,7 @@ export default function ChatPage() {
 
                  <img 
 
-                    src={userData.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`} 
+                    src={getUserAvatar(userData)} 
 
                     alt="Avatar" 
 
@@ -284,23 +284,27 @@ export default function ChatPage() {
 
                       <ChatHeader selectedEmployee={selectedEmployee} />
 
-                      <MessageList
+                                            <MessageList
 
-                        messages={messages}
+                                              messages={messages}
 
-                        userUid={user.uid}
+                                              userUid={user.uid}
 
-                        selectedEmployeePhotoUrl={selectedEmployee.photoUrl}
+                                              selectedEmployeePhotoUrl={selectedEmployee.photoUrl}
 
-                        selectedEmployeeName={selectedEmployee.name}
+                                              selectedEmployeeName={selectedEmployee.name}
 
-                        ownerPhotoUrl={userData.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userData.name}`}
+                                              ownerPhotoUrl={userData.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userData.name}`}
 
-                        ownerName={userData.name || user.displayName || user.email || "You"}
+                                              ownerName={userData.name || user.displayName || user.email || "You"}
 
-                        isLoading={isSettingUpChat}
+                                              isLoading={isSettingUpChat}
 
-                      />
+                                              ownerData={userData}
+
+                                              selectedEmployeeData={selectedEmployee}
+
+                                            />
 
                       <ChatInput
 

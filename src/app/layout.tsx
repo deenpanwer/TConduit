@@ -5,12 +5,10 @@ import { Poppins, Montserrat, Playfair_Display } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { PHProvider } from './providers';
 import { AuthProvider } from '@/hooks/use-auth';
 import { TeamProvider } from '@/hooks/use-team';
 import { TasksProvider } from '@/hooks/useTasks';
-import { Suspense } from 'react';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -48,9 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)} suppressHydrationWarning>
         <head>
-          <link rel="manifest" href="/manifest.json" />
           <meta name="theme-color" content="#000000" />
-          <link rel="apple-touch-icon" href="/logo.svg" />
         </head>
         <body className="font-sans">
           <PHProvider>

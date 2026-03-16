@@ -1,10 +1,12 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getUserAvatar } from "@/lib/utils";
 
 interface Employee {
   id: string;
   name?: string;
   photoUrl?: string;
+  imageUrl?: string;
 }
 
 interface ChatHeaderProps {
@@ -26,7 +28,7 @@ export function ChatHeader({ selectedEmployee }: ChatHeaderProps) {
       <div className="flex items-center gap-4">
         <div className="relative">
           <Avatar className="h-10 w-10 border-2 border-primary/10 shadow-sm">
-            <AvatarImage src={selectedEmployee.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${selectedEmployee.name}`} alt={selectedEmployee.name} />
+            <AvatarImage src={getUserAvatar(selectedEmployee)} alt={selectedEmployee.name} />
             <AvatarFallback className="text-xs">{selectedEmployee.name?.charAt(0) || "?"}</AvatarFallback>
           </Avatar>
           <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-background rounded-full" />

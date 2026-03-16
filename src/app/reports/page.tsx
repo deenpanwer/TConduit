@@ -29,6 +29,7 @@ interface OrgIntel {
   topPerformer: string;
   performanceIndex: string[];
   aiSummary: string | null;
+  aiPayload?: any;
 }
 
 export default function ManualReportAuditPage() {

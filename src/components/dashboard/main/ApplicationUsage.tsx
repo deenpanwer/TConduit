@@ -115,30 +115,51 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                                 ))
                             ) : (
                                 auditApps.map((app, i) => (
-                                    <motion.tr 
-                                        key={app.name}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.05 }}
-                                        className="hover:bg-muted/20 transition-colors group"
-                                    >
-                                        <td className="px-6 md:px-8 py-5 md:py-6">
-                                            <div className="flex items-center gap-3 md:gap-4">
-                                                <div className="p-2 rounded-xl bg-secondary border border-border group-hover:scale-110 transition-transform shrink-0">
-                                                    {React.createElement(getAppIcon(app.name), { size: 14, className: "text-primary" })}
+                                    <React.Fragment key={app.name}>
+                                        <motion.tr 
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.05 }}
+                                            className="hover:bg-muted/20 transition-colors group"
+                                        >
+                                            <td className="px-6 md:px-8 py-5 md:py-6">
+                                                <div className="flex items-center gap-3 md:gap-4">
+                                                    <div className="p-2 rounded-xl bg-secondary border border-border group-hover:scale-110 transition-transform shrink-0">
+                                                        {React.createElement(getAppIcon(app.name), { size: 14, className: "text-primary" })}
+                                                    </div>
+                                                    <span className="text-sm font-black uppercase tracking-tight truncate max-w-[150px]">{app.name}</span>
                                                 </div>
-                                                <span className="text-sm font-black uppercase tracking-tight truncate max-w-[150px]">{app.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 md:px-8 py-5 md:py-6">
-                                            <span className="text-sm font-bold font-mono">{app.hours}h</span>
-                                        </td>
-                                        <td className="px-6 md:px-8 py-5 md:py-6 text-right">
-                                            <div className="inline-flex items-center px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black border border-primary/10">
-                                                {app.percentage}%
-                                            </div>
-                                        </td>
-                                    </motion.tr>
+                                            </td>
+                                            <td className="px-6 md:px-8 py-5 md:py-6">
+                                                <span className="text-sm font-bold font-mono">{app.hours}h</span>
+                                            </td>
+                                            <td className="px-6 md:px-8 py-5 md:py-6 text-right">
+                                                <div className="inline-flex items-center px-3 py-1 rounded-lg bg-primary/5 text-primary text-[10px] font-black border border-primary/10">
+                                                    {app.percentage}%
+                                                </div>
+                                            </td>
+                                        </motion.tr>
+                                        {/* Detailed Window Titles (Modern Schema only) */}
+                                        {app.details && Object.keys(app.details).length > 0 && (
+                                            <tr>
+                                                <td colSpan={3} className="px-6 md:px-8 pb-6 pt-0">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {Object.entries(app.details)
+                                                            .sort(([, a], [, b]) => (b as number) - (a as number))
+                                                            .slice(0, 10)
+                                                            .map(([title, seconds]) => (
+                                                                <div key={title} className="group/title flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/50 border border-border/50 max-w-[250px] truncate">
+                                                                    <span className="text-[9px] font-bold text-muted-foreground truncate flex-1 uppercase tracking-tighter">{title}</span>
+                                                                    <span className="text-[8px] font-black text-primary/60 shrink-0">
+                                                                        {Math.round((seconds as number) / 60)}m
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>

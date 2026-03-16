@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Smartphone, Download, Share, PlusSquare, ArrowRight } from "lucide-react";
+import { X, Smartphone, Download, Monitor } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -12,13 +12,20 @@ export function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // Check if already installed or running in standalone mode
+    // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsStandalone(true);
       return;
     }
 
-    // Capture the PWA install event
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('SW Registered'))
+        .catch((err) => console.log('SW Registration Failed', err));
+    }
+
+    // Capture beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -27,16 +34,14 @@ export function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Detect iOS devices
+    // Detect iOS
     const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(isIosDevice);
 
     if (isIosDevice) {
-      // For iOS, we check if it's already shown recently
-      const dismissedUntil = localStorage.getItem('pwa_prompt_dismissed_until');
-      if (!dismissedUntil || new Date().getTime() > parseInt(dismissedUntil)) {
-        const timer = setTimeout(() => setShowPrompt(true), 3000);
-        return () => clearTimeout(timer);
+      const hasSeenPrompt = localStorage.getItem('pwa_prompt_seen');
+      if (!hasSeenPrompt) {
+        setShowPrompt(true);
       }
     }
 
@@ -53,58 +58,51 @@ export function PWAInstallPrompt() {
     setDeferredPrompt(null);
   };
 
+  const dismissPrompt = () => {
+    setShowPrompt(false);
+    localStorage.setItem('pwa_prompt_seen', 'true');
+  };
+
   if (isStandalone || !showPrompt) return null;
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ y: 50, opacity: 0 }}
+        initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 50, opacity: 0 }}
-        className="fixed bottom-6 left-6 right-6 md:left-auto md:right-8 md:w-[360px] z-[100]"
+        exit={{ y: 100, opacity: 0 }}
+        className="fixed bottom-6 left-6 right-6 md:left-auto md:right-8 md:w-96 z-[100]"
       >
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-2xl shadow-black/10 dark:shadow-black/50">
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-4">
-              <div className="bg-primary/10 p-3 rounded-xl shrink-0 border border-primary/10">
-                {isIOS ? (
-                  <Smartphone className="text-primary" size={24} />
-                ) : (
-                  <Download className="text-primary" size={24} />
-                )}
-              </div>
-              <div>
-                <h3 className="text-foreground font-bold text-lg leading-none tracking-tight">
-                  Install Trac App
-                </h3>
-                <p className="text-muted-foreground text-xs mt-1 font-medium leading-relaxed">
-                  Get the best monitoring experience directly on your home screen.
-                </p>
-              </div>
+        <div className="bg-card/95 backdrop-blur-sm border border-border rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+          {/* Subtle Glow Effect */}
+          <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+                    <div className="flex gap-4 items-start relative z-10">
+            <div className="bg-primary/20 p-3 rounded-xl">
+              {isIOS ? (
+                <Smartphone className="text-primary" size={24} />
+              ) : (
+                <Download className="text-primary" size={24} />
+              )}
             </div>
             
-            <div className="space-y-4">
-              {isIOS ? (
-                <div className="space-y-3 bg-secondary/30 p-4 rounded-xl border border-border/50">
-                  <p className="text-foreground text-[13px] font-medium leading-relaxed">
-                    Tap the <span className="font-bold text-primary italic">Share</span> button, then choose <span className="font-bold text-primary italic">Add to Home Screen</span>.
-                  </p>
-                  <div className="flex items-center justify-center gap-4 pt-1">
-                    <div className="p-2 bg-background rounded-lg border shadow-sm">
-                      <Share className="size-4 text-primary" strokeWidth={2.5} />
-                    </div>
-                    <ArrowRight className="size-3 text-muted-foreground opacity-50" />
-                    <div className="p-2 bg-background rounded-lg border shadow-sm">
-                      <PlusSquare className="size-4 text-primary" strokeWidth={2.5} />
-                    </div>
-                  </div>
-                </div>
-              ) : (
+            <div className="flex-1">
+              <h3 className="text-foreground font-semibold text-lg leading-tight mb-1">
+                Put TRAC on your screen
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                {isIOS 
+                  ? "Tap Share, then 'Add to Home Screen' to keep it where you can see it."
+                  : "It works just like an app so you can open it with one tap."
+                }
+              </p>
+
+              {!isIOS && (
                 <Button 
                   onClick={handleInstall}
-                  className="w-full font-bold h-11 rounded-xl shadow-lg shadow-primary/20"
+                  className="w-full bg-white text-black hover:bg-white/90 font-medium rounded-xl h-11 transition-all active:scale-[0.98]"
                 >
-                  Add to Home Screen
+                  Add to Home
                 </Button>
               )}
             </div>

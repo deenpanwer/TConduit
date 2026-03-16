@@ -1,9 +1,16 @@
 const CACHE_NAME = 'trac-cache-v1';
+const ASSETS_TO_CACHE = [
+  '/dashboard',
+  '/manifest-icon-192.maskable.png',
+  '/manifest-icon-512.maskable.png',
+  '/favicon-196.png',
+  '/apple-icon-180.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(['/dashboard']);
+      return cache.addAll(ASSETS_TO_CACHE);
     })
   );
 });
@@ -26,8 +33,9 @@ self.addEventListener('push', (event) => {
 
     const options = {
       body: body || 'You have a new update.',
-      icon: icon || '/logo.svg',
-      badge: badge || '/logo.svg',
+      // Use PNG icons as fallbacks for better OS compatibility
+      icon: icon || '/manifest-icon-192.maskable.png',
+      badge: badge || '/favicon-196.png',
       data: extraData || {},
       vibrate: [100, 50, 100],
       actions: [
@@ -41,10 +49,10 @@ self.addEventListener('push', (event) => {
     );
   } catch (err) {
     console.error('Error parsing push data:', err);
-    // Fallback if data is not JSON
     event.waitUntil(
       self.registration.showNotification('TRAC Notification', {
-        body: event.data.text()
+        body: event.data.text(),
+        icon: '/manifest-icon-192.maskable.png'
       })
     );
   }
@@ -56,7 +64,6 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'close') return;
 
-  // Open the app or navigate to a specific URL
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       if (clientList.length > 0) {

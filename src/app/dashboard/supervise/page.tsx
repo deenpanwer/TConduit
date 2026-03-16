@@ -14,7 +14,7 @@ import { Menu, UserPlus, X, Maximize2, Monitor, User, Calendar as CalendarIcon, 
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { InviteModal } from "@/components/dashboard/InviteModal";

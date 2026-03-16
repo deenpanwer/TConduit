@@ -19,7 +19,20 @@ import { cacheOrchestrator } from "@/lib/cache-orchestrator";
 interface TeamContextType {
   employees: any[];
   owner: any | null;
-  stats: any | null;
+  stats: {
+    totalHoursToday: string;
+    totalOrgHours: string;
+    activeEmployees: number;
+    velocity: number;
+    topApps: { name: string; hours: string; percentage: number; details?: Record<string, number> }[];
+    totalStaff: number;
+    locationsCount: number;
+    // New High-Density Metrics
+    totalKeystrokes: number;
+    totalMouseClicks: number;
+    totalMouseDistance: number;
+    hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }>;
+  } | null;
   loading: boolean;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
@@ -267,10 +280,16 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   const stats = (() => {
     let totalSecondsToday = 0;
     let totalSecondsAllTime = 0;
-    const orgAppMap: Record<string, number> = {};
+    const orgAppMap: Record<string, { totalSeconds: number; details: Record<string, number> }> = {};
     let activeCount = 0;
     let totalVelocity = 0;
     let velocityCount = 0;
+
+    // High-Density Aggregates
+    let totalKeystrokes = 0;
+    let totalMouseClicks = 0;
+    let totalMouseDistance = 0;
+    const hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }> = {};
 
     Object.values(personnelData).forEach(p => {
       // 1. Live Pulse Tracking
@@ -282,14 +301,40 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       // 3. Shift-Level Aggregation
       p.workShifts?.forEach((s: any) => {
         // Normalization: Source of Truth is always liveMetrics.totalSeconds
-        const shiftSeconds = s.liveMetrics?.totalSeconds || 0;
+        const shiftMetrics = s.liveMetrics || s.metrics || {};
+        const shiftSeconds = shiftMetrics.totalSeconds || s.totalSeconds || 0;
         totalSecondsToday += shiftSeconds;
+
+        // Aggregate High-Density Metrics
+        totalKeystrokes += (shiftMetrics.keystrokes || s.keystrokes || 0);
+        totalMouseClicks += (shiftMetrics.mouseClicks || s.mouseClicks || 0);
+        totalMouseDistance += (shiftMetrics.mouseDistance || s.mouseDistance || 0);
 
         // Application Breakdown: Handles both number (Legacy) and object (Modern) formats.
         if (s.liveBreakdown) {
           Object.entries(s.liveBreakdown).forEach(([app, data]) => {
-            const secs = typeof data === 'number' ? data : (data as any)?.totalSeconds || 0;
-            orgAppMap[app] = (orgAppMap[app] || 0) + secs;
+            const isLegacy = typeof data === 'number';
+            const secs = isLegacy ? data : (data as any)?.totalSeconds || 0;
+            const details = isLegacy ? {} : (data as any)?.details || {};
+
+            if (!orgAppMap[app]) orgAppMap[app] = { totalSeconds: 0, details: {} };
+            orgAppMap[app].totalSeconds += secs;
+            
+            // Merge details (window titles)
+            Object.entries(details).forEach(([title, time]) => {
+              orgAppMap[app].details[title] = (orgAppMap[app].details[title] || 0) + (time as number);
+            });
+          });
+        }
+
+        // Hourly Pulse Aggregation (New high-density structure)
+        if (s.hourlyPulse) {
+          Object.entries(s.hourlyPulse).forEach(([hour, data]: [string, any]) => {
+            if (!hourlyActivity[hour]) hourlyActivity[hour] = { seconds: 0, keystrokes: 0, mouseClicks: 0 };
+            const hMetrics = data.metrics || data;
+            hourlyActivity[hour].seconds += (hMetrics.totalSeconds || hMetrics.seconds || 0);
+            hourlyActivity[hour].keystrokes += (hMetrics.keystrokes || 0);
+            hourlyActivity[hour].mouseClicks += (hMetrics.mouseClicks || 0);
           });
         }
 
@@ -304,11 +349,12 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
     // 4. Transform App Map to Sorted Array
     const topApps = Object.entries(orgAppMap)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, secs]) => ({
+      .sort((a, b) => b[1].totalSeconds - a[1].totalSeconds)
+      .map(([name, data]) => ({
         name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        hours: (secs / 3600).toFixed(1),
-        percentage: Math.round((secs / (totalSecondsToday || 1)) * 100)
+        hours: (data.totalSeconds / 3600).toFixed(1),
+        percentage: Math.round((data.totalSeconds / (totalSecondsToday || 1)) * 100),
+        details: data.details
       }));
 
     return {
@@ -318,7 +364,11 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       velocity: velocityCount > 0 ? Math.round(totalVelocity / velocityCount) : 100,
       topApps,
       totalStaff: employees.length,
-      locationsCount: new Set(Object.values(personnelData).map(p => p.lastLoginLocation?.country)).size
+      locationsCount: new Set(Object.values(personnelData).map(p => p.lastLoginLocation?.country)).size,
+      totalKeystrokes,
+      totalMouseClicks,
+      totalMouseDistance,
+      hourlyActivity
     };
   })();
 

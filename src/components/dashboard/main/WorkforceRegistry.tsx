@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, ShieldCheck, Zap, Mail, Globe, Monitor, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getUserAvatar } from '@/lib/utils';
 
 export const WorkforceRegistry = ({ employees = [] }: { employees?: any[] }) => {
   const [visibleCount, setVisibleCount] = useState(5);
@@ -62,7 +63,7 @@ export const WorkforceRegistry = ({ employees = [] }: { employees?: any[] }) => 
                             <div className="relative shrink-0">
                                 <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                                 <div className="size-12 md:size-14 rounded-2xl overflow-hidden relative z-10 border-2 border-background shadow-lg transition-transform duration-700 group-hover:scale-110 bg-muted/20">
-                                    <img src={emp.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.email}`} className="w-full h-full object-cover" alt={emp.name} />
+                                    <img src={getUserAvatar(emp)} className="w-full h-full object-cover" alt={emp.name} />
                                 </div>
                                 <div className={`absolute -bottom-1 -right-1 size-4 rounded-full border-2 border-card z-20 ${emp.heartbeat?.isCurrentlyRunning ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`} />
                             </div>

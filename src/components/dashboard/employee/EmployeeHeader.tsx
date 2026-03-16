@@ -77,7 +77,7 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
             )} />
             <div className="size-32 md:size-44 rounded-[3.5rem] bg-secondary border-2 border-primary/20 overflow-hidden shadow-2xl relative z-10 transition-transform group-hover:scale-105 duration-700">
                 <img 
-                    src={employee?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${employee?.email}`} 
+                    src={getUserAvatar(employee)} 
                     alt={employee?.name} 
                     className="w-full h-full object-cover"
                 />
