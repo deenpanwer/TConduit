@@ -34,16 +34,27 @@ export async function POST(req: Request) {
         4. TOTAL TRUTH: Be completely honest. If the data shows low activity, distractions, or lack of progress, report it.
         Do not sugarcoat. Include "bad things" if they are present in the data.
         5. FOCUS: What was actually achieved? What tools were used? What is the truthful state of this employee's output?
+        6. SUGGESTION: Based on your analysis, provide a concise suggested action for the Founder. If no action is warranted, state "No action required". This suggestion should be specific and actionable, e.g., "Suggest a 1:1 meeting to discuss focus on X", or "Recommend resources for improving Y", or "No action required as progress is satisfactory".
       `
     });
 
-    // Add image URLs as multimodal inputs
+    // Add image URLs as multimodal inputs, filtering out blurred images
     if (screenshotUrls && screenshotUrls.length > 0) {
-      screenshotUrls.forEach((url: string) => {
-        content.push({
-          type: "image", // Correct type for ai-sdk
-          image: url     // Correct key for ai-sdk, directly assigning URL
-        });
+      screenshotUrls.forEach((url: string, index: number) => {
+        // Get metadata for this screenshot. Assume metadata array corresponds to urls array by index.
+        const metadata = screenshotMetadata && screenshotMetadata.length > index ? screenshotMetadata[index] : null;
+        
+        // Condition to send: The image is NOT blurred (i.e., isBlurred is false or missing)
+        const shouldSendImage = !(metadata && metadata.isBlurred === true);
+
+        if (shouldSendImage) {
+          content.push({
+            type: "image", // Correct type for ai-sdk
+            image: url     // Correct key for ai-sdk, directly assigning URL
+          });
+        } else {
+          console.log(`Analyze API: Skipping blurred screenshot URL: ${url}`);
+        }
       });
     }
 

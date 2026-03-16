@@ -2,7 +2,7 @@
 
 import { MapPin, Globe, ShieldCheck, Mail, Calendar, Clock, Zap, Target, Activity } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getUserAvatar } from "@/lib/utils";
 import { HoverShimmer } from "../main/shared/Shimmer";
 
 interface EmployeeHeaderProps {

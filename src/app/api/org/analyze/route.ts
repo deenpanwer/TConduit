@@ -31,6 +31,7 @@ CRITICAL INSTRUCTIONS:
 4. EASY TIME: Change all "seconds" into "minutes" or "hours".
 5. TELL THE TRUTH: Be 100% honest. If the team was lazy, distracted, or worked on the wrong things, say so. Mention both the good and the bad.
 6. NO AI FLUFF: Do not use robotic or flowery language. Just the facts.
+7. SUGGESTION: Based on your analysis, provide a concise suggested action for the Founder. If no action is warranted, state "No action required". This suggestion should be specific and actionable, e.g., "Suggest a team meeting to address X", or "Recommend a new tool for Y", or "No action required as team is on track".
 
 FORMAT:
 - [Short, simple point 1]

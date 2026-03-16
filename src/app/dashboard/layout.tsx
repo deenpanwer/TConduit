@@ -62,6 +62,7 @@ export const metadata: Metadata = {
     ],
   },
   icons: {
+    icon: "/favicon-196.png", // <--- This line
     apple: "/apple-icon-180.png",
   }
 };

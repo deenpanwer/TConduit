@@ -69,11 +69,10 @@ async function sendPushNotification(subscription: any, payload: string) {
 
 // --- Main API Route for Testing a Single Org ---
 
-export async function GET(
-  req: Request,
-  { params }: { params: { orgId: string } }
-) {
-  const { orgId } = params;
+export async function GET(req: Request) {
+  console.log("[Cron Test Summary Debug] GET API route handler invoked.");
+  const { searchParams } = new URL(req.url);
+  const orgId = searchParams.get("orgId");
 
   if (!orgId) {
     return NextResponse.json({ error: "Organization ID is missing." }, { status: 400 });
@@ -111,32 +110,47 @@ export async function GET(
     }
 
     const staffSnap = await adminDb.collection("users").where("orgId", "==", orgId).get();
+    console.log(`[Cron Test Summary Debug] Found ${staffSnap.docs.length} staff members for orgId: ${orgId}`);
+    staffSnap.docs.forEach(doc => {
+      console.log(`  Staff ID: ${doc.id}, Name: ${doc.data().name}`);
+    });
     
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+    // Fetch the single latest shift for each employee
+    console.log(`[Cron Test Summary Debug] Querying for the latest shift for each employee.`);
+
     const analysisPayload = await Promise.all(staffSnap.docs.map(async (doc) => {
       const employee = doc.data();
       const employeeId = doc.id;
       
+      console.log(`[Cron Test Summary Debug] Processing latest shift for employee ID: ${employeeId}, Name: ${employee.name}`);
       const shiftsRef = adminDb.collection("users").doc(employeeId).collection("workShifts");
-      const shiftsSnap = await shiftsRef.where('startTime', '>=', oneDayAgo).get();
       
+      console.log(`[Cron Test Summary Debug] About to execute query for the latest shift for employee ${employeeId}.`);
+      // Query for the single latest shift
+      const shiftsSnap = await shiftsRef
+        .orderBy('startTime', 'desc') // Order by startTime descending
+        .limit(1) // Take only the latest one
+        .get();
+        
+      console.log(`[Cron Test Summary Debug] Latest shift query executed for employee ${employeeId}. Found ${shiftsSnap.docs.length} shifts.`);
+      
+      // Extract shift data, will be empty if no shifts found
       const shifts = shiftsSnap.docs.map(shiftDoc => shiftDoc.data());
       
       return {
         employeeName: employee.name,
-        shifts: shifts,
+        shifts: shifts, // This will be an empty array if no shifts found, or an array with one shift
       };
     }));
 
-    // Filter out employees with no shifts
+    // Filter out employees if no shifts were found at all (even the latest one)
     const activeEmployeesPayload = analysisPayload.filter(e => e.shifts.length > 0);
 
     if (activeEmployeesPayload.length === 0) {
       return NextResponse.json({ 
         message: "Test completed.",
         status: "Skipped",
-        reason: "No employees had active shifts in the last 24 hours.",
+        reason: "No employees had any shifts found.", // Updated reason for clarity
         orgId: orgId,
       });
     }
