@@ -3,10 +3,10 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
 import posthog from 'posthog-js';
-import { getPageLoadTime } from "@/lib/performance";
+import { getPageLoadTime, getDeviceCapabilities, getPushSubscription } from "@/lib/performance";
 
 interface AuthContextType {
   user: User | null;
@@ -61,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionLogged.current = true;
         sessionId.current = Date.now().toString();
         const loadTime = getPageLoadTime();
+        const deviceData = getDeviceCapabilities();
+        const pushSubscription = await getPushSubscription();
         
         try {
           // Atomic update: increment count AND add to the visits map
@@ -68,11 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await updateDoc(userDocRef, {
             totalVisits: increment(1),
             lastVisitAt: serverTimestamp(),
+            deviceStatus: {
+              isPWA: deviceData.isPWA,
+              notificationsEnabled: deviceData.notificationsEnabled,
+              userAgent: deviceData.userAgent,
+              lastUpdated: serverTimestamp()
+            },
+            ...(pushSubscription ? { pushSubscriptions: arrayUnion(JSON.parse(JSON.stringify(pushSubscription))) } : {}),
             [`visits.${sessionId.current}`]: {
               startTime: serverTimestamp(),
               pathname: window.location.pathname,
               initialLoadTimeMs: loadTime,
-              userAgent: navigator.userAgent,
+              device: deviceData,
               durationSeconds: 0,
               pageViews: {
                 [safePath]: 1

@@ -11,7 +11,8 @@ import {
   ChevronRight, Image as ImageIcon,
   User as UserIcon, AtSign, Undo2, Link as LinkIcon, Bold, Italic,
   History, MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,12 +159,40 @@ export const TaskCard = ({
   const [editTitle, setEditTitle] = useState(task.title);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showFullTitle, setShowFullTitle] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const MAX_TITLE_LENGTH = 60;
   
   const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
+  const totalSubtasks = task.subtasks?.length || 0;
+  const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
   const dateInfo = task.dueDate ? formatDateSmart(task.dueDate) : null;
+
+  useEffect(() => {
+    if (!task.deadlineHours || !task.createdAt || task.flagged) {
+        setTimeLeft(null);
+        return;
+    }
+    
+    const updateTime = () => {
+        const start = task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt);
+        const deadline = new Date(start.getTime() + (task.deadlineHours || 0) * 60 * 60 * 1000);
+        const diff = deadline.getTime() - Date.now();
+        
+        if (diff <= 0) {
+            setTimeLeft("Expired");
+        } else {
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            setTimeLeft(`${h}h ${m}m`);
+        }
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 60000);
+    return () => clearInterval(interval);
+  }, [task.deadlineHours, task.createdAt, task.flagged]);
 
   const assignees = useMemo(() => {
     return (task.assignees || []).map(id => personnel.find(p => p.id === id)).filter(Boolean);
@@ -309,12 +338,24 @@ export const TaskCard = ({
             </div>
           ) : null}
 
-          {task.subtasks?.length > 0 && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title={`${completedSubtasks} of ${task.subtasks.length} completed`}>
-              <CheckSquare size={10} />
-              <span>{completedSubtasks}/{task.subtasks.length}</span>
+          {task.leaderPoints ? (
+            <div className="flex items-center gap-1 text-[10px] text-primary font-bold" title={`${task.leaderPoints} points`}>
+              <Sparkles size={10} />
+              <span>{task.leaderPoints}</span>
             </div>
-          )}
+          ) : null}
+
+          {timeLeft ? (
+            <div className={cn("flex items-center gap-1 text-[10px] font-bold", timeLeft === 'Expired' ? "text-destructive" : "text-orange-500")} title="Time remaining">
+              <Clock size={10} />
+              <span>{timeLeft}</span>
+            </div>
+          ) : (task.deadlineHours ? (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium" title={`${task.deadlineHours} hours effort`}>
+              <Clock size={10} />
+              <span>{task.deadlineHours}h</span>
+            </div>
+          ) : null)}
 
           {task.comments?.length > 0 && (
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title={`${task.comments.length} comments`}>
@@ -331,7 +372,7 @@ export const TaskCard = ({
                     <TooltipTrigger asChild>
                       <Avatar className="h-4 w-4 ring-1 ring-background z-[1]" style={{ zIndex: 3 - i }}>
                         <AvatarImage src={u.photoUrl} />
-                        <AvatarFallback className="text-[6px]">{u.name[0]}</AvatarFallback>
+                        <AvatarFallback className="text-[8px]">{u.name?.[0]}</AvatarFallback>
                       </Avatar>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-[10px] py-1 px-2">
@@ -347,6 +388,24 @@ export const TaskCard = ({
             )}
           </div>
         </div>
+
+        {totalSubtasks > 0 && (
+          <div className="mt-3 space-y-1.5">
+             <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 px-0.5">
+                <span>Progress</span>
+                <span>{progressPercent}%</span>
+             </div>
+             <div className="w-full h-1 bg-secondary/30 rounded-full overflow-hidden">
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressPercent}%` }}
+                    className={cn("h-full rounded-full transition-colors duration-500", 
+                       progressPercent === 100 ? "bg-[#1DB954]" : "bg-primary/40"
+                    )}
+                />
+             </div>
+          </div>
+        )}
 
         {task.description && (
           <div className="text-xs text-muted-foreground leading-snug mt-2 mb-3">
@@ -686,7 +745,7 @@ export function BoardView({
   onDeleteTask: (id: string) => void;
   onDropTask: (taskId: string, status: Status) => void;
   onQuickAdd: (status: Status, title: string) => void;
-  onAddClick: (status: Status) => void;
+  onAddClick: (status?: Status) => void;
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];

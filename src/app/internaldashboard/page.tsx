@@ -578,36 +578,48 @@ export default function InternalDashboard() {
                         const duration = v.durationSeconds || 0;
                         const mins = Math.floor(duration / 60);
                         const secs = duration % 60;
+                        const visitDate = v.startTime ? new Date(v.startTime) : new Date(Number(id));
 
                         return (
-                          <div key={id} className="bg-card border-2 border-border p-5 rounded-2xl space-y-4">
+                          <div key={id} className="bg-card border-2 border-border p-5 rounded-2xl space-y-4 transition-all hover:border-primary/20 hover:shadow-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="size-8 rounded-lg bg-secondary flex items-center justify-center border border-border">
                                   <Clock size={16} className="text-primary" />
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-black uppercase leading-none mb-1">
-                                    {v.startTime ? format(new Date(v.startTime), 'MMM dd, hh:mm a') : 'Unknown Session'}
-                                  </p>
-                                  <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                                    Duration: {mins > 0 ? `${mins}m ${secs}s` : `${secs}s`} • Load: {v.initialLoadTimeMs || 0}ms
+                                <div>
+                                  <p className="text-xs font-black uppercase leading-none">
+                                    {visitDate && !isNaN(visitDate.getTime()) ? format(visitDate, 'MMM dd, yyyy @ hh:mm a') : `Session ID: ${id}`}
                                   </p>
                                 </div>
                               </div>
                               <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                             </div>
 
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                                <div>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">DURATION</p>
+                                    <p className="text-xl font-black tracking-tighter">{mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">PAGE LOAD</p>
+                                    <p className="text-xl font-black tracking-tighter">{v.initialLoadTimeMs || 0}ms</p>
+                                </div>
+                            </div>
+
                             {v.pageViews && Object.keys(v.pageViews).length > 0 && (
-                              <div className="pt-2 border-t border-border flex flex-wrap gap-2">
-                                {Object.entries(v.pageViews).map(([path, count]: [string, any]) => (
-                                  <div key={path} className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md border border-border">
-                                    <span className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">
-                                      {path.replace(/_/g, '/').replace(/^root$/, '/')}
-                                    </span>
-                                    <span className="text-[9px] font-black text-primary">{count}</span>
-                                  </div>
-                                ))}
+                              <div className="pt-4 border-t border-border">
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-2">PAGES VIEWED</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.entries(v.pageViews).map(([path, count]: [string, any]) => (
+                                    <div key={path} className="flex items-center gap-2 bg-secondary/50 px-2 py-1 rounded-lg border border-border">
+                                      <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                                        {path.replace(/_/g, '/').replace(/^root$/, '/')}
+                                      </span>
+                                      <Badge variant="secondary" className="font-black text-xs">{count}</Badge>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>

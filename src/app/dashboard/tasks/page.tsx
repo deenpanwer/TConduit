@@ -1,5 +1,6 @@
 "use client";
 
+import 'regenerator-runtime/runtime';
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { 
   motion, AnimatePresence, LayoutGroup 
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +47,8 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { VoiceTaskCreator } from "@/components/dashboard/tasks/VoiceTaskCreator";
 import { InlineAudioPlayer } from "@/components/dashboard/tasks/InlineAudioPlayer";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sparkles, Wand2, Layers, FileText, Eraser } from "lucide-react";
 
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
@@ -89,16 +93,97 @@ function TasksPageContent() {
   const [showHistory, setShowHistory] = useState(false);
   const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false);
   const [editingNewTask, setEditingNewTask] = useState<Partial<Task> | null>(null);
+  const [pendingVoiceTaskData, setPendingVoiceTaskData] = useState<Partial<Task> | null>(null);
   const [localTask, setLocalTask] = useState<Task | null>(null);
   const [originalTask, setOriginalTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false); // New state for selection modal
   const [createTaskMode, setCreateTaskMode] = useState<"type" | "voice" | null>(null); // New state for mode
+  const [initialMetadata, setInitialMetadata] = useState<{status?: Status, date?: Date}>({});
   
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [bulkInput, setBulkInput] = useState("");
+
   const [showTopFadeTitle, setShowTopFadeTitle] = useState(false);
   const [showBottomFadeTitle, setShowBottomFadeTitle] = useState(false);
   const [showTopFadeDescription, setShowTopFadeDescription] = useState(false);
   const [showBottomFadeDescription, setShowBottomFadeDescription] = useState(false);
+
+  // AI Enhancement for Manual Task
+  const handleEnhanceTask = async () => {
+    if (!editingNewTask?.title && !editingNewTask?.description) {
+      toast.error("Please enter a title or description first.");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await fetch('/api/tasks/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: editingNewTask.description || editingNewTask.title,
+          mode: 'enhance',
+          context: editingNewTask
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEditingNewTask(prev => ({
+          ...prev,
+          title: data.title || prev?.title,
+          description: data.description || prev?.description,
+          priority: data.priority || prev?.priority,
+          subtasks: data.subtasks || prev?.subtasks,
+        }));
+        toast.success("Task enhanced by AI.");
+      }
+    } catch (error) {
+      console.error("Enhancement failed:", error);
+      toast.error("AI enhancement failed.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleBulkParse = async () => {
+    if (!bulkInput.trim()) {
+      toast.error("Please enter some text to parse.");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await fetch('/api/tasks/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: bulkInput,
+          mode: 'bulk'
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEditingNewTask({
+          ...editingNewTask,
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          subtasks: data.subtasks,
+        });
+        setIsBulkMode(false);
+        toast.success("AI parsed your bulk input.");
+      }
+    } catch (error) {
+      console.error("Bulk parse failed:", error);
+      toast.error("Failed to parse bulk input.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
 
   // Sync localTask when selectedTaskId changes
   useEffect(() => {
@@ -195,24 +280,39 @@ function TasksPageContent() {
   }, [tasks, selectedTaskId, editingNewTask]);
 
   const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
-    const newTask: Partial<Task> = {
-      title: "",
-      description: "",
-      status: initialStatus || "todo",
-      priority: "medium",
-      assignees: [],
-      subtasks: [],
-      comments: [],
-      tags: [],
-      dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setEditingNewTask(newTask);
+    setInitialMetadata({ status: initialStatus, date: initialDate });
+    setShowCreateTaskModal(true);
+  }, []);
+
+  const handleAddNewTaskTypeClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
+    if (!editingNewTask) {
+        const newTask: Partial<Task> = {
+            title: "",
+            description: "",
+            status: initialStatus || "todo",
+            priority: "medium",
+            assignees: [],
+            subtasks: [],
+            comments: [],
+            tags: [],
+            dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+        setEditingNewTask(newTask);
+    } else if (initialStatus || initialDate) {
+        // Only update if specific metadata was passed (e.g. from board column/timeline day)
+        setEditingNewTask(prev => ({
+            ...prev,
+            status: initialStatus || prev?.status || "todo",
+            dueDate: initialDate ? initialDate.toISOString() : (prev?.dueDate || new Date().toISOString())
+        }));
+    }
+    
     setSelectedTaskId("new");
     setShowCreateTaskModal(false); // Close selection modal
     setCreateTaskMode("type"); // Ensure it's set for type mode
-  }, []);
+  }, [editingNewTask]);
 
   const handleUpdateTaskLocal = useCallback((id: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => {
     if (id === "new") {
@@ -226,10 +326,19 @@ function TasksPageContent() {
     if (editingNewTask && selectedTaskId === "new") {
       const title = editingNewTask.title || "New Task";
       const status = editingNewTask.status || "todo";
-      const newId = await addTask(title, status);
+      const newId = await addTask(
+        title, 
+        status, 
+        editingNewTask.description, 
+        editingNewTask.priority, 
+        editingNewTask.assignees, 
+        undefined,
+        editingNewTask.leaderPoints || 20,
+        editingNewTask.deadlineHours || 4
+      );
       if (newId) {
-        // Update the rest of the fields
-        const { title: t, status: s, ...rest } = editingNewTask;
+        // Update the rest of the fields (tags, coverImage, etc.)
+        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, ...rest } = editingNewTask;
         if (Object.keys(rest).length > 0) {
             await updateTask(newId, rest);
         }
@@ -250,10 +359,13 @@ function TasksPageContent() {
       metadata.description,
       metadata.priority,
       metadata.assignees,
-      audioData
+      audioData,
+      metadata.leaderPoints,
+      metadata.deadlineHours
     );
     if (newId) {
       toast.success("Voice task created!");
+      setPendingVoiceTaskData(null); // Clear draft
     } else {
       toast.error("Failed to create voice task.");
     }
@@ -330,7 +442,10 @@ function TasksPageContent() {
                     {!isMobile && <SubscriptionBadge orgData={orgData} userData={userData} />}
                     <Button
                         className={cn("font-semibold text-xs h-8 rounded-md", isMobile ? "px-2" : "px-3")}
-                        onClick={() => setShowCreateTaskModal(true)}
+                        onClick={() => {
+                          setInitialMetadata({});
+                          setShowCreateTaskModal(true);
+                        }}
                     >
                         <Plus size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Add Task"}
                     </Button>
@@ -424,8 +539,8 @@ function TasksPageContent() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs leading-relaxed">
                                             <span className="font-bold text-foreground">{entryUser?.name || 'User'}</span>
-                                            <span className="text-muted-foreground mx-1">{entry.action}</span>
-                                            <span className="font-medium text-primary hover:underline cursor-pointer" onClick={() => {
+                                            <span className="text-muted-foreground mx-1.5">{formatAction(entry)}</span>
+                                            <span className="font-medium text-primary hover:underline cursor-pointer block mt-0.5" onClick={() => {
                                                 setSelectedTaskId(entry.taskId);
                                                 setIsGlobalHistoryOpen(false);
                                             }}>
@@ -523,7 +638,7 @@ function TasksPageContent() {
                         setSelectedTaskId(null);
                       }}
                    >
-                      <ArrowUpRight size={14} />
+                      <X size={14} />
                    </Button>
                 </div>
               </div>
@@ -541,12 +656,12 @@ function TasksPageContent() {
                             return (
                                <div key={entry.id} className="flex gap-3 items-start group/hist">
                                   <Avatar className="h-8 w-8 shrink-0 border border-border/50">
-                                     <AvatarImage src={entryUser?.photoUrl} />
+                                     <AvatarImage src={getUserAvatar(entryUser)} />
                                      <AvatarFallback>{entryUser?.name?.[0]}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
                                      <p className="text-sm leading-snug">
-                                        <span className="font-bold text-foreground">{entryUser?.name || 'Unknown User'}</span>
+                                        <span className="font-bold text-foreground">{entryUser?.name || 'User'}</span>
                                         <span className="text-muted-foreground ml-1.5">{formatAction(entry)}</span>
                                      </p>
                                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">
@@ -699,6 +814,41 @@ function TasksPageContent() {
                     </div>
                  </div>
 
+                 <div className="grid grid-cols-2 gap-6 mb-8">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                          <Sparkles size={10} className="text-primary" /> Leader Points
+                       </label>
+                       <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                          <Input 
+                             type="number"
+                             min="0"
+                             className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                             defaultValue={selectedTask.leaderPoints || 20}
+                             onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { leaderPoints: Math.max(0, Number(e.target.value)) })}
+                             disabled={!canManageTasks}
+                          />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Points</span>
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                          <Clock size={10} className="text-orange-500" /> Effort / Deadline
+                       </label>
+                       <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                          <Input 
+                             type="number"
+                             min="0"
+                             className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                             defaultValue={selectedTask.deadlineHours || 4}
+                             onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { deadlineHours: Math.max(0, Number(e.target.value)) })}
+                             disabled={!canManageTasks}
+                          />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Hours</span>
+                       </div>
+                    </div>
+                 </div>
+
                  <div className="mb-8 group">
                     <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2 group-focus-within:text-primary transition-colors">
                        Description
@@ -739,8 +889,16 @@ function TasksPageContent() {
                           Subtasks
                        </label>
                        <span className="text-[10px] font-mono text-muted-foreground/50">
-                          {(selectedTask.subtasks || []).filter(s => s.completed).length}/{(selectedTask.subtasks || []).length}
+                          {Math.round(((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100)}% Complete
                        </span>
+                    </div>
+
+                    <div className="w-full h-1.5 bg-secondary/30 rounded-full mb-4 overflow-hidden">
+                       <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100}%` }}
+                          className="h-full bg-primary rounded-full"
+                       />
                     </div>
 
                     <div className="space-y-1">
@@ -942,8 +1100,8 @@ function TasksPageContent() {
               <h3 className="text-xl font-bold tracking-tight text-center">Create New Task</h3>
               <Button 
                 onClick={() => {
-                  handleAddNewTaskClick(); // This will set selectedTaskId to "new" and createTaskMode to "type"
-                  setShowCreateTaskModal(false); // Close the selection modal
+                  handleAddNewTaskTypeClick(initialMetadata.status, initialMetadata.date); // Pass metadata
+                  setShowCreateTaskModal(false);
                 }} 
                 className="h-12 text-base font-bold flex gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               >
@@ -986,11 +1144,13 @@ function TasksPageContent() {
                         onSave={handleSaveVoiceTask}
                         onCancel={() => {
                           setCreateTaskMode(null);
-                          // Re-open selection modal if voice task creation was cancelled
-                          setShowCreateTaskModal(true); 
                         }}
                         isLoading={false} // Add actual loading state later
                         canManage={canManageTasks}
+                        initialStatus={initialMetadata.status}
+                        initialDueDate={initialMetadata.date}
+                        initialData={pendingVoiceTaskData || undefined}
+                        onDataChange={setPendingVoiceTaskData}
                     />
                 </motion.div>
             </motion.div>
@@ -1004,7 +1164,6 @@ function TasksPageContent() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => {
-                setEditingNewTask(null);
                 setSelectedTaskId(null);
                 setCreateTaskMode(null); // Reset mode
             }}
@@ -1063,73 +1222,116 @@ function TasksPageContent() {
                         size="icon" variant="secondary" 
                         className="h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm"
                         onClick={() => {
-                          handleSaveNewTask();
+                            setSelectedTaskId(null);
+                            setCreateTaskMode(null);
                         }}
                       >
-                        <ArrowUpRight size={14} />
+                        <X size={14} />
                       </Button>
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-8 -mt-6 relative bg-card rounded-t-3xl border-t border-border/50 custom-scrollbar">
-                    <div className="flex items-center gap-3 mb-6">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50">
-                            <div className={cn("w-2 h-2 rounded-full", PRIORITIES[editingNewTask?.priority || 'medium'].color)} />
-                            {editingNewTask?.priority || 'Medium'} Priority
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50">
+                              <div className={cn("w-2 h-2 rounded-full", PRIORITIES[editingNewTask?.priority || 'medium'].color)} />
+                              {editingNewTask?.priority || 'Medium'} Priority
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {Object.entries(PRIORITIES).map(([key, val]) => (
+                              <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal("new", { priority: key as Priority })}>
+                                <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
+                                {val.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              <Calendar size={12} className="mr-2 h-4 w-4" />
+                              {editingNewTask?.dueDate ? format(new Date(editingNewTask.dueDate), "MMM d") : "Set Date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={editingNewTask?.dueDate ? new Date(editingNewTask.dueDate) : undefined}
+                              onSelect={(date) => handleUpdateTaskLocal("new", { dueDate: date ? date.toISOString() : undefined })}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className={cn("h-8 px-3 rounded-md text-xs flex items-center gap-2 transition-colors", isBulkMode ? "bg-primary/10 text-primary" : "text-muted-foreground")}
+                            onClick={() => setIsBulkMode(!isBulkMode)}
+                            title="Bulk Add"
+                          >
+                            <Layers size={14} />
+                            Bulk Add
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {Object.entries(PRIORITIES).map(([key, val]) => (
-                            <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal("new", { priority: key as Priority })}>
-                              <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
-                              {val.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            <Calendar size={12} className="mr-2 h-4 w-4" />
-                            {editingNewTask?.dueDate ? format(new Date(editingNewTask.dueDate), "MMM d") : "Set Date"}
+                          <Button 
+                            variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                                setEditingNewTask({ ...editingNewTask, title: "", description: "", subtasks: [] });
+                                setBulkInput("");
+                            }}
+                            title="Clear"
+                          >
+                            <Trash2 size={14} />
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent
-                            mode="single"
-                            selected={editingNewTask?.dueDate ? new Date(editingNewTask.dueDate) : undefined}
-                            onSelect={(date) => handleUpdateTaskLocal("new", { dueDate: date ? date.toISOString() : undefined })}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Button 
-                        variant="ghost" size="sm" 
-                        className={cn("h-7 text-[10px] font-bold uppercase tracking-wider gap-2 ml-auto transition-all duration-300", 
-                           editingNewTask?.flagged 
-                           ? "text-[#1DB954] hover:text-[#1ed760] bg-[#1DB954]/10 border border-[#1DB954]/20" 
-                           : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={() => handleUpdateTaskLocal("new", { flagged: !editingNewTask?.flagged }, 'task_completed')}
-                    >
-                        {editingNewTask?.flagged ? <Check size={12} strokeWidth={3} className="animate-in zoom-in" /> : <Flag size={12} fill="none" />}
-                        {editingNewTask?.flagged ? 'Complete' : 'Mark as Complete'}
-                    </Button>
+                      </div>
                     </div>
+
+                    {isBulkMode ? (
+                        <div className="space-y-4 mb-8">
+                            <label className="text-[10px] font-bold uppercase text-primary tracking-[0.2em] flex items-center gap-2">
+                                <Sparkles size={12} /> Bulk Task Parser
+                            </label>
+                            <Textarea 
+                                value={bulkInput}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBulkInput(e.target.value)}
+                                placeholder="Paste your messy notes here... AI will structure them into a task with subtasks."
+                                className="min-h-[250px] bg-secondary/10 border-dashed border-2 border-border/50 rounded-2xl p-4 focus:bg-background transition-all resize-none text-sm leading-relaxed"
+                            />
+                            <Button 
+                                onClick={handleBulkParse} 
+                                disabled={isEnhancing || !bulkInput.trim()}
+                                className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
+                            >
+                                {isEnhancing ? <Wand2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                                {isEnhancing ? "Parsing with AI..." : "Magic Parse"}
+                            </Button>
+                            <p className="text-[9px] text-muted-foreground/60 text-center uppercase tracking-tighter">
+                                Pro tip: Include steps with dashes for better subtask extraction
+                            </p>
+                        </div>
+                    ) : (
+                        <>
                     <div className={cn("relative w-full",
                       {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
                     )}>
-                      <AutoResizingTextarea
-                        value={editingNewTask?.title || ""}
-                        onChange={(e) => handleUpdateTaskLocal("new", { title: e.target.value }, 'updated', true)}
-                        onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                        className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
-                        placeholder="Task Title"
-                        setShowTopFade={setShowTopFadeTitle}
-                        setShowBottomFade={setShowBottomFadeTitle}
-                        maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
-                      />
+                      {isEnhancing ? (
+                          <Skeleton className="h-12 w-full mb-6 rounded-xl" />
+                      ) : (
+                        <AutoResizingTextarea
+                            value={editingNewTask?.title || ""}
+                            onChange={(e) => handleUpdateTaskLocal("new", { title: e.target.value }, 'updated', true)}
+                            onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
+                            className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
+                            placeholder="Task Title"
+                            setShowTopFade={setShowTopFadeTitle}
+                            setShowBottomFade={setShowBottomFadeTitle}
+                            maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
+                        />
+                      )}
                     </div>
                     <div className="mb-8">
                        <label className="flex items-center justify-between mb-2">
@@ -1199,23 +1401,73 @@ function TasksPageContent() {
                            )}
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-6 mb-8">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                             <Sparkles size={10} className="text-primary" /> Leader Points
+                          </label>
+                          <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                             <Input 
+                                type="number"
+                                min="0"
+                                className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                                value={editingNewTask?.leaderPoints || 20}
+                                onChange={(e) => handleUpdateTaskLocal("new", { leaderPoints: Math.max(0, Number(e.target.value)) })}
+                             />
+                             <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Points</span>
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                             <Clock size={10} className="text-orange-500" /> Effort / Deadline
+                          </label>
+                          <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                             <Input 
+                                type="number"
+                                min="0"
+                                className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                                value={editingNewTask?.deadlineHours || 4}
+                                onChange={(e) => handleUpdateTaskLocal("new", { deadlineHours: Math.max(0, Number(e.target.value)) })}
+                             />
+                             <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Hours</span>
+                          </div>
+                       </div>
+                    </div>
                     <div className="mb-8 group">
-                       <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2 group-focus-within:text-primary transition-colors">
-                          Description
-                       </label>
+                       <div className="flex items-center justify-between mb-2">
+                        <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest group-focus-within:text-primary transition-colors">
+                            Description
+                        </label>
+                        {(editingNewTask?.description?.length || 0) > 20 && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={handleEnhanceTask}
+                                disabled={isEnhancing}
+                                className="h-7 text-[9px] uppercase font-bold tracking-widest text-primary gap-1.5 hover:bg-primary/5"
+                            >
+                                <Sparkles size={10} /> Enhance Task
+                            </Button>
+                        )}
+                       </div>
                        <div className={cn("relative w-full rounded-xl",
                            {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
                        )}>
-                          <AutoResizingTextarea
-                             value={editingNewTask?.description || ""}
-                             onChange={(e) => handleUpdateTaskLocal("new", { description: e.target.value }, 'updated', true)}
-                             onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                             className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
-                             placeholder="Add details about this task..."
-                             setShowTopFade={setShowTopFadeDescription}
-                             setShowBottomFade={setShowBottomFadeDescription}
-                             maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
-                          />
+                          {isEnhancing ? (
+                              <Skeleton className="h-32 w-full rounded-xl" />
+                          ) : (
+                            <AutoResizingTextarea
+                                value={editingNewTask?.description || ""}
+                                onChange={(e) => handleUpdateTaskLocal("new", { description: e.target.value }, 'updated', true)}
+                                onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
+                                className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
+                                placeholder="Add details about this task..."
+                                setShowTopFade={setShowTopFadeDescription}
+                                setShowBottomFade={setShowBottomFadeDescription}
+                                maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
+                            />
+                          )}
                        </div>
                     </div>
                     <div>
@@ -1228,62 +1480,73 @@ function TasksPageContent() {
                           </span>
                        </div>
                        <div className="space-y-1">
-                          {(editingNewTask?.subtasks || []).map((sub, idx) => (
-                             <div key={sub.id} className="flex items-center gap-2 group/sub">
-                                <button 
-                                   onClick={() => {
-                                      const newSub = [...(editingNewTask?.subtasks || [])];
-                                      newSub[idx].completed = !newSub[idx].completed;
-                                      newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
-                                      handleUpdateTaskLocal("new", { subtasks: newSub });
-                                   }}
-                                   className={cn(
-                                      "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
-                                      sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
-                                   )}
-                                >
-                                   {sub.completed && <Check size={12} />}
-                                </button>
-                                <AutoResizingTextarea
-                                      value={sub.title}
-                                      onChange={(e) => {
-                                         const newSub = [...(editingNewTask?.subtasks || [])];
-                                         newSub[idx].title = e.target.value;
-                                         handleUpdateTaskLocal("new", { subtasks: newSub }, 'updated', true);
-                                      }}
-                                      onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                                      className={cn(
-                                         "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
-                                         sub.completed && "text-muted-foreground line-through decoration-border"
-                                      )}
-                                      maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
-                                   />
-                                
-                                {sub.completed && sub.completedBy && (
-                                   <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
-                                      <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
-                                   </div>
-                                )}
+                          {isEnhancing ? (
+                              <div className="space-y-2">
+                                <Skeleton className="h-8 w-full rounded-md" />
+                                <Skeleton className="h-8 w-full rounded-md opacity-60" />
+                              </div>
+                          ) : (
+                            <>
+                            {(editingNewTask?.subtasks || []).map((sub, idx) => (
+                                <div key={sub.id} className="flex items-center gap-2 group/sub">
+                                    <button 
+                                    onClick={() => {
+                                        const newSub = [...(editingNewTask?.subtasks || [])];
+                                        newSub[idx].completed = !newSub[idx].completed;
+                                        newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
+                                        handleUpdateTaskLocal("new", { subtasks: newSub });
+                                    }}
+                                    className={cn(
+                                        "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
+                                        sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
+                                    )}
+                                    >
+                                    {sub.completed && <Check size={12} />}
+                                    </button>
+                                    <AutoResizingTextarea
+                                        value={sub.title}
+                                        onChange={(e) => {
+                                            const newSub = [...(editingNewTask?.subtasks || [])];
+                                            newSub[idx].title = e.target.value;
+                                            handleUpdateTaskLocal("new", { subtasks: newSub }, 'updated', true);
+                                        }}
+                                        onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
+                                        className={cn(
+                                            "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
+                                            sub.completed && "text-muted-foreground line-through decoration-border"
+                                        )}
+                                        maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
+                                    />
+                                    
+                                    {sub.completed && sub.completedBy && (
+                                    <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
+                                        <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
+                                    </div>
+                                    )}
 
-                                   <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
-                                       onClick={() => {
-                                       const newSub = (editingNewTask?.subtasks || []).filter(s => s.id !== sub.id);
-                                       handleUpdateTaskLocal("new", { subtasks: newSub });
-                                       }}
-                                   >
-                                       <X size={12} />
-                                   </Button>
-                             </div>
-                          ))}
-                            <Button 
-                                variant="ghost" size="sm" 
-                                className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                                onClick={() => handleUpdateTaskLocal("new", { subtasks: [...(editingNewTask?.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
-                            >
-                                <Plus size={14} className="mr-2" /> Add Item
-                            </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
+                                        onClick={() => {
+                                        const newSub = (editingNewTask?.subtasks || []).filter(s => s.id !== sub.id);
+                                        handleUpdateTaskLocal("new", { subtasks: newSub });
+                                        }}
+                                    >
+                                        <X size={12} />
+                                    </Button>
+                                </div>
+                            ))}
+                                <Button 
+                                    variant="ghost" size="sm" 
+                                    className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
+                                    onClick={() => handleUpdateTaskLocal("new", { subtasks: [...(editingNewTask?.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
+                                >
+                                    <Plus size={14} className="mr-2" /> Add Item
+                                </Button>
+                            </>
+                          )}
                        </div>
                     </div>
+                    </>
+                    )}
                   </div>
                   <div className="flex items-center justify-end gap-2 p-4 border-t border-border/50 bg-card shrink-0">
                     <Button variant="outline" onClick={() => {
@@ -1312,4 +1575,3 @@ export default function TasksPage() {
         </TasksProvider>
     );
 }
-

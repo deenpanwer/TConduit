@@ -4,11 +4,15 @@ import { useState, useEffect } from "react";
 import { X, Smartphone, Download, Share, PlusSquare, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 // Snooze duration (7 days)
 const DISMISS_DAYS = 7;
 
 export function PWAInstallPrompt() {
+  const { user } = useAuth();
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
@@ -24,7 +28,13 @@ export function PWAInstallPrompt() {
     // 2. REQUIRED: Register Service Worker for Push & PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
-        .then((reg) => console.log('Trac AI SW Registered'))
+        .then((reg) => {
+          console.log('Trac AI SW Registered');
+          // Update standalone status after SW is ready
+          if (window.matchMedia('(display-mode: standalone)').matches) {
+            setIsStandalone(true);
+          }
+        })
         .catch((err) => console.log('Trac AI SW Registration Failed', err));
     }
 
@@ -71,6 +81,19 @@ export function PWAInstallPrompt() {
       // Installed - snooze "forever" (effectively)
       localStorage.setItem('pwa_prompt_snoozed_until', (new Date().getTime() * 2).toString());
       setShowPrompt(false);
+      
+      // Update User Doc if Logged In
+      if (user) {
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          await updateDoc(userDocRef, {
+            "deviceStatus.isPWA": true,
+            "deviceStatus.lastUpdated": serverTimestamp()
+          });
+        } catch (error) {
+          console.error("Failed to update PWA status in user doc:", error);
+        }
+      }
     }
     setDeferredPrompt(null);
   };

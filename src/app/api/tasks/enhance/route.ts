@@ -1,0 +1,81 @@
+import { mistral } from '@ai-sdk/mistral';
+import { generateText } from 'ai';
+
+export const maxDuration = 60;
+
+export async function POST(req: Request) {
+  try {
+    const { text, context, mode } = await req.json();
+
+    if (!process.env.MISTRAL_API_KEY) {
+      return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const systemPrompt = `
+      CONTEXT: You are the AI Engine for "Trac AI", a category-defining talent platform.
+      OBJECTIVE: Convert unstructured user input (voice transcripts or bulk text) into a structured, production-grade Task object.
+      
+      TASK SCHEMA:
+      {
+        "title": "Stark, high-impact title (max 60 chars)",
+        "description": "Professional, detailed description following the 'Modern Founder' aesthetic - minimalist but high density.",
+        "subtasks": [{"id": "uuid", "title": "Atomic action item", "completed": false}],
+        "priority": "low" | "medium" | "high" | "critical",
+        "tags": ["relevant", "contextual", "tags"],
+        "leaderPoints": 10-100,
+        "deadlineHours": 1-168
+      }
+
+      CRITICAL RULES:
+      1. IGNORE numerical scores.
+      2. If the user input is vague, use the provided CONTEXT to infer missing details.
+      3. Output ONLY valid JSON. No markdown formatting.
+      4. Ensure subtasks are actionable and atomic.
+      5. Assign leaderPoints based on complexity (simple=10, hard=50, massive=100).
+      6. Assign deadlineHours based on estimated effort (1, 2, 4, 8, 24, 48, etc).
+    `;
+
+    let userPrompt = "";
+
+    if (mode === 'enhance') {
+      userPrompt = `
+        ENHANCE MODE:
+        User provided: "${text}"
+        Current Context: ${JSON.stringify(context || {})}
+        
+        Refine the title, expand the description into a professional brief, and generate 3-5 logical subtasks.
+      `;
+    } else if (mode === 'bulk') {
+      userPrompt = `
+        BULK PARSING MODE:
+        Extract the following unstructured dump into a structured task:
+        "${text}"
+      `;
+    }
+
+    const { text: responseText } = await generateText({
+      model: mistral('mistral-large-latest'),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+    });
+
+    // Extract JSON (handling potential markdown code blocks)
+    const jsonString = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const result = JSON.parse(jsonString);
+
+    return new Response(JSON.stringify(result), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error: any) {
+    console.error('Enhance API Error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to process task magic', details: error.message }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}

@@ -21,10 +21,14 @@ import {
   deleteDoc,
   serverTimestamp,
   writeBatch,
+  increment as firestoreIncrement,
+  setDoc,
+  getDoc,
 } from "firebase/firestore";
 import { useAuth } from "./use-auth";
 import { requestNotificationPermission, sendBrowserNotification, subscribeUserToPush } from "@/lib/notifications";
 import { toast } from "sonner";
+import { getISOWeek, getYear } from "date-fns";
 
 // --- 1. Types & Constants ---
 
@@ -36,6 +40,7 @@ export interface Subtask {
   title: string;
   completed: boolean;
   completedBy?: string; 
+  pointsAwarded?: number; // The exact points given for this subtask
 }
 
 export interface Comment {
@@ -78,6 +83,9 @@ export interface Task {
   audioBase64?: string; // TESTING ONLY: Direct Base64 audio
   audioMimeType?: string; // e.g. 'audio/webm;codecs=opus'
   audioDuration?: number; // Duration in seconds
+  leaderPoints?: number; // Total points for this task
+  deadlineHours?: number; // Estimated hours to complete
+  flaggedPointsAwarded?: number; // Points given for final completion
   createdAt: any;
   updatedAt: any;
 }
@@ -113,7 +121,7 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 interface TasksContextType {
   tasks: Task[];
   loading: boolean;
-  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[], audioData?: { base64: string; mimeType: string; duration: number }) => Promise<string | null>;
+  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[], audioData?: { base64: string; mimeType: string; duration: number }, leaderPoints?: number, deadlineHours?: number) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
@@ -123,7 +131,7 @@ interface TasksContextType {
 const TasksContext = createContext<TasksContextType>({
   tasks: [],
   loading: true,
-  addTask: async () => null,
+  addTask: async (title, status, description, priority, assignees, audioData, leaderPoints, deadlineHours) => null,
   updateTask: async () => {},
   deleteTask: async () => {},
   addComment: async () => {},
@@ -140,6 +148,41 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const userRole = userData?.role?.toLowerCase();
   const canManageTasks = userRole === 'owner' || userRole === 'manager' || userRole === 'founder';
+
+  const awardPointsToUser = useCallback(async (userId: string, points: number, taskId: string, taskTitle: string, details: string, type: 'subtask' | 'full_completion') => {
+    if (points === 0) return;
+    
+    const now = new Date();
+    const year = getYear(now).toString();
+    const weekNumber = getISOWeek(now);
+    const weekKey = `week_${weekNumber}`;
+
+    const userPointsRef = doc(db, "users", userId, "points_ledger", year, "weeks", weekKey);
+
+    try {
+        await setDoc(userPointsRef, {
+            totalPoints: firestoreIncrement(points),
+            updatedAt: serverTimestamp(),
+            history: [{
+                id: Date.now().toString(),
+                taskId,
+                taskTitle,
+                details,
+                points,
+                type,
+                timestamp: new Date()
+            }, ...( (await getDoc(userPointsRef)).data()?.history || [] ).slice(0, 49)] // Keep last 50 entries
+        }, { merge: true });
+        
+        if (points > 0) {
+            toast.success(`Awarded ${points.toFixed(1)} points!`);
+        } else {
+            toast.info(`Deducted ${Math.abs(points).toFixed(1)} points.`);
+        }
+    } catch (error) {
+        console.error("Error awarding points:", error);
+    }
+  }, []);
 
   useEffect(() => {
     // Request permission for notifications when the app loads.
@@ -196,7 +239,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       description: string = "", 
       priority: Priority = "medium", 
       assignees: string[] = [],
-      audioData?: { base64: string; mimeType: string; duration: number }
+      audioData?: { base64: string; mimeType: string; duration: number },
+      leaderPoints: number = 0,
+      deadlineHours: number = 0
     ): Promise<string | null> => {
       console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
       
@@ -220,12 +265,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         tags: [],
         flagged: false,
         isDeleted: false,
+        leaderPoints,
+        deadlineHours,
         history: [
             {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status, description, priority, assignees, hasAudio: !!audioData },
+                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours },
                 createdAt: new Date(),
             }
         ],
@@ -280,14 +327,66 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       if (!currentTask) return;
 
       let history = currentTask.history || [];
-      
+      const cleanUpdates = { ...updates };
+
+      // --- Point Awarding Logic ---
+      if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
+        // 1. Subtask Toggled
+        if (updates.subtasks && JSON.stringify(updates.subtasks) !== JSON.stringify(currentTask.subtasks)) {
+            const oldSubs = currentTask.subtasks || [];
+            const newSubs = [...updates.subtasks];
+            const pointsPerSub = currentTask.leaderPoints / (oldSubs.length || 1);
+            
+            newSubs.forEach((sub, idx) => {
+                const oldSub = oldSubs.find(s => s.id === sub.id);
+                if (oldSub) {
+                    // Subtask marked as COMPLETED
+                    if (!oldSub.completed && sub.completed) {
+                        sub.pointsAwarded = pointsPerSub;
+                        sub.completedBy = user.uid;
+                        awardPointsToUser(user.uid, pointsPerSub, taskId, currentTask.title, `Completed subtask: ${sub.title}`, 'subtask');
+                    }
+                    // Subtask UNCHECKED
+                    else if (oldSub.completed && !sub.completed) {
+                        const earner = oldSub.completedBy || user.uid;
+                        const deduction = oldSub.pointsAwarded || pointsPerSub;
+                        awardPointsToUser(earner, -deduction, taskId, currentTask.title, `Unchecked subtask: ${sub.title}`, 'subtask');
+                        sub.pointsAwarded = 0;
+                        sub.completedBy = undefined;
+                    }
+                }
+            });
+            cleanUpdates.subtasks = newSubs;
+        }
+
+        // 2. Full Task Completion (Flagged)
+        if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
+            if (updates.flagged === true) {
+                // Award remaining points
+                const awardedSoFar = (currentTask.subtasks || []).reduce((acc, s) => acc + (s.pointsAwarded || 0), 0);
+                const remainingPoints = Math.max(0, currentTask.leaderPoints - awardedSoFar);
+                if (remainingPoints > 0) {
+                    awardPointsToUser(user.uid, remainingPoints, taskId, currentTask.title, `Marked task as complete`, 'full_completion');
+                    (cleanUpdates as any).flaggedPointsAwarded = remainingPoints;
+                }
+            } else if (updates.flagged === false) {
+                // Deduct whatever was awarded for final completion
+                const deduction = currentTask.flaggedPointsAwarded || 0;
+                if (deduction > 0) {
+                    awardPointsToUser(user.uid, -deduction, taskId, currentTask.title, `Unmarked task as complete`, 'full_completion');
+                    (cleanUpdates as any).flaggedPointsAwarded = 0;
+                }
+            }
+        }
+      }
+
       // RUTHLESS LOGGING: Only log if moving to "done", if it's a manual save, or a comment
       const isMovingToDone = updates.status === 'done';
       const isManualSave = actionName === 'manual_save';
       const isComment = actionName === 'comment_added';
       const isDeletion = actionName === 'deleted';
 
-      const cleanUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+      const finalUpdates = Object.entries(cleanUpdates).reduce((acc, [key, value]) => {
         if (value !== undefined) {
           acc[key] = value;
         }
@@ -299,14 +398,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
             id: Date.now().toString(),
             userId: user.uid,
             action: actionName,
-            details: cleanUpdates,
+            details: finalUpdates,
             createdAt: new Date(),
         };
         history = [...history, historyEntry];
       }
       
       const taskToUpdate = {
-        ...cleanUpdates,
+        ...finalUpdates,
         updatedAt: serverTimestamp(),
         history
       };
@@ -315,14 +414,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         await updateDoc(taskDocRef, taskToUpdate);
         
         // If task is completed, notify the assignees or others
-        if (cleanUpdates.status === 'done') {
+        if (finalUpdates.status === 'done') {
             const notificationTitle = `Task Completed`;
             const notificationBody = `"${currentTask.title}" has been marked as complete.`;
             toast.success(notificationBody);
             
             // Send push notifications to all other assignees and the owner
             const notifyList = new Set([...(currentTask.assignees || [])]);
-            // If the org owner is someone else, we'd ideally notify them too
             
             notifyList.forEach(uId => {
                 if (uId !== user.uid) {
@@ -343,7 +441,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         console.error("Error updating task: ", error);
       }
     },
-    [orgId, user, tasks]
+    [orgId, user, tasks, awardPointsToUser]
   );
 
   const addComment = useCallback(
