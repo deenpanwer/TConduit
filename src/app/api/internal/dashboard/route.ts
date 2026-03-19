@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
 export async function GET() {
   try {
-    if (!adminDb) {
-      return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Firebase Admin initialization failed' }, { status: 500 });
     }
+    const adminDb = admin.firestore();
 
     // 1. Fetch all users who are owners or have an ownedOrgId
     // Using Admin SDK bypasses security rules

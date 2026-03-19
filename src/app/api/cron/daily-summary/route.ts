@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
 import webpush from "web-push";
@@ -72,9 +72,11 @@ export async function GET(req: Request) {
   const startTime = Date.now();
   console.log(`[Cron Triggered] Trac AI Sync - Start Time: ${new Date().toISOString()}`);
 
-  if (!adminDb) {
+  const admin = getFirebaseAdmin();
+  if (!admin) {
     return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
   }
+  const adminDb = admin.firestore();
 
   try {
     // 1. Fetch all organizations

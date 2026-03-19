@@ -1,4 +1,4 @@
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { format } from "date-fns";
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
@@ -63,8 +63,11 @@ FORMAT:
 }
 
 export async function generateOrgIntelligence(orgId: string, customDate?: string): Promise<OrgIntel> {
+  const admin = getFirebaseAdmin();
+  if (!admin) throw new Error("Firebase Admin initialization failed");
+  const db = admin.firestore();
+  
   const dateStr = customDate || format(new Date(), "yyyy-MM-dd");
-  const db = adminDb;
   
   // 1. Fetch Org Info
   const orgDoc = await db.collection("organizations").doc(orgId).get();

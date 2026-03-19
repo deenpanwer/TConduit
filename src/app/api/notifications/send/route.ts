@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 
@@ -15,6 +15,12 @@ if (vapidEmail && vapidPublicKey && vapidPrivateKey) {
 
 export async function POST(req: Request) {
   try {
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Firebase Admin initialization failed' }, { status: 500 });
+    }
+    const adminDb = admin.firestore();
+
     const { userId, title, body, icon, badge, data } = await req.json();
 
     if (!userId) {

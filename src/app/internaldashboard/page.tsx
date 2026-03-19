@@ -6,7 +6,9 @@ import {
   ArrowLeft, Search, Filter, Loader2, Zap, AlertCircle,
   ExternalLink, Mail, Activity, Timer, Ban, CheckCircle2,
   TrendingUp, ChevronRight, Globe, Fingerprint, RefreshCcw,
-  CreditCard, UserPlus, Info, PlusCircle, ShieldAlert
+  CreditCard, UserPlus, Info, PlusCircle, ShieldAlert,
+  Download, Monitor, MapPin, Shield, Cpu, Laptop,
+  Smartphone, Layout
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow, differenceInDays, isAfter, format } from "date-fns";
@@ -25,6 +27,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InternalUser {
   id: string;
@@ -46,12 +49,45 @@ interface OrgDetails {
   staff: any[];
 }
 
+interface DownloadEvent {
+  id: string;
+  timestamp: string;
+  version?: string;
+  platform: string;
+  ip: string;
+  geo: {
+    city: string;
+    country: string;
+    region: string;
+    latitude: string;
+    longitude: string;
+  };
+  userAgent: string;
+  screenResolution?: string;
+  viewportSize?: string;
+  devicePixelRatio?: number;
+  timeZone?: string;
+  language?: string;
+  vendor?: string;
+  isPWA?: boolean;
+}
+
 export default function InternalDashboard() {
   const [users, setUsers] = useState<InternalUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   
+  // Downloads State
+  const [downloads, setDownloads] = useState<DownloadEvent[]>([]);
+  const [downloadCount, setDownloadCount] = useState(0);
+  const [showDownloadDetails, setShowDownloadDetails] = useState(false);
+  
+  // PWA State
+  const [pwaInstalls, setPwaInstalls] = useState<DownloadEvent[]>([]);
+  const [pwaCount, setPwaCount] = useState(0);
+  const [showPwaDetails, setShowPwaDetails] = useState(false);
+
   // Details Modal State
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [orgDetails, setOrgDetails] = useState<OrgDetails | null>(null);
@@ -63,12 +99,21 @@ export default function InternalDashboard() {
   const fetchDashboardData = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/internal/dashboard");
-      const data = await res.json();
+      const [dashRes, dlRes] = await Promise.all([
+        fetch("/api/internal/dashboard"),
+        fetch("/api/internal/download-stats")
+      ]);
       
-      if (!res.ok) throw new Error(data.error || "Failed to fetch dashboard data");
+      const dashData = await dashRes.json();
+      const dlData = await dlRes.json();
       
-      setUsers(data.users || []);
+      if (!dashRes.ok) throw new Error(dashData.error || "Failed to fetch dashboard data");
+      
+      setUsers(dashData.users || []);
+      setDownloads(dlData.downloads || []);
+      setDownloadCount(dlData.count || 0);
+      setPwaInstalls(dlData.pwaInstalls || []);
+      setPwaCount(dlData.pwaCount || 0);
     } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
       toast.error(`Permissions/API Error: ${error.message}`);
@@ -185,7 +230,23 @@ export default function InternalDashboard() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-2xl border border-border">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowPwaDetails(true)}
+            className="hidden md:flex items-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 px-6 h-12 rounded-2xl border-2 border-emerald-500/20 text-emerald-600 transition-all active:scale-95"
+          >
+            <Smartphone size={18} />
+            <span className="text-sm font-black uppercase tracking-widest">{pwaCount} PWA INSTALLS</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowDownloadDetails(true)}
+            className="hidden md:flex items-center gap-3 bg-primary/10 hover:bg-primary/20 px-6 h-12 rounded-2xl border-2 border-primary/20 text-primary transition-all active:scale-95"
+          >
+            <Download size={18} />
+            <span className="text-sm font-black uppercase tracking-widest">{downloadCount} DOWNLOADS</span>
+          </Button>
+          <div className="hidden lg:flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-2xl border border-border h-12">
             <Users size={16} className="text-primary" />
             <span className="text-[10px] font-black uppercase tracking-widest">{users.length} Total Owners</span>
           </div>
@@ -655,6 +716,242 @@ export default function InternalDashboard() {
               <span className="text-[10px] font-black uppercase tracking-widest">Admin Oversight Active</span>
             </div>
             <p className="text-[9px] font-black opacity-40">NODE_VER: 2.4.0_STABLE</p>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* PWA Detail Slide-over */}
+      <Sheet open={showPwaDetails} onOpenChange={setShowPwaDetails}>
+        <SheetContent className="w-full sm:max-w-2xl border-l-4 border-black dark:border-white p-0 overflow-hidden flex flex-col font-sans">
+          <SheetHeader className="p-8 border-b-2 bg-emerald-500/5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <SheetTitle className="text-3xl font-black uppercase tracking-tighter leading-none text-emerald-600">PWA Intel</SheetTitle>
+                <SheetDescription className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Mobile & Desktop App Installations
+                </SheetDescription>
+              </div>
+              <div className="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 border-2 border-emerald-500/20">
+                <Smartphone size={24} />
+              </div>
+            </div>
+          </SheetHeader>
+
+          <ScrollArea className="flex-1">
+            <div className="p-8 space-y-6">
+              {pwaInstalls.length === 0 ? (
+                <div className="py-20 border-4 border-dashed border-border rounded-[3rem] flex flex-col items-center justify-center text-center px-10">
+                  <Layout className="size-16 text-muted-foreground/20 mb-6" />
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">No PWA installs recorded yet</p>
+                </div>
+              ) : (
+                pwaInstalls.map((dl, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={dl.id} 
+                    className="bg-card border-2 border-border p-6 rounded-[2rem] space-y-4 hover:border-emerald-500/30 transition-all group"
+                  >
+                    <div className="flex items-center justify-between border-b border-border pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-secondary flex items-center justify-center border border-border group-hover:scale-110 transition-transform">
+                          {dl.platform === "Mobile PWA" ? <Smartphone size={20} className="text-emerald-500" /> : <Monitor size={20} className="text-emerald-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black uppercase tracking-tight">{dl.platform}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Web Application</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Installed</p>
+                        <p className="text-xs font-bold">
+                          {formatDistanceToNow(new Date(dl.timestamp), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <Globe size={12} className="text-emerald-500" /> Location
+                        </div>
+                        <p className="text-xs font-bold truncate">
+                          {dl.geo.city}, {dl.geo.country}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-medium truncate">
+                           {dl.geo.region} ({dl.geo.latitude}, {dl.geo.longitude})
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <Shield size={12} className="text-emerald-500" /> IP Address
+                        </div>
+                        <p className="text-xs font-mono font-bold">{dl.ip}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-secondary/30 p-4 rounded-2xl border border-border space-y-3">
+                       <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+                          <Cpu size={12} /> Device Capabilities
+                       </div>
+                       <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Resolution</p>
+                            <p className="text-[10px] font-bold">{dl.screenResolution || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Timezone</p>
+                            <p className="text-[10px] font-bold truncate">{dl.timeZone || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Language</p>
+                            <p className="text-[10px] font-bold">{dl.language || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Type</p>
+                            <Badge variant="outline" className="text-[8px] font-black py-0 px-2 rounded-md uppercase border-emerald-500/30 text-emerald-600">
+                               PWA INSTALL
+                            </Badge>
+                          </div>
+                       </div>
+                       <div className="pt-2 border-t border-border/50">
+                          <p className="text-[8px] font-black text-muted-foreground uppercase mb-1">User Agent</p>
+                          <p className="text-[9px] font-medium text-muted-foreground/80 leading-relaxed line-clamp-2">
+                             {dl.userAgent}
+                          </p>
+                       </div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="p-8 bg-black text-white dark:bg-white dark:text-black shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Smartphone size={16} className="text-emerald-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Live PWA Logs</span>
+            </div>
+            <p className="text-[9px] font-black opacity-40">TOTAL_RECORDS: {pwaCount}</p>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Downloads Detail Slide-over */}
+      <Sheet open={showDownloadDetails} onOpenChange={setShowDownloadDetails}>
+        <SheetContent className="w-full sm:max-w-2xl border-l-4 border-black dark:border-white p-0 overflow-hidden flex flex-col font-sans">
+          <SheetHeader className="p-8 border-b-2 bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <SheetTitle className="text-3xl font-black uppercase tracking-tighter leading-none">Download Intel</SheetTitle>
+                <SheetDescription className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Global Distribution & Device Analytics
+                </SheetDescription>
+              </div>
+              <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border-2 border-primary/20">
+                <Download size={24} />
+              </div>
+            </div>
+          </SheetHeader>
+
+          <ScrollArea className="flex-1">
+            <div className="p-8 space-y-6">
+              {downloads.length === 0 ? (
+                <div className="py-20 border-4 border-dashed border-border rounded-[3rem] flex flex-col items-center justify-center text-center px-10">
+                  <Download className="size-16 text-muted-foreground/20 mb-6" />
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">No downloads recorded yet</p>
+                </div>
+              ) : (
+                downloads.map((dl, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={dl.id} 
+                    className="bg-card border-2 border-border p-6 rounded-[2rem] space-y-4 hover:border-primary/30 transition-all group"
+                  >
+                    <div className="flex items-center justify-between border-b border-border pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-secondary flex items-center justify-center border border-border group-hover:scale-110 transition-transform">
+                          <Laptop size={20} className="text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black uppercase tracking-tight">{dl.platform}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Version {dl.version}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Timestamp</p>
+                        <p className="text-xs font-bold">
+                          {formatDistanceToNow(new Date(dl.timestamp), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <Globe size={12} className="text-primary" /> Location
+                        </div>
+                        <p className="text-xs font-bold truncate">
+                          {dl.geo.city}, {dl.geo.country}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-medium truncate">
+                           {dl.geo.region} ({dl.geo.latitude}, {dl.geo.longitude})
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <Shield size={12} className="text-primary" /> IP Address
+                        </div>
+                        <p className="text-xs font-mono font-bold">{dl.ip}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-secondary/30 p-4 rounded-2xl border border-border space-y-3">
+                       <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                          <Cpu size={12} /> Device Capabilities
+                       </div>
+                       <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Resolution</p>
+                            <p className="text-[10px] font-bold">{dl.screenResolution || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Timezone</p>
+                            <p className="text-[10px] font-bold truncate">{dl.timeZone || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Language</p>
+                            <p className="text-[10px] font-bold">{dl.language || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-muted-foreground uppercase">Environment</p>
+                            <Badge variant="outline" className="text-[8px] font-black py-0 px-2 rounded-md uppercase">
+                               {dl.isPWA ? 'PWA Installed' : 'Browser Web'}
+                            </Badge>
+                          </div>
+                       </div>
+                       <div className="pt-2 border-t border-border/50">
+                          <p className="text-[8px] font-black text-muted-foreground uppercase mb-1">User Agent</p>
+                          <p className="text-[9px] font-medium text-muted-foreground/80 leading-relaxed line-clamp-2">
+                             {dl.userAgent}
+                          </p>
+                       </div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="p-8 bg-black text-white dark:bg-white dark:text-black shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Download size={16} className="text-primary" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Live Download Logs</span>
+            </div>
+            <p className="text-[9px] font-black opacity-40">TOTAL_RECORDS: {downloadCount}</p>
           </div>
         </SheetContent>
       </Sheet>

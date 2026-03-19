@@ -8,24 +8,31 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import HeroSection from '@/components/ui/hero-section-with-gradient';
+import { getDeviceCapabilities } from '@/lib/performance';
 
-const FALLBACK_DOWNLOAD_LINK = "https://github.com/deenpanwer/TConduit/releases/download/1.0.7-2/Trac.Dairy.Setup.1.0.7-2.exe";
+const FALLBACK_DOWNLOAD_LINK = "https://github.com/deenpanwer/TConduit/releases/download/1.0.7-2/Trac.Diary.Setup.1.0.7-2.exe";
 
 const OtherOSCard = ({ 
   icon, 
   title, 
   comingSoon, 
-  href 
+  onClick,
+  platform
 }: { 
   icon: React.ReactNode; 
   title: string; 
   comingSoon?: boolean; 
-  href?: string;
+  onClick?: () => void;
+  platform: string;
 }) => (
-  <div className={cn(
-    "flex-1 p-8 rounded-2xl border bg-card/50 backdrop-blur-sm text-card-foreground shadow-sm transition-all duration-300",
-    comingSoon ? "opacity-40" : "hover:shadow-xl hover:border-primary/50 hover:bg-card/80 group"
-  )}>
+  <div 
+    className={cn(
+      "flex-1 p-8 rounded-2xl border bg-card/50 backdrop-blur-sm text-card-foreground shadow-sm transition-all duration-300",
+      comingSoon ? "opacity-40" : "hover:shadow-xl hover:border-primary/50 hover:bg-card/80 group",
+      !comingSoon && "cursor-pointer"
+    )}
+    onClick={!comingSoon ? onClick : undefined}
+  >
     <div className="flex flex-col h-full items-center text-center">
       <div className="p-4 rounded-2xl bg-secondary/50 mb-4 group-hover:scale-110 transition-transform duration-300">
         {icon}
@@ -37,13 +44,11 @@ const OtherOSCard = ({
             Coming Soon
           </p>
         ) : (
-          <a 
-            href={href || FALLBACK_DOWNLOAD_LINK} 
-            download
+          <span
             className="text-sm font-medium mt-2 text-primary dark:text-white hover:underline block transition-colors"
           >
             Available Now →
-          </a>
+          </span>
         )}
       </div>
     </div>
@@ -68,6 +73,21 @@ export default function TracDiaryDownloadPage() {
       .catch(err => console.error("Update fetch failed:", err));
   }, []);
 
+  const handleDownload = (platform: string) => {
+    // Capture as much client info as possible
+    const deviceCapabilities = getDeviceCapabilities();
+
+    // Fire-and-forget the logging event
+    fetch('/api/trac-diary/increment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version, platform, deviceCapabilities }),
+    });
+
+    // Start the download immediately
+    window.location.href = downloadUrl;
+  };
+
   return (
     <div className="bg-background min-h-screen text-foreground relative isolate">
        <header className="px-6 py-6 flex justify-between items-center z-50 relative">
@@ -80,7 +100,7 @@ export default function TracDiaryDownloadPage() {
 
       <main className="pb-12 sm:pb-20">
         <HeroSection 
-          downloadUrl={downloadUrl} 
+          onDownload={() => handleDownload('Windows (Hero)')}
           version={version} 
         />
 
@@ -103,16 +123,19 @@ export default function TracDiaryDownloadPage() {
               <OtherOSCard
                 icon={<img src="/diary/windows.png" alt="Windows Icon" className="h-10 w-10" />}
                 title="Windows OS"
-                href={downloadUrl}
+                platform="Windows"
+                onClick={() => handleDownload('Windows')}
               />
               <OtherOSCard
                 icon={<img src="/diary/apple-logo.png" alt="macOS Icon" className="h-10 w-10" />}
                 title="MacOS"
+                platform="macOS"
                 comingSoon
               />
               <OtherOSCard
                 icon={<img src="/diary/linux.png" alt="Linux Icon" className="h-10 w-10" />}
                 title="Linux"
+                platform="Linux"
                 comingSoon
               />
             </div>

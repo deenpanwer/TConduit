@@ -2,44 +2,46 @@ import * as admin from 'firebase-admin';
 
 /**
  * Lazy-initializes the Firebase Admin SDK only when needed.
- * Returns null during build-time or in the browser to prevent crashes.
+ * This function should be called within server-side functions (e.g., API routes)
+ * to ensure environment variables are loaded.
+ * Returns the admin instance or null if initialization fails.
  */
-function getFirebaseAdmin() {
+export function getFirebaseAdmin() {
   // 1. Prevent running in the browser
-  if (typeof window !== 'undefined') return null;
-
-  // 2. Check for required environment variables
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-  if (!projectId || !clientEmail || !privateKey) {
-    // If we are in the build phase, these might be missing. 
-    // We return null silently so the module can load without crashing.
+  if (typeof window !== 'undefined') {
+    console.error("getFirebaseAdmin should not be called in the browser.");
     return null;
   }
 
-  // 3. Initialize if not already initialized
-  if (!admin.apps.length) {
-    try {
-      const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey: formattedPrivateKey,
-        }),
-        databaseURL: `https://${projectId}.firebaseio.com`,
-      });
-    } catch (error: any) {
-      console.error('Firebase admin initialization error:', error.message);
-      return null;
-    }
+  // 2. Check if already initialized
+  if (admin.apps.length > 0) {
+    return admin;
   }
 
-  return admin;
-}
+  // 3. Check for required environment variables
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  // Replace escaped newlines in the private key
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-// Export getters that won't crash the build
-export const adminDb = getFirebaseAdmin()?.firestore() as admin.firestore.Firestore;
-export const adminAuth = getFirebaseAdmin()?.auth() as admin.auth.Auth;
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('Missing Firebase Admin credentials. Ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set.');
+    return null;
+  }
+
+  // 4. Initialize the app
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+      databaseURL: `https://${projectId}.firebaseio.com`,
+    });
+    return admin;
+  } catch (error: any) {
+    console.error('Firebase admin initialization error:', error.message);
+    return null;
+  }
+}

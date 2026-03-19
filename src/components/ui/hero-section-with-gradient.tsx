@@ -9,10 +9,10 @@ import { motion, Variants } from 'framer-motion';
 import { Download } from "lucide-react";
 
 export default function HeroSection({ 
-  downloadUrl = "https://github.com/deenpanwer/TConduit/releases", 
+  onDownload,
   version 
 }: { 
-  downloadUrl?: string; 
+  onDownload: () => void;
   version?: string;
 }) {
   const gradientRef = useRef<HTMLDivElement>(null);
@@ -117,11 +117,9 @@ export default function HeroSection({
                     className="flex-shrink-0 md:-translate-x-12 md:-translate-y-10"
                 >
                     <div key={1} className="bg-foreground/10 rounded-full p-0.5 shadow-lg shadow-foreground/5 dark:shadow-none mb-2">
-                    <Button asChild size="lg" className="rounded-full px-12 h-16 text-xl font-poppins bg-foreground text-background hover:bg-foreground/90 border-none transition-all">
-                        <a href={downloadUrl} download className="flex items-center gap-2">
-                            <Download className="w-7 h-7" />
-                            download {version ? `v${version}` : 'for windows'}
-                        </a>
+                    <Button size="lg" className="rounded-full px-12 h-16 text-xl font-poppins bg-foreground text-background hover:bg-foreground/90 border-none transition-all flex items-center gap-2" onClick={onDownload}>
+                      <Download className="w-7 h-7" />
+                      download {version ? `v${version}` : 'for windows'}
                     </Button>
                     </div>
                 </AnimatedGroup>

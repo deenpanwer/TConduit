@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
 import webpush from "web-push";
@@ -71,15 +71,17 @@ async function sendPushNotification(subscription: any, payload: string) {
 
 export async function GET(req: Request) {
   console.log("[Cron Test Summary Debug] GET API route handler invoked.");
+  const admin = getFirebaseAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
+  }
+  const adminDb = admin.firestore();
+
   const { searchParams } = new URL(req.url);
   const orgId = searchParams.get("orgId");
 
   if (!orgId) {
     return NextResponse.json({ error: "Organization ID is missing." }, { status: 400 });
-  }
-
-  if (!adminDb) {
-    return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
   }
 
   try {

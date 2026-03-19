@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
 export async function GET(req: Request) {
   try {
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Firebase Admin initialization failed' }, { status: 500 });
+    }
+    const adminDb = admin.firestore();
+
     const { searchParams } = new URL(req.url);
     const orgId = searchParams.get("orgId");
 
     if (!orgId) {
       return NextResponse.json({ error: "orgId is required" }, { status: 400 });
-    }
-
-    if (!adminDb) {
-      return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
     }
 
     // 1. Fetch Organization Document

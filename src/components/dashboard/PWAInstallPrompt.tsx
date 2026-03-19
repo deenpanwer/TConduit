@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getDeviceCapabilities } from "@/lib/performance";
 
 // Snooze duration (7 days)
 const DISMISS_DAYS = 7;
@@ -78,8 +79,23 @@ export function PWAInstallPrompt() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
-      // Installed - snooze "forever" (effectively)
+      // 1. TRACK PWA INSTALLATION
+      try {
+        const deviceCapabilities = getDeviceCapabilities();
+        const platform = /Mobi|Android|iPhone|iPod|iPad/.test(navigator.userAgent) ? "Mobile PWA" : "PC PWA";
+        
+        fetch('/api/pwa/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, deviceCapabilities }),
+        });
+      } catch (err) {
+        console.error("PWA Track Error:", err);
+      }
+
+      // 2. Installed - snooze "forever" (effectively)
       localStorage.setItem('pwa_prompt_snoozed_until', (new Date().getTime() * 2).toString());
+      setShowPrompt(true); // Ensure it's false, but we'll hide it after a moment
       setShowPrompt(false);
       
       // Update User Doc if Logged In

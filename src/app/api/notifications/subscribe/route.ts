@@ -1,9 +1,15 @@
-import { adminDb } from "@/lib/firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Firebase Admin initialization failed' }, { status: 500 });
+    }
+    const adminDb = admin.firestore();
+
     const { userId, subscription } = await req.json();
 
     if (!userId || !subscription) {

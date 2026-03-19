@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
-import * as admin from "firebase-admin";
+import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Firebase Admin initialization failed' }, { status: 500 });
+    }
+    const adminDb = admin.firestore();
+
     const { orgId, days } = await req.json();
 
     if (!orgId || !days) {
       return NextResponse.json({ error: "orgId and days are required" }, { status: 400 });
-    }
-
-    if (!adminDb) {
-      return NextResponse.json({ error: "Firebase Admin not initialized" }, { status: 500 });
     }
 
     const orgRef = adminDb.collection("organizations").doc(orgId);
@@ -42,3 +43,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
