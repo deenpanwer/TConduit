@@ -446,9 +446,14 @@ export default function Home() {
               </h1>
             </Link>
             <div className="flex flex-col items-end md:flex-row md:items-center gap-2 md:gap-4">
+            <Link href="/dashboard">
+                <Button variant="outline" className="h-8">
+                Dashboard
+                </Button>
+            </Link>
             <p className="text-sm text-muted-foreground text-right md:text-left">15,000+ experts available for hire.</p>
             <Link href="/trac-diary">
-                <Button variant="outline" className="h-8 animate-shake">
+                <Button variant="outline" className="h-8">
                 Join the Network
                 </Button>
             </Link>
@@ -600,7 +605,9 @@ export default function Home() {
             <div className="container mx-auto px-4 py-1 md:py-2">
                 <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between">
                     <div className="py-1 px-4 md:py-2 text-center md:text-left">
-                      <p className="font-semibold text-foreground/70 dark:text-foreground/40 hover:text-foreground transition-colors">Google for Hiring</p>
+                      <p className="font-semibold text-foreground/70 dark:text-foreground/40 hover:text-foreground transition-colors">
+                        Google for Hiring | The best platform for hiring programmers & hackers
+                      </p>
                     </div>
                     <div className="relative py-1 px-4 md:py-3">
                         <div className="flex justify-center md:justify-end">

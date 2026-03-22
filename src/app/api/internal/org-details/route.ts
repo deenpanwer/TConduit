@@ -36,22 +36,53 @@ export async function GET(req: Request) {
     
     const staff: any[] = [];
     const seenIds = new Set();
+    const allDocs = [...ownerSnap.docs, ...staffSnap.docs];
 
-    [...ownerSnap.docs, ...staffSnap.docs].forEach(doc => {
-      if (!seenIds.has(doc.id)) {
-        seenIds.add(doc.id);
-        const d = doc.data();
-        staff.push({
-          id: doc.id,
-          name: d.name || d.displayName || "Unknown",
-          email: d.email,
-          role: d.role,
-          photoUrl: d.photoUrl || d.photoURL,
-          totalVisits: d.totalVisits || 0,
-          visits: d.visits || {},
-          lastActivity: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null)
-        });
-      }
+    // Fetch heartbeats in parallel for all staff
+    const staffWithHeartbeats = await Promise.all(allDocs.map(async (doc) => {
+      if (seenIds.has(doc.id)) return null;
+      seenIds.add(doc.id);
+      
+      const d = doc.data();
+      
+      // Fetch heartbeat sub-collection document
+      const hbDoc = await adminDb.collection("users").doc(doc.id).collection("live").doc("heartbeat").get();
+      const heartbeat = hbDoc.exists ? hbDoc.data() : null;
+
+      return {
+        id: doc.id,
+        name: d.name || d.displayName || "Unknown",
+        email: d.email,
+        role: d.role,
+        photoUrl: d.photoUrl || d.photoURL,
+        totalVisits: d.totalVisits || 0,
+        visits: d.visits || {},
+        lastLoginLocation: d.lastLoginLocation || null,
+        lastLoginAppVersion: d.lastLoginAppVersion || null,
+        lastLoginOs: d.lastLoginOs || null,
+        lastLoginIpAddress: d.lastLoginIpAddress || null,
+        currentVersion: d.currentVersion || null,
+        isPWA: d.isPWA || false,
+        notificationsEnabled: d.notificationsEnabled || false,
+        whatsAppNumber: d.whatsAppNumber || d.whatsapp || null,
+        accessLocked: d.accessLocked || false,
+        active: d.active !== false,
+        screenshotInterval: d.screenshotInterval || 10,
+        shiftSyncInterval: d.shiftSyncInterval || 30,
+        blurScreenshots: d.blurScreenshots || false,
+        onboardingProfile: d.onboardingProfile || null,
+        heartbeat: heartbeat ? {
+          ...heartbeat,
+          lastActive: heartbeat.lastActive?.toDate ? heartbeat.lastActive.toDate().toISOString() : heartbeat.lastActive
+        } : null,
+        createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
+        updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt,
+        lastActivity: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null)
+      };
+    }));
+
+    staffWithHeartbeats.forEach(s => {
+      if (s) staff.push(s);
     });
 
     // Sort staff by role (Owner first) then name
