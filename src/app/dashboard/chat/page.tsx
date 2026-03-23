@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { useEmployeeChat } from "@/hooks/use-employee-chat"; // New import
@@ -26,7 +26,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSearchParams } from "next/navigation";
 
-export default function ChatPage() {
+function ChatPage() {
   const { user, userData, loading: authLoading } = useAuth();
   const { employees, owner, loading: teamLoading } = useTeam();
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
@@ -367,4 +367,23 @@ export default function ChatPage() {
 
   };
 
-  
+export default function SuspendedChatPage() {
+    return (
+        <Suspense fallback={
+          <main className="flex-1 flex flex-col bg-background">
+            <header className="h-16 border-b border-border/40 bg-card/50 backdrop-blur-xl flex items-center px-8 shrink-0">
+              <Shimmer className="h-4 w-32 rounded-full" />
+            </header>
+            <div className="flex-1 p-0 flex">
+              <Shimmer className="hidden lg:block w-72 h-full border-r border-border/40" />
+              <div className="flex-1 flex flex-col p-4">
+                <Shimmer className="h-16 w-full rounded-2xl mb-4" />
+                <Shimmer className="flex-1 w-full rounded-2xl shadow-inner" />
+              </div>
+            </div>
+          </main>
+        }>
+            <ChatPage />
+        </Suspense>
+    )
+}
