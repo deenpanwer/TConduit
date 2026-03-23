@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         }));
 
         const { text } = await generateText({
-            model: mistral('pixtral-large-2411'),
+            model: mistral('ministral-3b-2512'),
             messages: [
                 {
                     role: "user",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
@@ -9,6 +9,22 @@ import { format, isToday, parseISO } from 'date-fns'; // Added parseISO for date
 import { useTeam } from '@/hooks/use-team';
 import { useSupervise } from '@/hooks/use-supervise'; // Assuming this hook will be updated to fetch from new API
 import { Shimmer } from '@/components/dashboard/main/shared/Shimmer';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+
+const ScanningSkeleton = () => (
+  <div className="relative w-full h-12 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2.5s_infinite]" />
+    <div className="p-3 space-y-2">
+      <div className="h-1.5 w-3/4 bg-white/10 rounded-full" />
+      <div className="h-1.5 w-1/2 bg-white/10 rounded-full" />
+    </div>
+    <style jsx>{`
+      @keyframes shimmer {
+        100% { transform: translateX(100%); }
+      }
+    `}</style>
+  </div>
+);
 import {
   Dialog,
   DialogContent,
@@ -46,9 +62,7 @@ import { SubscriptionBadge } from '@/components/dashboard/SubscriptionBadge';
 import { useSidebar } from '@/hooks/use-sidebar';
 
 export default function SupervisePage() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-  const { employees, owner, loading: teamLoading } = useTeam();
+  const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
   const { user, userData, loading: authLoading } = useAuth();
   const {
     monitoredPersonnel,
@@ -60,13 +74,44 @@ export default function SupervisePage() {
   const [inferredIntents, setInferredIntents] = useState<Record<string, string>>({});
   // State to track loading status of AI intent inference for each employee
   const [aiIntentLoading, setAiIntentLoading] = useState<Record<string, boolean>>({});
-  // State to store errors for AI intent inference
+  // State to track errors for AI intent inference
   const [aiIntentErrors, setAiIntentErrors] = useState<Record<string, string>>({});
 
+  // State to track which images have finished loading to prevent flickering
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
-  const [selectedScreenshot, setSelectedScreenshot] = useState<any>(null);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [orgData, setOrgData] = useState<any>(null);
+  // Ref to track AI intent states for fetch logic to avoid dependency cycles
+  const aiStateRef = useRef({ aiIntentLoading, inferredIntents });
+  useEffect(() => {
+    aiStateRef.current = { aiIntentLoading, inferredIntents };
+  }, [aiIntentLoading, inferredIntents]);
+
+  // Ref to track which URLs have been fetched to prevent redundant calls while allowing re-fetch on date change
+  const lastFetchedUrlRef = useRef<Record<string, string>>({});
+
+    // Reset AI states when date changes to avoid stale text
+
+      useEffect(() => {
+
+        setInferredIntents({});
+
+        setAiIntentLoading({});
+
+        setAiIntentErrors({});
+
+        setLoadedImages({});
+
+        lastFetchedUrlRef.current = {};
+
+      }, [selectedDate]);
+
+  
+
+    const [selectedScreenshot, setSelectedScreenshot] = useState<any>(null);
+
+    const [showInviteModal, setShowInviteModal] = useState(false);
+
+    const [orgData, setOrgData] = useState<any>(null);
   const { setIsMobileOpen } = useSidebar();
   const router = useRouter();
 
@@ -96,24 +141,42 @@ export default function SupervisePage() {
 
   // Function to fetch AI intent for a single employee
   const fetchEmployeeIntent = useCallback(async (empId: string, empName: string, screenshotData: any) => {
+    const screenshotUrl = screenshotData?.url || screenshotData?.imageUrl || screenshotData?.activity?.cloudinaryUrl;
+
+    // Use current state from Ref to check if we should skip
+    const { aiIntentLoading: currentLoading } = aiStateRef.current;
+
+    // --- INSTANT RESET LOGIC ---
+    // If the URL has changed or is missing, clear the specific intent IMMEDIATELY to prevent ghosting
+    if (!screenshotUrl || lastFetchedUrlRef.current[empId] !== screenshotUrl) {
+      setInferredIntents((prev) => {
+        const next = { ...prev };
+        delete next[empId];
+        return next;
+      });
+    }
+
     // Clear previous state if no screenshot data for today
     if (!screenshotData && isToday(selectedDate)) { // Using isToday from date-fns
-      setInferredIntents((prev) => ({ ...prev, [empId]: "No recent activity data to infer intent." }));
+      setInferredIntents((prev) => ({ ...prev, [empId]: "He didn't do anything today." }));
       setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
       setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
       return;
     } else if (!screenshotData && !isToday(selectedDate)) { // Using isToday from date-fns
-       setInferredIntents((prev) => ({ ...prev, [empId]: "Activity not available for this date." }));
+       setInferredIntents((prev) => ({ ...prev, [empId]: "He didn't do anything on this day." }));
        setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
        setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
        return;
     }
 
-    // Prevent fetching if already loading or if intent is already fetched and is not a fallback
-    if (aiIntentLoading[empId] || (inferredIntents[empId] && !screenshotData.isFallback)) {
+    if (!screenshotUrl) return;
+
+    // Prevent fetching if already loading or if we already fetched this specific URL
+    if (currentLoading[empId] || lastFetchedUrlRef.current[empId] === screenshotUrl) {
       return;
     }
 
+    lastFetchedUrlRef.current[empId] = screenshotUrl;
     setAiIntentLoading((prev) => ({ ...prev, [empId]: true }));
     setAiIntentErrors((prev) => ({ ...prev, [empId]: '' })); // Clear previous error
 
@@ -151,7 +214,7 @@ export default function SupervisePage() {
     } finally {
       setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
     }
-  }, [selectedDate, aiIntentLoading, inferredIntents, monitoredPersonnel]); // No need for isDateToday here as it's from date-fns which is always available
+  }, [selectedDate]); // Stable: only depends on selectedDate
 
   // Effect to trigger API calls when personnel, screenshots, or date changes
   useEffect(() => {
@@ -159,13 +222,15 @@ export default function SupervisePage() {
       monitoredPersonnel.forEach((emp) => {
         const screenshotData = latestScreenshots[emp.id];
         // Call fetchEmployeeIntent for each employee
-        fetchEmployeeIntent(emp.id, emp.name, screenshotData);
+        if (screenshotData) {
+          fetchEmployeeIntent(emp.id, emp.name, screenshotData);
+        }
       });
     } else if (!superviseLoading && monitoredPersonnel.length === 0) {
-        // Clear states if no personnel
-        setInferredIntents({});
-        setAiIntentLoading({});
-        setAiIntentErrors({});
+        // Clear states if no personnel and they aren't already empty
+        setInferredIntents(prev => Object.keys(prev).length === 0 ? prev : {});
+        setAiIntentLoading(prev => Object.keys(prev).length === 0 ? prev : {});
+        setAiIntentErrors(prev => Object.keys(prev).length === 0 ? prev : {});
     }
   }, [monitoredPersonnel, latestScreenshots, selectedDate, superviseLoading, fetchEmployeeIntent]); // fetchEmployeeIntent is stable due to useCallback
 
@@ -210,8 +275,6 @@ export default function SupervisePage() {
             <div className="flex items-center gap-2">
               {' '}
               {/* Right side of mobile header */}
-              <SearchIcon className="size-5 text-muted-foreground" />{' '}
-              {/* Search Icon */}
               {/* Date Picker for Mobile - Moved from desktop header */}
               <Popover>
                 <PopoverTrigger asChild>
@@ -311,12 +374,12 @@ export default function SupervisePage() {
           {' '}
           {/* Changed to overflow-auto for snap scrolling */}
           {/* Mobile TikTok Style View */}
-          <div className="sm:hidden flex flex-col h-screen snap-y snap-mandatory overflow-y-scroll">
+          <div className="sm:hidden flex flex-col h-[100dvh] snap-y snap-mandatory overflow-y-scroll overflow-x-hidden">
             {' '}
             {/* Visible on small screens */}
             {monitoredPersonnel.length === 0 ? (
               // No personnel state for mobile
-              <div className="h-screen flex flex-col items-center justify-center text-center space-y-4 p-4">
+              <div className="h-[100dvh] flex flex-col items-center justify-center text-center space-y-4 p-4">
                 <div className="size-20 bg-secondary rounded-full flex items-center justify-center mb-4">
                   <User size={40} className="text-muted-foreground" />
                 </div>
@@ -334,7 +397,7 @@ export default function SupervisePage() {
               </div>
             ) : superviseLoading ? (
               // Loading state for mobile feed (covers visuals and initial text areas)
-              <div className="h-screen flex flex-col justify-center items-center">
+              <div className="h-[100dvh] flex flex-col justify-center items-center">
                 <Shimmer className="w-full h-full" />
               </div>
             ) : (
@@ -357,58 +420,72 @@ export default function SupervisePage() {
                 const showNoActivityMessage = !screenshot && isToday(selectedDate); // Using isToday from date-fns
                 const showHistoricalMessage = !screenshot && !isToday(selectedDate); // Using isToday from date-fns
 
+                const imageUrl = screenshot?.url || screenshot?.imageUrl || screenshot?.activity?.cloudinaryUrl;
+
                 return (
                   <div
                     key={emp.id}
-                    className="h-screen snap-start relative flex flex-col justify-between isolate"
+                    className="h-[100dvh] snap-start relative flex flex-col justify-between isolate overflow-hidden"
                     style={{ transform: 'translateZ(0)' }}
                   >
-                    {/* Background Layer */}
-                    <div className="absolute inset-0 -z-10">
+                    {/* Background Layer with Gaussian Blur */}
+                    <div className="absolute inset-0 -z-10 bg-black">
+                      {imageUrl ? (
+                        <>
+                          <img
+                            src={imageUrl}
+                            alt="Background Blur"
+                            className="absolute inset-0 w-full h-full object-cover scale-150 blur-[80px] opacity-40"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-zinc-900" />
+                      )}
+                    </div>
+
+                    {/* Main Screenshot Container */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4 pb-32 pt-20">
                       {showNoActivityMessage ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-secondary">
+                        <div className="w-full max-h-full aspect-[9/16] flex flex-col items-center justify-center text-muted-foreground bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10">
                           <Monitor size={40} className="opacity-20 mb-4" />
                           <span className="text-[12px] font-black uppercase tracking-widest text-center px-4">
                             No Activity on {format(selectedDate, 'MMM d')}
                           </span>
                         </div>
                       ) : showHistoricalMessage ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-card">
+                        <div className="w-full max-h-full aspect-[9/16] flex flex-col items-center justify-center text-muted-foreground bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10">
                           <span className="text-[12px] font-black uppercase tracking-widest text-center px-4">
                             Activity not available for {format(selectedDate, 'MMM d')}
                           </span>
                         </div>
                       ) : screenshot ? (
                         <img
-                          src={
-                            screenshot.url ||
-                            screenshot.imageUrl ||
-                            screenshot.activity?.cloudinaryUrl
-                          }
+                          src={imageUrl}
                           alt={`Screenshot for ${emp.name}`}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            // Basic error handling for image loading
-                            e.currentTarget.style.display = 'none'; // Hide broken image
-                          }}
+                          className={cn(
+                            "w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10 transition-opacity duration-700",
+                            loadedImages[imageUrl] ? "opacity-100" : "opacity-0"
+                          )}
+                          onLoad={() => setLoadedImages(prev => ({ ...prev, [imageUrl]: true }))}
                         />
                       ) : null}
                     </div>
 
                     {/* Top-Left Overlay */}
-                    <div className="p-4 absolute top-0 left-0 right-0 flex items-center justify-between pointer-events-none">
+                    <div className="p-6 absolute top-0 left-0 right-0 flex items-center justify-between pointer-events-none z-20">
                       <div className="flex items-center gap-2 pointer-events-auto">
                         {isToday(selectedDate) && !isHistoricalFallback && ( // Using isToday from date-fns
                           <div
-                            className={`size-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`}
+                            className={`size-2.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse' : 'bg-zinc-500'}`}
                           />
                         )}
                         <span
                           className={cn(
-                            'text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1',
+                            'text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/10',
                             isHistoricalFallback
-                              ? 'bg-orange-500/80'
-                              : 'bg-black/50',
+                              ? 'bg-orange-500/60'
+                              : 'bg-white/10',
                           )}
                         >
                           {isHistoricalFallback && <History size={10} />}
@@ -420,23 +497,23 @@ export default function SupervisePage() {
                                 : 'Offline'
                               : format(selectedDate, 'MMM d')}
                         </span>
-                        <span className="text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full bg-black/50">
+                        <span className="text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-3 py-1 rounded-full bg-white/10 border border-white/10">
                           {format(timestamp, 'hh:mm:ss a')}
                         </span>
                       </div>
                     </div>
 
                     {/* Right-Side Overlay (Interaction Column) */}
-                    <div className="p-4 absolute bottom-16 right-0 flex flex-col items-center gap-3 pointer-events-auto">
+                    <div className="p-6 absolute bottom-32 right-0 flex flex-col items-center gap-5 pointer-events-auto z-20">
                       {' '}
                       {/* Pushed up to make space for bottom overlay */}
-                      <div className="flex flex-col items-center gap-2">
+                      <div className="flex flex-col items-center gap-4">
                         {' '}
                         {/* Reduced gap for icons */}
                         {/* Profile Pic - Clickable to navigate to team page */}
                         <div
                           onClick={() => router.push(`/dashboard/team/${emp.id}`)}
-                          className="size-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white cursor-pointer hover:bg-white/20 transition-all"
+                          className="size-14 rounded-full p-1 bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white cursor-pointer hover:bg-white/20 transition-all shadow-xl active:scale-95"
                         >
                           <img
                             src={getUserAvatar(emp)}
@@ -446,69 +523,58 @@ export default function SupervisePage() {
                         </div>
                         {/* Chat Icon - Clickable to open messages */}
                         <button
-                          onClick={() => router.push(`/dashboard/messages/${emp.id}`)}
-                          className="size-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90"
+                          onClick={() => router.push(`/dashboard/chat?id=${emp.id}`)}
+                          className="size-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90 shadow-xl"
                         >
-                          <MessageCircle size={20} />
+                          <MessageCircle size={24} />
                         </button>
                       </div>
                       {/* Scroll Indicator - only show if there are more than 1 person and it's not the last person */}
                       {monitoredPersonnel.length > 1 &&
                         index < monitoredPersonnel.length - 1 && (
-                          <div className="mt-2 animate-bounce">
-                            {' '}
-                            {/* Using standard Tailwind animate-bounce */}
-                            <ChevronDown size={24} className="text-white/50" />
+                          <div className="mt-4 animate-bounce bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-lg">
+                            <ChevronDown size={20} className="text-white" />
                           </div>
                         )}
                     </div>
 
                     {/* Bottom-Left Overlay (Caption/Summary) */}
-                    <div className="p-4 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
-                      <div className="flex flex-col gap-1 pointer-events-auto">
+                    <div className="p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20">
+                      <div className="flex flex-col gap-3 pointer-events-auto max-w-[80%]">
                         {/* Employee Name */}
-                        <span className="text-lg font-black uppercase tracking-tighter text-white">
+                        <span className="text-2xl font-black uppercase tracking-tighter text-white drop-shadow-lg">
                           {emp.name}
                         </span>
 
-                        {/* AI Text Display Area */}
-                        {isLoadingIntent ? (
-                          <div className="mt-1">
-                            <p className="text-sm font-bold text-white/90 tracking-wide">
-                              What he's doing right now?:
-                            </p>
-                            <Shimmer className="h-16 w-full rounded-md" />{' '}
-                            {/* Skeleton for AI text */}
+                        {/* AI Text Display Area (Stable Container) */}
+                        <div className="mt-1 w-full flex flex-col gap-1 min-h-[4.5rem] relative">
+                           <p className="text-sm font-bold text-white/90 tracking-wide">
+                            What he's doing right now?:
+                          </p>
+                          
+                          <div className="relative">
+                            {isLoadingIntent && (
+                              <div className="absolute inset-0 z-10">
+                                <ScanningSkeleton />
+                              </div>
+                            )}
+                            
+                            <div className={cn(
+                              "transition-all duration-500 ease-in-out",
+                              isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100"
+                            )}>
+                              {currentError ? (
+                                <p className="text-xs text-red-400 bg-red-500/10 backdrop-blur-md border border-red-500/20 p-2 rounded-lg">
+                                  {currentError}
+                                </p>
+                              ) : (
+                                <p className="text-base font-medium text-white/90 leading-tight drop-shadow-md">
+                                  {currentIntent || (showNoActivityMessage ? "He didn't do anything today." : "He didn't do anything on this day.")}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        ) : currentError ? (
-                           <div className="mt-1">
-                            <p className="text-sm font-bold text-red-500 tracking-wide">
-                              Error Inferring Intent:
-                            </p>
-                            <p className="text-xs text-red-500">
-                              {currentError}
-                            </p>
-                          </div>
-                        ) : currentIntent ? (
-                          <div className="mt-1">
-                            <p className="text-sm font-bold text-white/90 tracking-wide">
-                              What he's doing right now?:
-                            </p>
-                            <p className="text-xs text-white/80">
-                              {currentIntent}
-                            </p>
-                          </div>
-                        ) : (
-                          // Fallback for no data, no error, and not loading
-                          <div className="mt-1">
-                            <p className="text-sm font-bold text-white/90 tracking-wide">
-                              What he's doing right now?:
-                            </p>
-                            <p className="text-xs text-white/80">
-                              {showNoActivityMessage ? "No activity to infer intent." : "Intent not available."}
-                            </p>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -595,7 +661,14 @@ export default function SupervisePage() {
                             screenshot.activity?.cloudinaryUrl
                           }
                           alt={`Screenshot for ${emp.name}`}
-                          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 cursor-pointer"
+                          className={cn(
+                            "w-full h-full object-contain transition-all duration-700 cursor-pointer",
+                            loadedImages[screenshot.url || screenshot.imageUrl || screenshot.activity?.cloudinaryUrl] ? "opacity-100 scale-100" : "opacity-0 scale-95"
+                          )}
+                          onLoad={() => {
+                             const url = screenshot.url || screenshot.imageUrl || screenshot.activity?.cloudinaryUrl;
+                             setLoadedImages(prev => ({ ...prev, [url]: true }));
+                          }}
                           onClick={() =>
                             setSelectedScreenshot({
                               ...screenshot,
@@ -689,43 +762,34 @@ export default function SupervisePage() {
                       </Button>
                     </div>
 
-                    {/* AI Summary Display */}
-                    <div className="p-5 flex flex-col gap-1">
-                      {isLoadingIntent ? (
-                        <div className="mt-1">
-                          <p className="text-sm font-bold text-white/90 tracking-wide">
-                            What he's doing right now?:
-                          </p>
-                          <Shimmer className="h-12 w-full rounded-md" />
+                    {/* AI Summary Display (Stable Container) */}
+                    <div className="px-5 pb-6 flex flex-col gap-1 min-h-[5.5rem] relative">
+                      <p className="text-sm font-bold text-white/90 tracking-wide">
+                        What he's doing right now?:
+                      </p>
+                      
+                      <div className="relative">
+                        {isLoadingIntent && (
+                          <div className="absolute inset-0 z-10">
+                            <ScanningSkeleton />
+                          </div>
+                        )}
+                        
+                        <div className={cn(
+                          "transition-all duration-500 ease-in-out",
+                          isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100"
+                        )}>
+                          {currentError ? (
+                            <p className="text-[10px] text-red-400 truncate">
+                              {currentError}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-white/80 line-clamp-2">
+                              {currentIntent || (showNoActivityMessage ? "He didn't do anything today." : "He didn't do anything on this day.")}
+                            </p>
+                          )}
                         </div>
-                      ) : currentError ? (
-                        <div className="mt-1">
-                          <p className="text-sm font-bold text-red-500 tracking-wide">
-                            Error Inferring Intent:
-                          </p>
-                          <p className="text-[10px] text-red-500 truncate">
-                            {currentError}
-                          </p>
-                        </div>
-                      ) : currentIntent ? (
-                        <div className="mt-1">
-                          <p className="text-sm font-bold text-white/90 tracking-wide">
-                            What he's doing right now?:
-                          </p>
-                          <p className="text-[10px] text-white/80 truncate">
-                            {currentIntent}
-                          </p>
-                        </div>
-                      ) : (
-                         <div className="mt-1">
-                          <p className="text-sm font-bold text-white/90 tracking-wide">
-                            What he's doing right now?:
-                          </p>
-                          <p className="text-[10px] text-white/80">
-                            {showNoActivityMessage ? "No activity to infer intent." : "Intent not available."}
-                          </p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -741,6 +805,12 @@ export default function SupervisePage() {
         onOpenChange={() => setSelectedScreenshot(null)}
       >
         <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-black/95 overflow-hidden rounded-[2.5rem] shadow-2xl [&>button]:hidden">
+          <VisuallyHidden.Root>
+            <DialogTitle>Screenshot for {selectedScreenshot?.employeeName}</DialogTitle>
+            <DialogHeader>
+              <DialogTitle>Screenshot Viewer</DialogTitle>
+            </DialogHeader>
+          </VisuallyHidden.Root>
           <div className="absolute top-0 left-0 right-0 p-8 z-50 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none">
             <div className="flex items-center gap-4 pointer-events-auto">
               <div className="size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white">

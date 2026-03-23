@@ -4,7 +4,7 @@ import { cn, getUserAvatar } from "@/lib/utils";
 import { 
   SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
   UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
-  Plus, ListTodo, MessageSquare
+  Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,6 +165,8 @@ export function DashboardSidebar({
                 <NavItem icon={LayoutDashboard} label="Overview" href="/dashboard" active={pathname === "/dashboard"} />
                 <NavItem icon={Zap} label="Supervise" href="/dashboard/supervise" active={pathname === "/dashboard/supervise"} />
                 <NavItem icon={ListTodo} label="Tasks" href="/dashboard/tasks" active={pathname === "/dashboard/tasks"} />
+                <NavItem icon={CalendarRange} label="Shifts" href="/dashboard/shifts" active={pathname === "/dashboard/shifts"} />
+                <NavItem icon={CalendarDays} label="Calendar" href="/dashboard/calendar" active={pathname === "/dashboard/calendar"} />
                 <NavItem icon={MessageSquare} label="Messages" href="/dashboard/chat" active={pathname === "/dashboard/chat"} />
             </div>
 

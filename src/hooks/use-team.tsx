@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext, Su
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt, getDocs } from "firebase/firestore";
 import { useAuth } from "./use-auth";
-import { format, parse, isSameDay } from "date-fns";
+import { format, parse, isSameDay, startOfMonth, endOfMonth } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cacheOrchestrator } from "@/lib/cache-orchestrator";
 
@@ -36,6 +36,7 @@ interface TeamContextType {
   loading: boolean;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
+  fetchMonthMetrics: (currentMonth: Date) => Promise<Record<string, { date: string; totalSeconds: number; activeEmployees: number }>>;
 }
 
 const TeamContext = createContext<TeamContextType>({
@@ -45,6 +46,7 @@ const TeamContext = createContext<TeamContextType>({
   loading: true,
   selectedDate: new Date(),
   setSelectedDate: () => {},
+  fetchMonthMetrics: async () => ({}),
 });
 
 function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
@@ -72,6 +74,9 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [selectedDate, _setSelectedDate] = useState(new Date());
 
+  // Cache for monthly metrics to avoid re-fetching
+  const monthCacheRef = useRef<Record<string, Record<string, { date: string; totalSeconds: number; activeEmployees: number }>>>({});
+
   const setSelectedDate = useCallback((date: Date) => {
     _setSelectedDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -89,6 +94,67 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     listenersRef.current = {};
     personnelListRef.current = [];
   }, []);
+
+  const fetchMonthMetrics = useCallback(async (currentMonth: Date) => {
+    // Use the current personnelData state as the source of truth for users
+    const usersToFetch = Object.values(personnelData).filter(p => p.active !== false); // Only active users
+    
+    // Cache Key includes user count to prevent caching empty/partial states during initial load
+    const monthKey = `${format(currentMonth, 'yyyy-MM')}-${usersToFetch.length}`;
+    
+    // Return cached if available
+    if (monthCacheRef.current[monthKey]) {
+      return monthCacheRef.current[monthKey];
+    }
+
+    const startStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+    const endStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+    console.log(`[useTeam] Fetching month metrics for ${monthKey}. Users found: ${usersToFetch.length}`);
+
+    const metrics: Record<string, { date: string; totalSeconds: number; activeEmployees: number }> = {};
+
+    await Promise.all(usersToFetch.map(async (p) => {
+      try {
+        const shiftsRef = collection(db, "users", p.id, "workShifts");
+        // Query by ID (YYYY-MM-DD...) instead of 'date' field to ensure robustness
+        const q = query(
+          shiftsRef,
+          orderBy("__name__"),
+          startAt(startStr),
+          endAt(endStr + "\uf8ff")
+        );
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+             console.log(`[useTeam] Found ${snapshot.size} shifts for ${p.name || p.id}`);
+        }
+
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          // Fallback: extract date from ID if field is missing
+          const date = data.date || doc.id.substring(0, 10);
+          // Support both legacy and modern metrics location
+          const seconds = data.liveMetrics?.totalSeconds || data.metrics?.totalSeconds || data.totalSeconds || 0;
+
+          if (!metrics[date]) {
+            metrics[date] = { date, totalSeconds: 0, activeEmployees: 0 };
+          }
+
+          if (seconds > 0) {
+            metrics[date].totalSeconds += seconds;
+            metrics[date].activeEmployees += 1;
+          }
+        });
+      } catch (e) {
+        console.warn(`Failed to fetch shifts for ${p.id} in ${monthKey}`, e);
+      }
+    }));
+
+    // Cache the result
+    monthCacheRef.current[monthKey] = metrics;
+    return metrics;
+  }, [personnelData]); // Re-create if personnel list changes
 
   useEffect(() => {
     const targetOrgId = userData?.ownedOrgId || userData?.orgId;
@@ -373,7 +439,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   })();
 
   return (
-    <TeamContext.Provider value={{ employees, owner, stats, loading, selectedDate, setSelectedDate }}>
+    <TeamContext.Provider value={{ employees, owner, stats, loading, selectedDate, setSelectedDate, fetchMonthMetrics }}>
       <Suspense fallback={null}>
         <URLSync onDateFound={_setSelectedDate} />
       </Suspense>

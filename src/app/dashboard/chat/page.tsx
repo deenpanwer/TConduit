@@ -24,6 +24,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useSidebar } from "@/hooks/use-sidebar";
 
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSearchParams } from "next/navigation";
 
 export default function ChatPage() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -32,8 +33,20 @@ export default function ChatPage() {
   const [orgData, setOrgData] = useState<any>(null);
   const { setIsMobileOpen } = useSidebar();
   const isMobile = useIsMobile();
+  const searchParams = useSearchParams();
   
   const targetOrgId = userData?.ownedOrgId || userData?.orgId;
+
+  // Auto-select employee if ID is provided in URL
+  useEffect(() => {
+    const empId = searchParams.get("id");
+    if (empId && employees.length > 0) {
+      const emp = employees.find(e => e.id === empId);
+      if (emp) {
+        setSelectedEmployee(emp);
+      }
+    }
+  }, [searchParams, employees]);
 
   const {
     messages,

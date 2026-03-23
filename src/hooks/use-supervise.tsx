@@ -42,16 +42,16 @@ export function useSupervise(selectedDate: Date = new Date()) {
   useEffect(() => {
     if (teamLoading) return;
     
-    setLatestScreenshots({});
-    if (monitoredPersonnel.length === 0) {
-      setLoading(false);
-      return;
-    }
-
+    // Instead of clearing all, we only clear those that don't have a fallback or are switching dates
+    setLoading(true);
+    
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const unsubscribers: (() => void)[] = [];
 
     monitoredPersonnel.forEach((emp) => {
+      // Clear specific employee state before starting new listener to avoid ghosting
+      setLatestScreenshots((prev) => ({ ...prev, [emp.id]: undefined }));
+
       // --- DEMO EMPLOYEE HANDLER ---
       if (emp.id.startsWith('demo_')) {
         const screenshotsForDay = (emp.screenshots || {})[dateStr] || [];
