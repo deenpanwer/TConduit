@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Building2, ChevronRight, CheckCircle2, Loader2, 
-  Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil
+  Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil, User
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
-import { doc, updateDoc, serverTimestamp, setDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp, setDoc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged } from "firebase/auth";
@@ -57,21 +57,22 @@ const DAYS = [
   { id: 0, label: "Sun" },
 ];
 
-  export default function OnboardingPage() {
-    const [step, setStep] = useState(1);
-    const [loading, setLoading] = useState(false);
-    const [authLoading, setAuthLoading] = useState(true);
-    const [user, setUser] = useState<any>(null);
-    const [orgData, setOrgData] = useState<any>(null);
-    const [logoMode, setLogoMode] = useState<"upload" | "url">("upload");
-    const [logoPreview, setLogoPreview] = useState<string | null>(null);
-    const [isEditingTimezone, setIsEditingTimezone] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const router = useRouter();
-    const { toast } = useToast();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const { refreshUserData } = useAuth();
+export default function OnboardingPage() {
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [orgData, setOrgData] = useState<any>(null);
+  const [logoMode, setLogoMode] = useState<"upload" | "url">("upload");
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isEditingTimezone, setIsEditingTimezone] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { refreshUserData } = useAuth();
 
   const [formData, setFormData] = useState({
     role: "",
@@ -82,30 +83,46 @@ const DAYS = [
     logoUrl: "",
     motivation: "",
     whatsapp: "",
+    inviteCode: "",
     shift: "8",
-    workdays: [1, 2, 3, 4, 5], // User selects workdays
+    workdays: [1, 2, 3, 4, 5],
     timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC"
   });
 
   // Handle Initial Redirects and Org Fetching
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        const userData = userDoc.data();
-        if (userData?.onboardingCompleted) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        const data = userDoc.data();
+        setUserData(data);
+
+        // Compatibility with Electron app field name 'employeeOnboardingV1Complete'
+        if (data?.onboardingCompleted || data?.employeeOnboardingV1Complete) {
           router.push("/dashboard");
           return;
         }
 
-        if (userData?.ownedOrgId) {
-            const orgDoc = await getDoc(doc(db, "organizations", userData.ownedOrgId));
-            const data = orgDoc.data();
-            setOrgData({ id: userData.ownedOrgId, ...data });
-            if (data?.name) {
-              setFormData(prev => ({ ...prev, orgName: data.name }));
-            }
+        if (data?.role) {
+          setFormData(prev => ({ ...prev, role: data.role }));
+        }
+
+        if (data?.ownedOrgId) {
+          const orgDoc = await getDoc(doc(db, "organizations", data.ownedOrgId));
+          const oData = orgDoc.data();
+          setOrgData({ id: data.ownedOrgId, ...oData });
+          if (oData?.name) {
+            setFormData(prev => ({ ...prev, orgName: oData.name }));
+          }
+        } else if (data?.orgId) {
+          const orgDoc = await getDoc(doc(db, "organizations", data.orgId));
+          const oData = orgDoc.data();
+          setOrgData({ id: data.orgId, ...oData });
+          // If already linked to an org (e.g. Electron), start at Step 2
+          if (data.role !== 'owner') {
+            setStep(2);
+          }
         }
         setAuthLoading(false);
       } else {
@@ -130,62 +147,135 @@ const DAYS = [
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
 
+  const handleJoinOrg = async () => {
+    if (!formData.inviteCode) return;
+    setLoading(true);
+    try {
+      const q = query(collection(db, "organizations"), where("inviteCode", "==", formData.inviteCode), limit(1));
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        throw new Error("Invalid invite code. Please check and try again.");
+      }
+
+      const targetOrg = snap.docs[0];
+      const targetOrgData = targetOrg.data();
+
+      await updateDoc(doc(db, "users", user.uid), {
+        orgId: targetOrg.id,
+        orgName: targetOrgData.name,
+        role: "employee",
+        updatedAt: serverTimestamp()
+      });
+
+      setOrgData({ id: targetOrg.id, ...targetOrgData });
+      setFormData(prev => ({ ...prev, role: "employee", orgName: targetOrgData.name }));
+      setStep(2);
+      toast({ title: "Joined Organization", description: `You have successfully joined ${targetOrgData.name}.` });
+    } catch (error: any) {
+      toast({ title: "Join failed", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      let finalOrgId = orgData?.id;
       const offDays = DAYS.filter(d => !formData.workdays.includes(d.id)).map(d => d.label);
+      const isOwner = formData.role === 'owner' || formData.role === 'Founder' || formData.role === 'Manager' || formData.role === 'Ops' || formData.role === 'HR';
 
-      if (!finalOrgId) {
-        finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-        const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 7); // Changed from 14 to 7
+      const partnerSlug = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('trac_partner_slug='))
+        ?.split('=')[1] || userData?.partnerSlug || null;
 
-        await setDoc(doc(db, "organizations", finalOrgId), {
-          name: formData.orgName || "My Organization",
-          ownerId: user.uid,
-          logoUrl: formData.logoUrl || null,
-          teamSize: formData.teamSize,
-          reportingPlatforms: formData.reportingPlatforms,
-          otherPlatform: formData.otherPlatform || null,
-          whatsapp: formData.whatsapp,
-          motivation: formData.motivation,
-          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-          subscriptionExpiry: trialExpiry,
-          subscriptionStatus: "trialing",
-          createdAt: serverTimestamp()
-        });
-      } else {
-        await updateDoc(doc(db, "organizations", finalOrgId), {
-          name: formData.orgName,
-          logoUrl: formData.logoUrl || null,
-          teamSize: formData.teamSize,
-          reportingPlatforms: formData.reportingPlatforms,
-          otherPlatform: formData.otherPlatform || null,
-          whatsapp: formData.whatsapp,
-          motivation: formData.motivation,
+      if (isOwner) {
+        let finalOrgId = orgData?.id;
+        if (!finalOrgId) {
+          finalOrgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+          const trialExpiry = new Date();
+          trialExpiry.setDate(trialExpiry.getDate() + 7);
+
+          await setDoc(doc(db, "organizations", finalOrgId), {
+            name: formData.orgName || "My Organization",
+            ownerId: user.uid,
+            logoUrl: formData.logoUrl || null,
+            teamSize: formData.teamSize,
+            reportingPlatforms: formData.reportingPlatforms,
+            otherPlatform: formData.otherPlatform || null,
+            whatsapp: formData.whatsapp,
+            motivation: formData.motivation,
+            inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+            subscriptionExpiry: trialExpiry,
+            subscriptionStatus: "trialing",
+            partnerSlug: partnerSlug,
+            createdAt: serverTimestamp()
+          });
+
+          // Attribution
+          if (partnerSlug) {
+            (async () => {
+              try {
+                const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+                const partnerSnap = await getDocs(partnerQ);
+                if (!partnerSnap.empty) {
+                  const partnerDoc = partnerSnap.docs[0];
+                  await setDoc(doc(db, "partners", partnerDoc.id, "signups", finalOrgId), {
+                    orgName: formData.orgName || "My Organization",
+                    clientEmail: user.email,
+                    createdAt: serverTimestamp(),
+                  });
+                }
+              } catch (e) {}
+            })();
+          }
+        } else {
+          await updateDoc(doc(db, "organizations", finalOrgId), {
+            name: formData.orgName,
+            logoUrl: formData.logoUrl || null,
+            teamSize: formData.teamSize,
+            reportingPlatforms: formData.reportingPlatforms,
+            otherPlatform: formData.otherPlatform || null,
+            whatsapp: formData.whatsapp,
+            motivation: formData.motivation,
+            onboardingCompleted: true,
+            updatedAt: serverTimestamp()
+          });
+        }
+
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName || user.email?.split('@')[0] || "User",
+          photoUrl: user.photoURL || null,
+          role: formData.role || "owner",
+          orgName: formData.orgName,
+          ownedOrgId: finalOrgId,
           onboardingCompleted: true,
+          whatsapp: formData.whatsapp,
+          partnerSlug: partnerSlug,
+          settings: {
+            defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
+            offDays: offDays,
+            timezone: typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value
+          },
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } else {
+        // Employee Submit
+        await updateDoc(doc(db, "users", user.uid), {
+          role: formData.role, // Save the specific selected role (e.g. Engineer)
+          onboardingCompleted: true,
+          whatsapp: formData.whatsapp,
+          settings: {
+            defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
+            offDays: offDays,
+            timezone: typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value
+          },
           updatedAt: serverTimestamp()
         });
       }
-
-      await setDoc(doc(db, "users", user.uid), {
-        email: user.email,
-        name: user.displayName || user.email?.split('@')[0] || "User",
-        photoUrl: user.photoURL || null,
-        role: formData.role,
-        orgName: formData.orgName,
-        ownedOrgId: finalOrgId,
-        onboardingCompleted: true,
-        whatsapp: formData.whatsapp,
-        settings: {
-          defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
-          offDays: offDays,
-          timezone: typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value
-        },
-        updatedAt: serverTimestamp()
-      }, { merge: true });
 
       await refreshUserData();
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
@@ -205,6 +295,45 @@ const DAYS = [
     );
   }
 
+  // Role Selection Step (if no role yet)
+  if (!formData.role && step === 1) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30">
+          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
+          <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+        </div>
+        <div className="w-full max-w-2xl bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 text-center backdrop-blur-sm">
+          <div className="flex justify-center mb-8">
+            <img src="/logo.svg" alt="Logo" className="w-12 h-12 dark:invert" />
+          </div>
+          <h1 className="text-3xl font-bold mb-4 uppercase tracking-tight">How will you be using Trac?</h1>
+          <p className="text-muted-foreground mb-8">Choose your role to customize your setup experience.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <button 
+              onClick={() => { setFormData({...formData, role: 'owner'}); }}
+              className="p-8 rounded-[2rem] border-4 border-transparent bg-secondary/30 hover:bg-secondary/50 hover:border-primary transition-all group"
+            >
+              <Building2 size={48} className="mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
+              <h2 className="text-xl font-black uppercase tracking-widest mb-2">Employer</h2>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">I want to manage my team and operations.</p>
+            </button>
+            <button 
+              onClick={() => { setFormData({...formData, role: 'employee'}); }}
+              className="p-8 rounded-[2rem] border-4 border-transparent bg-secondary/30 hover:bg-secondary/50 hover:border-primary transition-all group"
+            >
+              <User size={48} className="mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
+              <h2 className="text-xl font-black uppercase tracking-widest mb-2">Employee</h2>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">I'm joining an existing organization.</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isOwner = formData.role === 'owner' || formData.role === 'Founder' || formData.role === 'Manager' || formData.role === 'Ops' || formData.role === 'HR';
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30">
@@ -220,7 +349,7 @@ const DAYS = [
         <div className="bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 backdrop-blur-sm relative">
           <div className="flex items-center justify-between mb-10">
             <div className="flex gap-2">
-              {[1, 2, 3, 4].map((i) => (
+              {(isOwner ? [1, 2, 3, 4] : (userData?.orgId ? [1, 2] : [1, 2, 3])).map((i) => (
                 <div 
                   key={i} 
                   className={cn(
@@ -231,39 +360,84 @@ const DAYS = [
               ))}
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Step {step} of 4
+              Step {isOwner? step : step -1} of {isOwner ? 4 : (userData?.orgId ? 2 : 3)}
             </span>
           </div>
 
           <AnimatePresence mode="wait">
-            {step === 1 && (
+            {/* EMPLOYEE STEP 1: Join Organization */}
+            {!isOwner && step === 1 && (
               <motion.div
-                key="step1"
+                key="empStep1"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome</h1>
-                  <p className="text-muted-foreground">Let's start with your basic details.</p>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Join Organization</h1>
+                  <p className="text-muted-foreground">Enter the invite code provided by your employer.</p>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Invite Code</Label>
                     <Input
-                      placeholder="e.g. Acme Corp"
-                      value={formData.orgName}
-                      onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
-                      className="h-14 rounded-2xl px-6 bg-background/50"
+                      placeholder="e.g. 123456"
+                      value={formData.inviteCode}
+                      onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                      className="h-14 rounded-2xl px-6 bg-background/50 text-center text-2xl font-black tracking-[0.3em]"
+                      maxLength={6}
                     />
                   </div>
+                </div>
+
+                <Button 
+                  disabled={formData.inviteCode.length < 6 || loading} 
+                  onClick={handleJoinOrg} 
+                  className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide group"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : "Verify Code"}
+                  {!loading && <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />}
+                </Button>
+              </motion.div>
+            )}
+
+            {/* PERSONAL DETAILS: Step 1 (Owner) or Step 2 (Employee) */}
+            {((isOwner && step === 1) || (!isOwner && step === 2)) && (
+              <motion.div
+                key="personalDetails"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-8"
+              >
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">
+                    {isOwner ? "Welcome" : "Personal Details"}
+                  </h1>
+                  <p className="text-muted-foreground">
+                    {isOwner ? "Let's start with your organization details." : "Tell us a bit about yourself."}
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {isOwner && (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+                      <Input
+                        placeholder="e.g. Acme Corp"
+                        value={formData.orgName}
+                        onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
+                        className="h-14 rounded-2xl px-6 bg-background/50"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Your Role</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {["Founder", "Manager", "Ops", "HR"].map((r) => (
+                      {(isOwner ? ["Founder", "Manager", "Ops", "HR"] : ["Engineer", "Design", "Support", "Marketing"]).map((r) => (
                         <button
                           key={r}
                           onClick={() => setFormData({ ...formData, role: r })}
@@ -288,33 +462,41 @@ const DAYS = [
                         defaultCountry="PK"
                         value={formData.whatsapp}
                         onChange={(value) => setFormData({ ...formData, whatsapp: value || "" })}
-                        className="flex h-14 w-full rounded-2xl border border-input bg-background/50 px-4 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-14 w-full rounded-2xl border border-input bg-background/50 px-4 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
                   </div>
                 </div>
 
-                <Button 
-                  disabled={!formData.role || !formData.orgName || !formData.whatsapp} 
-                  onClick={handleNext} 
-                  className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide group"
-                >
-                  Continue
-                  <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
-                </Button>
+                <div className="flex gap-3">
+                  {!isOwner && !userData?.orgId && (
+                    <Button variant="outline" onClick={handleBack} className="h-14 px-8 rounded-2xl font-bold uppercase">
+                      Back
+                    </Button>
+                  )}
+                  <Button 
+                    disabled={!formData.role || (isOwner && !formData.orgName) || !formData.whatsapp} 
+                    onClick={handleNext} 
+                    className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
+                  >
+                    Continue
+                    <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
+                  </Button>
+                </div>
               </motion.div>
             )}
 
-            {step === 2 && (
+            {/* OWNER CONTEXT: Step 2 (Owner Only) */}
+            {isOwner && step === 2 && (
               <motion.div
-                key="step2"
+                key="ownerContext"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Organization Context</h1>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Organization Context</h1>
                   <p className="text-muted-foreground">Tell us more about how you operate.</p>
                 </div>
 
@@ -403,16 +585,17 @@ const DAYS = [
               </motion.div>
             )}
 
+            {/* OPERATIONS: Step 3 (Both Owner and Employee) */}
             {step === 3 && (
               <motion.div
-                key="step3"
+                key="operations"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Operations</h1>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Operations</h1>
                   <p className="text-muted-foreground">Define your workspace standards.</p>
                 </div>
 
@@ -443,67 +626,66 @@ const DAYS = [
                             setIsEditingTimezone(false);
                           }}
                           styles={{
-                                                      control: (base, state) => ({
-                                                        ...base,
-                                                        height: '56px',
-                                                        borderRadius: '1rem',
-                                                        // Background based on image: A darker background, potentially card or secondary
-                                                        backgroundColor: 'hsl(var(--card))', // Assuming card or a slightly darker background
-                                                        borderColor: state.isFocused ? 'hsl(var(--primary))' : 'hsl(var(--border)/0.5)',
-                                                        boxShadow: state.isFocused ? '0 0 0 1px hsl(var(--primary))' : 'none',
-                                                        '&:hover': {
-                                                          borderColor: 'hsl(var(--primary))',
-                                                        },
-                                                        paddingLeft: '1rem',
-                                                        color: 'hsl(var(--foreground))',
-                                                      }),
-                                                      singleValue: (base) => ({
-                                                        ...base,
-                                                        color: 'hsl(var(--foreground))',
-                                                      }),
-                                                      input: (base) => ({
-                                                        ...base,
-                                                        color: 'hsl(var(--foreground))',
-                                                      }),
-                                                      placeholder: (base) => ({
-                                                        ...base,
-                                                        color: 'hsl(var(--muted-foreground))',
-                                                      }),
-                                                      menu: (base) => ({
-                                                        ...base,
-                                                        borderRadius: '1rem',
-                                                        overflow: 'hidden',
-                                                        zIndex: 50,
-                                                        // Background based on image: A darker card-like background
-                                                        backgroundColor: 'hsl(var(--card))',
-                                                        borderColor: 'hsl(var(--border)/0.5)',
-                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', // Example shadow
-                                                      }),
-                                                      option: (base, state) => ({
-                                                        ...base,
-                                                        backgroundColor: state.isSelected 
-                                                          ? 'hsl(var(--primary))' 
-                                                          : state.isFocused 
-                                                          ? 'hsl(var(--secondary))' 
-                                                          : 'hsl(var(--card))', // Default option background
-                                                        color: state.isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
-                                                        '&:hover': {
-                                                          backgroundColor: 'hsl(var(--secondary))',
-                                                          color: 'hsl(var(--foreground))',
-                                                        },
-                                                      }),
-                                                      dropdownIndicator: (base) => ({
-                                                        ...base,
-                                                        color: 'hsl(var(--muted-foreground))',
-                                                        '&:hover': {
-                                                          color: 'hsl(var(--foreground))',
-                                                        },
-                                                      }),
-                                                      indicatorSeparator: (base) => ({
-                                                        ...base,
-                                                        backgroundColor: 'hsl(var(--border))',
-                                                      }),
-                                                    }}                        />
+                            control: (base, state) => ({
+                              ...base,
+                              height: '56px',
+                              borderRadius: '1rem',
+                              backgroundColor: 'hsl(var(--card))',
+                              borderColor: state.isFocused ? 'hsl(var(--primary))' : 'hsl(var(--border)/0.5)',
+                              boxShadow: state.isFocused ? '0 0 0 1px hsl(var(--primary))' : 'none',
+                              '&:hover': {
+                                borderColor: 'hsl(var(--primary))',
+                              },
+                              paddingLeft: '1rem',
+                              color: 'hsl(var(--foreground))',
+                            }),
+                            singleValue: (base) => ({
+                              ...base,
+                              color: 'hsl(var(--foreground))',
+                            }),
+                            input: (base) => ({
+                              ...base,
+                              color: 'hsl(var(--foreground))',
+                            }),
+                            placeholder: (base) => ({
+                              ...base,
+                              color: 'hsl(var(--muted-foreground))',
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              borderRadius: '1rem',
+                              overflow: 'hidden',
+                              zIndex: 50,
+                              backgroundColor: 'hsl(var(--card))',
+                              borderColor: 'hsl(var(--border)/0.5)',
+                              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                            }),
+                            option: (base, state) => ({
+                              ...base,
+                              backgroundColor: state.isSelected 
+                                ? 'hsl(var(--primary))' 
+                                : state.isFocused 
+                                ? 'hsl(var(--secondary))' 
+                                : 'hsl(var(--card))',
+                              color: state.isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+                              '&:hover': {
+                                backgroundColor: 'hsl(var(--secondary))',
+                                color: 'hsl(var(--foreground))',
+                              },
+                            }),
+                            dropdownIndicator: (base) => ({
+                              ...base,
+                              color: 'hsl(var(--muted-foreground))',
+                              '&:hover': {
+                                color: 'hsl(var(--foreground))',
+                              },
+                            }),
+                            indicatorSeparator: (base) => ({
+                              ...base,
+                              backgroundColor: 'hsl(var(--border))',
+                            }),
+                          }}
+                        />
                       </div>
                     ) : (
                       <div className="p-6 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between">
@@ -579,17 +761,19 @@ const DAYS = [
                     Back
                   </Button>
                   <Button 
-                    onClick={handleNext} 
+                    onClick={isOwner ? handleNext : handleSubmit} 
                     className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
+                    disabled={loading}
                   >
-                    Continue
-                    <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
+                    {loading ? <Loader2 className="animate-spin" /> : (isOwner ? "Continue" : "Finish Setup")}
+                    {!loading && isOwner && <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />}
                   </Button>
                 </div>
               </motion.div>
             )}
 
-            {step === 4 && (
+            {/* BRANDING: Step 4 (Owner Only) */}
+            {isOwner && step === 4 && (
               <motion.div
                 key="step4"
                 initial={{ opacity: 0, x: 20 }}
@@ -598,7 +782,7 @@ const DAYS = [
                 className="space-y-8"
               >
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Visual Branding</h1>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Visual Branding</h1>
                   <p className="text-muted-foreground">Add your organization logo (Optional).</p>
                 </div>
 

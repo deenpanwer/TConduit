@@ -16,15 +16,14 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc, query, where, limit, getDocs, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, User } from "lucide-react";
-
-
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isEmployee, setIsEmployee] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     orgName: "",
@@ -38,7 +37,7 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.orgName || !formData.email || !formData.password || !formData.fullName) {
+    if ((!isEmployee && !formData.orgName) || !formData.email || !formData.password || !formData.fullName) {
       toast({ title: "Required fields missing", description: "Please fill in all the details to create your account.", variant: "destructive" });
       return;
     }
@@ -54,59 +53,68 @@ export default function SignupPage() {
       const user = userCredential.user;
       await updateProfile(user, { displayName: formData.fullName });
 
-      const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-      const trialExpiry = new Date();
-      trialExpiry.setDate(trialExpiry.getDate() + 14);
+      if (!isEmployee) {
+        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + 14);
 
-      // 1. Create Organization
-      await setDoc(doc(db, "organizations", orgId), {
-        name: formData.orgName,
-        ownerId: user.uid,
-        inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-        subscriptionStatus: "trialing",
-        subscriptionExpiry: trialExpiry,
-        partnerSlug: partnerSlug || null, // For whitelabel branding
-        createdAt: serverTimestamp()
-      });
+        // 1. Create Organization
+        await setDoc(doc(db, "organizations", orgId), {
+          name: formData.orgName,
+          ownerId: user.uid,
+          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+          subscriptionStatus: "trialing",
+          subscriptionExpiry: trialExpiry,
+          partnerSlug: partnerSlug || null,
+          createdAt: serverTimestamp()
+        });
 
-      // 2. Create User Profile WITH ownedOrgId
-      await setDoc(doc(db, "users", user.uid), {
-        email: user.email,
-        name: formData.fullName,
-        role: "owner",
-        orgName: formData.orgName,
-        ownedOrgId: orgId,
-        uid: user.uid,
-        onboardingCompleted: false,
-        partnerSlug: partnerSlug || null, // For whitelabel branding
-        createdAt: serverTimestamp()
-      });
+        // 2. Create User Profile WITH ownedOrgId
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: formData.fullName,
+          role: "owner",
+          orgName: formData.orgName,
+          ownedOrgId: orgId,
+          uid: user.uid,
+          onboardingCompleted: false,
+          partnerSlug: partnerSlug || null,
+          createdAt: serverTimestamp()
+        });
 
-      // 3. SECURE ATTRIBUTION: Write to Partner's private ledger
-      // DO NOT AWAIT THIS: Fire and forget so the user redirects instantly
-      if (partnerSlug) {
-        (async () => {
-          try {
-            const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
-            const partnerSnap = await getDocs(partnerQ);
-            if (!partnerSnap.empty) {
-              const partnerDoc = partnerSnap.docs[0];
-              await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
-                orgName: formData.orgName,
-                clientEmail: formData.email,
-                createdAt: serverTimestamp(),
-              });
-            }
-          } catch (e) { 
-            // Silent catch for background attribution
-          }
-        })();
+        if (partnerSlug) {
+          (async () => {
+            try {
+              const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+              const partnerSnap = await getDocs(partnerQ);
+              if (!partnerSnap.empty) {
+                const partnerDoc = partnerSnap.docs[0];
+                await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                  orgName: formData.orgName,
+                  clientEmail: formData.email,
+                  createdAt: serverTimestamp(),
+                });
+              }
+            } catch (e) {}
+          })();
+        }
+      } else {
+        // Employee path: No org creation here, will join in onboarding
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: formData.fullName,
+          role: "employee",
+          uid: user.uid,
+          onboardingCompleted: false,
+          partnerSlug: partnerSlug || null,
+          createdAt: serverTimestamp()
+        });
       }
 
       toast({ title: "Account created", description: "Welcome to the network. Let's finish your setup." });
       router.push("/dashboard/onboarding");
     } catch (error: any) {
-      toast({ title: "Signup failed", description: "We couldn't create your account. Please try again.", variant: "destructive" });
+      toast({ title: "Signup failed", description: error.message || "We couldn't create your account. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -126,58 +134,20 @@ export default function SignupPage() {
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
-        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-        const orgName = formData.orgName || `${user.displayName || 'Enterprise'}'s Org`;
-        const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14);
-
-        await setDoc(doc(db, "organizations", orgId), {
-          name: orgName,
-          ownerId: user.uid,
-          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-          subscriptionStatus: "trialing",
-          subscriptionExpiry: trialExpiry,
-          partnerSlug: partnerSlug || null, // For whitelabel branding
-          createdAt: serverTimestamp()
-        });
-
         await setDoc(doc(db, "users", user.uid), {
           email: user.email,
           name: user.displayName,
           photoUrl: user.photoURL,
-          role: "owner",
-          orgName: orgName,
-          ownedOrgId: orgId,
           uid: user.uid,
           onboardingCompleted: false,
-          partnerSlug: partnerSlug || null, // For whitelabel branding
+          partnerSlug: partnerSlug || null,
           createdAt: serverTimestamp()
         });
-
-        // SECURE ATTRIBUTION: Write to Partner's private ledger
-        try {
-          if (partnerSlug) {
-            const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
-            const partnerSnap = await getDocs(partnerQ);
-            if (!partnerSnap.empty) {
-              const partnerDoc = partnerSnap.docs[0];
-              await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
-                orgName: orgName,
-                clientEmail: user.email,
-                createdAt: serverTimestamp(),
-              });
-            }
-          }
-        } catch (attrError) {
-          // Silent catch
-        }
       }
 
       router.push("/dashboard/onboarding");
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        // Silent close
-      } else {
+      if (error.code !== 'auth/popup-closed-by-user') {
         toast({ title: "Google signup failed", description: "We couldn't link your Google account. Please try again.", variant: "destructive" });
       }
     } finally {
@@ -213,9 +183,11 @@ export default function SignupPage() {
             <div className="flex justify-center mb-4">
                <img src="/logo.svg" alt="Logo" className="w-12 h-12 dark:invert" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight leading-none">Create Account</h1>
+            <h1 className="text-2xl font-bold tracking-tight leading-none">
+              {isEmployee ? "Employee Signup" : "Create Account"}
+            </h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Set up your organization and start collaborating
+              {isEmployee ? "Join your organization's workspace" : "Set up your organization and start collaborating"}
             </p>
           </div>
 
@@ -230,16 +202,18 @@ export default function SignupPage() {
                 className="bg-background/50 border-border h-12 rounded-xl px-5"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="orgName" className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
-              <Input 
-                id="orgName" 
-                value={formData.orgName}
-                onChange={(e) => setFormData({...formData, orgName: e.target.value})}
-                placeholder="Company Name" 
-                className="bg-background/50 border-border h-12 rounded-xl px-5"
-              />
-            </div>
+            {!isEmployee && (
+              <div className="space-y-1.5">
+                <Label htmlFor="orgName" className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+                <Input 
+                  id="orgName" 
+                  value={formData.orgName}
+                  onChange={(e) => setFormData({...formData, orgName: e.target.value})}
+                  placeholder="Company Name" 
+                  className="bg-background/50 border-border h-12 rounded-xl px-5"
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider ml-1">Email</Label>
               <Input 
@@ -294,7 +268,17 @@ export default function SignupPage() {
             Continue with Google
           </Button>
 
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {isEmployee ? "Starting an organization?" : "Sent by your employer?"}{" "}
+              <button 
+                type="button"
+                onClick={() => setIsEmployee(!isEmployee)}
+                className="text-yellow-500 font-bold hover:underline"
+              >
+                Click here
+              </button>
+            </p>
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link href="/dashboard/login" className="text-primary font-semibold hover:underline">Sign in</Link>

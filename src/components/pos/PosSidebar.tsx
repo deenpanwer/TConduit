@@ -1,12 +1,14 @@
 "use client";
 
-import { cn, getUserAvatar } from "@/lib/utils";
+import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { cn, getUserAvatar } from '@/lib/utils';
 import { 
-  SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
-  UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
-  Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays, Database,
-  ShoppingCart, Briefcase, X
-} from "lucide-react";
+  LayoutDashboard, ShoppingCart, ChevronsLeft, ChevronsRight, 
+  Keyboard, Archive, Users, BarChart, Settings, History,
+  Moon, Sun, Briefcase, ChevronDown, X
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -20,50 +22,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Link from "next/link";
-import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useTeam } from "@/hooks/use-team";
-import { toast } from "sonner";
 
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit } from "firebase/firestore";
 
-interface DashboardSidebarProps {
+interface PosSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean) => void;
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
-  employees: any[];
-  onInviteClick?: () => void;
 }
 
-export function DashboardSidebar({
-  isCollapsed,
+export function PosSidebar({ 
+  isCollapsed, 
   setIsCollapsed,
   isMobileSidebarOpen,
-  setIsMobileSidebarOpen,
-  employees,
-  onInviteClick
-}: DashboardSidebarProps) {
+  setIsMobileSidebarOpen 
+}: PosSidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
-  const router = useRouter();
-  const params = useParams();
-  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const [isTeamExpanded, setIsTeamExpanded] = useState(true);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
 
   // Swipe logic refs
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
-  useEffect(() => { 
-    setMounted(true); 
-    
+  useEffect(() => {
+    setMounted(true);
+
     async function fetchPartnerBranding() {
       if (userData?.partnerSlug) {
         try {
@@ -73,7 +64,7 @@ export function DashboardSidebar({
             setPartnerBrand(snap.docs[0].data().brandName);
           }
         } catch (err) {
-          console.error("Error fetching sidebar branding:", err);
+          console.error("Error fetching POS sidebar branding:", err);
         }
       }
     }
@@ -94,7 +85,7 @@ export function DashboardSidebar({
   const handleTouchEnd = () => {
     if (!touchStartX.current || !touchEndX.current) return;
     const distance = touchStartX.current - touchEndX.current;
-    const isLeftSwipe = distance > 50; // Threshold to trigger close
+    const isLeftSwipe = distance > 50; 
 
     if (isLeftSwipe && isMobileSidebarOpen) {
       setIsMobileSidebarOpen(false);
@@ -105,7 +96,7 @@ export function DashboardSidebar({
 
   const userEmail = user?.email;
 
-  const NavItem = ({ icon: Icon, label, href, active, count }: any) => (
+  const NavItem = ({ icon: Icon, label, href, active }: any) => (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -122,14 +113,7 @@ export function DashboardSidebar({
           >
             <Icon className={cn("size-5 shrink-0")} size={20} />
             {(!isCollapsed || isMobileSidebarOpen) && (
-              <div className="flex flex-1 items-center justify-between overflow-hidden">
-                <span className="text-sm font-bold truncate">{label}</span>
-                {count !== undefined && count > 0 && (
-                   <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-black">
-                     {count}
-                   </span>
-                )}
-              </div>
+              <span className="text-sm font-bold truncate">{label}</span>
             )}
           </button>
         </TooltipTrigger>
@@ -174,7 +158,7 @@ export function DashboardSidebar({
               <X size={18} />
             </Button>
           )}
-
+          
           {/* Product Switcher */}
           <div className="mb-8 pt-8 lg:pt-0 shrink-0 min-h-8">
             <DropdownMenu>
@@ -184,16 +168,16 @@ export function DashboardSidebar({
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0" />
+                    <img src="/logo.svg" alt="POS Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0" />
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
-                        <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">TRAC AI</span>
+                        <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">POS SYSTEM</span>
                         {partnerBrand && (
                           <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1">
                             Subsidiary of {partnerBrand}
                           </span>
                         )}
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Dashboard</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Retail</span>
                       </div>
                     )}
                   </div>
@@ -205,27 +189,27 @@ export function DashboardSidebar({
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
                 </div>
                 <DropdownMenuItem 
-                  disabled
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
+                  onClick={() => router.push('/dashboard')}
+                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
                 >
                   <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <LayoutDashboard className="size-5 text-primary" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="font-bold text-sm">Dashboard</span>
-                    <span className="text-[10px] text-muted-foreground">Current Product</span>
+                    <span className="text-[10px] text-muted-foreground">Admin & Staff</span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  onClick={() => router.push('/pos/checkout')}
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
+                  disabled
+                  className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
                 >
                   <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
                     <ShoppingCart className="size-5 text-orange-500" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="font-bold text-sm">POS System</span>
-                    <span className="text-[10px] text-muted-foreground">Retail & Transactions</span>
+                    <span className="text-[10px] text-muted-foreground">Current Product</span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
@@ -245,95 +229,29 @@ export function DashboardSidebar({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => onInviteClick?.()}
-                    className={cn(
-                      "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
-                    )}
-                  >
-                    <Plus className="size-5 shrink-0" />
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Invite Staff Member
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
             <div className="space-y-1">
-                <NavItem icon={LayoutDashboard} label="Overview" href="/dashboard" active={pathname === "/dashboard"} />
-                <NavItem icon={Zap} label="Supervise" href="/dashboard/supervise" active={pathname === "/dashboard/supervise"} />
-                <NavItem icon={ListTodo} label="Tasks" href="/dashboard/tasks" active={pathname === "/dashboard/tasks"} />
-                <NavItem icon={CalendarRange} label="Shifts" href="/dashboard/shifts" active={pathname === "/dashboard/shifts"} />
-                <NavItem icon={CalendarDays} label="Calendar" href="/dashboard/calendar" active={pathname === "/dashboard/calendar"} />
-                <NavItem icon={MessageSquare} label="Messages" href="/dashboard/chat" active={pathname === "/dashboard/chat"} />
-            </div>
-
-            <div className="space-y-1">
-                <button
-                    onClick={() => setIsTeamExpanded(!isTeamExpanded)}
-                    className={cn(
-                        "flex items-center gap-3 w-full p-2 rounded-xl transition-all group",
-                        "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                        (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
-                    )}
-                >
-                    <span className="size-5 shrink-0 relative flex items-center justify-center">
-                        <Users className="absolute transition-all duration-200 group-hover:opacity-0 group-hover:scale-75" size={20} />
-                        <ChevronDown className={cn("absolute transition-all duration-200 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100", isTeamExpanded ? "" : "-rotate-90")} size={20} />
-                    </span>
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-[10px] font-black uppercase tracking-widest">Staff Member</span>}
-                </button>
-
-                {isTeamExpanded && (!isCollapsed || isMobileSidebarOpen) && (
-                    <div className="relative pl-6 space-y-1 mt-1 border-l-2 border-purple-500/20 ml-4">
-                        {employees.length === 0 ? (
-                            <div className="px-2 py-3">
-                               <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tight">No active staff</p>
-                            </div>
-                        ) : (
-                            employees.map((emp) => (
-                                <button
-                                    key={emp.id}
-                                    onClick={() => {
-                                      router.push(`/dashboard/team/${emp.id}`);
-                                      if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
-                                    }}
-                                    className={cn(
-                                        "flex items-center gap-2 w-full p-2 rounded-lg text-xs font-bold transition-all text-left",
-                                        params.id === emp.id 
-                                            ? "bg-purple-500/20 text-purple-700 dark:text-purple-300" 
-                                            : "text-muted-foreground hover:text-purple-500 hover:bg-purple-500/5"
-                                    )}
-                                >
-                                    <div className={cn("size-1.5 rounded-full shrink-0 transition-all", params.id === emp.id ? "bg-purple-500 scale-110" : "bg-purple-500/40")} />
-                                    <span className="truncate">{emp.name}</span>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                )}
+              <NavItem icon={ShoppingCart} label="Checkout" href="/pos/checkout" active={pathname === "/pos/checkout"} />
+              <NavItem icon={LayoutDashboard} label="Dashboard" href="/pos/dashboard" active={pathname === "/pos/dashboard"} />
+              <NavItem icon={Archive} label="Stock/Inventory" href="/pos/inventory" active={pathname === "/pos/inventory"} />
+              <NavItem icon={Users} label="Customers" href="/pos/customers" active={pathname === "/pos/customers"} />
+              <NavItem icon={History} label="History" href="/pos/history" active={pathname === "/pos/history"} />
+              <NavItem icon={BarChart} label="Reports" href="/pos/reports" active={pathname === "/pos/reports"} />
+              <NavItem icon={Settings} label="Settings" href="/pos/settings" active={pathname === "/pos/settings"} />
             </div>
           </div>
 
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-4 shrink-0">
-            
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => {
-                      router.push("/dashboard/settings");
+                      router.push("/pos/settings");
                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                     }}
                     className={cn(
                       "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group",
-                      pathname === "/dashboard/settings" ? "bg-secondary ring-1 ring-border" : "",
+                      pathname === "/pos/settings" ? "bg-secondary ring-1 ring-border" : "",
                       (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
                     )}
                   >
@@ -355,7 +273,7 @@ export function DashboardSidebar({
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                <TooltipContent side="right" className={cn((isCollapsed && !isMobileSidebarOpen) && "hidden")}>
                   Account Settings
                 </TooltipContent>
               </Tooltip>

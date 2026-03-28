@@ -9,6 +9,8 @@ import { PHProvider } from './providers';
 import { AuthProvider } from '@/hooks/use-auth';
 import { TeamProvider } from '@/hooks/use-team';
 import { TasksProvider } from '@/hooks/useTasks';
+import { CRMProvider } from '@/hooks/use-crm';
+import { PosProvider } from '@/hooks/use-pos';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -53,6 +55,8 @@ export default function RootLayout({
             <AuthProvider>
               <TeamProvider>
                 <TasksProvider>
+                <PosProvider> {/* <-- Wrap with PosProvider */} 
+                 <CRMProvider>
                   <ThemeProvider
                     attribute="class"
                     defaultTheme="system"
@@ -63,6 +67,8 @@ export default function RootLayout({
                     <Toaster />
                     <Analytics />
                   </ThemeProvider>
+                 </CRMProvider>
+                 </PosProvider>
                 </TasksProvider>
               </TeamProvider>
             </AuthProvider>

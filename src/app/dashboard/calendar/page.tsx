@@ -382,7 +382,7 @@ function AnalysisContent({
   formatDuration
 }: any) {
   return (
-    <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex-1 custom-scrollbar">
+    <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex-1 overflow-y-auto custom-scrollbar">
       <div className="space-y-1">
         <h2 className="text-[10px] md:text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">
           Daily Analysis

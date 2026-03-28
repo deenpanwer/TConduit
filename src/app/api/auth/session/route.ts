@@ -9,9 +9,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "cleared" });
   }
 
-  // Set the cookie for 7 days
+  // Set the cookie for 365 days
   (await cookies()).set("trac_auth_session", session, {
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 365,
     path: "/",
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // Set to true only in production (HTTPS)
