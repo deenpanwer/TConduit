@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { CallLogModal } from "@/components/crm/CallLogModal";
+import { CallModal } from "@/components/crm/forms/CallModal";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
@@ -456,7 +456,7 @@ const CRMListView = ({
 };
 
 export default function CallLogsPage() {
-  const { calls, config, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity } = useCRM();
+  const { calls, leads, config, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity } = useCRM();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -506,6 +506,17 @@ export default function CallLogsPage() {
     setShowAddModal(true);
   };
 
+  const handleCallSubmit = async (data: any) => {
+    if (modalMode === 'create') {
+      await addEntity('call', data);
+      toast.success("Call logged successfully");
+    } else if (modalMode === 'edit' && selectedCall) {
+      await updateEntity(selectedCall.id, data);
+      toast.success("Call log updated");
+    }
+    setShowAddModal(false);
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -516,11 +527,13 @@ export default function CallLogsPage() {
 
   return (
     <div className="p-6 space-y-6 flex flex-col h-full min-h-screen relative max-w-[1600px] mx-auto">
-      <CallLogModal 
+      <CallModal 
         isOpen={showAddModal} 
         onOpenChange={setShowAddModal} 
         mode={modalMode}
         call={selectedCall}
+        leads={leads}
+        onSubmit={handleCallSubmit}
       />
 
       <AnimatePresence>
