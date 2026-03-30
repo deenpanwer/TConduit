@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "./use-auth";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
@@ -16,8 +16,36 @@ import {
   query, 
   where,
   Timestamp,
-  arrayUnion
+  arrayUnion,
+  limit,
+  orderBy,
+  QueryConstraint
 } from "firebase/firestore";
+
+/**
+ * RECURSIVE UTILITY: Removes undefined values from an object.
+ * Firestore will throw an error if any field is undefined.
+ */
+const cleanObject = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanObject);
+  } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Timestamp)) {
+    // Check if it's a Firestore FieldValue or other system object
+    // FieldValues usually have internal methods like _toFieldTransform
+    if (Object.getPrototypeOf(obj) !== Object.prototype && Object.getPrototypeOf(obj) !== null) {
+      return obj;
+    }
+    
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanObject(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+};
 
 export interface FieldConfig {
   id: string;
@@ -64,7 +92,7 @@ export interface EntityHistory {
   content: string;
   userId: string;
   userName?: string;
-  timestamp: string | any; // Any for Firebase ServerTimestamp
+  timestamp: string | any;
   details?: any;
 }
 
@@ -81,7 +109,12 @@ export interface CRMEntity {
   lastEditedBy: string;
 }
 
+/**
+ * CRM Context Interface
+ * Handles data fetching, configuration, and CRUD operations for the CRM system.
+ */
 interface CRMContextType {
+  // Entities grouped by type
   entities: CRMEntity[];
   leads: CRMEntity[];
   organizations: CRMEntity[];
@@ -89,8 +122,16 @@ interface CRMContextType {
   deals: CRMEntity[];
   calls: CRMEntity[];
   notes: CRMEntity[];
+  
+  // Configuration and state
   config: CRMConfig;
   loading: boolean;
+  
+  // Pagination
+  pageSize: number;
+  setPageSize: (size: number) => void;
+  
+  // CRUD Operations
   addEntity: (type: CRMEntity['type'], data: Record<string, any>) => Promise<string | null>;
   updateEntity: (id: string, updates: Record<string, any>, action?: string) => Promise<void>;
   updateEntityField: (id: string, fieldKey: string, value: any) => Promise<void>;
@@ -213,11 +254,28 @@ const DEFAULT_CONFIG: CRMConfig = {
       name: "Contacts",
       description: "Individual people at the companies you know.",
       fields: [
-        { id: 'c1', key: 'name', label: 'Full Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
-        { id: 'c2', key: 'email', label: 'Email', type: 'email', isSystem: true, isVisible: true, order: 1 },
+        { id: 'c_sal', key: 'salutation', label: 'Salutation', type: 'select', isSystem: true, isVisible: true, order: 0, options: [
+          { label: 'Mr', value: 'Mr' },
+          { label: 'Ms', value: 'Ms' },
+          { label: 'Mrs', value: 'Mrs' },
+          { label: 'Dr', value: 'Dr' },
+          { label: 'Prof', value: 'Prof' },
+        ]},
+        { id: 'c1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
+        { id: 'c_last', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 2 },
+        { id: 'c3', key: 'email', label: 'Email Address', type: 'email', isSystem: true, isVisible: true, order: 3 },
+        { id: 'c_mob', key: 'mobile', label: 'Mobile No', type: 'phone', isSystem: true, isVisible: true, order: 4 },
+        { id: 'c_gen', key: 'gender', label: 'Gender', type: 'select', isSystem: true, isVisible: true, order: 5, options: [
+          { label: 'Male', value: 'Male' },
+          { label: 'Female', value: 'Female' },
+          { label: 'Other', value: 'Other' },
+        ]},
+        { id: 'c2', key: 'company', label: 'Company Name', type: 'text', isSystem: true, isVisible: true, order: 6 },
+        { id: 'c_des', key: 'designation', label: 'Designation', type: 'text', isSystem: true, isVisible: true, order: 7 },
+        { id: 'c_addr', key: 'address', label: 'Address', type: 'textarea', isSystem: true, isVisible: true, order: 8 },
       ],
       views: [
-        { id: 'cv1', name: 'Directory', type: 'list', visibleFields: ['c1', 'c2'] },
+        { id: 'cv1', name: 'Spreadsheet', type: 'list', visibleFields: ['c1', 'c_last', 'c3', 'c_mob', 'c2', 'c_des'] },
       ]
     },
     calls: {
@@ -243,7 +301,7 @@ const DEFAULT_CONFIG: CRMConfig = {
             { label: 'Queued', value: 'queued', color: 'gray' },
             { label: 'Canceled', value: 'canceled', color: 'gray' },
           ]},
-          { id: 'cl_related_to', key: 'related_to', label: 'Related To', type: 'select', isSystem: false, isVisible: true, order: 6 },
+          { id: 'cl_related_to', key: 'relatedTo', label: 'Related To', type: 'text', isSystem: true, isVisible: true, order: 6 },
           { id: 'cl_created_at', key: 'createdAt', label: 'Date', type: 'date', isSystem: true, isVisible: true, order: 7 },
         ],
         views: [
@@ -268,47 +326,67 @@ const DEFAULT_CONFIG: CRMConfig = {
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
+/**
+ * CRM PROVIDER
+ * Manages all CRM data, configuration, and real-time synchronization with Firestore.
+ */
 export function CRMProvider({ children }: { children: React.ReactNode }) {
   const { user, userData } = useAuth();
   const [entities, setEntities] = useState<CRMEntity[]>([]);
+  const [optimisticEntities, setOptimisticEntities] = useState<CRMEntity[]>([]);
   const [config, setConfig] = useState<CRMConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  
+  // Pagination State (Records per fetch)
+  const [pageSize, setPageSize] = useState(50);
 
-  // Helper to get active orgId
+  // Helper to get active organization ID
   const getOrgId = useCallback(() => {
     return userData?.ownedOrgId || userData?.orgId;
   }, [userData]);
 
+  /**
+   * INITIALIZATION & REAL-TIME LISTENERS
+   */
   useEffect(() => {
     const orgId = getOrgId();
     if (!orgId) {
       setEntities([]);
+      setOptimisticEntities([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    // 1. Listen to Config
+    /**
+     * 1. CONFIGURATION LISTENER
+     * Syncs custom fields, views, and module settings.
+     */
     const configRef = doc(db, `organizations/${orgId}/crm_config`, 'main');
     const unsubscribeConfig = onSnapshot(configRef, (docSnap) => {
       if (docSnap.exists()) {
         const storedConfig = docSnap.data() as CRMConfig;
         const merged = { ...DEFAULT_CONFIG };
         
+        // Merge stored config with defaults to ensure new system features are available
         Object.keys(merged.modules).forEach(key => {
           const k = key as keyof CRMConfig['modules'];
           if (storedConfig.modules[k]) {
               const defaultFieldKeys = new Set(merged.modules[k].fields.map(f => f.key));
               const customFields = (storedConfig.modules[k].fields || []).filter((f: FieldConfig) => !defaultFieldKeys.has(f.key) && !f.isSystem);
 
+              // Update system fields with stored visibility/order
               const updatedFields = merged.modules[k].fields.map(sysField => {
                   const storedField = (storedConfig.modules[k].fields || []).find((f: FieldConfig) => f.key === sysField.key);
                   if (storedField) {
                       return {
                           ...sysField,
-                          isVisible: storedField.isVisible,
-                          order: storedField.order,
-                          options: sysField.options
+                          isVisible: storedField.isVisible !== undefined ? storedField.isVisible : sysField.isVisible,
+                          order: storedField.order !== undefined ? storedField.order : sysField.order,
+                          // BUG FIX: Prioritize user's saved options over default options.
+                          // Fall back to system options only if no custom options are saved.
+                          options: storedField.options || sysField.options
                       };
                   }
                   return sysField;
@@ -317,6 +395,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
               const newFields = [...updatedFields, ...customFields].sort((a, b) => a.order - b.order);
               const allFieldIds = new Set(newFields.map(f => f.id));
 
+              // Merge views
               const defaultViews = merged.modules[k].views;
               const storedViews = storedConfig.modules[k].views || [];
 
@@ -325,7 +404,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
                   if (storedView) {
                       const visibleFieldSet = new Set([
                           ...defaultView.visibleFields,
-                          ...storedView.visibleFields
+                          ...(storedView.visibleFields || [])
                       ]);
 
                       const finalVisibleFields = [...visibleFieldSet].filter(id => allFieldIds.has(id));
@@ -348,46 +427,116 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // 2. Listen to Entities
+    /**
+     * 2. ENTITY LISTENER
+     * Fetches leads, deals, etc. with pagination support.
+     */
     const entitiesRef = collection(db, `organizations/${orgId}/crm_entities`);
-    const q = query(entitiesRef, where("isDeleted", "==", false));
-    const unsubscribeEntities = onSnapshot(q, (querySnapshot) => {
+    
+    // BUG FIX: Removed orderBy("createdAt", "desc") to avoid needing a composite index.
+    // The sorting is now handled client-side in the `combinedEntities` useMemo hook.
+    const constraints: QueryConstraint[] = [
+      where("isDeleted", "==", false),
+      limit(pageSize)
+    ];
+
+    const q = query(entitiesRef, ...constraints);
+    
+    const unsubscribeEntities = onSnapshot(q, { includeMetadataChanges: true }, (querySnapshot) => {
       const docs: CRMEntity[] = [];
       querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        // Convert Firebase timestamps to ISO strings for UI consistency or keep as is
+        // Use 'estimate' to provide a local timestamp for optimistic updates
+        const data = doc.data({ serverTimestamps: 'estimate' });
+        const historyArray = Array.isArray(data.history) ? data.history : [];
         docs.push({ 
           ...data, 
           id: doc.id,
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
           updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
-          history: (data.history || []).map((h: any) => ({
+          history: historyArray.map((h: any) => ({
             ...h,
             timestamp: h.timestamp instanceof Timestamp ? h.timestamp.toDate().toISOString() : h.timestamp
           }))
         } as CRMEntity);
       });
+      
       setEntities(docs);
+      
+      // Only clear optimistic entities that have been successfully confirmed by the server
+      // and are now present in the formal 'entities' list.
+      if (!querySnapshot.metadata.hasPendingWrites) {
+        setOptimisticEntities(prev => prev.filter(oe => !docs.some(d => d.id === oe.id)));
+      }
+      
       setLoading(false);
     }, (error) => {
       console.error("CRM Entities listener failed:", error);
       setLoading(false);
+      toast.error("Failed to sync CRM data");
     });
 
     return () => {
       unsubscribeConfig();
       unsubscribeEntities();
     };
-  }, [getOrgId]);
+  }, [getOrgId, pageSize]);
 
+  // Combined entities (Optimistic + Real)
+  // We prioritize optimisticEntities (manual) for new items, 
+  // but let Firestore's entities (which are also optimistic due to includeMetadataChanges) 
+  // handle updates to existing items.
+  const combinedEntities = useMemo(() => {
+    // Start with server/realtime entities
+    const combined = [...entities];
+    
+    // Add optimistic items (mostly new ones that don't exist in server list yet)
+    optimisticEntities.forEach(oe => {
+      const index = combined.findIndex(e => e.id === oe.id);
+      if (index === -1) {
+        combined.push(oe);
+      } else {
+        // If it's already in the server list, the server list is actually "newer" 
+        // or Firestore's own optimistic state is better.
+      }
+    });
+
+    // Data is sorted here, ensuring consistent order without a complex Firestore query.
+    return combined.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [entities, optimisticEntities]);
+
+  /**
+   * ADD ENTITY
+   * Creates a new lead, deal, or other CRM item.
+   */
   const addEntity = async (type: CRMEntity['type'], data: Record<string, any>): Promise<string | null> => {
     const orgId = getOrgId();
     if (!orgId || !user) return null;
 
+    const tempId = crypto.randomUUID();
+    const newEntity: CRMEntity = {
+      id: tempId,
+      orgId,
+      name: data.name || data.summary || `Unnamed ${type}`,
+      type,
+      data,
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastEditedBy: user.uid,
+      history: []
+    };
+
+    // Optimistic Update
+    setOptimisticEntities(prev => [newEntity, ...prev]);
+
     try {
       const entitiesRef = collection(db, `organizations/${orgId}/crm_entities`);
       
-      const newEntityData = {
+      const firestoreData = cleanObject({
         orgId,
         name: data.name || data.summary || `Unnamed ${type}`,
         type,
@@ -403,73 +552,115 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
           content: `${type.charAt(0).toUpperCase() + type.slice(1)} "${data.name || data.summary}" was created.`,
           userId: user.uid,
           userName: userData?.name || user.displayName || "User",
-          timestamp: new Date().toISOString(), // Use local for immediate history display or ServerTimestamp if preferred
+          timestamp: new Date().toISOString(),
         }]
-      };
+      });
 
-      const docRef = await addDoc(entitiesRef, newEntityData);
+      const docRef = await addDoc(entitiesRef, firestoreData);
+      
+      // Update optimistic entity with the real ID
+      setOptimisticEntities(prev => prev.map(e => e.id === tempId ? { ...e, id: docRef.id } : e));
+      
       return docRef.id;
     } catch (e) {
       console.error("Error adding CRM entity:", e);
-      toast.error("Failed to add entity");
+      setOptimisticEntities(prev => prev.filter(e => e.id !== tempId));
+      toast.error("Failed to add item");
       return null;
     }
   };
 
+  /**
+   * UPDATE ENTITY
+   * Updates fields and adds a history entry.
+   */
   const updateEntity = async (id: string, updates: Record<string, any>, action: string = "updated") => {
     const orgId = getOrgId();
     if (!orgId || !user) return;
 
+    // Optimistic Update
+    setOptimisticEntities(prev => {
+        const index = prev.findIndex(e => e.id === id);
+        if (index > -1) {
+            const updated = { ...prev[index] };
+            Object.entries(updates).forEach(([key, value]) => {
+                if (key === 'name' || key === 'summary') updated.name = value;
+                else if (key === 'isDeleted') updated.isDeleted = value;
+                else updated.data = { ...updated.data, [key]: value };
+            });
+            const newOptimistic = [...prev];
+            newOptimistic[index] = updated;
+            return newOptimistic;
+        } else {
+            const realEntity = entities.find(e => e.id === id);
+            if (realEntity) {
+                const updated = { ...realEntity };
+                Object.entries(updates).forEach(([key, value]) => {
+                    if (key === 'name' || key === 'summary') updated.name = value;
+                    else if (key === 'isDeleted') updated.isDeleted = value;
+                    else updated.data = { ...updated.data, [key]: value };
+                });
+                return [...prev, updated];
+            }
+        }
+        return prev;
+    });
+
     try {
       const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
       
-      const historyEntry: EntityHistory = {
+      const historyEntry = {
         id: crypto.randomUUID(),
         type: 'System',
         action,
-        content: `Entity updated`,
+        content: `Updated ${action}`,
         userId: user.uid,
         userName: userData?.name || user.displayName || "User",
         timestamp: new Date().toISOString(),
         details: updates
       };
 
-      // Prepare updates
       const firestoreUpdates: any = {
         updatedAt: serverTimestamp(),
         lastEditedBy: user.uid,
         history: arrayUnion(historyEntry)
       };
 
-      // Map data updates
+      // Flatten data updates for nested firestore update
       Object.entries(updates).forEach(([key, value]) => {
         if (key === 'name' || key === 'summary') {
           firestoreUpdates.name = value;
-        }
-        if (key === 'isDeleted') {
+        } else if (key === 'isDeleted') {
           firestoreUpdates.isDeleted = value;
+        } else {
+          firestoreUpdates[`data.${key}`] = value;
         }
-        firestoreUpdates[`data.${key}`] = value;
       });
 
-      await updateDoc(entityRef, firestoreUpdates);
+      await updateDoc(entityRef, cleanObject(firestoreUpdates));
     } catch (e) {
       console.error("Error updating CRM entity:", e);
+      // Revert optimistic update on failure (optional, but good practice)
+      setOptimisticEntities(prev => prev.filter(e => e.id !== id));
       toast.error("Update failed");
     }
   };
 
   const updateEntityField = async (id: string, fieldKey: string, value: any) => {
-    await updateEntity(id, { [fieldKey]: value }, `updated_${fieldKey}`);
+    await updateEntity(id, { [fieldKey]: value }, fieldKey);
   };
 
+  /**
+   * ADD ACTIVITY
+   * Manually adds a note, call log, or comment to an entity's history.
+   */
   const addActivity = async (entityId: string, activity: { type: EntityHistory['type'], content: string, details?: any }) => {
     const orgId = getOrgId();
     if (!orgId || !user) return;
     
     try {
       const entityRef = doc(db, `organizations/${orgId}/crm_entities`, entityId);
-      const historyEntry: EntityHistory = {
+      const historyEntry = {
         id: crypto.randomUUID(),
         type: activity.type,
         action: activity.type.toLowerCase(),
@@ -483,25 +674,35 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       await updateDoc(entityRef, {
         updatedAt: serverTimestamp(),
         lastEditedBy: user.uid,
-        history: arrayUnion(historyEntry)
+        history: arrayUnion(cleanObject(historyEntry))
       });
     } catch (e) {
       console.error("Error adding CRM activity:", e);
     }
   };
 
+  /**
+   * DELETE ENTITY
+   * Soft deletes an entity (moves to trash) or hard deletes it.
+   */
   const deleteEntity = async (id: string, hardDelete: boolean = false) => {
     const orgId = getOrgId();
-    if (!orgId || !user) return;
+    if (!user) return;
+
+    // Optimistic delete
+    if (!hardDelete) {
+        setOptimisticEntities(prev => prev.filter(e => e.id !== id));
+        setEntities(prev => prev.filter(e => e.id !== id));
+    }
 
     try {
       const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
       if (hardDelete) {
         await deleteDoc(entityRef);
-        toast.success("Entity permanently deleted");
+        toast.success("Permanently deleted");
       } else {
         await updateEntity(id, { isDeleted: true }, "archived");
-        toast.success("Entity moved to trash");
+        toast.success("Moved to Trash");
       }
     } catch (e) {
       console.error("Error deleting CRM entity:", e);
@@ -511,9 +712,13 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
   const restoreEntity = async (id: string) => {
     await updateEntity(id, { isDeleted: false }, "restored");
-    toast.success("Entity restored");
+    toast.success("Restored successfully");
   };
 
+  /**
+   * UPDATE MODULE CONFIG
+   * Saves custom fields and view settings.
+   */
   const updateModuleConfig = async (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => {
     const orgId = getOrgId();
     if (!orgId) return;
@@ -522,31 +727,41 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       const configRef = doc(db, `organizations/${orgId}/crm_config`, 'main');
       const newModuleConfig = { ...config.modules[module], ...updates };
       
-      await setDoc(configRef, {
+      const finalConfig = cleanObject({
         modules: {
           ...config.modules,
           [module]: newModuleConfig
         }
-      }, { merge: true });
-      
-      toast.success(`${config.modules[module].name} configuration updated`);
+      });
+
+      await setDoc(configRef, finalConfig, { merge: true });
+      toast.success("Settings saved");
     } catch (e) {
       console.error("Error updating CRM config:", e);
-      toast.error("Failed to save configuration");
+      toast.error("Failed to save settings");
     }
   };
 
+  const leads = useMemo(() => combinedEntities.filter(e => e.type === 'lead'), [combinedEntities]);
+  const organizations = useMemo(() => combinedEntities.filter(e => e.type === 'organization'), [combinedEntities]);
+  const contacts = useMemo(() => combinedEntities.filter(e => e.type === 'contact'), [combinedEntities]);
+  const deals = useMemo(() => combinedEntities.filter(e => e.type === 'deal'), [combinedEntities]);
+  const calls = useMemo(() => combinedEntities.filter(e => e.type === 'call'), [combinedEntities]);
+  const notes = useMemo(() => combinedEntities.filter(e => e.type === 'note'), [combinedEntities]);
+
   return (
-    <CRMContext.Provider value={{ 
-      entities, 
-      leads: entities.filter(e => e.type === 'lead' && !e.isDeleted),
-      organizations: entities.filter(e => e.type === 'organization' && !e.isDeleted),
-      contacts: entities.filter(e => e.type === 'contact' && !e.isDeleted),
-      deals: entities.filter(e => e.type === 'deal' && !e.isDeleted),
-      calls: entities.filter(e => e.type === 'call' && !e.isDeleted),
-      notes: entities.filter(e => e.type === 'note' && !e.isDeleted),
+    <CRMContext.Provider value={{
+      entities: combinedEntities, 
+      leads,
+      organizations,
+      contacts,
+      deals,
+      calls,
+      notes,
       config, 
       loading, 
+      pageSize,
+      setPageSize,
       addEntity, 
       updateEntity, 
       updateEntityField, 
@@ -566,4 +781,4 @@ export const useCRM = () => {
     throw new Error("useCRM must be used within a CRMProvider");
   }
   return context;
-}
+};

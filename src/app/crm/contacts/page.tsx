@@ -4,17 +4,16 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useCRM, CRMEntity, FieldConfig, ViewConfig, CRMConfig } from "@/hooks/use-crm";
 import { Button } from "@/components/ui/button";
 import { 
-  LayoutGrid, List as ListIcon, Plus, Search, 
-  Filter, Download, MoreHorizontal, ArrowUpDown,
-  MoreVertical, Trash2, Edit2, Settings2, X, Check,
-  Briefcase, DollarSign, Target, Eye, Loader2, ChevronDown,
-  GripHorizontal, GripVertical, ArrowLeft, ArrowRight, ArrowUp, ArrowDown,
-  Trash, PhoneCall, NotebookPen
+  Plus, Search, Filter, Download, MoreHorizontal, 
+  ArrowUpDown, MoreVertical, Trash2, Edit2, Settings2, 
+  X, Check, Eye, List as ListIcon, Loader2, ArrowLeft, ArrowRight,
+  Trash, User, Briefcase, PhoneCall, NotebookPen
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ContactModal } from "@/components/crm/forms/ContactModal";
 import { DealModal } from "@/components/crm/forms/DealModal";
 import { CallModal } from "@/components/crm/forms/CallModal";
 import { NoteModal } from "@/components/crm/forms/NoteModal";
@@ -92,213 +91,41 @@ const InlineEdit = ({
 };
 
 /**
- * COMPOSABLE KANBAN VIEW
- */
-const CRMKanbanView = ({ 
-  deals, 
-  config, 
-  updateConfig,
-  onDealClick, 
-  onAddClick,
-  onDropDeal
-}: { 
-  deals: CRMEntity[], 
-  config: CRMConfig, 
-  updateConfig: (updates: any) => void,
-  onDealClick: (deal: CRMEntity) => void, 
-  onAddClick: (status?: string) => void,
-  onDropDeal: (dealId: string, status: string) => void
-}) => {
-  const [editingStage, setEditingStage] = useState<string | null>(null);
-  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  
-  const module = config.modules.deals;
-  const view = module.views.find((v: ViewConfig) => v.type === 'kanban') || module.views[0];
-  const kanbanField = module.fields.find((f: FieldConfig) => f.id === view.kanbanFieldId);
-  const displayFields = module.fields.filter((f: FieldConfig) => view.visibleFields.includes(f.id));
-
-  if (!kanbanField || !kanbanField.options) return null;
-
-  const handleRenameStage = (oldValue: string, newLabel: string) => {
-    const newOptions = kanbanField.options?.map(o => 
-      o.value === oldValue ? { ...o, label: newLabel } : o
-    );
-    const newFields = module.fields.map(f => 
-      f.id === kanbanField.id ? { ...f, options: newOptions } : f
-    );
-    updateConfig({ fields: newFields });
-    setEditingStage(null);
-  };
-
-  const handleAddStage = () => {
-    const newVal = `stage_${Date.now()}`;
-    const newOptions = [...(kanbanField.options || []), { label: 'New Stage', value: newVal, color: 'gray' }];
-    const newFields = module.fields.map(f => 
-      f.id === kanbanField.id ? { ...f, options: newOptions } : f
-    );
-    updateConfig({ fields: newFields });
-  };
-
-  const handleDeleteStage = (value: string) => {
-    if (confirm("Delete this stage? Deals in this stage will lose their status.")) {
-      const newOptions = kanbanField.options?.filter(o => o.value !== value);
-      const newFields = module.fields.map(f => 
-        f.id === kanbanField.id ? { ...f, options: newOptions } : f
-      );
-      updateConfig({ fields: newFields });
-    }
-  };
-
-  return (
-    <div className="flex gap-6 overflow-x-auto pb-6 h-full min-h-[500px] custom-scrollbar">
-      <LayoutGroup>
-        {kanbanField.options.map((option) => (
-          <div 
-            key={option.value} 
-            className={cn(
-              "flex flex-col w-80 shrink-0 rounded-2xl transition-all duration-300 border-2",
-              dragOverStage === option.value ? "bg-blue-500/5 border-blue-500/20 ring-1 ring-blue-500/20" : "bg-transparent border-transparent"
-            )}
-            onDragOver={(e) => { e.preventDefault(); setDragOverStage(option.value); }}
-            onDragLeave={() => setDragOverStage(null)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOverStage(null);
-              const dealId = e.dataTransfer.getData("dealId");
-              if (dealId) onDropDeal(dealId, option.value);
-            }}
-          >
-            <div className="flex items-center justify-between mb-4 px-2 group/h">
-              <div className="flex items-center gap-2 relative flex-1 min-w-0">
-                <div className={cn("size-2 rounded-full shrink-0", `bg-${option.color}-500`)} />
-                {editingStage === option.value ? (
-                  <div className="absolute inset-0 bg-background z-10 flex items-center gap-1">
-                     <Input 
-                      autoFocus
-                      defaultValue={option.label}
-                      onBlur={e => handleRenameStage(option.value, e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleRenameStage(option.value, e.currentTarget.value)}
-                      className="h-7 text-[10px] font-black uppercase border-blue-500"
-                     />
-                  </div>
-                ) : (
-                  <h3 className="font-bold text-sm uppercase tracking-widest truncate">{option.label}</h3>
-                )}
-                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-black">
-                  {deals.filter(d => d.data[kanbanField.key] === option.value).length}
-                </Badge>
-              </div>
-              <div className="flex items-center opacity-0 group-hover/h:opacity-100 transition-opacity">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7"><Settings2 size={12} /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40 border-border/40 bg-card/95 backdrop-blur-xl">
-                    <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setEditingStage(option.value)}>Rename Stage</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => handleDeleteStage(option.value)}>Delete Stage</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onAddClick(option.value)}><Plus size={12} /></Button>
-              </div>
-            </div>
-            
-            <div className="flex-1 bg-secondary/10 rounded-2xl p-3 space-y-3 min-h-[150px] border border-border/20 backdrop-blur-sm">
-              {deals
-                .filter(d => d.data[kanbanField.key] === option.value)
-                .map(deal => (
-                  <div
-                    key={deal.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("dealId", deal.id);
-                      e.dataTransfer.effectAllowed = "move";
-                      const el = e.currentTarget as HTMLElement;
-                      setTimeout(() => el.style.opacity = "0.4", 0);
-                    }}
-                    onDragEnd={(e) => {
-                      (e.currentTarget as HTMLElement).style.opacity = "1";
-                    }}
-                  >
-                    <motion.div
-                      layoutId={deal.id} layout="position" onClick={() => onDealClick(deal)}
-                      className="p-4 rounded-xl bg-card border border-border/40 shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all cursor-grab active:cursor-grabbing group select-none cursor-pointer"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-bold text-sm group-hover:text-blue-500 transition-colors leading-tight">{deal.name}</h4>
-                        <MoreVertical size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {displayFields
-                          .filter(f => f.key !== 'name' && f.key !== 'status')
-                          .map(field => (
-                            <div key={field.id} className="flex justify-between items-center gap-2">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter truncate">{field.label}</span>
-                              <span className="text-[10px] font-black truncate max-w-[120px]">
-                                {field.type === 'currency' ? `$${deal.data[field.key]?.toLocaleString()}` : String(deal.data[field.key] || '-')}\
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    </motion.div>
-                  </div>
-                ))}
-              
-              <button 
-                onClick={() => onAddClick(option.value)}
-                className="w-full py-4 flex flex-col items-center justify-center border-2 border-dashed border-border/20 rounded-xl hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group"
-              >
-                 <Plus size={16} className="text-muted-foreground group-hover:text-blue-500 mb-1" />
-                 <p className="text-[10px] font-bold text-muted-foreground group-hover:text-blue-500 uppercase tracking-widest">Add Deal</p>
-              </button>
-            </div>
-          </div>
-        ))}
-      </LayoutGroup>
-      <button onClick={handleAddStage} className="w-80 shrink-0 border-2 border-dashed border-border/20 rounded-2xl flex flex-col items-center justify-center h-[500px] hover:bg-blue-500/5 hover:border-blue-500/30 transition-all group">
-        <Plus size={32} className="text-muted-foreground group-hover:text-blue-500 mb-4" />
-        <p className="font-black uppercase tracking-[0.2em] text-muted-foreground group-hover:text-blue-500 text-xs">Add New Stage</p>
-      </button>
-    </div>
-  );
-};
-
-/**
  * COMPOSABLE LIST VIEW (EXCEL STYLE)
  */
 const CRMListView = ({ 
-  deals, config, updateConfig, onDealClick, onDealEdit, onAddClick, selectedIds, onSelect, onSelectAll, updateEntity, deleteEntity,
-  pageSize, setPageSize, addEntity, onLogCall, onAddNote
+  contacts, config, updateConfig, onContactClick, onContactEdit, onAddClick, selectedIds, onSelect, onSelectAll, updateEntity, deleteEntity,
+  pageSize, setPageSize, addEntity, onLaunchDeal, onLogCall, onAddNote
 }: { 
-  deals: CRMEntity[], config: CRMConfig, updateConfig: (updates: any) => void,
-  onDealClick: (deal: CRMEntity) => void, 
-  onDealEdit: (deal: CRMEntity) => void,
+  contacts: CRMEntity[], config: CRMConfig, updateConfig: (updates: any) => void,
+  onContactClick: (contact: CRMEntity) => void, 
+  onContactEdit: (contact: CRMEntity) => void,
   onAddClick: () => void,
   selectedIds: string[], onSelect: (id: string) => void, onSelectAll: (ids: string[]) => void,
   updateEntity: (id: string, updates: any) => void,
   deleteEntity: (id: string) => void,
   pageSize: number,
   setPageSize: (size: number) => void,
-  addEntity: (type: 'deal', data: any) => Promise<string | null>,
-  onLogCall: (deal: CRMEntity) => void,
-  onAddNote: (deal: CRMEntity) => void
+  addEntity: (type: 'contact', data: any) => Promise<string | null>,
+  onLaunchDeal: (contact: CRMEntity) => void,
+  onLogCall: (contact: CRMEntity) => void,
+  onAddNote: (contact: CRMEntity) => void
 }) => {
   const [editingHeaderId, setEditingHeaderId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ id: string, fieldId: string } | null>(null);
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number, colIndex: number }>({ rowIndex: 0, colIndex: 0 });
   const [tempRows, setTempRows] = useState<{ id: string, data: any }[]>([]);
 
-  const module = config.modules.deals;
-  const view = module.views.find((v: ViewConfig) => v.type === 'list') || module.views[1] || module.views[0];
-  const displayFields = module.fields.filter((f: FieldConfig) => view.visibleFields.includes(f.id));
+  const module = config.modules.contacts;
+  const view = module.views.find((v: ViewConfig) => v.type === 'list') || module.views[0];
+  const displayFields = module.fields.filter((f: FieldConfig) => view?.visibleFields?.includes(f.id));
 
   // Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (editingCell || editingHeaderId) return;
       
-      const rowCount = deals.length + tempRows.length;
+      const rowCount = contacts.length + tempRows.length;
       const colCount = displayFields.length;
 
       switch(e.key) {
@@ -319,7 +146,7 @@ const CRMListView = ({
           setFocusedCell(prev => ({ ...prev, colIndex: Math.min(colCount - 1, prev.colIndex + 1) }));
           break;
         case 'Enter':
-          const combinedRows = [...deals, ...tempRows];
+          const combinedRows = [...contacts, ...tempRows];
           const target = combinedRows[focusedCell.rowIndex];
           const field = displayFields[focusedCell.colIndex];
           if (target && field) setEditingCell({ id: target.id, fieldId: field.id });
@@ -329,7 +156,7 @@ const CRMListView = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deals, tempRows, displayFields, editingCell, editingHeaderId, focusedCell]);
+  }, [contacts, tempRows, displayFields, editingCell, editingHeaderId, focusedCell]);
 
   const handleRenameField = (fieldId: string, newLabel: string) => {
     const newFields = module.fields.map(f => f.id === fieldId ? { ...f, label: newLabel } : f);
@@ -366,12 +193,12 @@ const CRMListView = ({
 
   const handleCellSave = async (id: string, fieldKey: string, value: any) => {
     if (id.startsWith('temp_')) {
-      const loadingToast = toast.loading("Adding new deal...");
-      const newId = await addEntity('deal', { [fieldKey]: value });
+      const loadingToast = toast.loading("Adding new contact...");
+      const newId = await addEntity('contact', { [fieldKey]: value });
       if (newId) {
         setTempRows(prev => prev.filter(r => r.id !== id));
         toast.dismiss(loadingToast);
-        toast.success("New deal added!");
+        toast.success("New contact added!");
       }
     } else {
       await updateEntity(id, { [fieldKey]: value });
@@ -404,7 +231,7 @@ const CRMListView = ({
   const handleAddRow = () => {
     const newTempId = `temp_${Date.now()}`;
     setTempRows(prev => [...prev, { id: newTempId, data: {} }]);
-    setFocusedCell({ rowIndex: deals.length + tempRows.length, colIndex: 0 });
+    setFocusedCell({ rowIndex: contacts.length + tempRows.length, colIndex: 0 });
   };
 
   return (
@@ -417,8 +244,8 @@ const CRMListView = ({
                 <input 
                   type="checkbox" 
                   className="rounded border-border bg-background cursor-pointer" 
-                  checked={deals.length > 0 && selectedIds.length === deals.length} 
-                  onChange={(e) => onSelectAll(e.target.checked ? deals.map(d => d.id) : [])} 
+                  checked={contacts.length > 0 && selectedIds.length === contacts.length} 
+                  onChange={(e) => onSelectAll(e.target.checked ? contacts.map(c => c.id) : [])} 
                 />
               </th>
               {displayFields.map((field, colIdx) => (
@@ -456,20 +283,20 @@ const CRMListView = ({
             </tr>
           </thead>
           <tbody>
-            {deals.length === 0 && tempRows.length === 0 ? (
+            {contacts.length === 0 && tempRows.length === 0 ? (
               <tr><td colSpan={displayFields.length + 3} className="p-12 text-center font-black text-muted-foreground uppercase tracking-widest text-xs">No entries found.</td></tr>
             ) : (
               <>
-                {deals.map((deal, rowIndex) => (
+                {contacts.map((contact, rowIndex) => (
                   <tr 
-                    key={deal.id} 
+                    key={contact.id} 
                     className={cn(
                       "border-b border-border/40 hover:bg-secondary/10 transition-colors group cursor-default h-12",
-                      selectedIds.includes(deal.id) && "bg-blue-500/5"
+                      selectedIds.includes(contact.id) && "bg-blue-500/5"
                     )}
                   >
                     <td className="p-4 border-r border-border/40" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-border bg-background cursor-pointer" checked={selectedIds.includes(deal.id)} onChange={() => onSelect(deal.id)} />
+                      <input type="checkbox" className="rounded border-border bg-background cursor-pointer" checked={selectedIds.includes(contact.id)} onChange={() => onSelect(contact.id)} />
                     </td>
                     {displayFields.map((field, colIdx) => (
                       <td 
@@ -484,13 +311,13 @@ const CRMListView = ({
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
-                          onDealClick(deal);
+                          onContactClick(contact);
                         }}
                       >
-                        {editingCell?.id === deal.id && editingCell?.fieldId === field.id ? (
+                        {editingCell?.id === contact.id && editingCell?.fieldId === field.id ? (
                           <InlineEdit 
-                            value={String(deal.data[field.key] || '')} 
-                            onSave={(val) => handleCellSave(deal.id, field.key, val)} 
+                            value={String(contact.data[field.key] || '')} 
+                            onSave={(val) => handleCellSave(contact.id, field.key, val)} 
                             onCancel={() => setEditingCell(null)}
                             type={field.type}
                             options={field.options}
@@ -498,17 +325,15 @@ const CRMListView = ({
                         ) : (
                           <div className="flex items-center px-4 h-full min-h-[48px]">
                             {field.type === 'select' ? (
-                              <Badge variant="secondary" className={cn("text-[9px] uppercase font-black px-2 py-0 border shrink-0", `bg-${field.options?.find(o => o.value === deal.data[field.key])?.color || 'gray'}-500/10 text-${field.options?.find(o => o.value === deal.data[field.key])?.color || 'gray'}-500 border-${field.options?.find(o => o.value === deal.data[field.key])?.color || 'gray'}-500/20`)}>
-                                {field.options?.find(o => o.value === deal.data[field.key])?.label || deal.data[field.key] || 'None'}
+                              <Badge variant="secondary" className={cn("text-[9px] uppercase font-black px-2 py-0 border shrink-0", `bg-${field.options?.find(o => o.value === contact.data[field.key])?.color || 'gray'}-500/10 text-${field.options?.find(o => o.value === contact.data[field.key])?.color || 'gray'}-500 border-${field.options?.find(o => o.value === contact.data[field.key])?.color || 'gray'}-500/20`)}>
+                                {field.options?.find(o => o.value === contact.data[field.key])?.label || contact.data[field.key] || 'None'}
                               </Badge>
-                            ) : field.type === 'currency' ? (
-                              <span className="font-bold text-blue-500 text-xs">${Number(deal.data[field.key] || 0).toLocaleString()}</span>
                             ) : (
-                              <span className={cn("text-xs truncate max-w-[200px]", field.key === 'name' ? 'font-black text-foreground uppercase tracking-tight' : 'text-muted-foreground font-bold')}>
-                                {String(deal.data[field.key] || '-')}\
+                              <span className={cn("text-xs truncate max-w-[200px]", (field.key === 'firstName' || field.key === 'lastName') ? 'font-black text-foreground uppercase tracking-tight' : 'text-muted-foreground font-bold')}>
+                                {String(contact.data[field.key] || '-')}
                               </span>
                             )}
-                            <button className="ml-auto opacity-0 group-hover/cell:opacity-100 p-1 text-muted-foreground hover:text-blue-500 transition-opacity" onClick={() => setEditingCell({ id: deal.id, fieldId: field.id })}>
+                            <button className="ml-auto opacity-0 group-hover/cell:opacity-100 p-1 text-muted-foreground hover:text-blue-500 transition-opacity" onClick={() => setEditingCell({ id: contact.id, fieldId: field.id })}>
                               <Edit2 size={10} />
                             </button>
                           </div>
@@ -521,24 +346,25 @@ const CRMListView = ({
                           <Button variant="ghost" size="icon" className="h-10 w-10 opacity-0 group-hover:opacity-100 hover:bg-secondary/50 rounded-none"><MoreHorizontal size={14} /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 border-border/40 bg-card/95 backdrop-blur-xl">
-                          <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Deal Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onDealClick(deal)}><Eye size={12} className="mr-2 text-blue-500"/> View Intel</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onDealEdit(deal)}><Edit2 size={12} className="mr-2 text-blue-500"/> Edit Deal</DropdownMenuItem>
+                          <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Contact Actions</DropdownMenuLabel>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onContactClick(contact)}><Eye size={12} className="mr-2 text-blue-500"/> View Profile</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onContactEdit(contact)}><Edit2 size={12} className="mr-2 text-blue-500"/> Edit Details</DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Synthesize</DropdownMenuLabel>
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onLogCall(deal)}><PhoneCall size={12} className="mr-2 text-indigo-500"/> Log Call</DropdownMenuItem>
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onAddNote(deal)}><NotebookPen size={12} className="mr-2 text-orange-500"/> Add Note</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onLaunchDeal(contact)}><Briefcase size={12} className="mr-2 text-green-500"/> Launch Deal</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onLogCall(contact)}><PhoneCall size={12} className="mr-2 text-indigo-500"/> Log Call</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => onAddNote(contact)}><NotebookPen size={12} className="mr-2 text-orange-500"/> Add Note</DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => deleteEntity(deal.id)}><Trash size={12} className="mr-2"/> Delete Deal</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => deleteEntity(contact.id)}><Trash size={12} className="mr-2"/> Delete Contact</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
                   </tr>
                 ))}
                 {tempRows.map((row, idx) => {
-                  const rowIndex = deals.length + idx;
+                  const rowIndex = contacts.length + idx;
                   return (
                     <tr key={row.id} className="border-b border-border/40 bg-blue-500/5 h-12 group/temp">
                       <td className="p-4 border-r border-border/40"><div className="size-4 rounded border-2 border-blue-500/20" /></td>
@@ -586,7 +412,7 @@ const CRMListView = ({
               <td colSpan={displayFields.length + 3} className="p-0">
                 <div className="flex items-center justify-between px-4 h-12">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground italic">
-                    Showing <span className="text-foreground">{deals.length}</span> deals in your active list
+                    Showing <span className="text-foreground">{contacts.length}</span> people in your network
                   </p>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Rows per fetch</span>
@@ -635,121 +461,108 @@ const CRMListView = ({
   );
 };
 
-export default function DealsPage() {
-  const { deals, leads, config, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity, addActivity } = useCRM();
+export default function ContactsPage() {
+  const { contacts, config, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity, addActivity, leads } = useCRM();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
-  const [activeView, setActiveView] = useState<"list" | "kanban">("list");
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "value" | "updated">("updated");
+  const [sortBy, setSortBy] = useState<string>("firstName");
   
   // Modal states
+  const [showContactModal, setShowContactModal] = useState(false);
   const [showDealModal, setShowDealModal] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'preview'>('create');
-  const [selectedDeal, setSelectedDeal] = useState<CRMEntity | null>(null);
-  const [initialStatus, setInitialStatus] = useState<string | undefined>(undefined);
+  const [selectedContact, setSelectedContact] = useState<CRMEntity | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  const filteredContacts = useMemo(() => {
+    let result = contacts.filter(c => !c.isDeleted);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.data.email?.toLowerCase().includes(q) ||
+        c.data.company?.toLowerCase().includes(q) ||
+        c.data.mobile?.toLowerCase().includes(q)
+      );
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === "updatedAt") {
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : Date.now() + 10000;
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : Date.now() + 10000;
+        return timeB - timeA;
+      }
+      
+      const valA = String(a.data[sortBy] || a.name).toLowerCase();
+      const valB = String(b.data[sortBy] || b.name).toLowerCase();
+      return valA.localeCompare(valB);
+    });
+    return result;
+  }, [contacts, searchQuery, sortBy]);
+
+  const handleOpenContact = (contact: CRMEntity) => {
+    router.push(`/crm/contacts/${contact.id}`);
+  };
+
+  const handleEditContact = (contact: CRMEntity) => {
+    setSelectedContact(contact);
+    setModalMode('edit');
+    setShowContactModal(true);
+  };
+
+  const handleCreateContact = () => {
+    setSelectedContact(null);
+    setModalMode('create');
+    setShowContactModal(true);
+  };
+
+  // Pre-filled modal handlers
+  const handleLaunchDeal = (contact: CRMEntity) => {
+    setSelectedContact(contact);
+    setShowDealModal(true);
+  };
+
+  const handleLogCall = (contact: CRMEntity) => {
+    setSelectedContact(contact);
+    setShowCallModal(true);
+  };
+
+  const handleAddNote = (contact: CRMEntity) => {
+    setSelectedContact(contact);
+    setShowNoteModal(true);
+  };
+  
   const handleNoteSubmit = (data: any) => {
+    if (!selectedContact) return;
     addEntity('note', data).then((newId) => {
-      if (newId && selectedDeal) {
+      if (newId) {
         toast.success("Note added successfully.");
-        addActivity(selectedDeal.id, { type: 'Note', content: data.content || 'New note added', details: { noteId: newId } });
+        addActivity(selectedContact.id, { type: 'Note', content: data.content || 'New note added', details: { noteId: newId } });
       }
     });
     setShowNoteModal(false);
   };
 
   const handleCallSubmit = (data: any) => {
+    if (!selectedContact) return;
     addEntity('call', data).then((newId) => {
-      if (newId && selectedDeal) {
+      if (newId) {
         toast.success("Call logged successfully.");
-        addActivity(selectedDeal.id, { type: 'Call', content: data.summary || 'New call logged', details: { callId: newId } });
+        addActivity(selectedContact.id, { type: 'Call', content: data.summary || 'New call logged', details: { callId: newId } });
       }
     });
     setShowCallModal(false);
   };
 
-  useEffect(() => {
-    const view = searchParams.get("view");
-    if (view === "list" || view === "kanban") setActiveView(view as any);
-  }, [searchParams]);
-
-  const setView = (view: "list" | "kanban") => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("view", view);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    setSelectedIds([]);
-  };
-
-  const filteredDeals = useMemo(() => {
-    let result = deals.filter(d => !d.isDeleted);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(d => 
-        d.name.toLowerCase().includes(q) || 
-        d.data.email?.toLowerCase().includes(q) || 
-        d.data.organization?.toLowerCase().includes(q)
-      );
-    }
-    
-    result.sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "value") return (Number(b.data.annualRevenue) || 0) - (Number(a.data.annualRevenue) || 0);
-      if (sortBy === "updated") {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : Date.now() + 10000;
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : Date.now() + 10000;
-        return timeB - timeA;
-      }
-      return 0;
-    });
-    return result;
-  }, [deals, searchQuery, sortBy]);
-
-  const handleDropDeal = async (dealId: string, status: string) => {
-    await updateEntity(dealId, { status }, "stage_change_drag");
-    toast.success("Deal pipeline updated");
-  };
-
-  const handleOpenDeal = (deal: CRMEntity) => {
-    setSelectedDeal(deal);
-    setModalMode('preview');
-    setShowDealModal(true);
-  };
-
-  const handleEditDeal = (deal: CRMEntity) => {
-    setSelectedDeal(deal);
-    setModalMode('edit');
-    setShowDealModal(true);
-  };
-
-  const handleCreateDeal = (status?: string) => {
-    setSelectedDeal(null);
-    setInitialStatus(status);
-    setModalMode('create');
-    setShowDealModal(true);
-  };
-
-  const handleLogCall = (deal: CRMEntity) => {
-    setSelectedDeal(deal);
-    setModalMode('create');
-    setShowCallModal(true);
-  };
-
-  const handleAddNote = (deal: CRMEntity) => {
-    setSelectedDeal(deal);
-    setModalMode('create');
-    setShowNoteModal(true);
-  };
-
-  if (loading && deals.length === 0) {
+  if (loading && contacts.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-screen">
         <Loader2 className="animate-spin text-blue-500" size={32} />
       </div>
     );
@@ -757,43 +570,56 @@ export default function DealsPage() {
 
   return (
     <div className="p-6 space-y-6 flex flex-col h-full min-h-screen relative max-w-[1600px] mx-auto">
-      <DealModal 
-        isOpen={showDealModal} 
-        onOpenChange={setShowDealModal} 
-        initialStage={initialStatus}
+      {/* Modals */}
+      <ContactModal 
+        isOpen={showContactModal} 
+        onOpenChange={setShowContactModal} 
         mode={modalMode}
-        deal={selectedDeal}
+        contact={selectedContact}
       />
 
-      <CallModal
+      <DealModal 
+        isOpen={showDealModal}
+        onOpenChange={setShowDealModal}
+        mode="create"
+        deal={null}
+        initialData={{
+          organization: selectedContact?.data.company,
+          firstName: selectedContact?.data.firstName,
+          lastName: selectedContact?.data.lastName,
+          email: selectedContact?.data.email,
+          mobile: selectedContact?.data.mobile,
+        }}
+      />
+
+      <CallModal 
         isOpen={showCallModal}
         onOpenChange={setShowCallModal}
-        mode={modalMode as 'create' | 'edit' | 'preview'}
-        call={null}
-        initialData={selectedDeal ? {
-            summary: `Call regarding ${selectedDeal.name}`,
-            relatedTo: selectedDeal.id,
-            to: selectedDeal.data.mobile,
-            status: 'completed'
-        } : {}}
-        leads={leads}
+        mode="create"
         onSubmit={handleCallSubmit}
+        leads={leads}
+        call={null}
+        initialData={selectedContact ? {
+            summary: `Call with ${selectedContact.name}`,
+            relatedTo: selectedContact.id,
+            to: selectedContact.data.mobile
+          } : {}}
       />
 
-      <NoteModal
+      <NoteModal 
         isOpen={showNoteModal}
         onOpenChange={setShowNoteModal}
-        mode={modalMode as 'create' | 'edit' | 'preview'}
+        mode="create"
+        onSubmit={handleNoteSubmit}
+        leads={leads}
         note={null}
-        initialData={selectedDeal ? {
-            name: `Note for ${selectedDeal.name}`,
-            relatedTo: selectedDeal.id,
+        initialData={selectedContact ? {
+            name: `Note for ${selectedContact.name}`,
+            relatedTo: selectedContact.id,
             content: ""
           } : {}}
-        leads={leads}
-        onSubmit={handleNoteSubmit}
       />
-      
+
       <AnimatePresence>
         {selectedIds.length > 0 && (
           <motion.div
@@ -801,47 +627,44 @@ export default function DealsPage() {
             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-card border-2 border-blue-500/20 shadow-2xl rounded-[2rem] p-4 flex items-center gap-6 backdrop-blur-xl"
           >
             <div className="flex items-center gap-2 px-4 border-r border-border/20 mr-2">
-              <span className="bg-blue-500 text-white size-7 rounded-full flex items-center justify-center text-[10px] font-black">{selectedIds.length}</span>
+              <span className="bg-blue-600 text-white size-7 rounded-full flex items-center justify-center text-[10px] font-black">{selectedIds.length}</span>
               <span className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">Entries Selected</span>
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={async () => { if (confirm(`Delete ${selectedIds.length} items?`)) { await Promise.all(selectedIds.map(id => deleteEntity(id))); setSelectedIds([]); }}} className="h-10 rounded-2xl text-red-500 hover:bg-red-500/10 border-red-500/20 font-black text-[10px] uppercase px-6">Delete Selected</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-10 rounded-2xl font-black text-[10px] uppercase px-6\">Deselect All</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-10 rounded-2xl font-black text-[10px] uppercase px-6">Deselect All</Button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest border border-blue-500/20">Active List</span>
              <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase font-poppins">Deal <span className="text-blue-600 italic">Pipeline</span></h1>
-          <p className="text-muted-foreground font-medium text-sm italic">Accelerate your revenue growth with high-density intelligence.</p>
+          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase font-poppins">Contacts</h1>
+          <p className="text-muted-foreground font-medium text-sm italic">Manage your professional network with high-density precision.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-secondary/30 p-1.5 rounded-2xl border border-border/40 backdrop-blur-md">
-            <Button variant={activeView === "list" ? "secondary" : "ghost"} size="sm" className="h-9 px-4 text-[10px] font-black uppercase rounded-xl transition-all" onClick={() => setView("list")}><ListIcon size={14} className="mr-2" /> Spreadsheet</Button>
-            <Button variant={activeView === "kanban" ? "secondary" : "ghost"} size="sm" className="h-9 px-4 text-[10px] font-black uppercase rounded-xl transition-all" onClick={() => setView("kanban")}><LayoutGrid size={14} className="mr-2" /> Pipeline</Button>
-          </div>
-          <Button onClick={() => handleCreateDeal()} className="h-12 px-8 font-black text-[10px] uppercase tracking-[0.1em] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 transition-all active:scale-95 group"><Plus size={18} className="mr-2 group-hover:rotate-90 transition-transform" /> New Deal</Button>
+          <Button onClick={handleCreateContact} className="h-12 px-8 font-black text-[10px] uppercase tracking-[0.1em] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 transition-all active:scale-95 group"><Plus size={18} className="mr-2 group-hover:rotate-90 transition-transform" /> New Contact</Button>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/20 p-4 rounded-3xl border border-border/20">
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
-          <Input placeholder="SEARCH DEALS, COMPANIES, OR VALUES..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" />
+          <Input placeholder="SEARCH NAMES, EMAILS, OR COMPANIES..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest hover:bg-background px-6"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest hover:bg-background px-6"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy === 'updatedAt' ? 'Updated' : sortBy}</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("name")}>Sort by Organization</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("value")}>Sort by Value</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updated")}>Sort by Updated</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("firstName")}>Sort by First Name</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("lastName")}>Sort by Last Name</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("company")}>Sort by Company</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updatedAt")}>Sort by Updated</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -851,32 +674,27 @@ export default function DealsPage() {
 
       <div className="flex-1 min-h-0">
         <AnimatePresence mode="wait">
-          {activeView === "kanban" ? (
-            <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="h-full">
-              <CRMKanbanView deals={filteredDeals} config={config} updateConfig={(upd) => updateModuleConfig('deals', upd)} onDealClick={handleOpenDeal} onAddClick={handleCreateDeal} onDropDeal={handleDropDeal} />
-            </motion.div>
-          ) : (
-            <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <CRMListView 
-                deals={filteredDeals} 
-                config={config} 
-                updateConfig={(upd) => updateModuleConfig('deals', upd)} 
-                onDealClick={handleOpenDeal} 
-                onDealEdit={handleEditDeal} 
-                onAddClick={() => handleCreateDeal()} 
-                selectedIds={selectedIds} 
-                onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
-                onSelectAll={setSelectedIds} 
-                updateEntity={updateEntity} 
-                deleteEntity={deleteEntity} 
-                pageSize={pageSize} 
-                setPageSize={setPageSize} 
-                addEntity={addEntity} 
-                onLogCall={handleLogCall}
-                onAddNote={handleAddNote}
-              />
-            </motion.div>
-          )}
+          <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
+            <CRMListView 
+              contacts={filteredContacts} 
+              config={config} 
+              updateConfig={(upd) => updateModuleConfig('contacts', upd)} 
+              onContactClick={handleOpenContact} 
+              onContactEdit={handleEditContact} 
+              onAddClick={handleCreateContact} 
+              selectedIds={selectedIds} 
+              onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
+              onSelectAll={setSelectedIds} 
+              updateEntity={updateEntity} 
+              deleteEntity={deleteEntity} 
+              pageSize={pageSize} 
+              setPageSize={setPageSize} 
+              addEntity={addEntity} 
+              onLaunchDeal={handleLaunchDeal}
+              onLogCall={handleLogCall}
+              onAddNote={handleAddNote}
+            />
+          </motion.div>
         </AnimatePresence>
       </div>
     </div>

@@ -192,6 +192,7 @@ export function CRMSidebar({
             <NavItem icon={Users} label="Leads" href="/crm/leads" active={pathname === "/crm/leads"} />
             <NavItem icon={Briefcase} label="Deals" href="/crm/deals" active={pathname === "/crm/deals"} />
             <NavItem icon={Building} label="Organizations" href="/crm/organizations" active={pathname === "/crm/organizations"} />
+            <NavItem icon={Users} label="Contacts" href="/crm/contacts" active={pathname?.startsWith("/crm/contacts")} />
             <NavItem icon={NotebookPen} label="Notes" href="/crm/notes" active={pathname === "/crm/notes"} />
             <NavItem icon={PhoneIncoming} label="Call Logs" href="/crm/call-logs" active={pathname === "/crm/call-logs"} />
             <NavItem icon={Settings} label="Config" href="/crm/config" active={pathname === "/crm/config"} />

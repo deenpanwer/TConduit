@@ -7,7 +7,7 @@ import {
   MessageSquare, Settings, User, PhoneCall,
   History, AlertCircle, Info, Clock, ArrowUpRight, ArrowDownRight
 } from "lucide-react";
-import { EntityHistory } from "@/hooks/use-crm";
+import { EntityHistory } from "@/hooks/use-crm-module";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 

@@ -23,6 +23,7 @@ import {
   X,
   Copy,
   ChevronLeft,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -33,8 +34,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { DealModal } from '@/components/dashboard/crm/DealModal';
-import { ContactForm } from '@/components/dashboard/crm/ContactForm';
+import { DealModal } from '@/components/crm/forms/DealModal';
+import { ContactModal } from '@/components/crm/forms/ContactModal';
 
 // Inline editing component
 const InlineEditField = ({
@@ -89,7 +90,7 @@ const InlineEditField = ({
       <div className="flex items-center gap-2">
         <Input
           ref={inputRef}
-          type={fieldConfig.type}
+          type={fieldConfig.type === 'number' ? 'number' : 'text'}
           value={currentValue}
           onChange={(e) => setCurrentValue(e.target.value)}
           onBlur={handleSave}
@@ -141,14 +142,10 @@ export default function OrganizationDetailPage() {
     }
   }, [entities, id]);
 
-  const organizationDeals = useMemo(() => deals.filter(d => d.data.organization === organization?.data.organizationName), [deals, organization]);
-  const organizationContacts = useMemo(() => contacts.filter(c => c.data.organization === organization?.data.organizationName), [contacts, organization]);
+  const orgNameValue = useMemo(() => organization?.data.organizationName || organization?.name, [organization]);
 
-  const handleAddContact = (data: any) => {
-    addEntity('contact', data);
-    toast.success('Contact created!');
-    setIsNewContactModalOpen(false);
-  };
+  const organizationDeals = useMemo(() => deals.filter(d => d.data.organization === orgNameValue), [deals, orgNameValue]);
+  const organizationContacts = useMemo(() => contacts.filter(c => c.data.company === orgNameValue), [contacts, orgNameValue]);
 
   if (!organization) {
     return (
@@ -166,7 +163,7 @@ export default function OrganizationDetailPage() {
     if (window.confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
       await deleteEntity(organization.id);
       toast.success('Organization has been deleted.');
-      router.push('/dashboard/crm/organizations');
+      router.push('/crm/organizations');
     }
   };
   
@@ -183,19 +180,19 @@ export default function OrganizationDetailPage() {
       <div className="p-6 space-y-6">
         {/* Header */}
         <header className="space-y-4">
-          <Button variant="ghost" onClick={() => router.push('/dashboard/crm/organizations')} className="font-bold text-muted-foreground hover:bg-secondary">
-             <ChevronLeft size={16} className="mr-2"/> Organizations / {organization.data.organizationName}
+          <Button variant="ghost" onClick={() => router.push('/crm/organizations')} className="font-bold text-muted-foreground hover:bg-secondary">
+             <ChevronLeft size={16} className="mr-2"/> Organizations / {orgNameValue}
           </Button>
 
           <div className="flex items-center gap-4 justify-between">
              <div className="flex items-center gap-4">
                 <div className="size-16 rounded-xl bg-secondary flex items-center justify-center border border-border">
                     <span className="text-2xl font-bold text-muted-foreground">
-                      {organization.data.organizationName?.charAt(0).toUpperCase()}
+                      {String(orgNameValue || 'O').charAt(0).toUpperCase()}
                     </span>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold">{organization.data.organizationName}</h1>
+                  <h1 className="text-2xl font-bold">{orgNameValue}</h1>
                   <a href={organization.data.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors">
                       <Globe size={14}/>
                       <span className="text-sm font-medium">{organization.data.website || 'No website'}</span>
@@ -266,7 +263,8 @@ export default function OrganizationDetailPage() {
                      isOpen={isNewDealModalOpen}
                      onOpenChange={setIsNewDealModalOpen}
                      mode="create"
-                     initialData={{ organization: organization.data.organizationName }}
+                     deal={null}
+                     initialData={{ organization: orgNameValue }}
                    />
                    {organizationDeals.length === 0 ? (
                      <div className="m-auto text-center">
@@ -275,36 +273,65 @@ export default function OrganizationDetailPage() {
                        <p className="text-sm text-muted-foreground">Add your first deal to get started.</p>
                      </div>
                    ) : (
-                     <div>Deals list here</div> // Placeholder
+                     <div className="space-y-3">
+                        {organizationDeals.map(deal => (
+                          <div key={deal.id} className="p-4 rounded-xl border border-border/60 hover:border-blue-500/30 transition-all flex justify-between items-center group cursor-pointer" onClick={() => router.push(`/crm/deals/${deal.id}`)}>
+                             <div>
+                                <p className="font-bold text-sm group-hover:text-blue-500 transition-colors">{deal.name}</p>
+                                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{deal.data.status}</p>
+                             </div>
+                             <div className="text-right">
+                                <p className="font-black text-sm text-green-500">${Number(deal.data.annualRevenue || 0).toLocaleString()}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">{new Date(deal.updatedAt).toLocaleDateString()}</p>
+                             </div>
+                          </div>
+                        ))}
+                     </div>
                    )}
                  </div>
                </TabsContent>
 
                <TabsContent value="contacts" className="mt-4">
                  <div className="bg-card border border-border/80 rounded-2xl min-h-[400px] p-6 flex flex-col">
+                   <div className="flex justify-between items-center mb-4">
+                     <h3 className="font-bold text-lg">Contacts <Badge className="ml-2">{organizationContacts.length}</Badge></h3>
+                     <Button className="bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20" onClick={() => setIsNewContactModalOpen(true)}>
+                       <Plus size={16} className="mr-2"/>New Contact
+                     </Button>
+                   </div>
+                   <ContactModal
+                     isOpen={isNewContactModalOpen}
+                     onOpenChange={setIsNewContactModalOpen}
+                     mode="create"
+                     contact={null}
+                     initialStage={orgNameValue}
+                   />
                    {organizationContacts.length === 0 ? (
                      <div className="m-auto text-center">
                         <Users size={40} className="mx-auto text-muted-foreground/50 mb-4"/>
                        <h3 className="font-bold text-lg">No Contacts Found</h3>
                        <p className="text-sm text-muted-foreground">Add a new contact to get started.</p>
-                       <Dialog open={isNewContactModalOpen} onOpenChange={setIsNewContactModalOpen}>
-                         <DialogTrigger asChild>
-                           <Button className="mt-4 bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20"><Plus size={16} className="mr-2"/>New Contact</Button>
-                         </DialogTrigger>
-                         <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Contact</DialogTitle>
-                            </DialogHeader>
-                            <ContactForm
-                                onSubmit={handleAddContact}
-                                onCancel={() => setIsNewContactModalOpen(false)}
-                                initialData={{ organization: organization.data.organizationName }}
-                             />
-                         </DialogContent>
-                       </Dialog>
                      </div>
                    ) : (
-                     <div>Contacts list here</div> // Placeholder
+                     <div className="space-y-3">
+                        {organizationContacts.map(contact => (
+                          <div key={contact.id} className="p-4 rounded-xl border border-border/60 hover:border-blue-500/30 transition-all flex justify-between items-center group cursor-pointer" onClick={() => router.push(`/crm/contacts/${contact.id}`)}>
+                             <div className="flex items-center gap-3">
+                                <div className="size-8 rounded-full bg-secondary flex items-center justify-center border border-border">
+                                   <User size={14} className="text-muted-foreground"/>
+                                </div>
+                                <div>
+                                   <p className="font-bold text-sm group-hover:text-blue-500 transition-colors">{contact.name}</p>
+                                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{contact.data.designation || 'Contact'}</p>
+                                </div>
+                             </div>
+                             <div className="text-right">
+                                <p className="font-bold text-xs">{contact.data.email}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">{contact.data.mobile}</p>
+                             </div>
+                          </div>
+                        ))}
+                     </div>
                    )}
                  </div>
                </TabsContent>

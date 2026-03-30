@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ModuleConfig, FieldConfig } from "@/hooks/use-crm";
+import { ModuleConfig, FieldConfig } from "@/hooks/use-crm-module";
 
 const InlineHeaderEdit = ({ value, onSave, onCancel }: { value: string, onSave: (val: string) => void, onCancel: () => void }) => {
   const [temp, setTemp] = useState(value);

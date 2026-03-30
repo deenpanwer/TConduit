@@ -19,12 +19,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle 
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { InlineEdit } from "@/components/dashboard/crm/InlineEdit";
-import { ActivityTimeline } from "@/components/dashboard/crm/ActivityTimeline";
-import { LogCallForm } from "@/components/dashboard/crm/forms/LogCallForm";
-import { AddNoteForm } from "@/components/dashboard/crm/forms/AddNoteForm";
-import { NotePreviewModal } from "@/components/dashboard/crm/NotePreviewModal";
-import { CallPreviewModal } from "@/components/dashboard/crm/CallPreviewModal";
+import { InlineEdit } from "@/components/crm/shared/InlineEdit";
+import { ActivityTimeline } from "@/components/crm/ActivityTimeline";
+import { NoteModal } from "@/components/crm/forms/NoteModal";
+import { CallModal } from "@/components/crm/forms/CallModal";
 import { cn } from "@/lib/utils";
 
 export default function DealDetailPage() {
@@ -32,11 +30,13 @@ export default function DealDetailPage() {
   const router = useRouter();
   const { user, userData } = useAuth();
   const { leads, notes, calls, deals, updateEntityField, addActivity, deleteEntity, config, addEntity } = useCRM();
-  const [activeModal, setActiveModal] = useState<'call' | 'note' | null>(null);
+  
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'preview'>("create");
+
   const [selectedNote, setSelectedNote] = useState<CRMEntity | null>(null);
   const [selectedCall, setSelectedCall] = useState<CRMEntity | null>(null);
-  const [isNotePreviewOpen, setIsNotePreviewOpen] = useState(false);
-  const [isCallPreviewOpen, setIsCallPreviewOpen] = useState(false);
 
   const deal = useMemo(() => deals.find(d => d.id === id), [deals, id]);
   const linkedNotes = useMemo(() => notes.filter(n => n.data.entityId === id), [notes, id]);
@@ -50,7 +50,7 @@ export default function DealDetailPage() {
           <AlertCircle className="text-muted-foreground" size={32} />
         </div>
         <h2 className="text-xl font-bold">Deal not found</h2>
-        <Button variant="outline" className="mt-6 rounded-xl" onClick={() => router.push("/dashboard/crm/deals")}>
+        <Button variant="outline" className="mt-6 rounded-xl" onClick={() => router.push("/crm/deals")}>
           <ArrowLeft size={16} className="mr-2" /> Back to Pipeline
         </Button>
       </div>
@@ -61,7 +61,7 @@ export default function DealDetailPage() {
     if (confirm("Soft-delete this deal?")) {
       await deleteEntity(deal.id);
       toast.success("Deal soft-deleted.");
-      router.push("/dashboard/crm/deals");
+      router.push("/crm/deals");
     }
   };
 
@@ -73,7 +73,7 @@ export default function DealDetailPage() {
       details: data
     });
     toast.success("Call logged and linked.");
-    setActiveModal(null);
+    setIsCallModalOpen(false);
   };
 
   const handleAddNote = async (data: any) => {
@@ -91,7 +91,7 @@ export default function DealDetailPage() {
         content: `Added a business note: "${data.content.substring(0, 50)}..."` 
       });
       toast.success("Note saved.");
-      setActiveModal(null);
+      setIsNoteModalOpen(false);
     }
   };
 
@@ -101,28 +101,34 @@ export default function DealDetailPage() {
 
   return (
     <div className="flex flex-col h-full bg-background/50">
-      <NotePreviewModal 
+      <NoteModal 
         note={selectedNote} 
-        isOpen={isNotePreviewOpen} 
-        onOpenChange={setIsNotePreviewOpen} 
+        isOpen={isNoteModalOpen} 
+        onOpenChange={setIsNoteModalOpen} 
+        mode={modalMode}
+        leads={[]}
+        onSubmit={handleAddNote}
       />
-      <CallPreviewModal
+      <CallModal
         call={selectedCall}
-        isOpen={isCallPreviewOpen}
-        onOpenChange={setIsCallPreviewOpen}
+        isOpen={isCallModalOpen}
+        onOpenChange={setIsCallModalOpen}
+        mode={modalMode}
+        leads={[]}
+        onSubmit={handleLogCall}
       />
 
       {/* Deal Header */}
       <div className="p-6 border-b border-border/40 bg-card/30 backdrop-blur-md sticky top-0 z-20">
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" size="sm" className="rounded-lg text-xs font-bold uppercase tracking-widest" onClick={() => router.push("/dashboard/crm/deals")}>
+          <Button variant="ghost" size="sm" className="rounded-lg text-xs font-bold uppercase tracking-widest" onClick={() => router.push("/crm/deals")}>
             <ChevronLeft size={16} className="mr-1" /> Pipeline
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setActiveModal('note')} className="rounded-xl border-border/40 h-9 font-bold text-[10px] uppercase px-4">
+            <Button variant="outline" size="sm" onClick={() => { setModalMode("create"); setIsNoteModalOpen(true); }} className="rounded-xl border-border/40 h-9 font-bold text-[10px] uppercase px-4">
               <StickyNote className="mr-2 h-3.5 w-3.5" /> Add Note
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setActiveModal('call')} className="rounded-xl border-border/40 h-9 font-bold text-[10px] uppercase px-4">
+            <Button variant="outline" size="sm" onClick={() => { setModalMode("create"); setIsCallModalOpen(true); }} className="rounded-xl border-border/40 h-9 font-bold text-[10px] uppercase px-4">
               <PhoneCall className="mr-2 h-3.5 w-3.5" /> Log Call
             </Button>
             <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-red-500 hover:bg-red-500/10" onClick={handleDelete}>
@@ -252,12 +258,12 @@ export default function DealDetailPage() {
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border/20 rounded-3xl text-center space-y-4">
                     <div className="size-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground"><FileText size={24} /></div>
                     <div><h3 className="font-bold">No linked notes</h3><p className="text-xs text-muted-foreground">Add a note to keep track of specific deal details.</p></div>
-                    <Button variant="outline" size="sm" onClick={() => setActiveModal('note')} className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Create First Note</Button>
+                    <Button variant="outline" size="sm" onClick={() => { setModalMode("create"); setIsNoteModalOpen(true); }} className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Create First Note</Button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {linkedNotes.map(note => (
-                      <Card key={note.id} onClick={() => { setSelectedNote(note); setIsNotePreviewOpen(true); }} className="border-border/40 bg-card/50 hover:bg-card hover:border-blue-500/30 transition-all cursor-pointer rounded-2xl group">
+                      <Card key={note.id} onClick={() => { setSelectedNote(note); setModalMode("preview"); setIsNoteModalOpen(true); }} className="border-border/40 bg-card/50 hover:bg-card hover:border-blue-500/30 transition-all cursor-pointer rounded-2xl group">
                         <CardContent className="p-4 space-y-3">
                           <div className="flex justify-between items-start"><h4 className="font-bold text-sm truncate group-hover:text-blue-500 transition-colors">{note.name}</h4><Clock size={12} className="text-muted-foreground shrink-0" /></div>
                           <p className="text-xs text-muted-foreground line-clamp-2 font-medium">{note.data.content}</p>
@@ -274,12 +280,12 @@ export default function DealDetailPage() {
                   <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-border/20 rounded-3xl text-center space-y-4">
                     <div className="size-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground"><PhoneCall size={24} /></div>
                     <div><h3 className="font-bold">No call history</h3><p className="text-xs text-muted-foreground">Log your interactions to see a history of calls here.</p></div>
-                    <Button variant="outline" size="sm" onClick={() => setActiveModal('call')} className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Log First Call</Button>
+                    <Button variant="outline" size="sm" onClick={() => { setModalMode("create"); setIsCallModalOpen(true); }} className="rounded-xl text-[10px] font-bold uppercase tracking-widest">Log First Call</Button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {linkedCalls.map(call => (
-                      <Card key={call.id} onClick={() => { setSelectedCall(call); setIsCallPreviewOpen(true); }} className="border-border/40 bg-card/50 hover:bg-card hover:border-blue-500/30 transition-all cursor-pointer rounded-2xl group">
+                      <Card key={call.id} onClick={() => { setSelectedCall(call); setModalMode("preview"); setIsCallModalOpen(true); }} className="border-border/40 bg-card/50 hover:bg-card hover:border-blue-500/30 transition-all cursor-pointer rounded-2xl group">
                         <CardContent className="p-4 space-y-3">
                           <div className="flex justify-between items-start"><div className="flex items-center gap-2"><div className={cn("p-1 rounded-lg", call.data.type === 'Incoming' ? "bg-green-500/10 text-green-500" : "bg-purple-500/10 text-purple-500")}><Phone size={10} /></div><h4 className="font-bold text-sm truncate group-hover:text-blue-500 transition-colors">{call.data.summary || 'Call Log'}</h4></div><Clock size={12} className="text-muted-foreground shrink-0" /></div>
                           <div className="flex flex-wrap gap-2"><Badge variant="secondary" className="text-[8px] font-black uppercase px-1.5 h-4 bg-secondary/50">{call.data.status}</Badge><span className="text-[10px] font-bold text-muted-foreground">{call.data.duration}s</span></div>
@@ -306,26 +312,6 @@ export default function DealDetailPage() {
           </div>
         </div>
       </div>
-
-      <Dialog open={!!activeModal} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="sm:max-w-[550px] border-border/40 bg-card/95 backdrop-blur-xl">
-          <DialogHeader><DialogTitle className="text-xl font-bold tracking-tight">{activeModal === 'call' && 'Log Interaction'}{activeModal === 'note' && 'Add Private Note'}</DialogTitle></DialogHeader>
-          {activeModal === 'call' && (
-            <LogCallForm 
-              initialData={{ 
-                related_to: deal.name, 
-                from: userData?.name || user?.displayName || "You",
-                to: String(deal.data.organization || deal.name),
-                type: "Outgoing",
-                status: "initiated"
-              }} 
-              onSubmit={handleLogCall} 
-              onCancel={() => setActiveModal(null)} 
-            />
-          )}
-          {activeModal === 'note' && <AddNoteForm onSubmit={handleAddNote} onCancel={() => setActiveModal(null)} />}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
