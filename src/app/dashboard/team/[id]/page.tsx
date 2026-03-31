@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -416,7 +416,6 @@ export default function EmployeeDetailPage() {
                 <EmployeeHeader 
                     employee={employee} 
                     totalHours={todayTotalHours}
-                    hoursToday={currentShiftHours}
                     topApp={topApp}
                     joinedDate={joinedDate}
                 />
@@ -431,7 +430,7 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <ShiftPulse activeShift={activeShift} isOnline={employee?.heartbeat?.isCurrentlyRunning} />
+                <ShiftPulse activeShift={activeShift} employee={employee} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>

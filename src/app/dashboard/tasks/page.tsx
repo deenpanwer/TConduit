@@ -40,12 +40,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { BoardView, AutoResizingTextarea, PRIORITIES } from "@/components/dashboard/tasks/BoardView";
 import { TimelineView } from "@/components/dashboard/tasks/TimelineView";
+import { ListView } from "@/components/dashboard/tasks/ListView";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { VoiceTaskCreator } from "@/components/dashboard/tasks/VoiceTaskCreator";
+import { TypedTaskCreator } from "@/components/dashboard/tasks/TypedTaskCreator";
 import { InlineAudioPlayer } from "@/components/dashboard/tasks/InlineAudioPlayer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Wand2, Layers, FileText, Eraser } from "lucide-react";
@@ -68,7 +70,9 @@ function TasksPageContent() {
   const { setIsMobileOpen } = useSidebar();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
-  const [activeView, setActiveView] = useState<"board" | "timeline">("board");
+  const [activeView, setActiveView] = useState<"board" | "timeline" | "list">("board");
+  const [editingNewTask, setEditingNewTask] = useState<Partial<Task> | null>(null);
+  const [pendingVoiceTaskData, setPendingVoiceTaskData] = useState<Partial<Task> | null>(null);
   
   useEffect(() => {
     if (userData) {
@@ -84,6 +88,31 @@ function TasksPageContent() {
     }
   };
 
+  // Draft System
+  useEffect(() => {
+    const savedTypeDraft = localStorage.getItem('trac_task_draft_type');
+    const savedVoiceDraft = localStorage.getItem('trac_task_draft_voice');
+    
+    if (savedTypeDraft) setEditingNewTask(JSON.parse(savedTypeDraft));
+    if (savedVoiceDraft) setPendingVoiceTaskData(JSON.parse(savedVoiceDraft));
+  }, []);
+
+  useEffect(() => {
+    if (editingNewTask) {
+        localStorage.setItem('trac_task_draft_type', JSON.stringify(editingNewTask));
+    } else {
+        localStorage.removeItem('trac_task_draft_type');
+    }
+  }, [editingNewTask]);
+
+  useEffect(() => {
+    if (pendingVoiceTaskData) {
+        localStorage.setItem('trac_task_draft_voice', JSON.stringify(pendingVoiceTaskData));
+    } else {
+        localStorage.removeItem('trac_task_draft_voice');
+    }
+  }, [pendingVoiceTaskData]);
+
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
     : true;
@@ -92,8 +121,6 @@ function TasksPageContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [isGlobalHistoryOpen, setIsGlobalHistoryOpen] = useState(false);
-  const [editingNewTask, setEditingNewTask] = useState<Partial<Task> | null>(null);
-  const [pendingVoiceTaskData, setPendingVoiceTaskData] = useState<Partial<Task> | null>(null);
   const [localTask, setLocalTask] = useState<Task | null>(null);
   const [originalTask, setOriginalTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState("");
@@ -137,6 +164,7 @@ function TasksPageContent() {
           description: data.description || prev?.description,
           priority: data.priority || prev?.priority,
           subtasks: data.subtasks || prev?.subtasks,
+          resources: data.resources || prev?.resources,
         }));
         toast.success("Task enhanced by AI.");
       }
@@ -167,13 +195,14 @@ function TasksPageContent() {
 
       if (response.ok) {
         const data = await response.json();
-        setEditingNewTask({
-          ...editingNewTask,
-          title: data.title,
-          description: data.description,
-          priority: data.priority,
-          subtasks: data.subtasks,
-        });
+        setEditingNewTask(prev => ({
+            ...prev,
+            title: data.title,
+            description: data.description,
+            priority: data.priority,
+            subtasks: data.subtasks,
+            resources: data.resources,
+        }));
         setIsBulkMode(false);
         toast.success("AI parsed your bulk input.");
       }
@@ -293,6 +322,7 @@ function TasksPageContent() {
             priority: "medium",
             assignees: [],
             subtasks: [],
+            resources: [],
             comments: [],
             tags: [],
             dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
@@ -318,9 +348,19 @@ function TasksPageContent() {
     if (id === "new") {
       setEditingNewTask(prev => prev ? { ...prev, ...updates } : null);
     } else {
+      // For existing tasks, find the task and update it in the local state
+      const taskIndex = tasks.findIndex(t => t.id === id);
+      if (taskIndex !== -1) {
+        const updatedTask = { ...tasks[taskIndex], ...updates };
+        const newTasks = [...tasks];
+        newTasks[taskIndex] = updatedTask;
+        // Here you might want to update the state that holds the tasks array
+        // This part depends on how you manage your state (e.g., using a state setter from useState)
+        // For now, let's assume `updateTask` handles the actual state update
+      }
       updateTask(id, updates, action, skipHistory);
     }
-  }, [updateTask]);
+}, [tasks, updateTask]);
 
   const handleSaveNewTask = useCallback(async () => {
     if (editingNewTask && selectedTaskId === "new") {
@@ -334,11 +374,13 @@ function TasksPageContent() {
         editingNewTask.assignees, 
         undefined,
         editingNewTask.leaderPoints || 20,
-        editingNewTask.deadlineHours || 4
+        editingNewTask.deadlineHours,
+        editingNewTask.subtasks || [],
+        editingNewTask.resources || []
       );
       if (newId) {
         // Update the rest of the fields (tags, coverImage, etc.)
-        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, ...rest } = editingNewTask;
+        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, ...rest } = editingNewTask;
         if (Object.keys(rest).length > 0) {
             await updateTask(newId, rest);
         }
@@ -352,7 +394,7 @@ function TasksPageContent() {
   }, [editingNewTask, selectedTaskId, addTask, updateTask]);
 
   const handleSaveVoiceTask = useCallback(async (audioData: { base64: string; mimeType: string; duration: number }, metadata: Partial<Task>) => {
-    // metadata already contains title, priority, assignees, dueDate, status
+    // metadata already contains title, priority, assignees, dueDate, status, subtasks
     const newId = await addTask(
       metadata.title || "Voice Task",
       metadata.status || "todo",
@@ -361,7 +403,9 @@ function TasksPageContent() {
       metadata.assignees,
       audioData,
       metadata.leaderPoints,
-      metadata.deadlineHours
+      metadata.deadlineHours,
+      metadata.subtasks || [],
+      metadata.resources || []
     );
     if (newId) {
       toast.success("Voice task created!");
@@ -434,12 +478,98 @@ function TasksPageContent() {
                         className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
                         onClick={() => setActiveView("timeline")}
                     >
-                        <ListIcon size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Timeline"}
+                        <Clock size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Timeline"}
+                    </Button>
+                    <Button 
+                        variant={activeView === "list" ? "secondary" : "ghost"} 
+                        size="sm" 
+                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
+                        onClick={() => setActiveView("list")}
+                    >
+                        <ListIcon size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "List"}
                     </Button>
                 </div>
 
                 <div className="flex items-center gap-3 border-l border-border/40 pl-3">
                     {!isMobile && <SubscriptionBadge orgData={orgData} userData={userData} />}
+                    
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 text-xs gap-2">
+                                <FileText size={14} />
+                                <span className="hidden sm:inline">Drafts</span>
+                                {(editingNewTask || pendingVoiceTaskData) && (
+                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="end">
+                            <div className="p-4 border-b border-border/40">
+                                <h4 className="font-bold text-sm">Local Drafts</h4>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Stored on this device only</p>
+                            </div>
+                            <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+                                {!editingNewTask && !pendingVoiceTaskData ? (
+                                    <div className="py-8 text-center text-muted-foreground/40 text-xs italic">
+                                        No active drafts
+                                    </div>
+                                ) : (
+                                    <>
+                                        {editingNewTask && (
+                                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
+                                                <div 
+                                                    className="flex-1 cursor-pointer"
+                                                    onClick={() => {
+                                                        setCreateTaskMode("type");
+                                                        setSelectedTaskId("new");
+                                                    }}
+                                                >
+                                                    <p className="text-xs font-bold truncate">{editingNewTask.title || "Untitled Type Draft"}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase">Type Draft</p>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                                                    onClick={() => {
+                                                        if (confirm("Clear this draft forever?")) {
+                                                            setEditingNewTask(null);
+                                                            localStorage.removeItem('trac_task_draft_type');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {pendingVoiceTaskData && (
+                                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
+                                                <div 
+                                                    className="flex-1 cursor-pointer"
+                                                    onClick={() => {
+                                                        setCreateTaskMode("voice");
+                                                    }}
+                                                >
+                                                    <p className="text-xs font-bold truncate">{pendingVoiceTaskData.title || "Untitled Voice Draft"}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase">Voice Draft</p>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                                                    onClick={() => {
+                                                        if (confirm("Clear this draft forever?")) {
+                                                            setPendingVoiceTaskData(null);
+                                                            localStorage.removeItem('trac_task_draft_voice');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
                     <Button
                         className={cn("font-semibold text-xs h-8 rounded-md", isMobile ? "px-2" : "px-3")}
                         onClick={() => {
@@ -485,7 +615,7 @@ function TasksPageContent() {
                     canManage={canManageTasks}
                     personnel={personnel}
                 />
-            ) : (
+            ) : activeView === "timeline" ? (
                 <TimelineView 
                     tasks={filteredTasks}
                     onTaskClick={setSelectedTaskId}
@@ -494,6 +624,12 @@ function TasksPageContent() {
                     onQuickEdit={(id, title) => updateTask(id, { title })}
                     onAddClick={handleAddNewTaskClick}
                     canManage={canManageTasks}
+                    personnel={personnel}
+                />
+            ) : (
+                <ListView 
+                    tasks={filteredTasks}
+                    onTaskClick={setSelectedTaskId}
                     personnel={personnel}
                 />
             )}
@@ -675,369 +811,433 @@ function TasksPageContent() {
                    </div>
                  ) : (
                    <>
-                 <div className="flex items-center gap-3 mb-6">
-                    <DropdownMenu>
-                       <DropdownMenuTrigger asChild disabled={!canManageTasks}>
-                          <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50" disabled={!canManageTasks}>
-                             <div className={cn("w-2 h-2 rounded-full", PRIORITIES[selectedTask.priority || 'medium'].color)} />
-                             {selectedTask.priority || 'Medium'} Priority
-                          </Button>
-                       </DropdownMenuTrigger>
-                       { canManageTasks && (
-                          <DropdownMenuContent align="start">
-                             {Object.entries(PRIORITIES).map(([key, val]) => (
-                                <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal(selectedTaskId!, { priority: key as Priority })}>
-                                   <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
-                                   {val.label}
-                                </DropdownMenuItem>
-                             ))}
-                          </DropdownMenuContent>
-                       )}
-                    </DropdownMenu>
+                     <div className="flex items-center gap-3 mb-6">
+                        <DropdownMenu>
+                           <DropdownMenuTrigger asChild disabled={!canManageTasks}>
+                              <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50" disabled={!canManageTasks}>
+                                 <div className={cn("w-2 h-2 rounded-full", PRIORITIES[selectedTask.priority || 'medium'].color)} />
+                                 {selectedTask.priority || 'Medium'} Priority
+                              </Button>
+                           </DropdownMenuTrigger>
+                           { canManageTasks && (
+                              <DropdownMenuContent align="start">
+                                 {Object.entries(PRIORITIES).map(([key, val]) => (
+                                    <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal(selectedTaskId!, { priority: key as Priority })}>
+                                       <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
+                                       {val.label}
+                                    </DropdownMenuItem>
+                                 ))}
+                              </DropdownMenuContent>
+                           )}
+                        </DropdownMenu>
 
-                    <Popover>
-                      <PopoverTrigger asChild disabled={!canManageTasks}>
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground" disabled={!canManageTasks}>
-                            <Calendar size={12} className="mr-2" />
-                            {selectedTask.dueDate ? format(new Date(selectedTask.dueDate), "MMM d") : "Set Date"}
-                        </Button>
-                      </PopoverTrigger>
-                      { canManageTasks && (
-                         <PopoverContent className="w-auto p-0" align="start">
-                           <CalendarComponent
-                             mode="single"
-                             selected={selectedTask.dueDate ? new Date(selectedTask.dueDate) : undefined}
-                             onSelect={(date) => handleUpdateTaskLocal(selectedTaskId!, { dueDate: date ? date.toISOString() : undefined })}
-                             initialFocus
-                           />
-                         </PopoverContent>
-                      )}
-                    </Popover>
+                        <Popover>
+                          <PopoverTrigger asChild disabled={!canManageTasks}>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground" disabled={!canManageTasks}>
+                                <Calendar size={12} className="mr-2" />
+                                {selectedTask.dueDate ? format(new Date(selectedTask.dueDate), "MMM d") : "Set Date"}
+                            </Button>
+                          </PopoverTrigger>
+                          { canManageTasks && (
+                             <PopoverContent className="w-auto p-0" align="start">
+                               <CalendarComponent
+                                 mode="single"
+                                 selected={selectedTask.dueDate ? new Date(selectedTask.dueDate) : undefined}
+                                 onSelect={(date) => handleUpdateTaskLocal(selectedTaskId!, { dueDate: date ? date.toISOString() : undefined })}
+                                 initialFocus
+                               />
+                             </PopoverContent>
+                          )}
+                        </Popover>
 
-                    <Button 
-                        variant="ghost" size="sm" 
-                        className={cn("h-7 text-[10px] font-bold uppercase tracking-wider gap-2 ml-auto transition-all duration-300", 
-                           selectedTask.flagged 
-                           ? "text-[#1DB954] hover:text-[#1ed760] bg-[#1DB954]/10 border border-[#1DB954]/20" 
-                           : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={() => handleUpdateTaskLocal(selectedTaskId!, { flagged: !selectedTask.flagged }, 'task_completed')}
-                    >
-                        {selectedTask.flagged ? <Check size={12} strokeWidth={3} className="animate-in zoom-in" /> : <Flag size={12} fill="none" />}
-                        {selectedTask.flagged ? 'Complete' : 'Mark as Complete'}
-                    </Button>
-                 </div>
-
-                 <div className={cn("relative w-full",
-                    {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
-                 )}>
-                    <AutoResizingTextarea
-                       value={selectedTask.title || ""}
-                       onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { title: e.target.value }, 'updated', true)}
-                       onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                       className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
-                       placeholder="Task Title"
-                       setShowTopFade={setShowTopFadeTitle}
-                       setShowBottomFade={setShowBottomFadeTitle}
-                       maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
-                       readOnly={!canManageTasks}
-                    />
-                 </div>
-
-                 <div className="mb-8">
-                    <div className="flex items-center justify-between mb-2">
-                       <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Assigned To</label>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                       {(selectedTask.assignees || []).length > 0 ? (
-                          selectedTask.assignees.map(uid => {
-                             const u = personnel.find(p => p.id === uid);
-                             if (!u) return null;
-                             return (
-                                <Badge key={`assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
-                                    <Avatar className="h-5 w-5">
-                                        <AvatarImage src={getUserAvatar(u)} />
-                                        <AvatarFallback>{u.name?.[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <span>{u.name}</span>
-                                    { canManageTasks && (
-                                       <X 
-                                          size={12} 
-                                          className="cursor-pointer text-muted-foreground hover:text-destructive"
-                                          onClick={() => {
-                                                const newAssignees = selectedTask.assignees.filter(a => a !== uid);
-                                                handleUpdateTaskLocal(selectedTaskId!, { assignees: newAssignees }, 'assignees_updated');
-                                          }}
-                                       />
-                                    )}
-                                </Badge>
-                             )
-                          })
-                       ) : (
-                          <div className="text-xs text-muted-foreground flex items-center gap-2 px-2 py-1 bg-secondary/30 rounded-md border border-dashed border-border">
-                             <AtSign size={12} /> Everyone
-                          </div>
-                       )}
-                       
-                        { canManageTasks && (
-                           <DropdownMenu>
-                               <DropdownMenuTrigger asChild>
-                                   <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0 border border-dashed border-border hover:border-primary">
-                                       <Plus size={14} />
-                                   </Button>
-                               </DropdownMenuTrigger>
-                               <DropdownMenuContent>
-                                   <DropdownMenuLabel>Team Members</DropdownMenuLabel>
-                                   <DropdownMenuSeparator />
-                                   {personnel.map(user => {
-                                       const isAssigned = (selectedTask.assignees || []).some(uid => uid === user.id);
-                                       return (
-                                           <DropdownMenuItem 
-                                               key={`assign-user-${user.id}`}
-                                               onClick={() => {
-                                                   if (isAssigned) return;
-                                                   handleUpdateTaskLocal(selectedTaskId!, { assignees: [...(selectedTask.assignees || []), user.id] }, 'assignees_updated');
-                                               }}
-                                               disabled={isAssigned}
-                                           >
-                                               <Avatar className="h-5 w-5 mr-2">
-                                                   <AvatarImage src={getUserAvatar(user)} />
-                                                   <AvatarFallback>{user.name?.[0]}</AvatarFallback>
-                                               </Avatar>
-                                               {user.name}
-                                           </DropdownMenuItem>
-                                       )
-                                   })}
-                               </DropdownMenuContent>
-                           </DropdownMenu>
-                        )}
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-6 mb-8">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                          <Sparkles size={10} className="text-primary" /> Leader Points
-                       </label>
-                       <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
-                          <Input 
-                             type="number"
-                             min="0"
-                             className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
-                             defaultValue={selectedTask.leaderPoints || 20}
-                             onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { leaderPoints: Math.max(0, Number(e.target.value)) })}
-                             disabled={!canManageTasks}
-                          />
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Points</span>
-                       </div>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                          <Clock size={10} className="text-orange-500" /> Effort / Deadline
-                       </label>
-                       <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
-                          <Input 
-                             type="number"
-                             min="0"
-                             className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
-                             defaultValue={selectedTask.deadlineHours || 4}
-                             onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { deadlineHours: Math.max(0, Number(e.target.value)) })}
-                             disabled={!canManageTasks}
-                          />
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Hours</span>
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="mb-8 group">
-                    <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2 group-focus-within:text-primary transition-colors">
-                       Description
-                    </label>
-                    <div className={cn("relative w-full rounded-xl",
-                        {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
-                    )}>
-                       <AutoResizingTextarea
-                          value={selectedTask.description || ""}
-                          onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { description: e.target.value }, 'updated', true)}
-                          onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                          className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
-                          placeholder="Add details about this task..."
-                          setShowTopFade={setShowTopFadeDescription}
-                          setShowBottomFade={setShowBottomFadeDescription}
-                          maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
-                          readOnly={!canManageTasks}
-                       />
-                    </div>
-                 </div>
-
-                 {selectedTask.audioBase64 && selectedTask.audioMimeType && selectedTask.audioDuration !== undefined && (
-                    <div className="mb-8">
-                       <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2">
-                          Voice Brief
-                       </label>
-                       <InlineAudioPlayer 
-                         audioBase64={selectedTask.audioBase64}
-                         audioMimeType={selectedTask.audioMimeType}
-                         audioDuration={selectedTask.audioDuration}
-                       />
-                    </div>
-                 )}
-
-                 <div>
-                    <div className="flex items-center justify-between mb-3">
-                       <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
-                          Subtasks
-                       </label>
-                       <span className="text-[10px] font-mono text-muted-foreground/50">
-                          {Math.round(((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100)}% Complete
-                       </span>
-                    </div>
-
-                    <div className="w-full h-1.5 bg-secondary/30 rounded-full mb-4 overflow-hidden">
-                       <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100}%` }}
-                          className="h-full bg-primary rounded-full"
-                       />
-                    </div>
-
-                    <div className="space-y-1">
-                       {(selectedTask.subtasks || []).map((sub, idx) => (
-                          <div key={sub.id} className="flex items-center gap-2 group/sub">
-                             <button 
-                                onClick={() => {
-                                   const newSub = [...(selectedTask.subtasks || [])];
-                                   newSub[idx].completed = !newSub[idx].completed;
-                                   newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
-                                   handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
-                                }}
-                                className={cn(
-                                   "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
-                                   sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
-                                )}
-                             >
-                                {sub.completed && <Check size={12} />}
-                             </button>
-                             <AutoResizingTextarea
-                                   value={sub.title}
-                                   onChange={(e) => {
-                                      const newSub = [...(selectedTask.subtasks || [])];
-                                      newSub[idx].title = e.target.value;
-                                      handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub }, 'updated', true);
-                                   }}
-                                   onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                                   className={cn(
-                                      "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
-                                      sub.completed && "text-muted-foreground line-through decoration-border"
-                                   )}
-                                   maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
-                                   readOnly={!canManageTasks}
-                                />
-                             
-                             {sub.completed && sub.completedBy && (
-                                <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
-                                   <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
-                                </div>
-                             )}
-
-                                <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
-                                    onClick={() => {
-                                    const newSub = selectedTask.subtasks.filter(s => s.id !== sub.id);
-                                    handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
-                                    }}
-                                >
-                                    <X size={12} />
-                                </Button>
-                          </div>
-                       ))}
                         <Button 
                             variant="ghost" size="sm" 
-                            className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                            onClick={() => handleUpdateTaskLocal(selectedTaskId!, { subtasks: [...(selectedTask.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
-                            disabled={!canManageTasks}
+                            className={cn("h-7 text-[10px] font-bold uppercase tracking-wider gap-2 ml-auto transition-all duration-300", 
+                               selectedTask.flagged 
+                               ? "text-[#1DB954] hover:text-[#1ed760] bg-[#1DB954]/10 border border-[#1DB954]/20" 
+                               : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => handleUpdateTaskLocal(selectedTaskId!, { flagged: !selectedTask.flagged }, 'task_completed')}
                         >
-                            <Plus size={14} className="mr-2" /> Add Item
+                            {selectedTask.flagged ? <Check size={12} strokeWidth={3} className="animate-in zoom-in" /> : <Flag size={12} fill="none" />}
+                            {selectedTask.flagged ? 'Complete' : 'Mark as Complete'}
                         </Button>
-                    </div>
-                 </div>
+                     </div>
 
-                 <div className="mt-12 pt-8 border-t border-border/30">
-                    <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-4">
-                       Collaboration
-                    </label>
-                    
-                    <div className="space-y-6 mb-8">
-                       {(selectedTask.comments || []).map((comment) => {
-                          const commenter = personnel.find(p => p.id === comment.userId);
-                          return (
-                             <div key={comment.id} className="flex gap-3 group/comment">
-                                <Avatar className="h-7 w-7 border border-border/50 shrink-0 mt-0.5 shadow-sm">
-                                   <AvatarImage src={getUserAvatar(commenter)} />
-                                   <AvatarFallback className="text-[10px]">{commenter?.name?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                   <div className="flex items-baseline gap-2 mb-1">
-                                      <span className="text-xs font-bold text-foreground leading-none">{commenter?.name || 'User'}</span>
-                                      <span className="text-[9px] font-medium text-muted-foreground/50 uppercase tracking-tighter">
-                                         {comment.createdAt?.toDate ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
-                                      </span>
-                                   </div>
-                                   <p className="text-sm text-muted-foreground/80 leading-relaxed break-words">{comment.text}</p>
-                                </div>
-                             </div>
-                          )
-                       })}
-                       
-                       {(!selectedTask.comments || selectedTask.comments.length === 0) && (
-                          <div className="py-8 flex flex-col items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/10 rounded-2xl">
-                             <AtSign size={24} className="mb-2 opacity-50" />
-                             <p className="text-[10px] font-bold uppercase tracking-widest">No conversation yet</p>
-                          </div>
-                       )}
-                    </div>
+                     <div className={cn("relative w-full",
+                        {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
+                     )}>
+                        <AutoResizingTextarea
+                           value={selectedTask.title || ""}
+                           onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { title: e.target.value }, 'updated', true)}
+                           onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                           className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
+                           placeholder="Task Title"
+                           setShowTopFade={setShowTopFadeTitle}
+                           setShowBottomFade={setShowBottomFadeTitle}
+                           maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
+                           readOnly={!canManageTasks}
+                        />
+                     </div>
 
-                    <div className="flex gap-4 items-start bg-secondary/20 p-4 rounded-2xl border border-border/30 focus-within:border-primary/30 focus-within:bg-background transition-all">
-                       <Avatar className="h-8 w-8 border border-border/50 shrink-0 shadow-sm">
-                          <AvatarImage src={getUserAvatar(userData)} />
-                          <AvatarFallback className="text-[10px]">ME</AvatarFallback>
-                       </Avatar>
-                       <div className="flex-1 space-y-3">
-                          <AutoResizingTextarea
-                             value={newComment}
-                             onChange={(e) => setNewComment(e.target.value)}
-                             placeholder="Write a message..."
-                             className="min-h-[40px] text-sm bg-transparent border-none p-0 focus:ring-0 placeholder:text-muted-foreground/40"
-                             maxHeight={200}
-                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                   e.preventDefault();
-                                   if (newComment.trim()) {
-                                      addComment(selectedTaskId!, newComment.trim());
-                                      setNewComment("");
-                                   }
-                                }
-                             }}
-                          />
-                          <div className="flex justify-end items-center gap-3">
-                             <span className="text-[9px] text-muted-foreground/40 font-medium">Press Enter to post</span>
-                             <Button 
-                                size="sm" 
-                                className="h-7 text-[10px] font-bold uppercase rounded-lg px-4"
-                                onClick={() => {
-                                   if (newComment.trim()) {
-                                      addComment(selectedTaskId!, newComment.trim());
-                                      setNewComment("");
-                                   }
-                                }}
-                                disabled={!newComment.trim()}
-                             >
-                                Send
-                             </Button>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-                 </>
+                     <div className="mb-8">
+                        <div className="flex items-center justify-between mb-2">
+                           <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Assigned To</label>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                           {(selectedTask.assignees || []).length > 0 ? (
+                              selectedTask.assignees.map(uid => {
+                                 const u = personnel.find(p => p.id === uid);
+                                 if (!u) return null;
+                                 return (
+                                    <Badge key={`assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
+                                        <Avatar className="h-5 w-5">
+                                            <AvatarImage src={getUserAvatar(u)} />
+                                            <AvatarFallback>{u.name?.[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <span>{u.name}</span>
+                                        { canManageTasks && (
+                                           <X 
+                                              size={12} 
+                                              className="cursor-pointer text-muted-foreground hover:text-destructive"
+                                              onClick={() => {
+                                                    const newAssignees = selectedTask.assignees.filter(a => a !== uid);
+                                                    handleUpdateTaskLocal(selectedTaskId!, { assignees: newAssignees }, 'assignees_updated');
+                                              }}
+                                           />
+                                        )}
+                                    </Badge>
+                                 )
+                              })
+                           ) : (
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 px-2 py-1 bg-secondary/30 rounded-md border border-dashed border-border">
+                                 <AtSign size={12} /> Everyone
+                              </div>
+                           )}
+                           
+                            { canManageTasks && (
+                               <DropdownMenu>
+                                   <DropdownMenuTrigger asChild>
+                                       <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0 border border-dashed border-border hover:border-primary">
+                                           <Plus size={14} />
+                                       </Button>
+                                   </DropdownMenuTrigger>
+                                   <DropdownMenuContent>
+                                       <DropdownMenuLabel>Team Members</DropdownMenuLabel>
+                                       <DropdownMenuSeparator />
+                                       {personnel.map(user => {
+                                           const isAssigned = (selectedTask.assignees || []).some(uid => uid === user.id);
+                                           return (
+                                               <DropdownMenuItem 
+                                                   key={`assign-user-${user.id}`}
+                                                   onClick={() => {
+                                                       if (isAssigned) return;
+                                                       handleUpdateTaskLocal(selectedTaskId!, { assignees: [...(selectedTask.assignees || []), user.id] }, 'assignees_updated');
+                                                   }}
+                                                   disabled={isAssigned}
+                                               >
+                                                   <Avatar className="h-5 w-5 mr-2">
+                                                       <AvatarImage src={getUserAvatar(user)} />
+                                                       <AvatarFallback>{user.name?.[0]}</AvatarFallback>
+                                                   </Avatar>
+                                                   {user.name}
+                                               </DropdownMenuItem>
+                                           )
+                                       })}
+                                   </DropdownMenuContent>
+                               </DropdownMenu>
+                            )}
+                        </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-6 mb-8">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                              <Sparkles size={10} className="text-primary" /> Leader Points
+                           </label>
+                           <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                              <Input 
+                                 type="number"
+                                 min="0"
+                                 className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                                 defaultValue={selectedTask.leaderPoints || 20}
+                                 onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { leaderPoints: Math.max(0, Number(e.target.value)) })}
+                                 disabled={!canManageTasks}
+                              />
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Points</span>
+                           </div>
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                              <Clock size={10} className="text-orange-500" /> Effort / Deadline
+                           </label>
+                           <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
+                              <Input 
+                                 type="number"
+                                 min="0"
+                                 className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
+                                 defaultValue={selectedTask.deadlineHours || 4}
+                                 onBlur={(e) => handleUpdateTaskLocal(selectedTaskId!, { deadlineHours: Math.max(0, Number(e.target.value)) })}
+                                 disabled={!canManageTasks}
+                              />
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Hours</span>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="mb-8 group">
+                        <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2 group-focus-within:text-primary transition-colors">
+                           Description
+                        </label>
+                        <div className={cn("relative w-full rounded-xl",
+                            {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
+                        )}>
+                           <AutoResizingTextarea
+                              value={selectedTask.description || ""}
+                              onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { description: e.target.value }, 'updated', true)}
+                              onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                              className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
+                              placeholder="Add details about this task..."
+                              setShowTopFade={setShowTopFadeDescription}
+                              setShowBottomFade={setShowBottomFadeDescription}
+                              maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
+                              readOnly={!canManageTasks}
+                           />
+                        </div>
+                     </div>
+
+                     {selectedTask.audioBase64 && selectedTask.audioMimeType && selectedTask.audioDuration !== undefined && (
+                        <div className="mb-8">
+                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2">
+                              Voice Brief
+                           </label>
+                           <InlineAudioPlayer 
+                             audioBase64={selectedTask.audioBase64}
+                             audioMimeType={selectedTask.audioMimeType}
+                             audioDuration={selectedTask.audioDuration}
+                           />
+                        </div>
+                     )}
+
+                     <div>
+                        <div className="flex items-center justify-between mb-3">
+                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
+                              Subtasks
+                           </label>
+                           <span className="text-[10px] font-mono text-muted-foreground/50">
+                              {Math.round(((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100)}% Complete
+                           </span>
+                        </div>
+
+                        <div className="w-full h-1.5 bg-secondary/30 rounded-full mb-4 overflow-hidden">
+                           <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100}%` }}
+                              className="h-full bg-primary rounded-full"
+                           />
+                        </div>
+
+                        <div className="space-y-1">
+                           {(selectedTask.subtasks || []).map((sub, idx) => (
+                              <div key={sub.id} className="flex items-center gap-2 group/sub">
+                                 <button 
+                                    onClick={() => {
+                                       const newSub = [...(selectedTask.subtasks || [])];
+                                       newSub[idx].completed = !newSub[idx].completed;
+                                       newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
+                                       handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
+                                    }}
+                                    className={cn(
+                                       "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
+                                       sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
+                                    )}
+                                 >
+                                    {sub.completed && <Check size={12} />}
+                                 </button>
+                                 <AutoResizingTextarea
+                                       value={sub.title}
+                                       onChange={(e) => {
+                                          const newSub = [...(selectedTask.subtasks || [])];
+                                          newSub[idx].title = e.target.value;
+                                          handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub }, 'updated', true);
+                                       }}
+                                       onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                                       className={cn(
+                                          "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
+                                          sub.completed && "text-muted-foreground line-through decoration-border"
+                                       )}
+                                       maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
+                                       readOnly={!canManageTasks}
+                                    />
+                                 
+                                 {sub.completed && sub.completedBy && (
+                                    <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
+                                       <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
+                                    </div>
+                                 )}
+
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
+                                        onClick={() => {
+                                        const newSub = selectedTask.subtasks.filter(s => s.id !== sub.id);
+                                        handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
+                                        }}
+                                    >
+                                        <X size={12} />
+                                    </Button>
+                              </div>
+                           ))}
+                            <Button 
+                                variant="ghost" size="sm" 
+                                className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
+                                onClick={() => handleUpdateTaskLocal(selectedTaskId!, { subtasks: [...(selectedTask.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
+                                disabled={!canManageTasks}
+                            >
+                                <Plus size={14} className="mr-2" /> Add Item
+                            </Button>
+                        </div>
+                     </div>
+
+                     <div className="mb-8">
+                        <div className="flex items-center justify-between mb-3">
+                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
+                              Resources
+                           </label>
+                        </div>
+                        <div className="space-y-2">
+                           {(selectedTask.resources || []).map((res, idx) => (
+                              <div key={res.id} className="flex items-center gap-2 group/res bg-secondary/10 p-2 rounded-lg border border-border/40">
+                                 <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                       <LinkIcon size={12} className="text-primary shrink-0" />
+                                       <Input 
+                                          value={res.title} // Corrected from res.name
+                                          onChange={(e) => {
+                                             const newRes = [...(selectedTask.resources || [])];
+                                             newRes[idx].title = e.target.value;
+                                             handleUpdateTaskLocal(selectedTaskId!, { resources: newRes }, 'updated', true);
+                                          }}
+                                          onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                                          placeholder="Resource Title" // Corrected placeholder
+                                          className="h-6 bg-transparent border-none p-0 text-xs font-bold focus-visible:ring-0"
+                                       />
+                                    </div>
+                                    <Input 
+                                       value={res.url}
+                                       onChange={(e) => {
+                                          const newRes = [...(selectedTask.resources || [])];
+                                          newRes[idx].url = e.target.value;
+                                          handleUpdateTaskLocal(selectedTaskId!, { resources: newRes }, 'updated', true);
+                                       }}
+                                       onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                                       placeholder="URL (docs, pdfs, images...)"
+                                       className="h-5 bg-transparent border-none p-0 text-[10px] text-muted-foreground focus-visible:ring-0"
+                                    />
+                                 </div>
+                                 <div className="flex items-center gap-1 opacity-0 group-hover/res:opacity-100 transition-opacity">
+                                    {res.url && (
+                                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => window.open(res.url, '_blank')}>
+                                          <ArrowUpRight size={12} />
+                                       </Button>
+                                    )}
+                                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                        onClick={() => {
+                                           const newRes = selectedTask.resources!.filter(r => r.id !== res.id);
+                                           handleUpdateTaskLocal(selectedTaskId!, { resources: newRes });
+                                        }}
+                                    >
+                                        <X size={12} />
+                                    </Button>
+                                 </div>
+                              </div>
+                           ))}
+                           <Button 
+                              variant="ghost" size="sm" 
+                              className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
+                              onClick={() => handleUpdateTaskLocal(selectedTaskId!, { resources: [...(selectedTask.resources || []), { id: Math.random().toString(), title: "", url: "", type: "link", createdAt: new Date() }] })}
+                              disabled={!canManageTasks}
+                           >
+                              <Plus size={14} className="mr-2" /> Add Resource
+                           </Button>
+                        </div>
+                     </div>
+
+                     <div className="mt-12 pt-8 border-t border-border/30">
+                        <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-4">
+                           Collaboration
+                        </label>
+                        
+                        <div className="space-y-6 mb-8">
+                           {(selectedTask.comments || []).map((comment) => {
+                              const commenter = personnel.find(p => p.id === comment.userId);
+                              return (
+                                 <div key={comment.id} className="flex gap-3 group/comment">
+                                    <Avatar className="h-7 w-7 border border-border/50 shrink-0 mt-0.5 shadow-sm">
+                                       <AvatarImage src={getUserAvatar(commenter)} />
+                                       <AvatarFallback className="text-[10px]">{commenter?.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                       <div className="flex items-baseline gap-2 mb-1">
+                                          <span className="text-xs font-bold text-foreground leading-none">{commenter?.name || 'User'}</span>
+                                          <span className="text-[9px] font-medium text-muted-foreground/50 uppercase tracking-tighter">
+                                             {comment.createdAt?.toDate ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                                          </span>
+                                       </div>
+                                       <p className="text-sm text-muted-foreground/80 leading-relaxed break-words">{comment.text}</p>
+                                    </div>
+                                 </div>
+                              )
+                           })}
+                           
+                           {(!selectedTask.comments || selectedTask.comments.length === 0) && (
+                              <div className="py-8 flex flex-col items-center justify-center text-muted-foreground/20 border-2 border-dashed border-border/10 rounded-2xl">
+                                 <AtSign size={24} className="mb-2 opacity-50" />
+                                 <p className="text-[10px] font-bold uppercase tracking-widest">No conversation yet</p>
+                              </div>
+                           )}
+                        </div>
+
+                        <div className="flex gap-4 items-start bg-secondary/20 p-4 rounded-2xl border border-border/30 focus-within:border-primary/30 focus-within:bg-background transition-all">
+                           <Avatar className="h-8 w-8 border border-border/50 shrink-0 shadow-sm">
+                              <AvatarImage src={getUserAvatar(userData)} />
+                              <AvatarFallback className="text-[10px]">ME</AvatarFallback>
+                           </Avatar>
+                           <div className="flex-1 space-y-3">
+                              <AutoResizingTextarea
+                                 value={newComment}
+                                 onChange={(e) => setNewComment(e.target.value)}
+                                 placeholder="Write a message..."
+                                 className="min-h-[40px] text-sm bg-transparent border-none p-0 focus:ring-0 placeholder:text-muted-foreground/40"
+                                 maxHeight={200}
+                                 onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                       e.preventDefault();
+                                       if (newComment.trim()) {
+                                          addComment(selectedTaskId!, newComment.trim());
+                                          setNewComment("");
+                                       }
+                                    }
+                                 }}
+                              />
+                              <div className="flex justify-end items-center gap-3">
+                                 <span className="text-[9px] text-muted-foreground/40 font-medium">Press Enter to post</span>
+                                 <Button 
+                                    size="sm" 
+                                    className="h-7 text-[10px] font-bold uppercase rounded-lg px-4"
+                                    onClick={() => {
+                                       if (newComment.trim()) {
+                                          addComment(selectedTaskId!, newComment.trim());
+                                          setNewComment("");
+                                       }
+                                    }}
+                                    disabled={!newComment.trim()}
+                                 >
+                                    Send
+                                 </Button>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                   </>
                  )}
               </div>
 
@@ -1059,6 +1259,7 @@ function TasksPageContent() {
                           localTask.flagged !== originalTask.flagged ||
                           JSON.stringify(localTask.assignees) !== JSON.stringify(originalTask.assignees) ||
                           JSON.stringify(localTask.subtasks) !== JSON.stringify(originalTask.subtasks) ||
+                          JSON.stringify(localTask.resources) !== JSON.stringify(originalTask.resources) || // Added resources check
                           localTask.audioBase64 !== originalTask.audioBase64 ||
                           localTask.audioMimeType !== originalTask.audioMimeType ||
                           localTask.audioDuration !== originalTask.audioDuration;
@@ -1129,7 +1330,15 @@ function TasksPageContent() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setCreateTaskMode(null)}
+                onClick={() => {
+                  if (pendingVoiceTaskData && (pendingVoiceTaskData.title || pendingVoiceTaskData.description)) {
+                      localStorage.setItem('trac_task_draft_voice', JSON.stringify(pendingVoiceTaskData));
+                      toast.info("Voice task saved as draft", {
+                          description: "You can recover it from the Drafts menu."
+                      });
+                  }
+                  setCreateTaskMode(null);
+                }}
                 className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
             >
                 <motion.div
@@ -1142,10 +1351,8 @@ function TasksPageContent() {
                 >
                     <VoiceTaskCreator
                         onSave={handleSaveVoiceTask}
-                        onCancel={() => {
-                          setCreateTaskMode(null);
-                        }}
-                        isLoading={false} // Add actual loading state later
+                        onCancel={() => setCreateTaskMode(null)} // Simplified onCancel
+                        isLoading={false}
                         canManage={canManageTasks}
                         initialStatus={initialMetadata.status}
                         initialDueDate={initialMetadata.date}
@@ -1157,412 +1364,35 @@ function TasksPageContent() {
         )}
         
         {/* New Task Typing Modal */}
-        {(selectedTaskId === "new" && createTaskMode === "type") && [
-          <motion.div
-            key="new-task-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => {
-                setSelectedTaskId(null);
-                setCreateTaskMode(null); // Reset mode
-            }}
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
-          />,
-          <motion.div
-            key="new-task-modal"
-            initial={isMobile ? { x: "100%" } : { opacity: 0, x: 100, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={isMobile ? { x: "100%" } : { opacity: 0, x: 100, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={cn(
-              "fixed z-50 bg-card border border-border/50 shadow-2xl overflow-hidden flex flex-col outline-none",
-              isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-full max-w-lg rounded-2xl"
-            )}
-          >
-                  <div className="h-40 shrink-0 relative bg-secondary/30 group">
-                    {editingNewTask?.coverImage ? (
-                      <img src={editingNewTask.coverImage} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground/10 bg-gradient-to-br from-secondary/50 to-background">
-                        <ImageIcon size={48} />
-                      </div>
-                    )}
-                    <div className="absolute top-4 right-4 flex gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="secondary" size="sm" className="h-8 px-3 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-tight">Add Image</span>
-                            <ImageIcon size={14} />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-3">
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none text-xs">Set Cover Image</h4>
-                            <Input 
-                              placeholder="Image URL..." 
-                              className="h-8 text-xs"
-                              onKeyDown={(e) => {
-                                if(e.key === 'Enter') {
-                                  handleUpdateTaskLocal("new", { coverImage: e.currentTarget.value }, 'cover_image_updated');
-                                }
-                              }}
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      <Button 
-                        size="icon" variant="secondary" 
-                        className={cn("h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm", showHistory && "text-primary")}
-                        onClick={() => setShowHistory(!showHistory)}
-                      >
-                        <History size={14} />
-                      </Button>
-                      <Button 
-                        size="icon" variant="secondary" 
-                        className="h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm"
-                        onClick={() => {
-                            setSelectedTaskId(null);
-                            setCreateTaskMode(null);
-                        }}
-                      >
-                        <X size={14} />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-8 -mt-6 relative bg-card rounded-t-3xl border-t border-border/50 custom-scrollbar">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50">
-                              <div className={cn("w-2 h-2 rounded-full", PRIORITIES[editingNewTask?.priority || 'medium'].color)} />
-                              {editingNewTask?.priority || 'Medium'} Priority
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            {Object.entries(PRIORITIES).map(([key, val]) => (
-                              <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal("new", { priority: key as Priority })}>
-                                <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
-                                {val.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              <Calendar size={12} className="mr-2 h-4 w-4" />
-                              {editingNewTask?.dueDate ? format(new Date(editingNewTask.dueDate), "MMM d") : "Set Date"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={editingNewTask?.dueDate ? new Date(editingNewTask.dueDate) : undefined}
-                              onSelect={(date) => handleUpdateTaskLocal("new", { dueDate: date ? date.toISOString() : undefined })}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            className={cn("h-8 px-3 rounded-md text-xs flex items-center gap-2 transition-colors", isBulkMode ? "bg-primary/10 text-primary" : "text-muted-foreground")}
-                            onClick={() => setIsBulkMode(!isBulkMode)}
-                            title="Bulk Add"
-                          >
-                            <Layers size={14} />
-                            Bulk Add
-                          </Button>
-                          <Button 
-                            variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                                setEditingNewTask({ ...editingNewTask, title: "", description: "", subtasks: [] });
-                                setBulkInput("");
-                            }}
-                            title="Clear"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                      </div>
-                    </div>
-
-                    {isBulkMode ? (
-                        <div className="space-y-4 mb-8">
-                            <label className="text-[10px] font-bold uppercase text-primary tracking-[0.2em] flex items-center gap-2">
-                                <Sparkles size={12} /> Bulk Task Parser
-                            </label>
-                            <Textarea 
-                                value={bulkInput}
-                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBulkInput(e.target.value)}
-                                placeholder="Paste your messy notes here... AI will structure them into a task with subtasks."
-                                className="min-h-[250px] bg-secondary/10 border-dashed border-2 border-border/50 rounded-2xl p-4 focus:bg-background transition-all resize-none text-sm leading-relaxed"
-                            />
-                            <Button 
-                                onClick={handleBulkParse} 
-                                disabled={isEnhancing || !bulkInput.trim()}
-                                className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
-                            >
-                                {isEnhancing ? <Wand2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
-                                {isEnhancing ? "Parsing with AI..." : "Magic Parse"}
-                            </Button>
-                            <p className="text-[9px] text-muted-foreground/60 text-center uppercase tracking-tighter">
-                                Pro tip: Include steps with dashes for better subtask extraction
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                    <div className={cn("relative w-full",
-                      {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
-                    )}>
-                      {isEnhancing ? (
-                          <Skeleton className="h-12 w-full mb-6 rounded-xl" />
-                      ) : (
-                        <AutoResizingTextarea
-                            value={editingNewTask?.title || ""}
-                            onChange={(e) => handleUpdateTaskLocal("new", { title: e.target.value }, 'updated', true)}
-                            onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                            className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
-                            placeholder="Task Title"
-                            setShowTopFade={setShowTopFadeTitle}
-                            setShowBottomFade={setShowBottomFadeTitle}
-                            maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
-                        />
-                      )}
-                    </div>
-                    <div className="mb-8">
-                       <label className="flex items-center justify-between mb-2">
-                       <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Assigned To</span>
-                           <DropdownMenu>
-                               <DropdownMenuTrigger asChild>
-                                   <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                                       <Plus size={12} className="mr-1" /> Assign
-                                   </Button>
-                               </DropdownMenuTrigger>
-                               <DropdownMenuContent>
-                                   <DropdownMenuLabel>Team Members</DropdownMenuLabel>
-                                   <DropdownMenuSeparator />
-                                   {personnel.map(p => {
-                                       const isAssigned = (editingNewTask?.assignees || []).some(uid => uid === p.id);
-                                       return (
-                                           <DropdownMenuItem 
-                                               key={`new-task-assign-user-${p.id}`}
-                                               onClick={() => {
-                                                   if (isAssigned) {
-                                                      handleUpdateTaskLocal("new", { assignees: (editingNewTask?.assignees || []).filter(uid => uid !== p.id) }, 'assignees_updated');
-                                                   } else {
-                                                      handleUpdateTaskLocal("new", { assignees: [...(editingNewTask?.assignees || []), p.id] }, 'assignees_updated');
-                                                   }
-                                               }}
-                                               className="flex items-center"
-                                           >
-                                               <Avatar className="h-5 w-5 mr-2">
-                                                   <AvatarImage src={getUserAvatar(p)} />
-                                                   <AvatarFallback>{p.name?.[0]}</AvatarFallback>
-                                               </Avatar>
-                                               {p.name}
-                                               {isAssigned && <Check size={16} className="ml-auto" />}
-                                           </DropdownMenuItem>
-                                       )
-                                   })}
-                               </DropdownMenuContent>
-                           </DropdownMenu>
-                       </label>
-                        <div className="flex flex-wrap gap-2">
-                           {(editingNewTask?.assignees || []).length > 0 ? (
-                              editingNewTask?.assignees?.map(uid => {
-                                 const u = personnel.find(p => p.id === uid);
-                                 if (!u) return null;
-                                 return (
-                                    <Badge key={`new-task-assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
-                                        <Avatar className="h-5 w-5">
-                                            <AvatarImage src={getUserAvatar(u)} />
-                                            <AvatarFallback>{u.name?.[0]}</AvatarFallback>
-                                        </Avatar>
-                                        <span>{u.name}</span>
-                                        <X 
-                                          size={12} 
-                                          className="cursor-pointer text-muted-foreground hover:text-destructive"
-                                          onClick={() => {
-                                                const newAssignees = (editingNewTask?.assignees || []).filter(a => a !== uid);
-                                                handleUpdateTaskLocal("new", { assignees: newAssignees }, 'assignees_updated');
-                                          }}
-                                        />
-                                    </Badge>
-                                 )
-                              })
-                           ) : (
-                              <div className="text-xs text-muted-foreground flex items-center gap-2 px-2 py-1 bg-secondary/30 rounded-md border border-dashed border-border">
-                                 <AtSign size={12} /> Everyone
-                              </div>
-                           )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6 mb-8">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                             <Sparkles size={10} className="text-primary" /> Leader Points
-                          </label>
-                          <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
-                             <Input 
-                                type="number"
-                                min="0"
-                                className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
-                                value={editingNewTask?.leaderPoints || 20}
-                                onChange={(e) => handleUpdateTaskLocal("new", { leaderPoints: Math.max(0, Number(e.target.value)) })}
-                             />
-                             <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Points</span>
-                          </div>
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                             <Clock size={10} className="text-orange-500" /> Effort / Deadline
-                          </label>
-                          <div className="flex items-center gap-3 bg-secondary/20 p-2 rounded-xl border border-border/50">
-                             <Input 
-                                type="number"
-                                min="0"
-                                className="h-8 bg-transparent border-none focus-visible:ring-0 font-bold text-sm"
-                                value={editingNewTask?.deadlineHours || 4}
-                                onChange={(e) => handleUpdateTaskLocal("new", { deadlineHours: Math.max(0, Number(e.target.value)) })}
-                             />
-                             <span className="text-[10px] font-bold text-muted-foreground uppercase pr-2">Hours</span>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="mb-8 group">
-                       <div className="flex items-center justify-between mb-2">
-                        <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest group-focus-within:text-primary transition-colors">
-                            Description
-                        </label>
-                        {(editingNewTask?.description?.length || 0) > 20 && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={handleEnhanceTask}
-                                disabled={isEnhancing}
-                                className="h-7 text-[9px] uppercase font-bold tracking-widest text-primary gap-1.5 hover:bg-primary/5"
-                            >
-                                <Sparkles size={10} /> Enhance Task
-                            </Button>
-                        )}
-                       </div>
-                       <div className={cn("relative w-full rounded-xl",
-                           {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
-                       )}>
-                          {isEnhancing ? (
-                              <Skeleton className="h-32 w-full rounded-xl" />
-                          ) : (
-                            <AutoResizingTextarea
-                                value={editingNewTask?.description || ""}
-                                onChange={(e) => handleUpdateTaskLocal("new", { description: e.target.value }, 'updated', true)}
-                                onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                                className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
-                                placeholder="Add details about this task..."
-                                setShowTopFade={setShowTopFadeDescription}
-                                setShowBottomFade={setShowBottomFadeDescription}
-                                maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
-                            />
-                          )}
-                       </div>
-                    </div>
-                    <div>
-                       <div className="flex items-center justify-between mb-3">
-                          <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
-                             Subtasks
-                          </label>
-                          <span className="text-[10px] font-mono text-muted-foreground/50">
-                             {(editingNewTask?.subtasks || []).filter(s => s.completed).length}/{(editingNewTask?.subtasks || []).length}
-                          </span>
-                       </div>
-                       <div className="space-y-1">
-                          {isEnhancing ? (
-                              <div className="space-y-2">
-                                <Skeleton className="h-8 w-full rounded-md" />
-                                <Skeleton className="h-8 w-full rounded-md opacity-60" />
-                              </div>
-                          ) : (
-                            <>
-                            {(editingNewTask?.subtasks || []).map((sub, idx) => (
-                                <div key={sub.id} className="flex items-center gap-2 group/sub">
-                                    <button 
-                                    onClick={() => {
-                                        const newSub = [...(editingNewTask?.subtasks || [])];
-                                        newSub[idx].completed = !newSub[idx].completed;
-                                        newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
-                                        handleUpdateTaskLocal("new", { subtasks: newSub });
-                                    }}
-                                    className={cn(
-                                        "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
-                                        sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
-                                    )}
-                                    >
-                                    {sub.completed && <Check size={12} />}
-                                    </button>
-                                    <AutoResizingTextarea
-                                        value={sub.title}
-                                        onChange={(e) => {
-                                            const newSub = [...(editingNewTask?.subtasks || [])];
-                                            newSub[idx].title = e.target.value;
-                                            handleUpdateTaskLocal("new", { subtasks: newSub }, 'updated', true);
-                                        }}
-                                        onBlur={() => handleUpdateTaskLocal("new", {}, 'content_updated')}
-                                        className={cn(
-                                            "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
-                                            sub.completed && "text-muted-foreground line-through decoration-border"
-                                        )}
-                                        maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
-                                    />
-                                    
-                                    {sub.completed && sub.completedBy && (
-                                    <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
-                                        <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
-                                    </div>
-                                    )}
-
-                                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
-                                        onClick={() => {
-                                        const newSub = (editingNewTask?.subtasks || []).filter(s => s.id !== sub.id);
-                                        handleUpdateTaskLocal("new", { subtasks: newSub });
-                                        }}
-                                    >
-                                        <X size={12} />
-                                    </Button>
-                                </div>
-                            ))}
-                                <Button 
-                                    variant="ghost" size="sm" 
-                                    className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                                    onClick={() => handleUpdateTaskLocal("new", { subtasks: [...(editingNewTask?.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
-                                >
-                                    <Plus size={14} className="mr-2" /> Add Item
-                                </Button>
-                            </>
-                          )}
-                       </div>
-                    </div>
-                    </>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-end gap-2 p-4 border-t border-border/50 bg-card shrink-0">
-                    <Button variant="outline" onClick={() => {
-                       setEditingNewTask(null);
-                       setSelectedTaskId(null);
-                       setCreateTaskMode(null);
-                    }}>
-                       Cancel
-                    </Button>
-                    <Button onClick={handleSaveNewTask}>
-                       Save
-                    </Button>
-                  </div>
-                </motion.div>
-              ]
-            }
+        {(selectedTaskId === "new" && createTaskMode === "type") && (
+            <TypedTaskCreator 
+                editingNewTask={editingNewTask}
+                onUpdateTask={handleUpdateTaskLocal}
+                onSave={handleSaveNewTask}
+                onCancel={() => {
+                    if (editingNewTask && (editingNewTask.title || editingNewTask.description)) {
+                        toast.info("Task draft saved.", {
+                            description: "You can recover it from the Drafts menu."
+                        });
+                    } else {
+                        setEditingNewTask(null);
+                    }
+                    setSelectedTaskId(null);
+                    setCreateTaskMode(null);
+                }}
+                personnel={personnel}
+                isMobile={isMobile}
+                canManage={canManageTasks}
+                isEnhancing={isEnhancing}
+                setIsEnhancing={setIsEnhancing}
+                handleEnhanceTask={handleEnhanceTask}
+                handleBulkParse={handleBulkParse}
+                isBulkMode={isBulkMode}
+                setIsBulkMode={setIsBulkMode}
+                bulkInput={bulkInput}
+                setBulkInput={setBulkInput}
+            />
+        )}
         </AnimatePresence>
     </>
   );

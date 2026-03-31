@@ -50,6 +50,14 @@ export interface Comment {
   createdAt: any;
 }
 
+export interface Resource {
+  id: string;
+  title: string;
+  url: string;
+  type: string;
+  createdAt: any;
+}
+
 export interface HistoryEntry {
     id: string;
     userId: string;
@@ -76,6 +84,7 @@ export interface Task {
   coverImage?: string;
   tags: string[];
   subtasks: Subtask[];
+  resources?: Resource[];
   comments: Comment[];
   history: HistoryEntry[];
   flagged?: boolean;
@@ -121,7 +130,18 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 interface TasksContextType {
   tasks: Task[];
   loading: boolean;
-  addTask: (title: string, status: Status, description?: string, priority?: Priority, assignees?: string[], audioData?: { base64: string; mimeType: string; duration: number }, leaderPoints?: number, deadlineHours?: number) => Promise<string | null>;
+  addTask: (
+    title: string, 
+    status: Status, 
+    description?: string, 
+    priority?: Priority, 
+    assignees?: string[], 
+    audioData?: { base64: string; mimeType: string; duration: number }, 
+    leaderPoints?: number, 
+    deadlineHours?: number,
+    subtasks?: Subtask[],
+    resources?: Resource[]
+  ) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
@@ -131,7 +151,7 @@ interface TasksContextType {
 const TasksContext = createContext<TasksContextType>({
   tasks: [],
   loading: true,
-  addTask: async (title, status, description, priority, assignees, audioData, leaderPoints, deadlineHours) => null,
+  addTask: async () => null,
   updateTask: async () => {},
   deleteTask: async () => {},
   addComment: async () => {},
@@ -241,7 +261,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       assignees: string[] = [],
       audioData?: { base64: string; mimeType: string; duration: number },
       leaderPoints: number = 0,
-      deadlineHours: number = 0
+      deadlineHours: number = 0,
+      subtasks: Subtask[] = [],
+      resources: Resource[] = []
     ): Promise<string | null> => {
       console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
       
@@ -260,7 +282,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         status,
         priority,
         assignees,
-        subtasks: [],
+        subtasks,
+        resources,
         comments: [],
         tags: [],
         flagged: false,
@@ -272,7 +295,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours },
+                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length },
                 createdAt: new Date(),
             }
         ],

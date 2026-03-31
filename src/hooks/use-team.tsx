@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt, getDocs } from "firebase/firestore";
 import { useAuth } from "./use-auth";
-import { format, parse, isSameDay, startOfMonth, endOfMonth } from "date-fns";
+import { format, parse, isSameDay, startOfMonth, endOfMonth, isValid } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cacheOrchestrator } from "@/lib/cache-orchestrator";
 

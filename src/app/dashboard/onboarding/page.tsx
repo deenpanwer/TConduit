@@ -190,6 +190,19 @@ export default function OnboardingPage() {
         .split('; ')
         .find(row => row.startsWith('trac_partner_slug='))
         ?.split('=')[1] || userData?.partnerSlug || null;
+      
+      const defaultShiftSeconds = SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800;
+      const timezone = typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value;
+      
+      const orgSettings = {
+          defaultShiftSeconds: defaultShiftSeconds,
+          offDays: offDays,
+          timeFormat: "24 hour",
+          dateFormat: "mm/dd/yyyy",
+          startOfWeek: "Sunday",
+          reportTime: "14:00",
+          timezone: timezone
+      };
 
       if (isOwner) {
         let finalOrgId = orgData?.id;
@@ -211,7 +224,8 @@ export default function OnboardingPage() {
             subscriptionExpiry: trialExpiry,
             subscriptionStatus: "trialing",
             partnerSlug: partnerSlug,
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
+            settings: orgSettings
           });
 
           // Attribution
@@ -241,6 +255,7 @@ export default function OnboardingPage() {
             whatsapp: formData.whatsapp,
             motivation: formData.motivation,
             onboardingCompleted: true,
+            settings: orgSettings, // Add settings to update
             updatedAt: serverTimestamp()
           });
         }
@@ -255,10 +270,14 @@ export default function OnboardingPage() {
           onboardingCompleted: true,
           whatsapp: formData.whatsapp,
           partnerSlug: partnerSlug,
-          settings: {
-            defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
+          settings: { // user settings can be more minimal
+            defaultShiftSeconds: defaultShiftSeconds,
             offDays: offDays,
-            timezone: typeof formData.timezone === 'string' ? formData.timezone : (formData.timezone as any).value
+            timezone: timezone,
+            // User can override these, so we set them to org defaults initially
+            timeFormat: orgSettings.timeFormat,
+            dateFormat: orgSettings.dateFormat,
+            startOfWeek: orgSettings.startOfWeek,
           },
           updatedAt: serverTimestamp()
         }, { merge: true });

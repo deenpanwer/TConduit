@@ -11,8 +11,9 @@ import {
   writeBatch,
   serverTimestamp,
   addDoc,
+  updateDoc,
 } from 'firebase/firestore';
-import { format, startOfWeek, addDays, isAfter, isSameDay, parseISO, startOfDay } from 'date-fns';
+import { format, startOfWeek, addDays, isAfter, isSameDay, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
 export interface ScheduledShift {
@@ -31,6 +32,7 @@ export interface ScheduledShift {
   provenance?: { by: string; at: any; action: string }[];
   createdAt?: any;
   updatedAt?: any;
+  isVirtual?: boolean; // If it's a recurring default
 }
 
 export interface LeaveRequest {
@@ -59,10 +61,12 @@ export interface HistoryLog {
   timestamp: Date;
 }
 
-export function useShift(selectedDate: Date, orgId: string | undefined, user: any) {
+export function useShift(selectedDate: Date, orgId: string | undefined, user: any, employees: any[] = []) {
   const [remoteShifts, setRemoteShifts] = useState<ScheduledShift[]>([]);
   const [localShifts, setLocalShifts] = useState<ScheduledShift[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [allLeaves, setAllLeaves] = useState<LeaveRequest[]>([]);
+  const [allPendingLeaves, setAllPendingLeaves] = useState<LeaveRequest[]>([]);
   const [history, setHistory] = useState<HistoryLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -71,6 +75,43 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const startDateStr = format(weekStart, 'yyyy-MM-dd');
   const endDateStr = format(weekEnd, 'yyyy-MM-dd');
+
+  // MERGE LOGIC: Real Shifts + Recurring Virtual Shifts
+  const mergedShifts = useMemo(() => {
+    const combined = [...localShifts];
+    
+    // For each employee, if they have shiftDefaults, fill in the blanks for the current week
+    employees.forEach(emp => {
+      const defaults = emp.trackingSettings?.shiftDefaults;
+      if (!defaults?.startTime || !defaults?.endTime) return;
+
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        const dayStr = format(day, 'yyyy-MM-dd');
+        
+        // Only add virtual if no manual shift exists for this user on this day
+        const hasManual = combined.some(s => s.userId === (emp.id || emp.uid) && s.date === dayStr);
+        if (!hasManual) {
+          combined.push({
+            id: `virtual_${emp.id || emp.uid}_${dayStr}`,
+            date: dayStr,
+            startTime: defaults.startTime,
+            endTime: defaults.endTime,
+            userId: emp.id || emp.uid,
+            userName: emp.name || 'Unknown',
+            status: 'published',
+            orgId: orgId!,
+            lastModifiedBy: 'system',
+            lastModifiedRole: 'system',
+            isVirtual: true,
+            note: 'Recurring Shift'
+          });
+        }
+      }
+    });
+
+    return combined;
+  }, [localShifts, employees, weekStart, orgId]);
 
   const addHistory = useCallback((action: string, details: string) => {
     setHistory((prev) => [
@@ -102,7 +143,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       where('date', '<=', endDateStr)
     );
 
-    const qLeaves = query(leavesRef);
+    const qAllPendingLeaves = query(leavesRef, where('status', '==', 'pending'));
 
     const unsubShifts = onSnapshot(
       qShifts,
@@ -122,12 +163,18 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       }
     );
 
+    const unsubAllPending = onSnapshot(qAllPendingLeaves, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as LeaveRequest[];
+      setAllPendingLeaves(data);
+    });
+
     const unsubLeaves = onSnapshot(
-      qLeaves,
+      leavesRef,
       (snapshot) => {
         const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as LeaveRequest[];
+        setAllLeaves(data);
         const relevantLeaves = data.filter(
-          (l) => l.endDate >= startDateStr && l.startDate <= endDateStr
+          (l) => l.status === 'approved' && l.endDate >= startDateStr && l.startDate <= endDateStr
         );
         setLeaveRequests(relevantLeaves);
       },
@@ -138,6 +185,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
     return () => {
       unsubShifts();
+      unsubAllPending();
       unsubLeaves();
     };
   }, [orgId, startDateStr, endDateStr, user?.role, user?.uid]);
@@ -168,6 +216,28 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
   const updateShift = useCallback(
     (id: string, updates: Partial<ScheduledShift>) => {
+      // If updating a virtual shift, it becomes a local draft
+      if (id.startsWith('virtual_')) {
+        const { isVirtual, id: oldId, ...actualUpdates } = updates;
+        const newShift: ScheduledShift = {
+          ...actualUpdates as ScheduledShift,
+          id: `local_${Math.random().toString(36).substr(2, 9)}`,
+          status: 'draft',
+          orgId: orgId!,
+          lastModifiedBy: user?.uid,
+          lastModifiedRole: user?.role || 'manager',
+          provenance: [
+            {
+              by: user?.name || user?.displayName || 'Manager',
+              at: new Date(),
+              action: 'Overrode Recurring Shift',
+            },
+          ],
+        };
+        setLocalShifts(prev => [...prev, newShift]);
+        return;
+      }
+
       setLocalShifts((prev) =>
         prev.map((s) => {
           if (s.id === id) {
@@ -191,7 +261,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         `Modified timing or notes for a shift on ${updates.date || 'the schedule'}`
       );
     },
-    [addHistory, user]
+    [addHistory, user, orgId]
   );
 
   const deleteShift = useCallback(
@@ -230,7 +300,12 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
           lastModifiedByName: user.name || user.displayName,
           updatedAt: serverTimestamp(),
           createdAt: isNew ? serverTimestamp() : ls.createdAt || serverTimestamp(),
-          provenance: (ls.provenance || []).map((p) => ({ ...p, at: serverTimestamp() })),
+          // provenance: (ls.provenance || []).map((p) => ({ ...p, at: serverTimestamp() })),
+          // serverTimestamp() is not supported inside arrays. Use a static Date for the provenance array entries.
+          provenance: (ls.provenance || []).map((p) => ({
+            ...p,
+            at: p.at instanceof Date ? p.at : (p.at?.toDate ? p.at.toDate() : new Date())
+          })),
         };
         batch.set(shiftDoc, data, { merge: true });
       });
@@ -283,7 +358,9 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         if (offDays.includes(dayName)) continue;
 
         employeeIds.forEach((uid) => {
+          const emp = employees.find((e) => e.id === uid || e.uid === uid);
           const hasShift = newShifts.some((s) => s.userId === uid && s.date === dayStr);
+          const hasDefault = !!emp?.trackingSettings?.shiftDefaults?.startTime;
           const isOnLeave = leaveRequests.some(
             (l) =>
               l.userId === uid &&
@@ -292,8 +369,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
               l.endDate >= dayStr
           );
 
-          if (!hasShift && !isOnLeave) {
-            const emp = employees.find((e) => e.id === uid || e.uid === uid);
+          if (!hasShift && !hasDefault && !isOnLeave) {
             newShifts.push({
               id: `local_${Math.random().toString(36).substr(2, 9)}`,
               date: dayStr,
@@ -353,10 +429,23 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     }
   }, [orgId, user]);
 
+  const updateEmployeeDefaults = useCallback(async (userId: string, startTime: string | null, endTime: string | null) => {
+    try {
+      const { deleteField } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'users', userId), {
+        'trackingSettings.shiftDefaults': (startTime && endTime) ? { startTime, endTime } : deleteField()
+      });
+      toast.success(startTime ? "Default shift updated." : "Recurring shift removed.");
+    } catch (e) {
+      toast.error("Failed to update regular hours.");
+    }
+  }, []);
 
   return {
-    shifts: localShifts,
+    shifts: mergedShifts,
     leaveRequests,
+    allLeaves,
+    allPendingLeaves,
     history,
     loading,
     isPublishing,
@@ -367,6 +456,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     publishChanges,
     discardChanges,
     smartFill,
-    submitLeaveRequest
+    submitLeaveRequest,
+    updateEmployeeDefaults
   };
 }

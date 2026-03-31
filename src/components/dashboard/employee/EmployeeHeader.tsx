@@ -1,14 +1,13 @@
-"use client";
+'use client';
 
-import { MapPin, Globe, ShieldCheck, Mail, Calendar, Clock, Zap, Target, Activity } from "lucide-react";
-import { format } from "date-fns";
+import { ShieldCheck, Mail, Calendar, Clock, Zap, Target, Activity } from "lucide-react";
+import { format, parse, isValid } from "date-fns";
 import { cn, getUserAvatar } from "@/lib/utils";
 import { HoverShimmer } from "../main/shared/Shimmer";
 
 interface EmployeeHeaderProps {
   employee: any;
   totalHours?: string;
-  hoursToday?: string;
   topApp?: string;
   joinedDate?: Date | null;
 }
@@ -28,18 +27,22 @@ const MetricBox = ({ icon: Icon, label, value }: any) => (
   </div>
 );
 
-export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0", topApp = "---", joinedDate }: EmployeeHeaderProps) {
-  // Helper to extract JS Date safely
-  const getDate = (ts: any) => {
-    if (!ts) return new Date(0);
+export function EmployeeHeader({ employee, totalHours = "0.0", topApp = "---", joinedDate }: EmployeeHeaderProps) {
+  const parseShiftDate = (ts: any): Date | null => {
+    if (!ts) return null;
     if (ts.toDate) return ts.toDate();
-    if (ts instanceof Date) return ts;
     if (ts.seconds) return new Date(ts.seconds * 1000);
-    return new Date(ts);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === 'string') {
+        const parsed = new Date(ts);
+        return isValid(parsed) ? parsed : null;
+    }
+    return null;
   };
 
-  const isOnline = employee?.heartbeat?.isCurrentlyRunning;
-  const officialJoinedDate = joinedDate || getDate(employee?.createdAt);
+  const isOnline = !!employee?.heartbeat?.isCurrentlyRunning;
+
+  const officialJoinedDate = joinedDate || parseShiftDate(employee?.createdAt) || new Date(0);
 
   if (!employee) {
     return (
@@ -53,7 +56,7 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
               <div className="h-4 w-1/2 bg-muted rounded-full" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map(i => (
+              {[1, 2, 3].map(i => (
                 <div key={i} className="h-32 bg-muted rounded-[2rem]" />
               ))}
             </div>
@@ -65,11 +68,9 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
   
   return (
     <div className="bg-card border border-border rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl">
-      {/* Background Accent */}
       <div className="absolute top-0 right-0 size-[500px] bg-primary/5 rounded-full -mr-48 -mt-48 blur-[100px] pointer-events-none" />
       
       <div className="relative z-10 flex flex-col lg:flex-row gap-16 items-start lg:items-center">
-        {/* Avatar Section */}
         <div className="relative group shrink-0">
             <div className={cn(
               "absolute -inset-4 rounded-[4rem] blur-2xl opacity-20 transition-all duration-700",
@@ -90,7 +91,6 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
             </div>
         </div>
 
-        {/* Identity & Metrics Container */}
         <div className="flex-1 w-full space-y-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-4">
@@ -113,10 +113,8 @@ export function EmployeeHeader({ employee, totalHours = "0.0", hoursToday = "0.0
                 </div>
             </div>
 
-            {/* Founder-grade Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <MetricBox icon={Zap} label="Shift Hours" value={`${hoursToday}h`} />
-                <MetricBox icon={Clock} label="Today's Total" value={`${totalHours}h`} />
+            <div className="grid grid-cols-2 gap-6">
+                <MetricBox icon={Clock} label="Total Hours" value={`${totalHours}h`} />
                 <MetricBox icon={Target} label="Top Application" value={topApp} />
             </div>
         </div>

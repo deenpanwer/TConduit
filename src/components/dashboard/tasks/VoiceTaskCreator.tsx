@@ -1,16 +1,16 @@
 "use client";
 
 import 'regenerator-runtime/runtime';
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Mic, StopCircle, Play, Pause, Check, Save, Undo2, Plus, Calendar, Sparkles, Wand2, Trash2 } from "lucide-react";
+import { X, Mic, StopCircle, Play, Pause, Check, Save, Undo2, Plus, Calendar, Sparkles, Wand2, Trash2, Minus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Priority, Task, Status, Subtask } from "@/hooks/useTasks";
+import { Priority, Task, Status, Subtask, Resource } from "@/hooks/useTasks";
 import { PRIORITIES } from "./BoardView"; 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +20,10 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link as LinkIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface VoiceTaskCreatorProps {
   onSave: (audioData: { base64: string; mimeType: string; duration: number }, metadata: Partial<Task>) => void;
@@ -69,24 +73,35 @@ export function VoiceTaskCreator({
   const [taskAssignees, setTaskAssignees] = useState<string[]>(initialData?.assignees || initialAssignees);
   const [taskDueDate, setTaskDueDate] = useState<Date | undefined>(initialData?.dueDate ? new Date(initialData.dueDate) : initialDueDate);
   const [taskSubtasks, setTaskSubtasks] = useState<Subtask[]>(initialData?.subtasks || []);
+  const [taskResources, setTaskResources] = useState<Resource[]>(initialData?.resources || []);
   const [leaderPoints, setLeaderPoints] = useState<number>(initialData?.leaderPoints || 20);
-  const [deadlineHours, setDeadlineHours] = useState<number>(initialData?.deadlineHours || 4);
+
+  const { deadlineValue, deadlineUnit, noDeadline, setDeadline } = useDeadline(initialData?.deadlineHours, (newHours) => {
+      if (onDataChange) {
+          onDataChange({ ...collectData(), deadlineHours: newHours });
+      }
+  });
+
+  const collectData = () => ({
+    title: taskTitle,
+    description: taskDescription,
+    priority: taskPriority,
+    assignees: taskAssignees,
+    dueDate: taskDueDate?.toISOString(),
+    subtasks: taskSubtasks,
+    resources: taskResources,
+    leaderPoints,
+    deadlineHours: deadlineValue === undefined ? undefined : noDeadline ? undefined : deadlineUnit === 'days' ? deadlineValue * 24 : deadlineUnit === 'months' ? deadlineValue * 24 * 30 : deadlineValue,
+  });
+
 
   // Persist changes to parent
   useEffect(() => {
     if (onDataChange) {
-      onDataChange({
-        title: taskTitle,
-        description: taskDescription,
-        priority: taskPriority,
-        assignees: taskAssignees,
-        dueDate: taskDueDate?.toISOString(),
-        subtasks: taskSubtasks,
-        leaderPoints,
-        deadlineHours
-      });
+      onDataChange(collectData());
     }
-  }, [taskTitle, taskDescription, taskPriority, taskAssignees, taskDueDate, taskSubtasks, leaderPoints, deadlineHours]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskTitle, taskDescription, taskPriority, taskAssignees, taskDueDate, taskSubtasks, taskResources, leaderPoints, deadlineValue, deadlineUnit, noDeadline]);
 
   const enhanceWithAI = async (textToUse?: string) => {
     const textContent = textToUse || transcript || taskTitle || taskDescription;
@@ -114,8 +129,11 @@ export function VoiceTaskCreator({
         setTaskDescription(data.description || taskDescription);
         setTaskPriority(data.priority || taskPriority);
         if (data.subtasks) setTaskSubtasks(data.subtasks);
+        if (data.resources) setTaskResources(data.resources);
         if (data.leaderPoints) setLeaderPoints(data.leaderPoints);
-        if (data.deadlineHours) setDeadlineHours(data.deadlineHours);
+        if (data.deadlineHours !== undefined) {
+            setDeadline(data.deadlineHours);
+        }
         toast.success("AI has enhanced your task details.");
       }
     } catch (error) {
@@ -348,17 +366,7 @@ export function VoiceTaskCreator({
         mimeType: audioBlob.type,
         duration: audioDuration,
       };
-      onSave(audioData, {
-        title: taskTitle || (audioDuration > 0 ? `Voice Task (${formatDuration(audioDuration)})` : "New Voice Task"),
-        description: taskDescription,
-        priority: taskPriority,
-        assignees: taskAssignees,
-        dueDate: taskDueDate?.toISOString(),
-        status: initialStatus,
-        subtasks: taskSubtasks,
-        leaderPoints,
-        deadlineHours,
-      });
+      onSave(audioData, collectData());
     };
   };
 
@@ -375,8 +383,9 @@ export function VoiceTaskCreator({
     setTaskAssignees([]);
     setTaskDueDate(undefined);
     setTaskSubtasks([]);
+    setTaskResources([]);
     setLeaderPoints(20);
-    setDeadlineHours(4);
+    setDeadline(4);
     resetTranscript();
   };
 
@@ -632,30 +641,112 @@ export function VoiceTaskCreator({
           </div>
         </div>
 
+        {/* Resources */}
+        <div>
+          <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3 flex items-center justify-between">
+            Resources
+          </label>
+          <div className="space-y-2">
+             {(taskResources || []).map((res, idx) => (
+                <div key={res.id} className="flex items-center gap-2 group/res bg-secondary/10 p-2 rounded-lg border border-border/40">
+                   <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                         <LinkIcon size={12} className="text-primary shrink-0" />
+                         <Input 
+                            value={res.title}
+                            onChange={(e) => {
+                               const newRes = [...taskResources];
+                               newRes[idx].title = e.target.value;
+                               setTaskResources(newRes);
+                            }}
+                            placeholder="Resource Title"
+                            className="h-6 bg-transparent border-none p-0 text-xs font-bold focus-visible:ring-0"
+                         />
+                      </div>
+                      <Input 
+                         value={res.url}
+                         onChange={(e) => {
+                            const newRes = [...taskResources];
+                            newRes[idx].url = e.target.value;
+                            setTaskResources(newRes);
+                         }}
+                         placeholder="URL (docs, pdfs, images...)"
+                         className="h-5 bg-transparent border-none p-0 text-[10px] text-muted-foreground focus-visible:ring-0"
+                      />
+                   </div>
+                   <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/res:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                       onClick={() => setTaskResources(taskResources.filter(r => r.id !== res.id))}>
+                       <X size={12} />
+                   </Button>
+                </div>
+             ))}
+             <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-primary gap-2"
+                onClick={() => setTaskResources([...taskResources, { id: Math.random().toString(), title: "", url: "", type: "link", createdAt: new Date() }])}
+             >
+                <Plus size={14} /> Add Resource
+             </Button>
+          </div>
+        </div>
+
         {canManage && (
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/40">
             {/* Leader Points */}
             <div>
               <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2 block">Leader Points</label>
-              <Input 
-                type="number"
-                value={leaderPoints}
-                onChange={(e) => setLeaderPoints(Number(e.target.value))}
-                className="h-9 text-xs border-transparent bg-secondary/20 hover:bg-secondary/40 transition-colors"
-                placeholder="20"
-              />
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-9 w-9 lg:hidden" onClick={() => setLeaderPoints(p => Math.max(0, p - 10))}><Minus className="h-4 w-4" /></Button>
+                <Input
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={leaderPoints}
+                  onChange={(e) => setLeaderPoints(Math.max(0, Number(e.target.value)))}
+                  className="h-9 text-xs text-center border-transparent bg-secondary/20 hover:bg-secondary/40 transition-colors flex-1"
+                  placeholder="20"
+                />
+                <Button variant="outline" size="icon" className="h-9 w-9 lg:hidden" onClick={() => setLeaderPoints(p => p + 10)}><Plus className="h-4 w-4" /></Button>
+              </div>
             </div>
 
-            {/* Deadline Hours */}
-            <div>
-              <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2 block">Deadline</label>
-              <Input 
-                type="number"
-                value={deadlineHours}
-                onChange={(e) => setDeadlineHours(Number(e.target.value))}
-                className="h-9 text-xs border-transparent bg-secondary/20 hover:bg-secondary/40 transition-colors"
-                placeholder="4"
-              />
+            {/* Deadline */}
+            <div className="col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Deadline</label>
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            checked={noDeadline}
+                            onCheckedChange={(checked) => {
+                                setDeadline(undefined, deadlineUnit, checked);
+                            }}
+                        />
+                        <span className="text-[10px] font-medium">No deadline</span>
+                    </div>
+                </div>
+
+                {!noDeadline && (
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        min="0"
+                        value={deadlineValue || 0}
+                        onChange={(e) => setDeadline(Math.max(0, Number(e.target.value)), deadlineUnit, false)}
+                        className="h-9 text-xs border-transparent bg-secondary/20 hover:bg-secondary/40 transition-colors"
+                    />
+                    <Select value={deadlineUnit} onValueChange={(val: 'hours' | 'days' | 'months') => setDeadline(deadlineValue, val, false)}>
+                        <SelectTrigger className="w-[120px] h-9 text-xs border-transparent bg-secondary/20 hover:bg-secondary/40">
+                            <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="hours">Hours</SelectItem>
+                            <SelectItem value="days">Days</SelectItem>
+                            <SelectItem value="months">Months</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                )}
             </div>
 
             {/* Priority */}
@@ -772,4 +863,47 @@ export function VoiceTaskCreator({
       </div>
     </div>
   );
+}
+
+function useDeadline(initialHours: number | undefined, onUpdate: (hours: number | undefined) => void) {
+    const [deadlineValue, setDeadlineValue] = useState<number | undefined>(4);
+    const [deadlineUnit, setDeadlineUnit] = useState<'hours' | 'days' | 'months'>('hours');
+    const [noDeadline, setNoDeadlineState] = useState(false);
+
+    useEffect(() => {
+        if (initialHours !== undefined && initialHours !== null) {
+            setNoDeadlineState(false);
+            if (initialHours > 0 && initialHours % (30 * 24) === 0) {
+                setDeadlineUnit('months');
+                setDeadlineValue(initialHours / (30 * 24));
+            } else if (initialHours > 0 && initialHours % 24 === 0) {
+                setDeadlineUnit('days');
+                setDeadlineValue(initialHours / 24);
+            } else {
+                setDeadlineUnit('hours');
+                setDeadlineValue(initialHours);
+            }
+        } else {
+            setNoDeadlineState(true);
+            setDeadlineValue(undefined);
+        }
+    }, [initialHours]);
+
+    const calculateHours = (value: number | undefined, unit: 'hours'|'days'|'months', noDl: boolean) => {
+        if (noDl || value === undefined) return undefined;
+        switch(unit) {
+            case 'days': return value * 24;
+            case 'months': return value * 30 * 24;
+            default: return value;
+        }
+    }
+
+    const setDeadline = (value: number | undefined, unit: 'hours'|'days'|'months' = deadlineUnit, noDl: boolean = noDeadline) => {
+        setDeadlineValue(value);
+        setDeadlineUnit(unit);
+        setNoDeadlineState(noDl);
+        onUpdate(calculateHours(value, unit, noDl));
+    };
+
+    return { deadlineValue, deadlineUnit, noDeadline, setDeadline };
 }

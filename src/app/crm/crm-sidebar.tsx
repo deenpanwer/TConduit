@@ -145,7 +145,7 @@ export function CRMSidebar({
                           CRM
                         </span>
                         <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1 text-[#0f172a]/80 dark:text-white/80">
-                          SUBSIDIARY OF {partnerBrand || 'DEEN'}
+                          SUBSIDIARY OF {partnerBrand}
                         </span>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">
                           RELATIONS
