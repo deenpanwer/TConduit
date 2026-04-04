@@ -14,6 +14,7 @@ import { WorkforceRegistry } from './WorkforceRegistry';
 import { Shimmer } from './shared/Shimmer';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import { isEmployeeOnline } from '@/lib/utils';
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -149,7 +150,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             totalDayClicks,
             totalDayDistance,
             topApp: Object.entries(empAppMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "---",
-            isLive: emp.heartbeat?.isCurrentlyRunning || false,
+            isLive: isEmployeeOnline(emp),
             prevHours: sparklineActivity.sort((a, b) => a.timestamp - b.timestamp).slice(-10).map(a => a.score)
         };
     });

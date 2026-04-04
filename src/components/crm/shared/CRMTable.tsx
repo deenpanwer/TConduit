@@ -6,7 +6,13 @@ import {
   Eye, Briefcase, PhoneCall, NotebookPen, Trash, 
   ExternalLink, Loader2, Check, ChevronDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Link as LinkIcon,
+  User,
+  Clock,
+  Mail,
+  Phone,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +23,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { CRMEntity, ModuleConfig, FieldConfig } from "@/hooks/use-crm-module";
+import { ColumnPicker } from "./ColumnPicker";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CRMTableProps {
   entities: CRMEntity[];
@@ -34,30 +56,22 @@ interface CRMTableProps {
   actions?: (entity: CRMEntity) => React.ReactNode;
 }
 
-// Stable Monday-style colors for row strips
 const STRIP_COLORS = [
     '#ffcb00', '#00ca72', '#037f4c', '#00a9ff', 
     '#579bfc', '#a25ddc', '#ff5ac4', '#ff158a', 
     '#bb3354', '#7f5347', '#ff7538'
 ];
 
-// Helper to generate a lighter shade of a given hex color.
 const lightenHexColor = (hex: string, percent: number) => {
     let r = parseInt(hex.slice(1, 3), 16);
     let g = parseInt(hex.slice(3, 5), 16);
     let b = parseInt(hex.slice(5, 7), 16);
-
     r = Math.min(255, Math.floor(r + (255 - r) * (percent / 100)));
     g = Math.min(255, Math.floor(g + (255 - g) * (percent / 100)));
     b = Math.min(255, Math.floor(b + (255 - b) * (percent / 100)));
-
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-
-/**
- * INTEGRATED CELL EDIT COMPONENT
- */
 const TableCellEditor = ({ 
   field, 
   value, 
@@ -101,6 +115,20 @@ const TableCellEditor = ({
             </select>
             <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
         </div>
+      ) : field.type === "textarea" ? (
+        <textarea
+            className="flex-1 h-full py-2 px-4 text-xs font-bold border-none focus-visible:ring-0 bg-transparent rounded-none resize-none overflow-hidden"
+            value={temp}
+            onChange={(e) => setTemp(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleConfirm();
+                }
+                if (e.key === "Escape") onCancel();
+            }}
+            autoFocus
+        />
       ) : (
         <Input
           ref={inputRef}
@@ -131,36 +159,20 @@ export function CRMTable({
   onEntityClick, selectedIds, onSelect, onSelectAll, addEntity,
   pageSize, setPageSize, actions
 }: CRMTableProps) {
-  
   const [editingCell, setEditingCell] = useState<{ id: string, fieldKey: string } | null>(null);
   const [tempRows, setTempRows] = useState<{ id: string, data: any, isSaving?: boolean }[]>([]);
-  
-  /**
-   * UNIFIED TABLE COLOR LOGIC
-   * --------------------------
-   * A single random color is chosen for the entire table instance to create a 
-   * cohesive, Monday.com-like appearance. A lighter shade is generated for the 
-   * "Add Item" row for a two-tone effect.
-   */
+  const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
+  const [editingDescriptionFieldId, setEditingDescriptionFieldId] = useState<string | null>(null);
+  const [descriptionValue, setDescriptionValue] = useState("");
+
   const [tableColor] = useState(() => STRIP_COLORS[Math.floor(Math.random() * STRIP_COLORS.length)]);
   const lightTableColor = useMemo(() => lightenHexColor(tableColor, 75), [tableColor]);
 
-  /**
-   * ZERO-LATENCY OPTIMISTIC UI PATTERN
-   * ----------------------------------
-   * To achieve a "Monday.com" feel, we must bypass the Firestore round-trip delay.
-   * 1. optimisticValues: Stores cell data the moment the user clicks "tick".
-   * 2. orderedFieldIds: Stores column sequence for instant reordering.
-   * 
-   * The 'getFieldValue' and 'displayFields' helpers prioritize these local caches
-   * over the server-synced 'entities' and 'config' props.
-   */
   const [optimisticValues, setOptimisticValues] = useState<Record<string, string>>({});
   const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>([]);
 
   const view = useMemo(() => config.views.find(v => v.type === 'list') || config.views[0], [config.views]);
   
-  // Sync local reordering state when the master config changes from the cloud
   useEffect(() => {
     setOrderedFieldIds(view.visibleFields);
   }, [view.visibleFields]);
@@ -178,8 +190,6 @@ export function CRMTable({
 
   const handleCellSave = async (id: string, fieldKey: string, value: any) => {
     setEditingCell(null);
-    
-    // CAUTION: Do not remove this. It's the key to the instant UI update.
     setOptimisticValues(prev => ({ ...prev, [`${id}-${fieldKey}`]: value }));
 
     if (id.startsWith('temp_')) {
@@ -209,19 +219,54 @@ export function CRMTable({
     updateConfig({ views: config.views.map(v => v.id === view.id ? { ...v, visibleFields: newOrder } : v) });
   };
 
-  const handleAddColumn = () => {
-    const newFieldId = `f_${Date.now()}`;
-    const newField: FieldConfig = {
-        id: newFieldId,
-        key: `custom_${Date.now()}`,
-        label: 'New Column',
-        type: 'text',
-        isSystem: false,
-        isVisible: true,
-        order: config.fields.length
-    };
-    const newFields = [...config.fields, newField];
-    const newVisible = [...orderedFieldIds, newFieldId];
+  const handleRenameColumn = (fieldId: string, newLabel: string) => {
+    setRenamingFieldId(null);
+    if (!newLabel) return;
+    const newFields = config.fields.map(f => f.id === fieldId ? { ...f, label: newLabel } : f);
+    updateConfig({ fields: newFields });
+  };
+
+  const handleSaveDescription = () => {
+    if (editingDescriptionFieldId) {
+        const newFields = config.fields.map(f => f.id === editingDescriptionFieldId ? { ...f, description: descriptionValue } : f);
+        updateConfig({ fields: newFields });
+        setEditingDescriptionFieldId(null);
+        setDescriptionValue("");
+    }
+  };
+
+  const handleAddColumn = (template?: Partial<FieldConfig>, type?: FieldConfig['type']) => {
+    let finalField: FieldConfig;
+    let newFields = [...config.fields];
+    if (template) {
+        const existing = config.fields.find(f => f.key === template.key);
+        if (existing) {
+            if (orderedFieldIds.includes(existing.id)) return;
+            finalField = existing;
+        } else {
+            finalField = {
+                id: `f_${Date.now()}`,
+                isSystem: true,
+                isVisible: true,
+                order: config.fields.length,
+                ...template
+            } as FieldConfig;
+            newFields.push(finalField);
+        }
+    } else {
+        const newId = `c_${Date.now()}`;
+        finalField = {
+            id: newId,
+            key: `custom_${Date.now()}`,
+            label: `New ${type || 'Column'}`,
+            type: type || 'text',
+            isSystem: false,
+            isVisible: true,
+            order: config.fields.length
+        };
+        newFields.push(finalField);
+    }
+    const newVisible = [...orderedFieldIds, finalField.id];
     setOrderedFieldIds(newVisible);
     updateConfig({ 
         fields: newFields,
@@ -230,12 +275,16 @@ export function CRMTable({
   };
 
   const handleDeleteColumn = (fieldId: string) => {
-    if (confirm("Delete this column permanently?")) {
+    const field = config.fields.find(f => f.id === fieldId);
+    if (!field) return;
+    if (confirm(`Remove "${field.label}" from this view?${!field.isSystem ? ' This will delete all data in this column permanently.' : ''}`)) {
         const newVisible = orderedFieldIds.filter(id => id !== fieldId);
         setOrderedFieldIds(newVisible);
-        updateConfig({ 
+        const updates: Partial<ModuleConfig> = {
             views: config.views.map(v => v.id === view.id ? { ...v, visibleFields: newVisible } : v)
-        });
+        };
+        if (!field.isSystem) updates.fields = config.fields.filter(f => f.id !== fieldId);
+        updateConfig(updates);
     }
   };
 
@@ -250,103 +299,231 @@ export function CRMTable({
   };
 
   return (
-    <div className="space-y-0">
-      <div className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto custom-scrollbar relative">
-        <table className="w-full text-left text-sm min-w-[1200px] border-collapse table-fixed">
-          <thead>
-            <tr className="h-12 bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
-              <th style={{borderLeft: `8px solid ${tableColor}`}} className="w-10 p-0 border-r border-border/50 sticky left-0 z-30 bg-slate-100 dark:bg-slate-800"></th>
-              <th className="w-12 p-0 border-r border-border/50 sticky left-10 z-30 bg-slate-100 dark:bg-slate-800">
-                <div className="flex items-center justify-center">
-                  <input 
-                    type="checkbox" 
-                    className="rounded-sm border-border bg-background cursor-pointer accent-blue-600" 
-                    checked={entities.length > 0 && selectedIds.length === entities.length}
-                    onChange={(e) => onSelectAll(e.target.checked ? entities.map(l => l.id) : [])}
-                  />
-                </div>
-              </th>
-              {displayFields.map((field) => (
-                <th key={field.id} className="p-0 border-r border-border/50 relative group/th h-12">
-                  <div className="flex items-center justify-between px-4">
-                    <span className="font-black uppercase tracking-[0.1em] text-[10px] text-muted-foreground truncate">{field.label}</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/th:opacity-100 hover:bg-secondary/50 rounded-lg"><MoreVertical size={12} /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-44 border-border/40 bg-card/95 backdrop-blur-xl z-[100]">
-                        <DropdownMenuItem className="text-[10px] font-bold uppercase" disabled={orderedFieldIds.indexOf(field.id) === 0} onClick={() => handleMoveColumn(field.id, 'left')}>
-                          <ArrowLeft size={12} className="mr-2" /> Move Left
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-[10px] font-bold uppercase" disabled={orderedFieldIds.indexOf(field.id) === orderedFieldIds.length - 1} onClick={() => handleMoveColumn(field.id, 'right')}>
-                          <ArrowRight size={12} className="mr-2" /> Move Right
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => handleDeleteColumn(field.id)}>
-                          <Trash size={12} className="mr-2" /> Delete Column
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+    <TooltipProvider>
+      <div className="space-y-0">
+        <div className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto custom-scrollbar relative">
+          <table className="w-full text-left text-sm min-w-[1200px] border-collapse table-fixed">
+            <thead>
+              <tr className="h-12 bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
+                <th style={{borderLeft: `8px solid ${tableColor}`}} className="w-10 p-0 border-r border-border/50 sticky left-0 z-30 bg-slate-100 dark:bg-slate-800"></th>
+                <th className="w-12 p-0 border-r border-border/50 sticky left-10 z-30 bg-slate-100 dark:bg-slate-800">
+                  <div className="flex items-center justify-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded-sm border-border bg-background cursor-pointer accent-blue-600" 
+                      checked={entities.length > 0 && selectedIds.length === entities.length}
+                      onChange={(e) => onSelectAll(e.target.checked ? entities.map(l => l.id) : [])}
+                    />
                   </div>
                 </th>
-              ))}
-              <th className="w-12 bg-secondary/20 border-l border-border/50 text-center">
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-500/10 text-blue-500" onClick={handleAddColumn}>
-                    <Plus size={16} />
-                </Button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {entities.map((entity, index) => {
-              const isSelected = selectedIds.includes(entity.id);
-              return (
-                <tr 
-                  key={entity.id} 
-                  className={cn(
-                    "border-b border-border/20 transition-all group h-[52px]",
-                    isSelected ? "bg-blue-600/[0.12] hover:bg-blue-600/[0.18]" : "hover:bg-blue-500/[0.03]"
-                  )}
-                >
-                  <td 
-                    style={{borderLeft: `8px solid ${tableColor}`}}
-                    className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/80 backdrop-blur-sm text-center text-xs text-muted-foreground font-mono transition-colors">
-                    {index + 1}
-                  </td>
-                  <td className={cn(
-                    "p-0 border-r border-border/20 sticky left-10 z-20 backdrop-blur-sm transition-colors",
-                    isSelected ? "bg-blue-600/[0.05]" : "bg-card/90"
-                  )}>
-                    <div className="flex items-center justify-center h-full">
-                      <input 
-                          type="checkbox" 
-                          className="rounded-sm border-border bg-background cursor-pointer accent-blue-600" 
-                          checked={isSelected} 
-                          onChange={() => onSelect(entity.id)} 
-                      />
+                {displayFields.map((field) => (
+                  <th key={field.id} className="p-0 border-r border-border/50 relative group/th h-12">
+                    <div className="flex items-center justify-between px-4 h-full">
+                      {renamingFieldId === field.id ? (
+                        <Input 
+                          className="h-8 bg-background/50 border-blue-500/50 text-[10px] font-black uppercase tracking-widest px-2"
+                          autoFocus
+                          defaultValue={field.label}
+                          onBlur={(e) => handleRenameColumn(field.id, e.target.value)}
+                          onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameColumn(field.id, e.currentTarget.value);
+                              if (e.key === "Escape") setRenamingFieldId(null);
+                          }}
+                        />
+                      ) : (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="font-black uppercase tracking-[0.1em] text-[10px] text-muted-foreground truncate cursor-help hover:text-foreground transition-colors">
+                                    {field.label}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-card/95 border-border/40 backdrop-blur-xl p-4 rounded-2xl shadow-2xl max-w-xs z-[100]">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">{field.label}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed text-foreground/60">{field.description || 'No description provided.'}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/th:opacity-100 hover:bg-secondary/50 rounded-lg"><MoreVertical size={12} /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl">
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setRenamingFieldId(field.id)}>
+                            <Edit2 size={12} className="mr-2" /> Rename Column
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => { 
+                              setEditingDescriptionFieldId(field.id);
+                              setDescriptionValue(field.description || "");
+                          }}>
+                            <NotebookPen size={12} className="mr-2" /> Edit Description
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" disabled={orderedFieldIds.indexOf(field.id) === 0} onClick={() => handleMoveColumn(field.id, 'left')}>
+                            <ArrowLeft size={12} className="mr-2" /> Move Left
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase" disabled={orderedFieldIds.indexOf(field.id) === orderedFieldIds.length - 1} onClick={() => handleMoveColumn(field.id, 'right')}>
+                            <ArrowRight size={12} className="mr-2" /> Move Right
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => handleDeleteColumn(field.id)}>
+                            <Trash size={12} className="mr-2" /> {field.isSystem ? 'Hide Column' : 'Delete Column'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
+                  </th>
+                ))}
+                <th className="w-12 bg-secondary/10 border-l border-border/50 text-center relative">
+                  <ColumnPicker 
+                      onSelect={handleAddColumn}
+                      availableTemplates={config.fields.filter(f => f.isSystem && !orderedFieldIds.includes(f.id))}
+                  >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-500/10 text-blue-500">
+                        <Plus size={16} />
+                    </Button>
+                  </ColumnPicker>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {entities.map((entity, index) => {
+                const isSelected = selectedIds.includes(entity.id);
+                return (
+                  <tr key={entity.id} className={cn("border-b border-border/20 transition-all group h-[52px]", isSelected ? "bg-blue-600/[0.12] hover:bg-blue-600/[0.18]" : "hover:bg-blue-500/[0.03]")}>
+                    <td style={{borderLeft: `8px solid ${tableColor}`}} className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/80 backdrop-blur-sm text-center text-xs text-muted-foreground font-mono transition-colors">{index + 1}</td>
+                    <td className={cn("p-0 border-r border-border/20 sticky left-10 z-20 backdrop-blur-sm transition-colors", isSelected ? "bg-blue-600/[0.05]" : "bg-card/90")}>
+                      <div className="flex items-center justify-center h-full">
+                        <input type="checkbox" className="rounded-sm border-border bg-background cursor-pointer accent-blue-600" checked={isSelected} onChange={() => onSelect(entity.id)} />
+                      </div>
+                    </td>
+                    {displayFields.map((field) => {
+                      const val = getFieldValue(entity, field.key);
+                      const isEditing = editingCell?.id === entity.id && editingCell?.fieldKey === field.key;
+                      
+                      if (field.type === 'select' || field.type === 'label') {
+                        return (
+                          <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <div className="flex items-center px-4 h-full w-full cursor-pointer group-hover/cell:bg-blue-500/[0.02]">
+                                  <Badge className={cn(
+                                    "px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95",
+                                    {'bg-blue-500 text-white': field.options?.find(o => o.value === val)?.color === 'blue', 'bg-amber-400 text-black': field.options?.find(o => o.value === val)?.color === 'yellow', 'bg-purple-500 text-white': field.options?.find(o => o.value === val)?.color === 'purple', 'bg-emerald-500 text-white': field.options?.find(o => o.value === val)?.color === 'green', 'bg-rose-500 text-white': field.options?.find(o => o.value === val)?.color === 'red', 'bg-orange-500 text-white': field.options?.find(o => o.value === val)?.color === 'orange', 'bg-indigo-500 text-white': field.options?.find(o => o.value === val)?.color === 'indigo', 'bg-gray-400 text-white': !field.options?.find(o => o.value === val)?.color || field.options?.find(o => o.value === val)?.color === 'gray'}
+                                  )}>
+                                    {field.options?.find(o => o.value === val)?.label || val || 'Select...'}
+                                  </Badge>
+                                </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="center" className="w-48 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl">
+                                {field.options?.map((opt) => (
+                                  <DropdownMenuItem key={opt.value} onClick={() => handleCellSave(entity.id, field.key, opt.value)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest py-3">
+                                    <div className={cn("size-2 rounded-full", {'bg-blue-500': opt.color === 'blue', 'bg-amber-400': opt.color === 'yellow', 'bg-purple-500': opt.color === 'purple', 'bg-emerald-50': opt.color === 'green', 'bg-rose-500': opt.color === 'red', 'bg-orange-500': opt.color === 'orange', 'bg-indigo-500': opt.color === 'indigo', 'bg-gray-400': !opt.color || opt.color === 'gray'})} />
+                                    {opt.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        );
+                      }
+                      if (field.type === 'people') {
+                        return (
+                          <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
+                            <div className="flex items-center px-4 h-full w-full">
+                              <Avatar className="h-6 w-6 border border-border/40">
+                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${val || 'User'}`} />
+                                <AvatarFallback className="text-[8px] font-black">{String(val || 'U').charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="ml-2 text-[10px] font-bold truncate">{String(val || '-')}</span>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (field.type === 'checkbox') {
+                        return (
+                          <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
+                            <div className="flex items-center justify-center h-full w-full">
+                              <Button variant="ghost" size="icon" className={cn("h-6 w-6 rounded-md border-2", val ? "bg-green-500 border-green-500 text-white" : "border-border/40")} onClick={(e) => { e.stopPropagation(); handleCellSave(entity.id, field.key, !val); }}>
+                                {val && <Check size={14} />}
+                              </Button>
+                            </div>
+                          </td>
+                        );
+                      }
+                      if (field.type === 'link') {
+                        return (
+                          <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
+                            <div className="flex items-center px-4 h-full w-full">
+                              <LinkIcon className="h-3 w-3 mr-2 text-blue-500" />
+                              <a href={String(val || '#')} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-blue-500 hover:underline truncate">{String(val || '-')}</a>
+                            </div>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={field.id} className="p-0 border-r border-border/20 relative group/cell" onClick={() => !isEditing && setEditingCell({ id: entity.id, fieldKey: field.key })}>
+                          {isEditing ? (
+                            <TableCellEditor field={field} value={String(val || '')} onSave={(newVal) => handleCellSave(entity.id, field.key, newVal)} onCancel={() => setEditingCell(null)} />
+                          ) : (
+                            <div className="flex items-center px-4 h-full w-full group-hover/cell:bg-blue-500/[0.02]">
+                              {field.type === 'currency' ? (
+                                <span className="text-blue-600 font-black text-xs">${Number(val || 0).toLocaleString()}</span>
+                              ) : field.type === 'timeline' ? (
+                                  <div className="flex items-center gap-1.5 w-full">
+                                      <div className="h-1.5 flex-1 bg-secondary/30 rounded-full overflow-hidden relative">
+                                          <div className="absolute inset-0 bg-blue-500/50 rounded-full" style={{ width: '60%', left: '20%' }} />
+                                      </div>
+                                      <span className="text-[9px] font-bold text-muted-foreground whitespace-nowrap">{String(val || 'Jan 1 - Jan 15')}</span>
+                                  </div>
+                              ) : (
+                                <span className={cn("text-xs font-bold truncate w-full transition-colors", isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80")}>
+                                  {String(val || '-')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="p-0 text-center w-12 border-l border-border/20">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 opacity-0 group-hover:opacity-100 hover:bg-secondary/50 rounded-xl"><MoreHorizontal size={14} /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 border-border/40 bg-card/95 backdrop-blur-xl z-[100]">
+                          {actions ? actions(entity) : (
+                            <>
+                              <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}><Eye size={12} className="mr-2 text-blue-500"/> View</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => deleteEntity(entity.id)}><Trash size={12} className="mr-2"/> Delete</DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
+              {tempRows.map((row, index) => (
+                <tr key={row.id} className="border-b border-border/20 bg-blue-500/[0.01] h-[52px] group/temp">
+                  <td style={{borderLeft: `8px solid ${tableColor}`}} className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/90 backdrop-blur-sm text-center text-xs text-muted-foreground/50 font-mono">{entities.length + index + 1}</td>
+                  <td className="p-0 border-r border-border/20 sticky left-10 z-20 bg-card/90 backdrop-blur-sm">
+                    <div className="flex items-center justify-center h-full">{row.isSaving ? <Loader2 className="size-4 animate-spin text-blue-500" /> : <div className="size-4 rounded-sm border-2 border-blue-500/20" />}</div>
                   </td>
                   {displayFields.map((field) => {
-                    const val = getFieldValue(entity, field.key);
-                    const isEditing = editingCell?.id === entity.id && editingCell?.fieldKey === field.key;
-                    if (field.type === 'select') {
+                    const val = row.data[field.key] || '';
+                    const isEditing = editingCell?.id === row.id && editingCell?.fieldKey === field.key;
+                    if (field.type === 'select' || field.type === 'label') {
                       return (
                         <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                            <DropdownMenuTrigger asChild disabled={row.isSaving}>
                               <div className="flex items-center px-4 h-full w-full cursor-pointer group-hover/cell:bg-blue-500/[0.02]">
-                                <Badge className={cn(
-                                  "px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95",
-                                  {'bg-blue-500 text-white': field.options?.find(o => o.value === val)?.color === 'blue', 'bg-amber-400 text-black': field.options?.find(o => o.value === val)?.color === 'yellow', 'bg-purple-500 text-white': field.options?.find(o => o.value === val)?.color === 'purple', 'bg-emerald-500 text-white': field.options?.find(o => o.value === val)?.color === 'green', 'bg-rose-500 text-white': field.options?.find(o => o.value === val)?.color === 'red', 'bg-orange-500 text-white': field.options?.find(o => o.value === val)?.color === 'orange', 'bg-indigo-500 text-white': field.options?.find(o => o.value === val)?.color === 'indigo', 'bg-gray-400 text-white': !field.options?.find(o => o.value === val)?.color || field.options?.find(o => o.value === val)?.color === 'gray'}
-                                )}>
-                                  {field.options?.find(o => o.value === val)?.label || val || 'Select...'}
-                                </Badge>
+                                <Badge className={cn("px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 opacity-30", {'bg-blue-500 text-white': field.options?.find(o => o.value === val)?.color === 'blue', 'bg-amber-400 text-black': field.options?.find(o => o.value === val)?.color === 'yellow','bg-purple-500 text-white': field.options?.find(o => o.value === val)?.color === 'purple','bg-emerald-500 text-white': field.options?.find(o => o.value === val)?.color === 'green','bg-rose-500 text-white': field.options?.find(o => o.value === val)?.color === 'red','bg-orange-500 text-white': field.options?.find(o => o.value === val)?.color === 'orange','bg-indigo-500 text-white': field.options?.find(o => o.value === val)?.color === 'indigo','bg-gray-400 text-white': !field.options?.find(o => o.value === val)?.color || field.options?.find(o => o.value === val)?.color === 'gray'})}>{field.options?.find(o => o.value === val)?.label || `+ ${field.label}`}</Badge>
                               </div>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="center" className="w-48 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl">
                               {field.options?.map((opt) => (
-                                <DropdownMenuItem key={opt.value} onClick={() => handleCellSave(entity.id, field.key, opt.value)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest py-3">
-                                  <div className={cn("size-2 rounded-full", {'bg-blue-500': opt.color === 'blue', 'bg-amber-400': opt.color === 'yellow', 'bg-purple-500': opt.color === 'purple', 'bg-emerald-50': opt.color === 'green', 'bg-rose-500': opt.color === 'red', 'bg-orange-500': opt.color === 'orange', 'bg-indigo-500': opt.color === 'indigo', 'bg-gray-400': !opt.color || opt.color === 'gray'})} />
+                                <DropdownMenuItem key={opt.value} onClick={() => handleCellSave(row.id, field.key, opt.value)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest py-3">
+                                  <div className={cn("size-2 rounded-full", {'bg-blue-500': opt.color === 'blue','bg-amber-400': opt.color === 'yellow','bg-purple-500': opt.color === 'purple','bg-emerald-50': opt.color === 'green','bg-rose-500': opt.color === 'red','bg-orange-500': opt.color === 'orange','bg-indigo-500': opt.color === 'indigo','bg-gray-400': !opt.color || opt.color === 'gray'})} />
                                   {opt.label}
                                 </DropdownMenuItem>
                               ))}
@@ -355,129 +532,55 @@ export function CRMTable({
                         </td>
                       );
                     }
-
+                    if (field.type === 'people') {
+                      return <td key={field.id} className="p-0 border-r border-border/20 relative group/cell"><div className="flex items-center px-4 h-full w-full opacity-30 italic text-[10px] font-black uppercase text-muted-foreground/30">+ {field.label}</div></td>;
+                    }
+                    if (field.type === 'checkbox') {
+                      return <td key={field.id} className="p-0 border-r border-border/20 relative group/cell"><div className="flex items-center justify-center h-full w-full opacity-30"><div className="h-6 w-6 rounded-md border-2 border-border/40" /></div></td>;
+                    }
                     return (
-                      <td key={field.id} className="p-0 border-r border-border/20 relative group/cell" onClick={() => !isEditing && setEditingCell({ id: entity.id, fieldKey: field.key })}>
+                      <td key={field.id} className="p-0 border-r border-border/20 relative group/cell" onClick={() => !isEditing && !row.isSaving && setEditingCell({ id: row.id, fieldKey: field.key })}>
                         {isEditing ? (
-                          <TableCellEditor field={field} value={String(val || '')} onSave={(newVal) => handleCellSave(entity.id, field.key, newVal)} onCancel={() => setEditingCell(null)} />
+                          <TableCellEditor field={field} value={String(val || '')} onSave={(newVal) => handleCellSave(row.id, field.key, newVal)} onCancel={() => setEditingCell(null)} />
                         ) : (
-                          <div className="flex items-center px-4 h-full w-full group-hover/cell:bg-blue-500/[0.02]">
-                            {field.type === 'currency' ? (
-                              <span className="text-blue-600 font-black text-xs">${Number(val || 0).toLocaleString()}</span>
-                            ) : (
-                              <span className={cn("text-xs font-bold truncate w-full transition-colors", isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80")}>
-                                {String(val || '-')}
-                              </span>
-                            )}
-                          </div>
+                          <div className="flex items-center px-4 h-full w-full italic text-[10px] font-black uppercase text-muted-foreground/30">{row.isSaving ? 'Syncing...' : val || `+ ${field.label}`}</div>
                         )}
                       </td>
                     );
                   })}
-                  <td className="p-0 text-center w-12 border-l border-border/20">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 opacity-0 group-hover:opacity-100 hover:bg-secondary/50 rounded-xl"><MoreHorizontal size={14} /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56 border-border/40 bg-card/95 backdrop-blur-xl z-[100]">
-                        {actions ? actions(entity) : (
-                          <>
-                            <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}><Eye size={12} className="mr-2 text-blue-500"/> View</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-[10px] font-bold uppercase text-red-500" onClick={() => deleteEntity(entity.id)}><Trash size={12} className="mr-2"/> Delete</DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+                  <td className="p-0 text-center border-l border-border/20 bg-card/90 backdrop-blur-sm"><Button variant="ghost" size="icon" disabled={row.isSaving} className="h-10 w-10 text-muted-foreground hover:text-red-500 rounded-xl" onClick={() => setTempRows(prev => prev.filter(r => r.id !== row.id))}><X size={14}/></Button></td>
                 </tr>
-              );
-            })}
-            
-            {/* Monday-style integrated "Add Row" rows */}
-            {tempRows.map((row, index) => (
-              <tr key={row.id} className="border-b border-border/20 bg-blue-500/[0.01] h-[52px] group/temp">
-                 <td 
-                    style={{borderLeft: `8px solid ${tableColor}`}}
-                    className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/90 backdrop-blur-sm text-center text-xs text-muted-foreground/50 font-mono">
-                    {entities.length + index + 1}
-                 </td>
-                 <td className="p-0 border-r border-border/20 sticky left-10 z-20 bg-card/90 backdrop-blur-sm">
-                   <div className="flex items-center justify-center h-full">
-                     {row.isSaving ? <Loader2 className="size-4 animate-spin text-blue-500" /> : <div className="size-4 rounded-sm border-2 border-blue-500/20" />}
-                   </div>
-                </td>
-                {displayFields.map((field) => {
-                  const val = row.data[field.key] || '';
-                  const isEditing = editingCell?.id === row.id && editingCell?.fieldKey === field.key;
-                  if (field.type === 'select') {
-                    return (
-                      <td key={field.id} className="p-0 border-r border-border/20 relative group/cell">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild disabled={row.isSaving}>
-                            <div className="flex items-center px-4 h-full w-full cursor-pointer group-hover/cell:bg-blue-500/[0.02]">
-                              <Badge className={cn("px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-transform active:scale-95 opacity-30", {'bg-blue-500 text-white': field.options?.find(o => o.value === val)?.color === 'blue', 'bg-amber-400 text-black': field.options?.find(o => o.value === val)?.color === 'yellow','bg-purple-500 text-white': field.options?.find(o => o.value === val)?.color === 'purple','bg-emerald-500 text-white': field.options?.find(o => o.value === val)?.color === 'green','bg-rose-500 text-white': field.options?.find(o => o.value === val)?.color === 'red','bg-orange-500 text-white': field.options?.find(o => o.value === val)?.color === 'orange','bg-indigo-500 text-white': field.options?.find(o => o.value === val)?.color === 'indigo','bg-gray-400 text-white': !field.options?.find(o => o.value === val)?.color || field.options?.find(o => o.value === val)?.color === 'gray'})}>
-                                {field.options?.find(o => o.value === val)?.label || `+ ${field.label}`}
-                              </Badge>
-                            </div>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="center" className="w-48 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl">
-                            {field.options?.map((opt) => (
-                              <DropdownMenuItem key={opt.value} onClick={() => handleCellSave(row.id, field.key, opt.value)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest py-3">
-                                <div className={cn("size-2 rounded-full", {'bg-blue-500': opt.color === 'blue','bg-amber-400': opt.color === 'yellow','bg-purple-500': opt.color === 'purple','bg-emerald-50': opt.color === 'green','bg-rose-500': opt.color === 'red','bg-orange-500': opt.color === 'orange','bg-indigo-500': opt.color === 'indigo','bg-gray-400': !opt.color || opt.color === 'gray'})} />
-                                {opt.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    );
-                  }
-
-                  return (
-                    <td key={field.id} className="p-0 border-r border-border/20 relative group/cell" onClick={() => !isEditing && !row.isSaving && setEditingCell({ id: row.id, fieldKey: field.key })}>
-                      {isEditing ? (
-                        <TableCellEditor field={field} value={String(val || '')} onSave={(newVal) => handleCellSave(row.id, field.key, newVal)} onCancel={() => setEditingCell(null)} />
-                      ) : (
-                        <div className="flex items-center px-4 h-full w-full italic text-[10px] font-black uppercase text-muted-foreground/30">
-                          {row.isSaving ? 'Syncing...' : val || `+ ${field.label}`}
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
-                <td className="p-0 text-center border-l border-border/20 bg-card/90 backdrop-blur-sm">
-                  <Button variant="ghost" size="icon" disabled={row.isSaving} className="h-10 w-10 text-muted-foreground hover:text-red-500 rounded-xl" onClick={() => setTempRows(prev => prev.filter(r => r.id !== row.id))}><X size={14}/></Button>
-                </td>
+              ))}
+              <tr className="h-[52px] border-b border-border/20 bg-muted/5 group/new" onClick={() => {
+                  const newTempId = `temp_${Date.now()}`;
+                  setTempRows(prev => [...prev, { id: newTempId, data: {} }]);
+                  const firstField = displayFields[0];
+                  if(firstField) setEditingCell({ id: newTempId, fieldKey: firstField.key });
+              }}>
+                  <td style={{borderLeft: `8px solid ${lightTableColor}`}} className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/80 group-hover/new:bg-blue-500/[0.03] transition-colors"></td>
+                  <td className="p-0 border-r border-border/20 sticky left-10 z-10 bg-card/80 group-hover/new:bg-blue-500/[0.03] transition-colors"><div className="flex items-center justify-center h-full opacity-30 group-hover/new:opacity-100 transition-opacity"><Plus size={14} className="text-muted-foreground group-hover/new:text-blue-500" /></div></td>
+                  <td colSpan={displayFields.length} className="p-0 border-r border-border/20 relative cursor-pointer group-hover/new:bg-blue-500/[0.03] transition-colors"><div className="px-4 flex items-center h-full text-[10px] font-black uppercase text-muted-foreground/30 group-hover/new:text-blue-500 transition-colors">Add Item</div></td>
+                  <td className="bg-card/90 group-hover/new:bg-blue-500/[0.03] transition-colors"></td>
               </tr>
-            ))}
-
-            {/* THE PERSISTENT "ADD ROW" PLACEHOLDER */}
-            <tr className="h-[52px] border-b border-border/20 bg-muted/5 group/new" onClick={() => {
-                const newTempId = `temp_${Date.now()}`;
-                setTempRows(prev => [...prev, { id: newTempId, data: {} }]);
-                const firstField = displayFields[0];
-                if(firstField) setEditingCell({ id: newTempId, fieldKey: firstField.key });
-            }}>
-                <td 
-                    style={{borderLeft: `8px solid ${lightTableColor}`}}
-                    className="p-0 border-r border-border/20 sticky left-0 z-10 bg-card/80 group-hover/new:bg-blue-500/[0.03] transition-colors">
-                </td>
-                <td className="p-0 border-r border-border/20 sticky left-10 z-10 bg-card/80 group-hover/new:bg-blue-500/[0.03] transition-colors">
-                    <div className="flex items-center justify-center h-full opacity-30 group-hover/new:opacity-100 transition-opacity">
-                        <Plus size={14} className="text-muted-foreground group-hover/new:text-blue-500" />
-                    </div>
-                </td>
-                <td colSpan={displayFields.length} className="p-0 border-r border-border/20 relative cursor-pointer group-hover/new:bg-blue-500/[0.03] transition-colors">
-                    <div className="px-4 flex items-center h-full text-[10px] font-black uppercase text-muted-foreground/30 group-hover/new:text-blue-500 transition-colors">
-                        Add Item
-                    </div>
-                </td>
-                <td className="bg-card/90 group-hover/new:bg-blue-500/[0.03] transition-colors"></td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+      <Dialog open={!!editingDescriptionFieldId} onOpenChange={(open) => !open && setEditingDescriptionFieldId(null)}>
+        <DialogContent className="max-w-md rounded-[2.5rem] border-border/40 bg-card/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden">
+            <DialogHeader className="p-8 pb-4">
+                <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Edit <span className="text-blue-600 italic">Description</span></DialogTitle>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-2">Add help text for this column to guide your team.</p>
+            </DialogHeader>
+            <div className="p-8 pt-4">
+                <Textarea placeholder="E.G. 'THIS COLUMN TRACKS THE INITIAL SOURCE OF THE LEAD...'" value={descriptionValue} onChange={(e) => setDescriptionValue(e.target.value)} className="min-h-[120px] bg-secondary/30 border-none rounded-2xl text-[10px] font-bold uppercase tracking-widest focus-visible:ring-1 focus-visible:ring-blue-500/20 shadow-inner p-4" />
+            </div>
+            <DialogFooter className="p-8 pt-4 bg-secondary/10 flex items-center justify-between">
+                <Button variant="ghost" onClick={() => setEditingDescriptionFieldId(null)} className="h-12 px-8 rounded-2xl text-[10px] font-black uppercase tracking-widest">Cancel</Button>
+                <Button onClick={handleSaveDescription} className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20">Save Description</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   );
 }

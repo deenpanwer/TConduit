@@ -20,28 +20,44 @@ if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && proce
 }
 
 // --- AI Summary Logic ---
-async function generateActivitySummary(orgData: any, orgName: string): Promise<string> {
+async function generateActivitySummary(orgData: any, orgName: string): Promise<{ title: string; body: string }> {
   /**
    * CONTEXT: Trac AI | Traconomics | Trac Diary | Trac Dairy
    * Branding injected to ensure AI understands the software's identity.
    */
   const prompt = `
-  CONTEXT: 
-  You are the organizational analyzer for "Trac AI" (also known as Traconomics, Trac Diary, or Trac Dairy). 
-  Trac AI is an employee productivity monitoring system.
-  You are sending a push notification to the founder of ${orgName}.
+  CONTEXT — DO NOT MENTION IN OUTPUT:
+You are the notification engine for "Trac AI" (Traconomics / Trac Diary).
+You are writing a push notification sent to the founder of ${orgName}.
+Your only goal is to make them tap and open Trac right now.
 
-  GOAL:
-  Based on the employee shift data, provide a 1-sentence summary of team progress and a call to action to visit the dashboard for more details.
+Organization Data (JSON):
+${JSON.stringify(orgData, null, 2)}
 
-  Organization Data (JSON):
-  ${JSON.stringify(orgData, null, 2)}
+⚠️ DATA SCHEMA RULES — READ BEFORE CALCULATING ANYTHING:
+The data has TWO time record types that cover the SAME work — do not add them together:
+- "hourly_metrics": Hour-by-hour breakdown rows.
+- "live_metrics": The already-summed daily total.
+👉 Use ONLY "live_metrics" for totals. If only "hourly_metrics" exist, sum them once. Never double-count.
 
-  INSTRUCTIONS:
-  1. BE EXTREMELY SHORT: Max 25 words total. 
-  2. STRUCTURE: [Actionable Summary]. Visit your Trac AI dashboard for full employee insights.
-  3. PLAIN ENGLISH: No jargon, just direct facts.
-  4. BRANDING: Use the name "Trac AI" in the call to action.
+NOTIFICATION PSYCHOLOGY RULES (based on behavioral research):
+1. OPEN WITH A NUMBER OR NAME: Notifications that lead with a specific stat or employee name get significantly higher open rates (Localytics, 2023). Pull one real, specific data point from the shift — e.g., "3 of your 5 employees..." or "Your team only hit 40% active time today..."
+2. LEAVE THE GAP OPEN: Use the "curiosity gap" principle (Loewenstein, 1994) — reveal just enough to make them need to know the rest. Never give the full picture. Tease, don't tell.
+3. NO GENERIC CTAs: "Visit dashboard" is ignored. End with a short, specific hook that implies something is waiting — e.g., "See who." or "Find out why." or "Check before EOD."
+4. UNDER 15 WORDS TOTAL: Research on mobile push notifications shows open rates drop sharply above 10–15 words (CleverTap, 2022). Be ruthless with length.
+5. NO JARGON, NO FLUFF: Write like a text from a trusted colleague, not a SaaS tool.
+6. NO BRAND NAME IN BODY: Do not say "Trac AI" inside the notification text. The app name is already visible as the sender.
+
+OUTPUT FORMAT:
+Return a single, minified JSON object with two keys: "title" and "body". Do not add any extra text, characters, or markdown.
+- "title" (string, max 5 words): [Specific, curiosity-triggering hook]
+- "body" (string, max 10 words): [One data-grounded fact that leaves a gap + micro CTA]
+
+Example of the RIGHT JSON output:
+{"title":"One person carried today.","body":"The rest? You\'ll want to see this."}
+
+Example of the WRONG JSON output (and wrong tone):
+{"title":"Team Productivity Update","body":"Your team made progress today. Visit your Trac AI dashboard for full employee insights."}
   `;
 
   try {
@@ -49,12 +65,30 @@ async function generateActivitySummary(orgData: any, orgName: string): Promise<s
       model: mistral('mistral-small-2506'),
       prompt: prompt,
     });
-    return text.replace(/\n/g, " ").trim();
+    
+    // AI response should be a clean JSON string.
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.title && parsed.body) {
+        return { title: parsed.title, body: parsed.body };
+      }
+      // Handle cases where JSON is valid but lacks keys
+      throw new Error("Parsed JSON is missing 'title' or 'body' keys.");
+    } catch (e: any) {
+       console.error(`[AI Parse Error] Failed to parse JSON for ${orgName}. Error: ${e.message}. Raw AI Output:`, text);
+       // Fallback: try to rescue from a stringified response if possible, but it's unlikely with new prompt.
+       // For safety, we will just go to the final catch block.
+       throw new Error(`JSON parsing failed: ${e.message}`);
+    }
   } catch (error) {
-    console.error(`[AI Error] Summary failed for ${orgName}:`, error);
-    return "New team activity recorded. Visit your Trac AI dashboard for full productivity insights.";
+    console.error(`[AI Error] Summary generation failed for ${orgName}:`, error);
+    return { 
+        title: `Activity Update for ${orgName}`,
+        body: "New team activity recorded. Visit your dashboard for insights."
+    };
   }
 }
+
 
 // --- Push Execution ---
 async function sendPushNotification(subscription: any, payload: string) {
@@ -135,12 +169,12 @@ export async function GET(req: Request) {
       console.log(`[AI Payload Debug] Sending JSON for ${orgName}:`, JSON.stringify(activeActivity));
 
       // C. Generate AI Summary with Trac AI Context
-      const summaryText = await generateActivitySummary(activeActivity, orgName);
+      const summary = await generateActivitySummary(activeActivity, orgName);
       
       // D. Prepare and Send Notification
       const notificationPayload = JSON.stringify({
-        title: "Trac AI | Team Brief",
-        body: summaryText,
+        title: summary.title,
+        body: summary.body,
         data: { url: "/dashboard" }
       });
       
@@ -168,7 +202,7 @@ export async function GET(req: Request) {
       reports.push({
         orgName,
         recipient: ownerData.email,
-        summary: summaryText,
+        summary: summary,
         notificationsSent: sentCount,
         dataSentToAI: activeActivity // Log the shifts data in the final API response
       });

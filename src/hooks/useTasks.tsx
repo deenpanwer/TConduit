@@ -144,6 +144,7 @@ interface TasksContextType {
   ) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  bulkUpdateTasks: (updates: Record<string, Partial<Task>>, actionName?: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
   canManageTasks: boolean;
 }
@@ -154,6 +155,7 @@ const TasksContext = createContext<TasksContextType>({
   addTask: async () => null,
   updateTask: async () => {},
   deleteTask: async () => {},
+  bulkUpdateTasks: async () => {},
   addComment: async () => {},
   canManageTasks: false,
 });
@@ -517,9 +519,55 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     [orgId, canManageTasks, updateTask]
   );
 
+  const bulkUpdateTasks = useCallback(
+    async (updates: Record<string, Partial<Task>>, actionName: string = 'bulk_updated') => {
+      if (!orgId || !user) return;
+      
+      const batch = writeBatch(db);
+      const now = serverTimestamp();
+
+      Object.entries(updates).forEach(([taskId, taskUpdates]) => {
+        const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
+        const currentTask = tasks.find(t => t.id === taskId);
+        
+        if (currentTask) {
+          const historyEntry = {
+            id: Date.now().toString() + Math.random().toString(36).substring(7),
+            userId: user.uid,
+            action: actionName,
+            details: taskUpdates,
+            createdAt: new Date(),
+          };
+
+          const finalUpdates = Object.entries(taskUpdates).reduce((acc, [key, value]) => {
+            if (value !== undefined) {
+              acc[key] = value;
+            }
+            return acc;
+          }, {} as any);
+
+          batch.update(taskDocRef, {
+            ...finalUpdates,
+            updatedAt: now,
+            history: [...(currentTask.history || []), historyEntry]
+          });
+        }
+      });
+
+      try {
+        await batch.commit();
+        toast.success(`Successfully saved ${Object.keys(updates).length} tasks`);
+      } catch (error) {
+        console.error("Error bulk updating tasks:", error);
+        toast.error("Failed to save some changes");
+      }
+    },
+    [orgId, user, tasks]
+  );
+
   return (
     <TasksContext.Provider
-      value={{ tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks }}
+      value={{ tasks, loading, addTask, updateTask, deleteTask, bulkUpdateTasks, addComment, canManageTasks }}
     >
       {children}
     </TasksContext.Provider>

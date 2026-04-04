@@ -5,7 +5,8 @@ import {
   SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
   UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
   Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays, Database,
-  ShoppingCart, Briefcase, X
+  ShoppingCart, Briefcase, X,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,9 +24,11 @@ import {
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
+import { useShift } from "@/hooks/use-shift";
+import { NotificationsDrawer } from "./NotificationsDrawer";
 import { toast } from "sonner";
 
 import { db } from "@/lib/firebase";
@@ -56,6 +59,19 @@ export function DashboardSidebar({
   const [mounted, setMounted] = useState(false);
   const [isTeamExpanded, setIsTeamExpanded] = useState(true);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const shiftUser = useMemo(() => {
+    if (!userData && !user) return null;
+    return {
+      ...userData,
+      uid: user?.uid || userData?.id
+    };
+  }, [userData, user]);
+
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+  const { allPendingLeaves, allPendingClaims } = useShift(new Date(), orgId, shiftUser, employees);
+  const pendingCount = allPendingLeaves.length + allPendingClaims.length;
 
   // Swipe logic refs
   const touchStartX = useRef<number | null>(null);
@@ -105,13 +121,17 @@ export function DashboardSidebar({
 
   const userEmail = user?.email;
 
-  const NavItem = ({ icon: Icon, label, href, active, count }: any) => (
+  const NavItem = ({ icon: Icon, label, href, active, count, onClick }: any) => (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
           <button 
             onClick={() => {
-              router.push(href);
+              if (onClick) {
+                onClick();
+              } else {
+                router.push(href);
+              }
               if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
             }}
             className={cn(
@@ -120,21 +140,24 @@ export function DashboardSidebar({
               (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
             )}
           >
-            <Icon className={cn("size-5 shrink-0")} size={20} />
+            <Icon className={cn("size-5 shrink-0", active && "text-primary")} size={20} />
             {(!isCollapsed || isMobileSidebarOpen) && (
               <div className="flex flex-1 items-center justify-between overflow-hidden">
                 <span className="text-sm font-bold truncate">{label}</span>
                 {count !== undefined && count > 0 && (
-                   <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-black">
+                   <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-black animate-pulse">
                      {count}
                    </span>
                 )}
               </div>
             )}
+            {isCollapsed && !isMobileSidebarOpen && count !== undefined && count > 0 && (
+              <span className="absolute top-1 right-1 size-2 bg-red-500 rounded-full border-2 border-card" />
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-          {label}
+          {label} {count !== undefined && count > 0 && `(${count})`}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -183,8 +206,8 @@ export function DashboardSidebar({
                   "flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group",
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">TRAC AI</span>
@@ -214,6 +237,18 @@ export function DashboardSidebar({
                   <div className="flex flex-col text-left">
                     <span className="font-bold text-sm">Dashboard</span>
                     <span className="text-[10px] text-muted-foreground">Current Product</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => router.push('/tasks')}
+                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
+                >
+                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <ListTodo className="size-5 text-primary" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-sm">Tasks</span>
+                    <span className="text-[10px] text-muted-foreground">Productivity & Ops</span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
@@ -268,7 +303,7 @@ export function DashboardSidebar({
             <div className="space-y-1">
                 <NavItem icon={LayoutDashboard} label="Overview" href="/dashboard" active={pathname === "/dashboard"} />
                 <NavItem icon={Zap} label="Supervise" href="/dashboard/supervise" active={pathname === "/dashboard/supervise"} />
-                <NavItem icon={ListTodo} label="Tasks" href="/dashboard/tasks" active={pathname === "/dashboard/tasks"} />
+                <NavItem icon={Bell} label="Notifications" onClick={() => setIsNotificationsOpen(true)} active={isNotificationsOpen} count={pendingCount} />
                 <NavItem icon={CalendarRange} label="Shifts" href="/dashboard/shifts" active={pathname === "/dashboard/shifts"} />
                 <NavItem icon={CalendarDays} label="Calendar" href="/dashboard/calendar" active={pathname === "/dashboard/calendar"} />
                 <NavItem icon={MessageSquare} label="Messages" href="/dashboard/chat" active={pathname === "/dashboard/chat"} />
@@ -387,7 +422,13 @@ export function DashboardSidebar({
             </div>
           </div>
         </div>
-      </div>
-    </>
-  );
-}
+            </div>
+      
+            <NotificationsDrawer 
+              isOpen={isNotificationsOpen}
+              onClose={() => setIsNotificationsOpen(false)}
+            />
+          </>
+        );
+      }
+      

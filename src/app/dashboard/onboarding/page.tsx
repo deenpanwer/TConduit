@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,6 +70,8 @@ export default function OnboardingPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || "/dashboard";
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshUserData } = useAuth();
@@ -298,7 +300,7 @@ export default function OnboardingPage() {
 
       await refreshUserData();
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
-      router.push("/dashboard");
+      router.push(callbackUrl);
     } catch (error: any) {
       toast({ title: "Setup failed", description: error.message, variant: "destructive" });
     } finally {

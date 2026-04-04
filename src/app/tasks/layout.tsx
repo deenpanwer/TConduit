@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import TasksClientLayout from '@/components/tasks/TasksClientLayout';
 
 export const metadata: Metadata = {
   title: 'Tasks | TRAC AI Productivity Monitor',
@@ -10,5 +11,5 @@ export default function TasksLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <TasksClientLayout>{children}</TasksClientLayout>;
 }

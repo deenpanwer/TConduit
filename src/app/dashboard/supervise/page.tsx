@@ -5,11 +5,76 @@ import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
 import { getDoc, doc } from 'firebase/firestore';
-import { format, isToday, parseISO } from 'date-fns'; // Added parseISO for date handling
+import { format, isToday, parseISO } from 'date-fns';
 import { useTeam } from '@/hooks/use-team';
-import { useSupervise } from '@/hooks/use-supervise'; // Assuming this hook will be updated to fetch from new API
+import { useSupervise } from '@/hooks/use-supervise';
 import { Shimmer } from '@/components/dashboard/main/shared/Shimmer';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+
+// --- UTILS ---
+
+/**
+ * generateCollageBase64: Client-side "Embedding Clustering" implementation.
+ * Takes up to 4 image URLs and combines them into a single 2x2 collage.
+ */
+async function generateCollageBase64(urls: string[]): Promise<string> {
+  if (!urls || urls.length === 0) return "";
+  
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const size = 1024;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return reject("Canvas context error");
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, size, size);
+
+    let loadedCount = 0;
+    const images: HTMLImageElement[] = [];
+    const limit = Math.min(urls.length, 4);
+    
+    urls.slice(0, limit).forEach((url, i) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        images[i] = img;
+        loadedCount++;
+        if (loadedCount === limit) draw();
+      };
+      img.onerror = () => {
+        loadedCount++;
+        if (loadedCount === limit) draw();
+      };
+      img.src = url;
+    });
+
+    function draw() {
+      if (!ctx) return; // TS Safety
+      const w = size / 2;
+      const h = size / 2;
+      for (let i = 0; i < 4; i++) {
+        const img = images[i];
+        if (!img) continue;
+        const x = (i % 2) * w;
+        const y = Math.floor(i / 2) * h;
+        
+        // Use Math.min (contain) instead of Math.max (cover) to prevent cropping
+        const ratio = Math.min(w / img.width, h / img.height);
+        const nw = img.width * ratio;
+        const nh = img.height * ratio;
+        const nx = x + (w - nw) / 2;
+        const ny = y + (h - nh) / 2;
+        ctx.drawImage(img, 0, 0, img.width, img.height, nx, ny, nw, nh);
+      }
+      const base64 = canvas.toDataURL("image/jpeg", 0.8);
+      console.log(`[Trac Supervise] Collage Generated:`, base64);
+      resolve(base64);
+    }
+  });
+}
 
 const ScanningSkeleton = () => (
   <div className="relative w-full h-12 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden">
@@ -25,13 +90,13 @@ const ScanningSkeleton = () => (
     `}</style>
   </div>
 );
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-// Importing icons
 import {
   Menu,
   UserPlus,
@@ -45,11 +110,14 @@ import {
   MessageCircle,
   Sparkles,
   ChevronDown,
+  Plus,
+  Minus,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { cn, getUserAvatar } from '@/lib/utils';
+import { cn, getUserAvatar, isEmployeeOnline } from '@/lib/utils';
 import {
   Popover,
   PopoverContent,
@@ -61,189 +129,350 @@ import { PaywallScreen } from '@/components/dashboard/PaywallScreen';
 import { SubscriptionBadge } from '@/components/dashboard/SubscriptionBadge';
 import { useSidebar } from '@/hooks/use-sidebar';
 
+// --- SHARED COMPONENTS ---
+
+/**
+ * SuperviseFeedItem: Unified component for both Mobile & Desktop to handle image loops.
+ */
+function SuperviseFeedItem({ 
+  emp, 
+  variant = 'mobile', // 'mobile' | 'desktop'
+  index, 
+  total,
+  screenshots, 
+  isOnline, 
+  isTodayView, 
+  selectedDate,
+  isLoadingIntent,
+  currentIntent,
+  currentError,
+  onScrollToNext,
+  onOpenTeam,
+  onOpenChat,
+  onSetLoaded,
+  onEnlarge
+}: any) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  
+  useEffect(() => {
+    if (screenshots.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveIdx(prev => (prev + 1) % screenshots.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [screenshots.length]);
+
+  const screenshot = screenshots[activeIdx] || screenshots[0];
+  const imageUrl = screenshot?.url || screenshot?.imageUrl || screenshot?.activity?.cloudinaryUrl;
+  const timestamp = screenshot?.timestamp?.toDate ? screenshot.timestamp.toDate() : new Date();
+  const isHistoricalFallback = screenshot?.isFallback;
+
+  if (variant === 'desktop') {
+    return (
+      <div className="group relative bg-card border-2 border-border rounded-[2rem] overflow-hidden isolate transition-all hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 h-fit">
+        <div className="aspect-video w-full bg-secondary relative overflow-hidden">
+          {screenshots.length === 0 ? (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground space-y-2">
+              <Monitor size={32} className="opacity-20" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-center px-4">
+                {isTodayView ? "No Activity Today" : "No History Available"}
+              </span>
+            </div>
+          ) : imageUrl ? (
+            <div className="w-full h-full relative">
+              <img
+                src={imageUrl}
+                alt={emp.name}
+                className={cn(
+                  "w-full h-full object-contain transition-all duration-700 cursor-pointer",
+                  "opacity-100 scale-100"
+                )}
+                onLoad={() => onSetLoaded(imageUrl)}
+                onClick={() => onEnlarge(screenshot)}
+              />
+              {/* Desktop Mini-Loop Progress */}
+              {screenshots.length > 1 && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-1 z-30">
+                  {screenshots.map((_: any, i: number) => (
+                    <div key={i} className={cn("h-0.5 rounded-full transition-all duration-300", activeIdx === i ? "w-4 bg-white" : "w-1 bg-white/30")} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="absolute top-4 left-4 flex items-center gap-2">
+            {isTodayView && !isHistoricalFallback && (
+              <div className={`size-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`} />
+            )}
+            <span className={cn(
+              'text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1',
+              isHistoricalFallback ? 'bg-orange-500/80' : 'bg-black/50',
+            )}>
+              {isHistoricalFallback && <History size={10} />}
+              {isHistoricalFallback ? 'Last Active' : isTodayView ? (isOnline ? 'Live' : 'Offline') : format(selectedDate, 'MMM d')}
+            </span>
+          </div>
+
+          {imageUrl && (
+            <button
+              onClick={() => onEnlarge(screenshot)}
+              className="absolute bottom-4 right-4 size-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Maximize2 size={18} />
+            </button>
+          )}
+        </div>
+
+        <div className="p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div onClick={onOpenTeam} className="size-10 rounded-full bg-secondary border border-border overflow-hidden cursor-pointer hover:brightness-110 transition-all">
+              <img src={getUserAvatar(emp)} alt={emp.name} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-black tracking-tight truncate">{emp.name}</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
+                {screenshot ? format(timestamp, 'hh:mm:ss a') : '---'}
+              </span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="rounded-xl text-[9px] font-black uppercase tracking-widest px-3 h-8 hover:bg-primary/5 shrink-0" onClick={onOpenTeam}>View</Button>
+        </div>
+
+        <div className="px-5 pb-6 flex flex-col gap-1 min-h-[5.5rem] relative">
+          <div className="relative">
+            <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest mb-1">What he's doing right now?:</p>
+            {isLoadingIntent && <div className="absolute inset-0 z-10"><ScanningSkeleton /></div>}
+            <div className={cn("transition-all duration-500", isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100")}>
+              {currentError ? (
+                <p className="text-[10px] text-red-400 truncate">{currentError}</p>
+              ) : (
+                <p className="text-[10px] text-white/80">
+                  {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected today." : "No history available.") : "")}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mobile TikTok View
+  return (
+    <div className="h-dvh w-full snap-start relative flex flex-col justify-between isolate bg-black overflow-hidden shrink-0">
+      {/* Centered Image / Content */}
+      <div className="absolute inset-0 flex items-center justify-center p-0 z-0">
+        {!imageUrl ? (
+          <div className="w-full px-8 flex flex-col items-center justify-center text-muted-foreground">
+            <Monitor size={64} className="opacity-10 mb-6" />
+            <span className="text-sm font-black uppercase tracking-[0.3em] text-white/40">
+              {isTodayView ? "No Activity Today" : "No History Available"}
+            </span>
+          </div>
+        ) : (
+          <div className="w-full h-full relative flex items-center justify-center">
+            <img
+              src={imageUrl}
+              alt={emp.name}
+              className="w-full h-auto max-h-full object-contain transition-all duration-700"
+              onLoad={() => onSetLoaded(imageUrl)}
+              onClick={() => onEnlarge(screenshot)}
+            />
+            {screenshots.length > 1 && (
+              <div className="absolute top-24 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
+                {screenshots.map((_: any, i: number) => (
+                  <div key={i} className={cn("h-1 rounded-full transition-all duration-300", activeIdx === i ? "w-6 bg-white" : "w-1.5 bg-white/30")} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="absolute top-20 left-0 right-0 p-6 flex items-center justify-between z-20 pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <span className={cn(
+            'text-[10px] font-black uppercase tracking-widest backdrop-blur-xl text-white px-4 py-2 rounded-2xl flex items-center gap-2 border border-white/10',
+            isHistoricalFallback ? 'bg-orange-500/40' : 'bg-black/40',
+          )}>
+            {isTodayView && !isHistoricalFallback && (
+              <div className={`size-2 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse' : 'bg-zinc-500'}`} />
+            )}
+            {isHistoricalFallback ? 'Last Active' : isTodayView ? (isOnline ? 'Live' : 'Offline') : format(selectedDate, 'MMM d')}
+          </span>
+          <span className="text-[10px] font-black uppercase tracking-widest backdrop-blur-xl text-white px-4 py-2 rounded-2xl bg-black/40 border border-white/10">
+            {format(timestamp, 'hh:mm:ss a')}
+          </span>
+        </div>
+      </div>
+
+      <div className="absolute right-4 bottom-[20%] flex flex-col items-center gap-6 z-30">
+        <div onClick={onOpenTeam} className="relative group">
+           <div className="size-14 rounded-full p-0.5 bg-gradient-to-tr from-primary to-blue-500 shadow-2xl active:scale-95 transition-transform">
+              <img src={getUserAvatar(emp)} alt={emp.name} className="w-full h-full object-cover rounded-full border-2 border-black" />
+           </div>
+           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 size-5 bg-primary rounded-full flex items-center justify-center border-2 border-black">
+              <Plus size={12} className="text-white" />
+           </div>
+        </div>
+
+        <button onClick={onOpenChat} className="size-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white active:scale-90 transition-all shadow-2xl">
+          <MessageCircle size={24} />
+        </button>
+
+        {total > 1 && index < total - 1 && (
+           <button onClick={onScrollToNext} className="flex flex-col items-center gap-1 opacity-60 animate-bounce mt-4 cursor-pointer">
+              <ChevronDown size={24} className="text-white" />
+           </button>
+        )}
+      </div>
+
+      <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-gradient-to-t from-black via-black/80 to-transparent z-20">
+        <div className="flex flex-col gap-4 max-w-[85%]">
+          <div className="flex flex-col">
+            <span className="text-3xl font-black uppercase tracking-tighter text-white drop-shadow-2xl mb-1">{emp.name}</span>
+            <span className="text-[11px] font-black text-primary uppercase tracking-[0.25em]">{emp.role || 'Personnel'}</span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+             <div className="flex items-center gap-2 text-white/60">
+                <Sparkles size={14} className="text-primary" />
+                <span className="text-[11px] font-black uppercase tracking-widest">What he's doing right now?:</span>
+             </div>
+             <div className="relative min-h-[3rem]">
+                {isLoadingIntent && <div className="absolute inset-0 z-10"><ScanningSkeleton /></div>}
+                <div className={cn("transition-all duration-500", isLoadingIntent ? "opacity-20 blur-sm translate-y-2" : "opacity-100 blur-0 translate-y-0")}>
+                  {currentError ? (
+                    <p className="text-[12px] text-red-400 font-bold bg-red-500/10 p-3 rounded-2xl border border-red-500/20">{currentError}</p>
+                  ) : (
+                    <p className="text-[14px] font-medium text-white/90 leading-snug">
+                      {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected." : "No history available.") : "")}
+                    </p>
+                  )}
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN PAGE ---
+
 export default function SupervisePage() {
   const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
   const { user, userData, loading: authLoading } = useAuth();
-  const {
-    monitoredPersonnel,
-    latestScreenshots, // This is Record<string, any> from the hook
-    loading: superviseLoading,
-  } = useSupervise(selectedDate);
+  const { monitoredPersonnel, latestScreenshots, loading: superviseLoading } = useSupervise(selectedDate);
 
-  // State to store inferred intents for each employee
   const [inferredIntents, setInferredIntents] = useState<Record<string, string>>({});
-  // State to track loading status of AI intent inference for each employee
   const [aiIntentLoading, setAiIntentLoading] = useState<Record<string, boolean>>({});
-  // State to track errors for AI intent inference
   const [aiIntentErrors, setAiIntentErrors] = useState<Record<string, string>>({});
-
-  // State to track which images have finished loading to prevent flickering
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
-  // Ref to track AI intent states for fetch logic to avoid dependency cycles
   const aiStateRef = useRef({ aiIntentLoading, inferredIntents });
-  useEffect(() => {
-    aiStateRef.current = { aiIntentLoading, inferredIntents };
-  }, [aiIntentLoading, inferredIntents]);
+  useEffect(() => { aiStateRef.current = { aiIntentLoading, inferredIntents }; }, [aiIntentLoading, inferredIntents]);
 
-  // Ref to track which URLs have been fetched to prevent redundant calls while allowing re-fetch on date change
   const lastFetchedUrlRef = useRef<Record<string, string>>({});
+  const mobileContainerRef = useRef<HTMLDivElement>(null);
 
-    // Reset AI states when date changes to avoid stale text
+  useEffect(() => {
+    setInferredIntents({});
+    setAiIntentLoading({});
+    setAiIntentErrors({});
+    setLoadedImages({});
+    lastFetchedUrlRef.current = {};
+  }, [selectedDate]);
 
-      useEffect(() => {
-
-        setInferredIntents({});
-
-        setAiIntentLoading({});
-
-        setAiIntentErrors({});
-
-        setLoadedImages({});
-
-        lastFetchedUrlRef.current = {};
-
-      }, [selectedDate]);
-
-  
-
-    const [selectedScreenshot, setSelectedScreenshot] = useState<any>(null);
-
-    const [showInviteModal, setShowInviteModal] = useState(false);
-
-    const [orgData, setOrgData] = useState<any>(null);
+  const [selectedScreenshot, setSelectedScreenshot] = useState<any>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [orgData, setOrgData] = useState<any>(null);
   const { setIsMobileOpen } = useSidebar();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/dashboard/login');
-    }
+    if (!authLoading && !user) router.push('/dashboard/login');
   }, [user, authLoading, router]);
 
   useEffect(() => {
     if (userData) {
+      const fetchOrgDetails = async () => {
+        const targetOrgId = userData?.ownedOrgId || userData?.orgId;
+        if (targetOrgId) {
+          const orgDoc = await getDoc(doc(db, 'organizations', targetOrgId));
+          if (orgDoc.exists()) setOrgData(orgDoc.data());
+        }
+      };
       fetchOrgDetails();
     }
   }, [userData]);
 
-  const fetchOrgDetails = async () => {
-    const targetOrgId = userData?.ownedOrgId || userData?.orgId;
-    if (targetOrgId) {
-      const orgDoc = await getDoc(doc(db, 'organizations', targetOrgId));
-      if (orgDoc.exists()) setOrgData(orgDoc.data());
-    }
-  };
-
-  const isSubscriptionActive = orgData?.subscriptionExpiry
-    ? orgData.subscriptionExpiry.toDate() > new Date()
-    : true;
-
-  // Function to fetch AI intent for a single employee
-  const fetchEmployeeIntent = useCallback(async (empId: string, empName: string, screenshotData: any) => {
-    const screenshotUrl = screenshotData?.url || screenshotData?.imageUrl || screenshotData?.activity?.cloudinaryUrl;
-
-    // Use current state from Ref to check if we should skip
+  const fetchEmployeeIntent = useCallback(async (empId: string, empName: string, screenshotsArray: any[]) => {
+    if (!screenshotsArray || screenshotsArray.length === 0) return;
+    const latestScreenshot = screenshotsArray[0];
+    const screenshotUrl = latestScreenshot?.url || latestScreenshot?.imageUrl || latestScreenshot?.activity?.cloudinaryUrl;
     const { aiIntentLoading: currentLoading } = aiStateRef.current;
 
-    // --- INSTANT RESET LOGIC ---
-    // If the URL has changed or is missing, clear the specific intent IMMEDIATELY to prevent ghosting
     if (!screenshotUrl || lastFetchedUrlRef.current[empId] !== screenshotUrl) {
-      setInferredIntents((prev) => {
-        const next = { ...prev };
-        delete next[empId];
-        return next;
-      });
+      setInferredIntents((prev) => { const next = { ...prev }; delete next[empId]; return next; });
     }
-
-    // Clear previous state if no screenshot data for today
-    if (!screenshotData && isToday(selectedDate)) { // Using isToday from date-fns
-      setInferredIntents((prev) => ({ ...prev, [empId]: "He didn't do anything today." }));
-      setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
-      setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
-      return;
-    } else if (!screenshotData && !isToday(selectedDate)) { // Using isToday from date-fns
-       setInferredIntents((prev) => ({ ...prev, [empId]: "He didn't do anything on this day." }));
-       setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
-       setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
-       return;
-    }
-
-    if (!screenshotUrl) return;
-
-    // Prevent fetching if already loading or if we already fetched this specific URL
-    if (currentLoading[empId] || lastFetchedUrlRef.current[empId] === screenshotUrl) {
-      return;
-    }
+    if (currentLoading[empId] || lastFetchedUrlRef.current[empId] === screenshotUrl) return;
 
     lastFetchedUrlRef.current[empId] = screenshotUrl;
     setAiIntentLoading((prev) => ({ ...prev, [empId]: true }));
-    setAiIntentErrors((prev) => ({ ...prev, [empId]: '' })); // Clear previous error
+    setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
 
     try {
+      const collageBase64 = await generateCollageBase64(
+        screenshotsArray.map(s => s.url || s.imageUrl || s.activity?.cloudinaryUrl).filter(Boolean)
+      );
       const response = await fetch('/api/employee/supervise', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employeeName: empName,
           date: format(selectedDate, "yyyy-MM-dd"),
-          screenshotUrls: [screenshotData.url], // API expects an array
-          screenshotMetadata: [screenshotData], // Pass the whole screenshot object as metadata
+          screenshotUrls: [collageBase64],
+          screenshotMetadata: screenshotsArray,
         }),
       });
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // If response is not JSON, use status text
-          throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-        }
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setInferredIntents((prev) => ({ ...prev, [empId]: data.inferredIntent }));
     } catch (error: any) {
-      console.error(`Error fetching AI intent for ${empName}:`, error);
       setAiIntentErrors((prev) => ({ ...prev, [empId]: error.message }));
-      setInferredIntents((prev) => ({ ...prev, [empId]: "Failed to infer intent." })); // Set a fallback message on error
+      setInferredIntents((prev) => ({ ...prev, [empId]: "Failed to infer intent." }));
     } finally {
       setAiIntentLoading((prev) => ({ ...prev, [empId]: false }));
     }
-  }, [selectedDate]); // Stable: only depends on selectedDate
+  }, [selectedDate]);
 
-  // Effect to trigger API calls when personnel, screenshots, or date changes
   useEffect(() => {
-    if (!superviseLoading && monitoredPersonnel.length > 0 && Object.keys(latestScreenshots).length > 0) {
+    if (!superviseLoading && monitoredPersonnel.length > 0) {
       monitoredPersonnel.forEach((emp) => {
-        const screenshotData = latestScreenshots[emp.id];
-        // Call fetchEmployeeIntent for each employee
-        if (screenshotData) {
-          fetchEmployeeIntent(emp.id, emp.name, screenshotData);
+        const screenshotsArray = latestScreenshots[emp.id];
+        if (screenshotsArray && screenshotsArray.length > 0) {
+          fetchEmployeeIntent(emp.id, emp.name, screenshotsArray);
+        } else {
+          setInferredIntents((prev) => ({ ...prev, [emp.id]: isToday(selectedDate) ? "He didn't do anything today." : "He didn't do anything on this day." }));
         }
       });
-    } else if (!superviseLoading && monitoredPersonnel.length === 0) {
-        // Clear states if no personnel and they aren't already empty
-        setInferredIntents(prev => Object.keys(prev).length === 0 ? prev : {});
-        setAiIntentLoading(prev => Object.keys(prev).length === 0 ? prev : {});
-        setAiIntentErrors(prev => Object.keys(prev).length === 0 ? prev : {});
     }
-  }, [monitoredPersonnel, latestScreenshots, selectedDate, superviseLoading, fetchEmployeeIntent]); // fetchEmployeeIntent is stable due to useCallback
+  }, [monitoredPersonnel, latestScreenshots, selectedDate, superviseLoading, fetchEmployeeIntent]);
+
+  const handleScrollToNext = (index: number) => {
+    if (mobileContainerRef.current) {
+      mobileContainerRef.current.scrollTo({ top: mobileContainerRef.current.clientHeight * (index + 1), behavior: 'smooth' });
+    }
+  };
 
   if (authLoading || teamLoading) {
     return (
-      <main className="flex-1 flex flex-col">
-        <header className="h-16 border-b bg-card/50 flex items-center px-8 shrink-0">
-          <Shimmer className="h-4 w-32 rounded-full" />
-        </header>
+      <main className="flex-1 flex flex-col bg-background">
+        <header className="h-16 border-b flex items-center px-8 shrink-0"><Shimmer className="h-4 w-32 rounded-full" /></header>
         <div className="flex-1 p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-hidden">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Shimmer key={i} className="aspect-video w-full rounded-2xl" />
-          ))}
+          {[1, 2, 3, 4].map((i) => <Shimmer key={i} className="aspect-video w-full rounded-2xl" />)}
         </div>
       </main>
     );
@@ -251,612 +480,155 @@ export default function SupervisePage() {
 
   return (
     <>
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* HEADER SECTION */}
-        <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
-          {/* Mobile Header (TikTok Style) */}
-          <div className="sm:hidden flex items-center justify-between w-full">
-            {' '}
-            {/* Ensure it spans full width */}
+      <main className="flex-1 flex flex-col overflow-hidden relative sm:bg-background bg-black">
+        <header className="h-16 border-b sm:bg-card/50 sm:backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0 sm:relative absolute w-full bg-transparent border-none sm:border-b border-white/5">
+          <div className="sm:hidden flex items-center justify-between w-full mt-2">
             <div className="flex items-center gap-4">
-              {' '}
-              {/* Left side of mobile header */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsMobileOpen(true)}
-              >
-                <Menu />
-              </Button>
-              <h2 className="font-black uppercase tracking-widest text-sm">
-                Supervise Personnel
-              </h2>
+              <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(true)} className="bg-black/20 backdrop-blur-md text-white border border-white/10 rounded-xl"><Menu /></Button>
+              <h2 className="font-black uppercase tracking-widest text-sm text-white drop-shadow-md">Supervise</h2>
             </div>
-            <div className="flex items-center gap-2">
-              {' '}
-              {/* Right side of mobile header */}
-              {/* Date Picker for Mobile - Moved from desktop header */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl font-bold text-[10px] uppercase tracking-widest h-10 px-4 border-2"
-                  >
-                    <CalendarIcon size={14} className="mr-2" />
-                    {isToday(selectedDate) // Using isToday from date-fns
-                      ? 'Today (Live)'
-                      : format(selectedDate, 'MMM d, yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-auto p-0 rounded-3xl overflow-hidden shadow-2xl border-none bg-card"
-                  align="end"
-                >
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    disabled={(date) => date > new Date()}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest h-10 px-4 border-2 bg-black/20 backdrop-blur-md text-white border-white/10">
+                  <CalendarIcon size={14} className="mr-2" />{isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMM d')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-3xl overflow-hidden shadow-2xl border-none bg-card" align="end">
+                <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} disabled={(date) => date > new Date()} initialFocus />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          {/* Desktop Header (Existing) */}
           <div className="hidden sm:flex items-center justify-between w-full">
-            {' '}
-            {/* This div is for desktop */}
             <div className="flex items-center gap-4">
-              {/* Desktop Menu Button - might need hiding if sidebar is always visible on desktop */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsMobileOpen(true)}
-              >
-                <Menu />
-              </Button>
-              <h2 className="font-black uppercase tracking-widest text-sm">
-                Supervise Personnel
-              </h2>
+              <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(true)}><Menu /></Button>
+              <h2 className="font-black uppercase tracking-widest text-sm">Supervise Personnel</h2>
             </div>
             <div className="flex items-center gap-2">
               <SubscriptionBadge orgData={orgData} userData={userData} />
-              {/* Date Picker Popover - This will be hidden on mobile due to sm:flex on the parent div */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl font-bold text-[10px] uppercase tracking-widest h-10 px-4 border-2"
-                  >
-                    <CalendarIcon size={14} className="mr-2" />
-                    {isToday(selectedDate) // Using isToday from date-fns
-                      ? 'Today (Live)'
-                      : format(selectedDate, 'MMM d, yyyy')}
+                  <Button variant="outline" size="sm" className="rounded-xl font-bold text-[10px] uppercase tracking-widest h-10 px-4 border-2">
+                    <CalendarIcon size={14} className="mr-2" />{isToday(selectedDate) ? 'Today (Live)' : format(selectedDate, 'MMM d, yyyy')}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent
-                  className="w-auto p-0 rounded-3xl overflow-hidden shadow-2xl border-none bg-card"
-                  align="end"
-                >
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    disabled={(date) => date > new Date()}
-                    initialFocus
-                  />
+                <PopoverContent className="w-auto p-0 rounded-3xl overflow-hidden shadow-2xl border-none bg-card" align="end">
+                  <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} disabled={(date) => date > new Date()} initialFocus />
                 </PopoverContent>
               </Popover>
-
-              <button
-                onClick={() => router.push('/dashboard/settings')}
-                className="size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90 ml-2"
-              >
-                <img
-                  src={
-                    userData?.photoUrl ||
-                    `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`
-                  }
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
+              <button onClick={() => router.push('/dashboard/settings')} className="size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90 ml-2">
+                <img src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`} alt="Avatar" className="w-full h-full object-cover" />
               </button>
             </div>
           </div>
         </header>
 
-        {/* CONTENT AREA */}
-        <div className="flex-1 overflow-auto">
-          {' '}
-          {/* Changed to overflow-auto for snap scrolling */}
-          {/* Mobile TikTok Style View */}
-          <div className="sm:hidden flex flex-col h-[100dvh] snap-y snap-mandatory overflow-y-scroll overflow-x-hidden">
-            {' '}
-            {/* Visible on small screens */}
+        <div className="flex-1 overflow-hidden sm:bg-background bg-black">
+          <div ref={mobileContainerRef} className="sm:hidden flex flex-col h-dvh snap-y snap-mandatory overflow-y-scroll overflow-x-hidden scroll-smooth scrollbar-hide">
             {monitoredPersonnel.length === 0 ? (
-              // No personnel state for mobile
-              <div className="h-[100dvh] flex flex-col items-center justify-center text-center space-y-4 p-4">
-                <div className="size-20 bg-secondary rounded-full flex items-center justify-center mb-4">
-                  <User size={40} className="text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-bold">No personnel found</h3>
-                <p className="text-muted-foreground max-w-xs">
-                  Personnel using the Trac app or invited staff will appear
-                  here.
-                </p>
-                <Button
-                  onClick={() => setShowInviteModal(true)}
-                  className="rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8"
-                >
-                  <UserPlus size={16} className="mr-2" /> Add Staff Member
-                </Button>
+              <div className="h-dvh flex flex-col items-center justify-center text-center space-y-4 p-4 snap-start">
+                <h3 className="text-xl font-bold text-white">No personnel found</h3>
+                <Button onClick={() => setShowInviteModal(true)} className="rounded-xl h-12 px-8">Add Staff Member</Button>
               </div>
             ) : superviseLoading ? (
-              // Loading state for mobile feed (covers visuals and initial text areas)
-              <div className="h-[100dvh] flex flex-col justify-center items-center">
-                <Shimmer className="w-full h-full" />
-              </div>
+              <div className="h-dvh flex flex-col justify-center items-center snap-start"><Shimmer className="w-full h-full opacity-10" /></div>
             ) : (
-              // Personnel feed for mobile
-              monitoredPersonnel.map((emp, index) => {
-                const screenshot = latestScreenshots[emp.id];
-                const isOnline =
-                  isToday(selectedDate) && emp.heartbeat?.isCurrentlyRunning; // Using isToday from date-fns
-                const isHistoricalFallback = screenshot?.isFallback;
-                const timestamp = screenshot?.timestamp?.toDate
-                  ? screenshot.timestamp.toDate()
-                  : new Date();
-
-                // Determine if AI intent is loading for THIS employee
-                const isLoadingIntent = aiIntentLoading[emp.id];
-                const currentIntent = inferredIntents[emp.id];
-                const currentError = aiIntentErrors[emp.id];
-
-                // Determine display messages based on data availability and date
-                const showNoActivityMessage = !screenshot && isToday(selectedDate); // Using isToday from date-fns
-                const showHistoricalMessage = !screenshot && !isToday(selectedDate); // Using isToday from date-fns
-
-                const imageUrl = screenshot?.url || screenshot?.imageUrl || screenshot?.activity?.cloudinaryUrl;
-
-                return (
-                  <div
-                    key={emp.id}
-                    className="h-[100dvh] snap-start relative flex flex-col justify-between isolate overflow-hidden"
-                    style={{ transform: 'translateZ(0)' }}
-                  >
-                    {/* Background Layer with Gaussian Blur */}
-                    <div className="absolute inset-0 -z-10 bg-black">
-                      {imageUrl ? (
-                        <>
-                          <img
-                            src={imageUrl}
-                            alt="Background Blur"
-                            className="absolute inset-0 w-full h-full object-cover scale-150 blur-[80px] opacity-40"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80" />
-                        </>
-                      ) : (
-                        <div className="w-full h-full bg-zinc-900" />
-                      )}
-                    </div>
-
-                    {/* Main Screenshot Container */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4 pb-32 pt-20">
-                      {showNoActivityMessage ? (
-                        <div className="w-full max-h-full aspect-[9/16] flex flex-col items-center justify-center text-muted-foreground bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10">
-                          <Monitor size={40} className="opacity-20 mb-4" />
-                          <span className="text-[12px] font-black uppercase tracking-widest text-center px-4">
-                            No Activity on {format(selectedDate, 'MMM d')}
-                          </span>
-                        </div>
-                      ) : showHistoricalMessage ? (
-                        <div className="w-full max-h-full aspect-[9/16] flex flex-col items-center justify-center text-muted-foreground bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10">
-                          <span className="text-[12px] font-black uppercase tracking-widest text-center px-4">
-                            Activity not available for {format(selectedDate, 'MMM d')}
-                          </span>
-                        </div>
-                      ) : screenshot ? (
-                        <img
-                          src={imageUrl}
-                          alt={`Screenshot for ${emp.name}`}
-                          className={cn(
-                            "w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/10 transition-opacity duration-700",
-                            loadedImages[imageUrl] ? "opacity-100" : "opacity-0"
-                          )}
-                          onLoad={() => setLoadedImages(prev => ({ ...prev, [imageUrl]: true }))}
-                        />
-                      ) : null}
-                    </div>
-
-                    {/* Top-Left Overlay */}
-                    <div className="p-6 absolute top-0 left-0 right-0 flex items-center justify-between pointer-events-none z-20">
-                      <div className="flex items-center gap-2 pointer-events-auto">
-                        {isToday(selectedDate) && !isHistoricalFallback && ( // Using isToday from date-fns
-                          <div
-                            className={`size-2.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse' : 'bg-zinc-500'}`}
-                          />
-                        )}
-                        <span
-                          className={cn(
-                            'text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/10',
-                            isHistoricalFallback
-                              ? 'bg-orange-500/60'
-                              : 'bg-white/10',
-                          )}
-                        >
-                          {isHistoricalFallback && <History size={10} />}
-                          {isHistoricalFallback
-                            ? 'Last Active'
-                            : isToday(selectedDate) // Using isToday from date-fns
-                              ? isOnline
-                                ? 'Live'
-                                : 'Offline'
-                              : format(selectedDate, 'MMM d')}
-                        </span>
-                        <span className="text-[11px] font-black uppercase tracking-widest backdrop-blur-md text-white px-3 py-1 rounded-full bg-white/10 border border-white/10">
-                          {format(timestamp, 'hh:mm:ss a')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right-Side Overlay (Interaction Column) */}
-                    <div className="p-6 absolute bottom-32 right-0 flex flex-col items-center gap-5 pointer-events-auto z-20">
-                      {' '}
-                      {/* Pushed up to make space for bottom overlay */}
-                      <div className="flex flex-col items-center gap-4">
-                        {' '}
-                        {/* Reduced gap for icons */}
-                        {/* Profile Pic - Clickable to navigate to team page */}
-                        <div
-                          onClick={() => router.push(`/dashboard/team/${emp.id}`)}
-                          className="size-14 rounded-full p-1 bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white cursor-pointer hover:bg-white/20 transition-all shadow-xl active:scale-95"
-                        >
-                          <img
-                            src={getUserAvatar(emp)}
-                            alt={emp.name}
-                            className="w-full h-full object-cover rounded-full"
-                          />
-                        </div>
-                        {/* Chat Icon - Clickable to open messages */}
-                        <button
-                          onClick={() => router.push(`/dashboard/chat?id=${emp.id}`)}
-                          className="size-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90 shadow-xl"
-                        >
-                          <MessageCircle size={24} />
-                        </button>
-                      </div>
-                      {/* Scroll Indicator - only show if there are more than 1 person and it's not the last person */}
-                      {monitoredPersonnel.length > 1 &&
-                        index < monitoredPersonnel.length - 1 && (
-                          <div className="mt-4 animate-bounce bg-white/10 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-lg">
-                            <ChevronDown size={20} className="text-white" />
-                          </div>
-                        )}
-                    </div>
-
-                    {/* Bottom-Left Overlay (Caption/Summary) */}
-                    <div className="p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20">
-                      <div className="flex flex-col gap-3 pointer-events-auto max-w-[80%]">
-                        {/* Employee Name */}
-                        <span className="text-2xl font-black uppercase tracking-tighter text-white drop-shadow-lg">
-                          {emp.name}
-                        </span>
-
-                        {/* AI Text Display Area (Stable Container) */}
-                        <div className="mt-1 w-full flex flex-col gap-1 min-h-[4.5rem] relative">
-                           <p className="text-sm font-bold text-white/90 tracking-wide">
-                            What he's doing right now?:
-                          </p>
-                          
-                          <div className="relative">
-                            {isLoadingIntent && (
-                              <div className="absolute inset-0 z-10">
-                                <ScanningSkeleton />
-                              </div>
-                            )}
-                            
-                            <div className={cn(
-                              "transition-all duration-500 ease-in-out",
-                              isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100"
-                            )}>
-                              {currentError ? (
-                                <p className="text-xs text-red-400 bg-red-500/10 backdrop-blur-md border border-red-500/20 p-2 rounded-lg">
-                                  {currentError}
-                                </p>
-                              ) : (
-                                <p className="text-base font-medium text-white/90 leading-tight drop-shadow-md">
-                                  {currentIntent || (showNoActivityMessage ? "He didn't do anything today." : "He didn't do anything on this day.")}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          {/* Desktop Grid View */}
-          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4 md:p-8 custom-scrollbar">
-            {' '}
-            {/* Visible on medium screens and up */}
-            {monitoredPersonnel.length === 0 ? (
-              // No personnel state for desktop
-              <div className="col-span-full flex flex-col items-center justify-center text-center space-y-4 h-full">
-                <div className="size-20 bg-secondary rounded-full flex items-center justify-center mb-4">
-                  <User size={40} className="text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-bold">No personnel found</h3>
-                <p className="text-muted-foreground max-w-xs">
-                  Personnel using the Trac app or invited staff will appear
-                  here.
-                </p>
-                <Button
-                  onClick={() => setShowInviteModal(true)}
-                  className="rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8"
-                >
-                  <UserPlus size={16} className="mr-2" /> Add Staff Member
-                </Button>
-              </div>
-            ) : superviseLoading ? (
-              // Loading state for desktop grid
-              monitoredPersonnel.map((p) => (
-                <Shimmer
-                  key={p.id}
-                  className="aspect-video w-full rounded-3xl"
+              monitoredPersonnel.map((emp, index) => (
+                <SuperviseFeedItem
+                  key={emp.id}
+                  emp={emp}
+                  variant="mobile"
+                  index={index}
+                  total={monitoredPersonnel.length}
+                  screenshots={latestScreenshots[emp.id] || []}
+                  isOnline={isToday(selectedDate) && isEmployeeOnline(emp)}
+                  isTodayView={isToday(selectedDate)}
+                  selectedDate={selectedDate}
+                  isLoadingIntent={aiIntentLoading[emp.id]}
+                  currentIntent={inferredIntents[emp.id]}
+                  currentError={aiIntentErrors[emp.id]}
+                  onScrollToNext={() => handleScrollToNext(index)}
+                  onOpenTeam={() => router.push(`/dashboard/team/${emp.id}`)}
+                  onOpenChat={() => router.push(`/dashboard/chat?id=${emp.id}`)}
+                  onSetLoaded={(url: string) => setLoadedImages(prev => ({ ...prev, [url]: true }))}
+                  onEnlarge={(s: any) => setSelectedScreenshot({ ...s, employeeName: emp.name })}
                 />
               ))
+            )}
+          </div>
+
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4 md:p-8 custom-scrollbar h-full overflow-y-auto">
+            {monitoredPersonnel.length === 0 ? (
+              <div className="col-span-full h-full flex items-center justify-center">No personnel found</div>
+            ) : superviseLoading ? (
+              monitoredPersonnel.map((p) => <Shimmer key={p.id} className="aspect-video w-full rounded-3xl" />)
             ) : (
-              // Personnel cards for desktop
-              monitoredPersonnel.map((emp) => {
-                const screenshot = latestScreenshots[emp.id];
-                const isOnline =
-                  isToday(selectedDate) && emp.heartbeat?.isCurrentlyRunning; // Using isToday from date-fns
-                const isHistoricalFallback = screenshot?.isFallback;
-                const timestamp = screenshot?.timestamp?.toDate
-                  ? screenshot.timestamp.toDate()
-                  : new Date();
-
-                // Determine if AI intent is loading for THIS employee
-                const isLoadingIntent = aiIntentLoading[emp.id];
-                const currentIntent = inferredIntents[emp.id];
-                const currentError = aiIntentErrors[emp.id];
-
-                // Determine display messages based on data availability and date
-                const showNoActivityMessage = !screenshot && isToday(selectedDate); // Using isToday from date-fns
-                const showHistoricalMessage = !screenshot && !isToday(selectedDate); // Using isToday from date-fns
-
-
-                return (
-                  <div
-                    key={emp.id}
-                    className="group relative bg-card border-2 border-border rounded-[2rem] overflow-hidden isolate transition-all hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1"
-                    style={{ transform: 'translateZ(0)' }}
-                  >
-                    <div className="aspect-video w-full bg-secondary relative overflow-hidden">
-                      {showNoActivityMessage ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground space-y-2">
-                          <Monitor size={32} className="opacity-20" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-center px-4">
-                            No Activity on {format(selectedDate, 'MMM d')}
-                          </span>
-                        </div>
-                      ) : showHistoricalMessage ? (
-                         <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-card">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-center px-4">
-                            Activity not available for {format(selectedDate, 'MMM d')}
-                          </span>
-                        </div>
-                      ) : screenshot ? (
-                        <img
-                          src={
-                            screenshot.url ||
-                            screenshot.imageUrl ||
-                            screenshot.activity?.cloudinaryUrl
-                          }
-                          alt={`Screenshot for ${emp.name}`}
-                          className={cn(
-                            "w-full h-full object-contain transition-all duration-700 cursor-pointer",
-                            loadedImages[screenshot.url || screenshot.imageUrl || screenshot.activity?.cloudinaryUrl] ? "opacity-100 scale-100" : "opacity-0 scale-95"
-                          )}
-                          onLoad={() => {
-                             const url = screenshot.url || screenshot.imageUrl || screenshot.activity?.cloudinaryUrl;
-                             setLoadedImages(prev => ({ ...prev, [url]: true }));
-                          }}
-                          onClick={() =>
-                            setSelectedScreenshot({
-                              ...screenshot,
-                              employeeName: emp.name,
-                            })
-                          }
-                          onError={(e) => {
-                            // Basic error handling for image loading
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-
-                      {/* Badge Overlays */}
-                      <div className="absolute top-4 left-4 flex items-center gap-2">
-                        {isToday(selectedDate) && !isHistoricalFallback && ( // Using isToday from date-fns
-                          <div
-                            className={`size-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`}
-                          />
-                        )}
-                        <span
-                          className={cn(
-                            'text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1',
-                            isHistoricalFallback
-                              ? 'bg-orange-500/80'
-                              : 'bg-black/50',
-                          )}
-                        >
-                          {isHistoricalFallback && <History size={10} />}
-                          {isHistoricalFallback
-                            ? 'Last Active'
-                            : isToday(selectedDate) // Using isToday from date-fns
-                              ? isOnline
-                                ? 'Live'
-                                : 'Offline'
-                              : format(selectedDate, 'MMM d')}
-                        </span>
-                      </div>
-
-                      {screenshot && (
-                        <button
-                          onClick={() =>
-                            setSelectedScreenshot({
-                              ...screenshot,
-                              employeeName: emp.name,
-                            })
-                          }
-                          className="absolute bottom-4 right-4 size-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Maximize2 size={18} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="p-5 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {/* Avatar - Clickable to navigate to team page */}
-                        <div
-                          onClick={() => router.push(`/dashboard/team/${emp.id}`)}
-                          className="size-10 rounded-full bg-secondary border border-border overflow-hidden cursor-pointer hover:brightness-110 transition-all"
-                        >
-                          <img
-                            src={getUserAvatar(emp)}
-                            alt={emp.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-black tracking-tight truncate">
-                            {emp.name}
-                          </span>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">
-                            {screenshot
-                              ? format(
-                                  screenshot.timestamp?.toDate
-                                    ? screenshot.timestamp.toDate()
-                                    : new Date(),
-                                  'hh:mm:ss a',
-                                )
-                              : '---'}
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-xl text-[9px] font-black uppercase tracking-widest px-3 h-8 hover:bg-primary/5 shrink-0"
-                        onClick={() => router.push(`/dashboard/team/${emp.id}`)}
-                      >
-                        View
-                      </Button>
-                    </div>
-
-                    {/* AI Summary Display (Stable Container) */}
-                    <div className="px-5 pb-6 flex flex-col gap-1 min-h-[5.5rem] relative">
-                      <p className="text-sm font-bold text-white/90 tracking-wide">
-                        What he's doing right now?:
-                      </p>
-                      
-                      <div className="relative">
-                        {isLoadingIntent && (
-                          <div className="absolute inset-0 z-10">
-                            <ScanningSkeleton />
-                          </div>
-                        )}
-                        
-                        <div className={cn(
-                          "transition-all duration-500 ease-in-out",
-                          isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100"
-                        )}>
-                          {currentError ? (
-                            <p className="text-[10px] text-red-400 truncate">
-                              {currentError}
-                            </p>
-                          ) : (
-                            <p className="text-[10px] text-white/80 line-clamp-2">
-                              {currentIntent || (showNoActivityMessage ? "He didn't do anything today." : "He didn't do anything on this day.")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              monitoredPersonnel.map((emp) => (
+                <SuperviseFeedItem
+                  key={emp.id}
+                  emp={emp}
+                  variant="desktop"
+                  screenshots={latestScreenshots[emp.id] || []}
+                  isOnline={isToday(selectedDate) && isEmployeeOnline(emp)}
+                  isTodayView={isToday(selectedDate)}
+                  selectedDate={selectedDate}
+                  isLoadingIntent={aiIntentLoading[emp.id]}
+                  currentIntent={inferredIntents[emp.id]}
+                  currentError={aiIntentErrors[emp.id]}
+                  onOpenTeam={() => router.push(`/dashboard/team/${emp.id}`)}
+                  onOpenChat={() => router.push(`/dashboard/chat?id=${emp.id}`)}
+                  onSetLoaded={(url: string) => setLoadedImages(prev => ({ ...prev, [url]: true }))}
+                  onEnlarge={(s: any) => setSelectedScreenshot({ ...s, employeeName: emp.name })}
+                />
+              ))
             )}
           </div>
         </div>
       </main>
 
-      {/* Full Screen Screenshot Dialog (Remains for desktop interaction) */}
-      <Dialog
-        open={!!selectedScreenshot}
-        onOpenChange={() => setSelectedScreenshot(null)}
-      >
-        <DialogContent className="max-w-[95vw] w-full p-0 border-none bg-black/95 overflow-hidden rounded-[2.5rem] shadow-2xl [&>button]:hidden">
-          <VisuallyHidden.Root>
-            <DialogTitle>Screenshot for {selectedScreenshot?.employeeName}</DialogTitle>
-            <DialogHeader>
-              <DialogTitle>Screenshot Viewer</DialogTitle>
-            </DialogHeader>
-          </VisuallyHidden.Root>
+      <Dialog open={!!selectedScreenshot} onOpenChange={() => setSelectedScreenshot(null)}>
+        <DialogContent className="max-w-[98vw] md:max-w-[95vw] h-[95vh] p-0 border-none bg-black/95 overflow-hidden rounded-[2.5rem] shadow-2xl flex flex-col [&>button]:hidden">
+          <VisuallyHidden.Root><DialogTitle>Screenshot Viewer</DialogTitle></VisuallyHidden.Root>
+          
           <div className="absolute top-0 left-0 right-0 p-8 z-50 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none">
             <div className="flex items-center gap-4 pointer-events-auto">
-              <div className="size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white">
-                <Monitor size={24} />
-              </div>
+              <div className="size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white"><Monitor size={24} /></div>
               <div>
-                <h3 className="text-white text-xl font-black uppercase tracking-tighter leading-none mb-1">
-                  {selectedScreenshot?.employeeName}
-                </h3>
+                <h3 className="text-white text-xl font-black uppercase tracking-tighter leading-none mb-1">{selectedScreenshot?.employeeName}</h3>
                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em]">
-                  {selectedScreenshot &&
-                    format(
-                      selectedScreenshot.timestamp?.toDate
-                        ? selectedScreenshot.timestamp.toDate()
-                        : new Date(),
-                      'hh:mm:ss a',
-                    )}
+                  {selectedScreenshot && format(selectedScreenshot.timestamp?.toDate ? selectedScreenshot.timestamp.toDate() : new Date(), 'hh:mm:ss a')}
                 </p>
               </div>
             </div>
-
-            <button
-              onClick={() => setSelectedScreenshot(null)}
-              className="pointer-events-auto size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90"
-            >
-              <X size={24} />
-            </button>
+            <button onClick={() => setSelectedScreenshot(null)} className="pointer-events-auto size-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all active:scale-90"><X size={24} /></button>
           </div>
 
-          <div className="w-full h-full min-h-[80vh] flex items-center justify-center p-4">
-            {selectedScreenshot && (
-              <img
-                src={
-                  selectedScreenshot.url ||
-                  selectedScreenshot.imageUrl ||
-                  selectedScreenshot.activity?.cloudinaryUrl
-                }
-                alt="Enlarged screenshot"
-                className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/5"
-                onError={(e) => {
-                  // Basic error handling for image loading
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            )}
-          </div>
+          {selectedScreenshot && (
+            <TransformWrapper initialScale={1} centerOnInit>
+              {({ zoomIn, zoomOut, resetTransform }) => (
+                <>
+                  <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl">
+                    <button onClick={() => zoomOut()} className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"><Minus size={20} /></button>
+                    <div className="w-px h-4 bg-white/20" />
+                    <button onClick={() => resetTransform()} className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"><RotateCcw size={18} /></button>
+                    <div className="w-px h-4 bg-white/20" />
+                    <button onClick={() => zoomIn()} className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"><Plus size={20} /></button>
+                  </div>
+
+                  <div className="flex-1 w-full h-full overflow-hidden cursor-move">
+                    <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
+                      <img
+                        src={selectedScreenshot.url || selectedScreenshot.imageUrl || selectedScreenshot.activity?.cloudinaryUrl}
+                        className="max-w-full max-h-full object-contain"
+                        alt="Enlarged"
+                        onDragStart={(e) => e.preventDefault()}
+                      />
+                    </TransformComponent>
+                  </div>
+                </>
+              )}
+            </TransformWrapper>
+          )}
         </DialogContent>
       </Dialog>
 

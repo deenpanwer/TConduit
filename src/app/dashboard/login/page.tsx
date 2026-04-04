@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || "/dashboard";
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -98,14 +100,14 @@ export default function LoginPage() {
         }
 
         toast({ title: "Welcome", description: "Let's set up your workspace." });
-        router.push("/dashboard/onboarding");
+        router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
       } else {
         const userData = userDoc.data();
         if (!userData.onboardingCompleted) {
-          router.push("/dashboard/onboarding");
+          router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
         } else {
           toast({ title: "Welcome back", description: "You have successfully signed in." });
-          router.push("/dashboard");
+          router.push(callbackUrl);
         }
       }
     } catch (error: any) {
@@ -181,14 +183,14 @@ export default function LoginPage() {
         }
         
         toast({ title: "Welcome", description: "Let's set up your workspace." });
-        router.push("/dashboard/onboarding");
+        router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
       } else {
         const userData = userDoc.data();
         if (!userData.onboardingCompleted) {
-          router.push("/dashboard/onboarding");
+          router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
         } else {
           toast({ title: "Welcome back", description: "You have successfully signed in." });
-          router.push("/dashboard");
+          router.push(callbackUrl);
         }
       }
     } catch (error: any) {
@@ -299,7 +301,12 @@ export default function LoginPage() {
           <div className="mt-10 text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link href="/dashboard/signup" className="text-primary font-semibold hover:underline">Sign up</Link>
+              <Link 
+                href={`/dashboard/signup${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} 
+                className="text-primary font-semibold hover:underline"
+              >
+                Sign up
+              </Link>
             </p>
           </div>
         </motion.div>

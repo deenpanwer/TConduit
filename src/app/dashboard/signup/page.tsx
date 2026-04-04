@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || "/dashboard";
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -112,7 +114,7 @@ export default function SignupPage() {
       }
 
       toast({ title: "Account created", description: "Welcome to the network. Let's finish your setup." });
-      router.push("/dashboard/onboarding");
+      router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
     } catch (error: any) {
       toast({ title: "Signup failed", description: error.message || "We couldn't create your account. Please try again.", variant: "destructive" });
     } finally {
@@ -145,7 +147,7 @@ export default function SignupPage() {
         });
       }
 
-      router.push("/dashboard/onboarding");
+      router.push(`/dashboard/onboarding${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({ title: "Google signup failed", description: "We couldn't link your Google account. Please try again.", variant: "destructive" });
@@ -281,7 +283,12 @@ export default function SignupPage() {
             </p>
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/dashboard/login" className="text-primary font-semibold hover:underline">Sign in</Link>
+              <Link 
+                href={`/dashboard/login${callbackUrl !== "/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} 
+                className="text-primary font-semibold hover:underline"
+              >
+                Sign in
+              </Link>
             </p>
           </div>
         </motion.div>

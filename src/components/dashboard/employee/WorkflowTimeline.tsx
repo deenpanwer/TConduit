@@ -37,8 +37,10 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
   };
 
   const handleMouseLeave = () => {
-    isDragging.current = false;
-    scrollContainerRef.current?.classList.remove('cursor-grabbing');
+    if (isDragging.current) {
+      isDragging.current = false;
+      scrollContainerRef.current?.classList.remove('cursor-grabbing');
+    }
   };
 
   const handleMouseUp = () => {
@@ -111,35 +113,36 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
       });
       
       if (firstActiveHour !== -1) {
-        scrollContainerRef.current.scrollLeft = (firstActiveHour * 160) - 40;
+        // Scroll to the first active hour, with a small offset to center it
+        scrollContainerRef.current.scrollLeft = (firstActiveHour * 140) - 40; 
       } else {
-        scrollContainerRef.current.scrollLeft = 0;
+        scrollContainerRef.current.scrollLeft = 0; // Reset to start if no activity
       }
     }
   }, [dateStr, normalizedData]);
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="w-full space-y-8">
-        <div className="flex items-center justify-between">
+    <TooltipProvider delayDuration={150}>
+      <div className="w-full space-y-5">
+        <div className="flex items-center justify-between px-1">
           <div>
-            <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                  <Monitor className="w-6 h-6 text-primary" />
+            <h3 className="text-lg font-bold tracking-tight flex items-center gap-2.5">
+              <div className="p-1.5 bg-slate-100 rounded-lg">
+                  <Monitor className="w-4 h-4 text-slate-600" />
               </div>
-              Workflow Timeline
+              Daily Activity Timeline
             </h3>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 ml-11">
-              Temporal Activity Map / {format(selectedDate, 'PPP')}
+            <p className="text-xs text-muted-foreground mt-1 ml-9">
+              Your activity on {format(selectedDate, 'MMMM do, yyyy')}
             </p>
           </div>
         </div>
 
-        <div className="relative rounded-[2.5rem] bg-card border border-border overflow-hidden shadow-2xl group">
+        <div className="relative rounded-2xl bg-card border border-border/80 overflow-hidden shadow-sm group">
           {/* The Grid Background */}
           <div className="absolute inset-0 flex pointer-events-none">
               {hours.map(h => (
-                  <div key={h} className="flex-1 border-r border-border/20 h-full min-w-[160px]" />
+                  <div key={h} className="flex-1 border-r border-border/20 h-full min-w-[140px]" />
               ))}
           </div>
 
@@ -150,109 +153,114 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
-            className="relative flex overflow-x-auto pb-12 pt-6 px-4 gap-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing custom-scrollbar select-none"
+            className="relative flex overflow-x-auto pb-8 pt-5 px-2 gap-0 no-scrollbar snap-x cursor-grab active:cursor-grabbing select-none"
           >
             {hours.map((hour) => {
               const apps = normalizedData[hour] || [];
               const hasActivity = apps.length > 0;
 
               return (
-                <div key={hour} className="flex-shrink-0 w-[160px] snap-start flex flex-col items-center px-2 relative z-10">
+                <div key={hour} className="flex-shrink-0 w-[140px] snap-start flex flex-col items-center px-1.5 relative z-10">
                   {/* Time Label */}
-                  <div className="mb-6 flex flex-col items-center">
+                  <div className="mb-4 flex flex-col items-center">
                     <span className={cn(
-                      "text-[11px] font-black uppercase tracking-widest transition-all",
-                      hasActivity ? "text-foreground scale-110" : "text-muted-foreground/30"
+                      "text-xs font-semibold tracking-wide transition-all",
+                      hasActivity ? "text-foreground" : "text-muted-foreground/60"
                     )}>
                       {hour}:00
                     </span>
-                    {hasActivity && <div className="w-1 h-1 rounded-full bg-primary mt-2 animate-pulse" />}
+                    {hasActivity && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5" />}
                   </div>
 
-                  {/* Capsule Container (Rows) */}
-                  <div className="w-full space-y-2 min-h-[300px] flex flex-col justify-start">
+                  {/* Capsule Container */}
+                  <div className="w-full space-y-1.5 min-h-[280px] flex flex-col justify-start">
                     {apps.map((app: any, idx: number) => {
                       const appName = app.name || 'Unknown';
                       const meta = getAppMeta(appName);
-                      const heightFactor = Math.max(app.totalSeconds / 3600, 0.15); // Minimum size for visibility
+                      const heightFactor = Math.max(app.totalSeconds / 3600, 0.18); // Minimum size for visibility
                       
                       return (
                         <Tooltip key={idx}>
                           <TooltipTrigger asChild>
                             <motion.div
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.05 }}
-                              style={{ height: `${heightFactor * 280}px` }}
+                              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              transition={{ delay: idx * 0.07, type: 'spring', stiffness: 400, damping: 15 }}
+                              style={{ height: `${heightFactor * 250}px` }}
                               className={cn(
-                                "w-full rounded-xl flex items-center px-3 gap-3 cursor-pointer relative group/capsule overflow-hidden shadow-lg border border-white/10 transition-all active:scale-95",
-                                meta.bg
+                                "w-full rounded-lg flex items-center px-2.5 gap-2.5 cursor-pointer relative group/capsule overflow-hidden shadow-sm border transition-all active:scale-95",
+                                meta.bg, // App-specific color
+                                "border-white/20"
                               )}
                             >
-                               <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 pointer-events-none" />
+                               <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-white/10 pointer-events-none" />
                                
-                               <div className="size-6 rounded-md bg-black/20 flex items-center justify-center overflow-hidden shrink-0">
+                               <div className="size-5 rounded-md bg-black/20 flex items-center justify-center overflow-hidden shrink-0">
                                   {meta.icon ? (
-                                    <img src={meta.icon} className="size-4 object-contain" alt="" />
+                                    <img src={meta.icon} className="size-3.5 object-contain" alt={`${meta.cleanName} icon`} />
                                   ) : (
-                                    <Monitor className="size-3 text-white/50" />
+                                    <Monitor className="size-3 text-white/60" />
                                   )}
                                </div>
 
                                <div className="flex flex-col min-w-0">
-                                  <span className="text-[10px] font-black text-white uppercase truncate leading-tight">
+                                  <span className="text-[10px] font-bold text-white truncate leading-tight">
                                     {meta.cleanName}
                                   </span>
-                                  <span className="text-[8px] font-bold text-white/60 uppercase">
+                                  <span className="text-[8px] font-medium text-white/80">
                                     {formatTime(app.totalSeconds)}
                                   </span>
                                </div>
                             </motion.div>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="p-4 rounded-2xl bg-black border-white/10 shadow-2xl space-y-3 min-w-[180px] z-[100]">
-                             <div className="flex items-center gap-3 border-b border-white/10 pb-2">
-                                <div className={cn("size-3 rounded-full", meta.bg)} />
-                                <span className="text-[11px] font-black text-white uppercase tracking-tight">{meta.cleanName}</span>
+                          <TooltipContent 
+                            side="top" 
+                            collisionPadding={10}
+                            className="p-3 rounded-xl shadow-xl space-y-2.5 min-w-[170px] z-[100] border bg-popover text-popover-foreground"
+                          >
+                             <div className="flex items-center gap-2.5 border-b border-border pb-2">
+                                <div className={cn("size-2.5 rounded-full border", meta.bg)} />
+                                <span className="text-xs font-bold">{meta.cleanName}</span>
                              </div>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-white/40 uppercase">Duration</p>
-                                    <p className="text-[10px] font-black text-white">{formatTime(app.totalSeconds)}</p>
+                             <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                                <div className="space-y-0.5">
+                                    <p className="text-[8px] font-semibold text-muted-foreground">Time Spent</p>
+                                    <p className="text-sm font-bold">{formatTime(app.totalSeconds)}</p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-white/40 uppercase">Activity</p>
-                                    <p className="text-[10px] font-black text-emerald-400">
+                                <div className="space-y-0.5">
+                                    <p className="text-[8px] font-semibold text-muted-foreground">Productivity</p>
+                                    <p className={cn("text-sm font-bold", app.totalSeconds > 0 && (app.activeSeconds/app.totalSeconds) > 0.7 ? 'text-emerald-500' : 'text-popover-foreground')}>
                                         {app.totalSeconds > 0 ? Math.round((app.activeSeconds/app.totalSeconds)*100) : 0}%
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-white/40 uppercase">Keys</p>
-                                    <p className="text-[10px] font-black text-white flex items-center gap-1">
-                                        <Keyboard size={10} /> {app.keystrokes || 0}
+                                <div className="space-y-0.5">
+                                    <p className="text-[8px] font-semibold text-muted-foreground">Keys</p>
+                                    <p className="text-sm font-bold flex items-center gap-1.5">
+                                        <Keyboard size={11} /> {app.keystrokes || 0}
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[7px] font-black text-white/40 uppercase">Clicks</p>
-                                    <p className="text-[10px] font-black text-white flex items-center gap-1">
-                                        <MousePointer2 size={10} /> {app.mouseClicks || 0}
+                                <div className="space-y-0.5">
+                                    <p className="text-[8px] font-semibold text-muted-foreground">Clicks</p>
+                                    <p className="text-sm font-bold flex items-center gap-1.5">
+                                        <MousePointer2 size={11} /> {app.mouseClicks || 0}
                                     </p>
                                 </div>
                              </div>
 
-                             {/* Detailed Window Titles (Wonderfully Placed) */}
+                             {/* Detailed Window Titles */}
                              {app.details && Object.keys(app.details).length > 0 && (
-                                <div className="pt-2 border-t border-white/10 space-y-2">
-                                    <p className="text-[7px] font-black text-white/40 uppercase tracking-widest">Focused Windows</p>
+                                <div className="pt-2.5 border-t border-border space-y-1.5">
+                                    <p className="text-[8px] font-semibold text-muted-foreground">Focused On</p>
                                     <div className="space-y-1.5">
                                         {Object.entries(app.details)
                                             .sort(([, a], [, b]) => (b as number) - (a as number))
-                                            .slice(0, 5)
+                                            .slice(0, 4)
                                             .map(([title, seconds]) => (
-                                                <div key={title} className="flex items-start justify-between gap-3 min-w-0">
-                                                    <span className="text-[9px] font-bold text-white/70 truncate uppercase tracking-tighter leading-tight flex-1">
+                                                <div key={title} className="flex items-center justify-between gap-3 min-w-0">
+                                                    <span className="text-[10px] font-medium text-foreground/80 truncate flex-1 leading-tight">
                                                         {title}
                                                     </span>
-                                                    <span className="text-[8px] font-black text-primary shrink-0 pt-0.5">
+                                                    <span className="text-[9px] font-bold text-primary shrink-0">
                                                         {Math.round((seconds as number) / 60)}m
                                                     </span>
                                                 </div>

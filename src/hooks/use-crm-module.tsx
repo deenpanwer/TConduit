@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 // Re-export types from the central use-crm hook for other components to use
 export type { CRMEntity, ModuleConfig, FieldConfig, ViewConfig } from './use-crm'; 
@@ -31,6 +31,11 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
     notes
   } = useCRM();
 
+  // Local state for searching/filtering
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // A simple map to select the correct entity list based on the module's type.
   const entityMap: Record<keyof CRMConfig['modules'], CRMEntity[]> = {
     leads,
@@ -42,7 +47,7 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
   };
 
   // Select the appropriate entities for this module instance.
-  const entities = entityMap[type];
+  const allEntities = entityMap[type];
   const loading = globalLoading;
 
   // The module's configuration is derived from the global config.
@@ -51,13 +56,59 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
   }, [globalConfig, type, defaultConfig]);
 
   /**
+   * FILTERED & SORTED ENTITIES
+   * Applies search and sorting to the raw entity list.
+   */
+  const entities = useMemo(() => {
+    let result = [...allEntities];
+
+    // 1. Search Logic
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(e => {
+        // Search in primary name
+        if (e.name?.toLowerCase().includes(q)) return true;
+        // Search in all data fields
+        return Object.values(e.data || {}).some(val => 
+          String(val).toLowerCase().includes(q)
+        );
+      });
+    }
+
+    // 2. Sorting Logic
+    if (sortBy) {
+      result.sort((a, b) => {
+        const valA = a.data?.[sortBy] ?? a[sortBy as keyof CRMEntity] ?? '';
+        const valB = b.data?.[sortBy] ?? b[sortBy as keyof CRMEntity] ?? '';
+        
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+        
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        
+        if (sortDirection === 'asc') return strA.localeCompare(strB);
+        return strB.localeCompare(strA);
+      });
+    }
+
+    return result;
+  }, [allEntities, searchQuery, sortBy, sortDirection]);
+
+  /**
    * ADD ENTITY: Wrapper around the global addEntity.
    * Automatically passes the correct 'type' for this module.
    */
   const addEntity = async (payload: { name?: string, summary?: string, data: Record<string, any> }) => {
     // BUG FIX: Convert plural module type (e.g., "leads") to singular entity type (e.g., "lead")
     const singularType = type.slice(0, -1) as CRMEntity['type'];
-    return globalAddEntity(singularType, payload);
+    // Standardize 'name' vs 'summary' based on type
+    const finalData = { ...payload.data };
+    if (payload.name) finalData.name = payload.name;
+    if (payload.summary) finalData.summary = payload.summary;
+    
+    return globalAddEntity(singularType, finalData);
   };
 
   /**
@@ -92,8 +143,15 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
   // Return the simplified, context-driven state and functions.
   return {
     entities,
+    allEntities, // Raw list if needed
     config,
     loading,
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    sortDirection,
+    setSortDirection,
     pageSize,     // Pass through pageSize
     setPageSize,  // Pass through setPageSize
     addEntity,

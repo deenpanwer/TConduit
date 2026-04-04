@@ -162,8 +162,7 @@ export async function GET(req: Request) {
     const notificationPayload = JSON.stringify({
       title: "TEST: Your Team's Brief",
       body: summaryText,
-      data: { url: "/dashboard/tasks" }
-    });
+                data: { url: "/tasks" }    });
     
     const sendResults = [];
     for (const sub of owner.pushSubscriptions) {

@@ -37,26 +37,23 @@ import { toast } from "sonner";
 import { TasksProvider, useTasks, Task, Status, Priority } from "@/hooks/useTasks";
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
-import { BoardView, AutoResizingTextarea, PRIORITIES } from "@/components/dashboard/tasks/BoardView";
-import { TimelineView } from "@/components/dashboard/tasks/TimelineView";
-import { ListView } from "@/components/dashboard/tasks/ListView";
+import { BoardView, AutoResizingTextarea, PRIORITIES } from "@/components/tasks/BoardView";
+import { TimelineView } from "@/components/tasks/TimelineView";
+import { ListView } from "@/components/tasks/ListView";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { VoiceTaskCreator } from "@/components/dashboard/tasks/VoiceTaskCreator";
-import { TypedTaskCreator } from "@/components/dashboard/tasks/TypedTaskCreator";
-import { InlineAudioPlayer } from "@/components/dashboard/tasks/InlineAudioPlayer";
+import { VoiceTaskCreator } from "@/components/tasks/VoiceTaskCreator";
+import { TypedTaskCreator } from "@/components/tasks/TypedTaskCreator";
+import { InlineAudioPlayer } from "@/components/tasks/InlineAudioPlayer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Wand2, Layers, FileText, Eraser } from "lucide-react";
 
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
-
-import { useSidebar } from "@/hooks/use-sidebar";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -67,7 +64,6 @@ function TasksPageContent() {
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
 
-  const { setIsMobileOpen } = useSidebar();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const [activeView, setActiveView] = useState<"board" | "timeline" | "list">("board");

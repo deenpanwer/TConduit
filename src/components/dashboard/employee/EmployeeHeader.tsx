@@ -2,7 +2,7 @@
 
 import { ShieldCheck, Mail, Calendar, Clock, Zap, Target, Activity } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
-import { cn, getUserAvatar } from "@/lib/utils";
+import { cn, getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { HoverShimmer } from "../main/shared/Shimmer";
 
 interface EmployeeHeaderProps {
@@ -40,7 +40,7 @@ export function EmployeeHeader({ employee, totalHours = "0.0", topApp = "---", j
     return null;
   };
 
-  const isOnline = !!employee?.heartbeat?.isCurrentlyRunning;
+  const isOnline = isEmployeeOnline(employee);
 
   const officialJoinedDate = joinedDate || parseShiftDate(employee?.createdAt) || new Date(0);
 

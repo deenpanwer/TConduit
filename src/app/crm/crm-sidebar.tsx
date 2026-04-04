@@ -137,8 +137,8 @@ export function CRMSidebar({
                   "flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group",
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Sparkles className="size-6 shrink-0 text-foreground dark:text-white" />
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="size-6 shrink-0 text-foreground dark:text-white transition-transform group-hover:scale-105" />
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="font-poppins font-black text-xl tracking-tighter uppercase leading-none text-[#0f172a] dark:text-white">
@@ -163,6 +163,10 @@ export function CRMSidebar({
                 <DropdownMenuItem onClick={() => router.push('/dashboard')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
                   <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center"><LayoutDashboard className="size-5 text-primary" /></div>
                   <div className="flex flex-col text-left"><span className="font-bold text-sm">Dashboard</span><span className="text-[10px] text-muted-foreground">Admin & Staff</span></div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/tasks')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
+                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center"><NotebookPen className="size-5 text-primary" /></div>
+                  <div className="flex flex-col text-left"><span className="font-bold text-sm">Tasks</span><span className="text-[10px] text-muted-foreground">Productivity</span></div>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push('/pos/checkout')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
                   <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center"><ShoppingCart className="size-5 text-orange-500" /></div>

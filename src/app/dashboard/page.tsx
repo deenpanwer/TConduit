@@ -46,11 +46,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (!loading && user) {
-      if (!userData || !userData.onboardingCompleted) {
-        router.push("/dashboard/onboarding");
-        return;
-      }
+    if (!loading && user && userData?.onboardingCompleted) {
       fetchOrgDetails();
     }
   }, [user, userData, loading]);

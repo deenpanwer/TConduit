@@ -88,25 +88,36 @@ export function ShiftPulse({ activeShift, employee }: ShiftPulseProps) {
             const overtimeStr = formatDuration(overtimeMs);
             return { 
                 status: 'Overtime', 
-                details: `Started at ${format(actualStartTime, 'hh:mm a')}. Overtime: ${overtimeStr}`,
+                details: `Overtime: ${overtimeStr}`,
                 color: 'orange'
             };
         }
 
-        if (isValid(scheduledStartTime) && actualStartTime > scheduledStartTime) {
-            const latenessMs = actualStartTime.getTime() - scheduledStartTime.getTime();
-            const latenessStr = formatDuration(latenessMs);
-            return { 
-                status: 'Late', 
-                details: `Started ${latenessStr} late at ${format(actualStartTime, 'hh:mm a')}`,
-                color: 'yellow'
-            };
+        if (isValid(scheduledStartTime)) {
+            if (actualStartTime > scheduledStartTime) {
+                const latenessMs = actualStartTime.getTime() - scheduledStartTime.getTime();
+                const latenessStr = formatDuration(latenessMs);
+                return {
+                    status: 'Late',
+                    details: `Started ${latenessStr} late`,
+                    color: 'yellow'
+                };
+            } else if (actualStartTime.getTime() < scheduledStartTime.getTime() - 60000) {
+                const earlyMs = scheduledStartTime.getTime() - actualStartTime.getTime();
+                const earlyStr = formatDuration(earlyMs);
+                return {
+                    status: 'Early',
+                    details: `Started ${earlyStr} early`,
+                    color: 'blue'
+                };
+            }
         }
-        return { 
-            status: 'On Time', 
-            details: `Started shift at ${format(actualStartTime, 'hh:mm a')}`,
-            color: 'green' 
+        return {
+            status: 'On Time',
+            details: 'Not a single minute late',
+            color: 'green'
         };
+
     } 
     // --- SHIFT IS COMPLETED ---
     else {
@@ -166,14 +177,15 @@ export function ShiftPulse({ activeShift, employee }: ShiftPulseProps) {
       <div className="flex flex-col">
         <div className="flex items-baseline gap-2">
            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{shiftStatus.status}</span>
-           {startTime && isValid(startTime) && (
+            {startTime && isValid(startTime) && shiftStatus.status !== 'On Time' && (
+
              <span className="text-2xl font-black tracking-tighter uppercase">
                 {format(startTime, 'hh:mm')}
                 <span className="text-sm ml-1 opacity-60">{format(startTime, 'aa')}</span>
             </span>
            )}
         </div>
-        <p className="text-xs text-gray-400 mt-1">{shiftStatus.details}</p>
+        <p className={`text-xs mt-1 ${shiftStatus.color === 'yellow' || shiftStatus.color === 'orange' ? 'font-bold text-gray-500' : 'text-gray-400'}`}>{shiftStatus.details}</p>
       </div>
     </motion.div>
   );

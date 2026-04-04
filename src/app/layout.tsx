@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Analytics } from "@vercel/analytics/react";
-import { Poppins, Montserrat, Playfair_Display } from 'next/font/google';
+import { Poppins, Montserrat, Playfair_Display, Permanent_Marker } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from '@/components/theme-provider';
@@ -28,9 +28,15 @@ const playfair = Playfair_Display({
   variable: '--font-playfair',
 });
 
+const marker = Permanent_Marker({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-marker',
+});
+
 export const metadata: Metadata = {
-  title: 'TRAC | Google for Hiring',
-  description: 'An AI agent that finds relevant talent across the web.',
+  title: 'Trac AI | Software that replaces all software',
+  description: 'The first truly integrated business operating system. Designed for professionals, powered by AI.',
 };
 
 export const viewport = {
@@ -46,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable, marker.variable)} suppressHydrationWarning>
         <head>
           <meta name="theme-color" content="#000000" />
         </head>

@@ -51,7 +51,8 @@ export interface FieldConfig {
   id: string;
   key: string;
   label: string;
-  type: 'text' | 'number' | 'select' | 'date' | 'currency' | 'email' | 'phone' | 'textarea';
+  description?: string;
+  type: 'text' | 'number' | 'select' | 'date' | 'currency' | 'email' | 'phone' | 'textarea' | 'checkbox' | 'timeline' | 'link' | 'people' | 'label';
   isSystem: boolean;
   isVisible: boolean;
   order: number;
@@ -147,35 +148,45 @@ const DEFAULT_CONFIG: CRMConfig = {
       name: "Leads",
       description: "People who might buy from you but aren't customers yet.",
       fields: [
-        { id: 'f_sal', key: 'salutation', label: 'Salutation', type: 'select', isSystem: true, isVisible: true, order: 0, options: [
-          { label: 'Mr', value: 'Mr' },
-          { label: 'Ms', value: 'Ms' },
-          { label: 'Mrs', value: 'Mrs' },
-          { label: 'Dr', value: 'Dr' },
-          { label: 'Prof', value: 'Prof' },
-        ]},
-        { id: 'f1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
-        { id: 'f_last', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 2 },
-        { id: 'f3', key: 'email', label: 'Email', type: 'email', isSystem: true, isVisible: true, order: 3 },
-        { id: 'f_mob', key: 'mobile', label: 'Mobile No.', type: 'phone', isSystem: true, isVisible: true, order: 4 },
-        { id: 'f2', key: 'company', label: 'Organization', type: 'text', isSystem: true, isVisible: true, order: 5 },
-        { id: 'f_ind', key: 'industry', label: 'Industry', type: 'text', isSystem: true, isVisible: true, order: 6 },
-        { id: 'f_web', key: 'website', label: 'Website', type: 'text', isSystem: true, isVisible: true, order: 7 },
-        { id: 'f_job', key: 'jobTitle', label: 'Job Title', type: 'text', isSystem: true, isVisible: true, order: 8 },
-        { id: 'f_src', key: 'source', label: 'Source', type: 'text', isSystem: true, isVisible: true, order: 9 },
-        { id: 'f5', key: 'status', label: 'Stage', type: 'select', isSystem: true, isVisible: true, order: 10, options: [
+        { id: 'f1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
+        { id: 'f_last', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
+        { id: 'f2', key: 'company', label: 'Organization', type: 'text', isSystem: true, isVisible: true, order: 2 },
+        { id: 'f5', key: 'status', label: 'Stage', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
           { label: 'New', value: 'new', color: 'blue' },
           { label: 'Talking', value: 'contacted', color: 'yellow' },
           { label: 'Qualified', value: 'qualified', color: 'purple' },
-        ]},{ id: 'f6', key: 'priority', label: 'Urgency', type: 'select', isSystem: true, isVisible: true, order: 11, options: [
+        ]},
+        { id: 'f6', key: 'priority', label: 'Urgency', type: 'select', isSystem: true, isVisible: true, order: 4, options: [
           { label: 'Low', value: 'low', color: 'gray' },
           { label: 'Medium', value: 'medium', color: 'orange' },
           { label: 'High', value: 'high', color: 'red' },
         ]},
+        { id: 'f_val', key: 'estimatedValue', label: 'Est. Value', type: 'currency', isSystem: true, isVisible: true, order: 5 },
+        // Hidden Templates (Ready to be added via ColumnPicker)
+        { id: 'f_sal', key: 'salutation', label: 'Salutation', type: 'select', isSystem: true, isVisible: false, order: 6, options: [
+          { label: 'Mr', value: 'Mr' }, { label: 'Ms', value: 'Ms' }, { label: 'Mrs', value: 'Mrs' }, { label: 'Dr', value: 'Dr' }, { label: 'Prof', value: 'Prof' },
+        ]},
+        { id: 'f3', key: 'email', label: 'Email', type: 'email', isSystem: true, isVisible: false, order: 7 },
+        { id: 'f_mob', key: 'mobile', label: 'Mobile No.', type: 'phone', isSystem: true, isVisible: false, order: 8 },
+        { id: 'f_job', key: 'jobTitle', label: 'Job Title', type: 'text', isSystem: true, isVisible: false, order: 9 },
+        { id: 'f_ind', key: 'industry', label: 'Industry', type: 'text', isSystem: true, isVisible: false, order: 10 },
+        { id: 'f_web', key: 'website', label: 'Website', type: 'text', isSystem: true, isVisible: false, order: 11 },
+        { id: 'f_src', key: 'source', label: 'Lead Source', type: 'text', isSystem: true, isVisible: false, order: 12 },
+        { id: 'f_peop', key: 'people', label: 'People', type: 'people', isSystem: true, isVisible: false, order: 13 },
+        { id: 'f_time', key: 'timeline', label: 'Timeline', type: 'timeline', isSystem: true, isVisible: false, order: 14 },
+        { id: 'f_link', key: 'link', label: 'Link', type: 'link', isSystem: true, isVisible: false, order: 15 },
+        { id: 'f_last_int', key: 'lastInteraction', label: 'Last Interaction', type: 'date', isSystem: true, isVisible: false, order: 16 },
+        { id: 'f_follow_up', key: 'followUpStatus', label: 'Follow up status', type: 'select', isSystem: true, isVisible: false, order: 17, options: [
+            { label: 'Pending', value: 'pending', color: 'gray' },
+            { label: 'In Progress', value: 'in_progress', color: 'blue' },
+            { label: 'Completed', value: 'completed', color: 'green' },
+        ]},
+        { id: 'f_next_fu', key: 'nextFollowUp', label: 'Next follow up', type: 'date', isSystem: true, isVisible: false, order: 18 },
+        { id: 'f_comm', key: 'comments', label: 'Comments', type: 'textarea', isSystem: true, isVisible: false, order: 19 },
       ],
       views: [
-        { id: 'v1', name: 'Board', type: 'kanban', visibleFields: ['f1', 'f_last', 'f2', 'f6'], kanbanFieldId: 'f5' },
-        { id: 'v2', name: 'List', type: 'list', visibleFields: ['f1', 'f_last', 'f2', 'f5', 'f6'] },
+        { id: 'v1', name: 'Board', type: 'kanban', visibleFields: ['f1', 'f_last', 'f2', 'f6', 'f_val'], kanbanFieldId: 'f5' },
+        { id: 'v2', name: 'List', type: 'list', visibleFields: ['f1', 'f_last', 'f2', 'f5', 'f6', 'f_val'] },
       ]
     },
     deals: {
@@ -384,8 +395,6 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
                           ...sysField,
                           isVisible: storedField.isVisible !== undefined ? storedField.isVisible : sysField.isVisible,
                           order: storedField.order !== undefined ? storedField.order : sysField.order,
-                          // BUG FIX: Prioritize user's saved options over default options.
-                          // Fall back to system options only if no custom options are saved.
                           options: storedField.options || sysField.options
                       };
                   }
@@ -402,12 +411,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
               const mergedViews = defaultViews.map(defaultView => {
                   const storedView = storedViews.find((v: ViewConfig) => v.id === defaultView.id);
                   if (storedView) {
-                      const visibleFieldSet = new Set([
-                          ...defaultView.visibleFields,
-                          ...(storedView.visibleFields || [])
-                      ]);
-
-                      const finalVisibleFields = [...visibleFieldSet].filter(id => allFieldIds.has(id));
+                      // CRITICAL FIX: Prioritize stored fields list if it exists. 
+                      // Only fallback to defaults or merge if specifically requested.
+                      // This allows users to REMOVE default fields from their view.
+                      const finalVisibleFields = (storedView.visibleFields || defaultView.visibleFields)
+                          .filter(id => allFieldIds.has(id));
                       
                       return { ...defaultView, ...storedView, visibleFields: finalVisibleFields };
                   }

@@ -15,13 +15,17 @@ import { useTeam } from '@/hooks/use-team';
 import { InviteModal } from '@/components/dashboard/InviteModal';
 import { SubscriptionBadge } from '@/components/dashboard/SubscriptionBadge';
 import { IntelligenceModal } from '@/components/dashboard/IntelligenceModal';
+import { Switch } from '@/components/ui/switch';
 import { 
   LogOut, User, Building2, Ticket, 
   Check, Copy, Moon, Sun, Menu, X, ArrowLeft,
-  Clock, Calendar, Save, Fingerprint, Loader2, BrainCircuit, ShieldCheck, Zap, Ban, ArrowRight, Users, Bell, MapPin, Pencil
+  Clock, Calendar, Save, Fingerprint, Loader2, BrainCircuit, ShieldCheck, Zap, Ban, ArrowRight, Users, Bell, MapPin, Pencil, MessageSquare, ClipboardList, Volume2, VolumeX,
+  Globe, Sparkles, Trash2, Eye
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
+import { z } from 'zod';
 import { 
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, 
@@ -74,6 +78,70 @@ export default function SettingsPage() {
   const { setIsMobileOpen } = useSidebar();
   const [notificationPermission, setNotificationPermission] = useState('default');
   const [isEditingTimezone, setIsEditingTimezone] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // --- ORGANIZATION CONTEXT STATE ---
+  const [orgUrl, setOrgUrl] = useState('');
+  const [generatedContext, setGeneratedContext] = useState<string | null>(null);
+  const [isGeneratingContext, setIsGeneratingContext] = useState(false);
+  const [isSavingContext, setIsSavingContext] = useState(false);
+  const [showContextPreview, setShowContextPreview] = useState(false);
+
+  const urlSchema = z.string().url({ message: "Please enter a valid URL (e.g., https://example.com)" });
+
+  const handleGenerateContext = async () => {
+    try {
+      urlSchema.parse(orgUrl);
+    } catch (e: any) {
+      toast({ title: "Invalid URL", description: e.errors[0].message, variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingContext(true);
+    setGeneratedContext(null);
+    setShowContextPreview(false);
+
+    try {
+      const res = await fetch('/api/org/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: orgUrl }),
+      });
+
+      if (!res.ok) throw new Error('Failed to generate context');
+      
+      const data = await res.json();
+      setGeneratedContext(data.context);
+      setShowContextPreview(true);
+      toast({ title: "Context Generated", description: "Strategic organizational context is ready for review." });
+    } catch (error: any) {
+      toast({ title: "Generation Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingContext(false);
+    }
+  };
+
+  const handleSaveContext = async () => {
+    if (!user || !generatedContext || !orgData) return;
+    setIsSavingContext(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      const orgRef = doc(db, 'organizations', targetOrgId);
+      await updateDoc(orgRef, {
+        aiContext: generatedContext,
+        updatedAt: serverTimestamp()
+      });
+      setOrgData((prev: any) => ({ ...prev, aiContext: generatedContext }));
+      setGeneratedContext(null);
+      setShowContextPreview(false);
+      toast({ title: "Context Saved", description: "Organizational intelligence updated successfully." });
+    } catch (error: any) {
+      toast({ title: "Save Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSavingContext(false);
+    }
+  };
 
   const [settings, setSettings] = useState({
     defaultShiftSeconds: 28800,
@@ -85,9 +153,30 @@ export default function SettingsPage() {
     reportTime: '14:00'
   });
 
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    globalMute: false,
+    categories: {
+      shifts: true,
+      tasks: true,
+      chats: true
+    },
+    mutedEmployees: [] as string[]
+  });
+
   useEffect(() => {
     if (userData?.settings) {
         setSettings(prev => ({...prev, ...userData.settings}));
+    }
+    if (userData?.notificationPreferences) {
+      setNotificationPreferences(prev => ({
+        ...prev, 
+        ...userData.notificationPreferences,
+        categories: {
+          ...prev.categories,
+          ...userData.notificationPreferences.categories
+        },
+        mutedEmployees: userData.notificationPreferences.mutedEmployees || []
+      }));
     }
   }, [userData]);
 
@@ -109,10 +198,35 @@ export default function SettingsPage() {
   }, [userData]);
 
   useEffect(() => {
-    if(typeof window !== 'undefined' && window.Notification) {
-      setNotificationPermission(Notification.permission);
+    if(typeof window !== 'undefined') {
+      if (window.Notification) {
+        setNotificationPermission(Notification.permission);
+      }
+      
+      // PWA Detection
+      if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+        setIsStandalone(true);
+      }
+
+      const handleBeforeInstallPrompt = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }
   }, []);
+
+  const handlePWAInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsStandalone(true);
+      setDeferredPrompt(null);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -163,6 +277,7 @@ export default function SettingsPage() {
          'settings.dateFormat': settings.dateFormat,
          'settings.startOfWeek': settings.startOfWeek,
          'settings.timeZone': timezoneValue,
+         'notificationPreferences': notificationPreferences,
       });
 
       await refreshUserData(); // Refresh user data to get latest settings
@@ -310,33 +425,205 @@ export default function SettingsPage() {
                 </div>
             </section>
 
-             {/* Web Push Notifications Section */}
-            <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
-                <div className='flex items-center gap-4 mb-6'>
-                    <div className='size-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500'>
-                        <Bell size={24} />
-                    </div>
-                    <div>
-                        <h3 className='text-lg font-black uppercase tracking-tighter'>Notifications</h3>
-                        <p className='text-xs font-medium text-muted-foreground uppercase tracking-tight'>Manage your web push notification settings</p>
-                    </div>
+             {/* Notification Preferences Section */}
+            <section className='bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden group'>
+                <div className='absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity'>
+                    <Bell size={120} />
                 </div>
-                <div className='p-6 rounded-2xl bg-secondary/30 border-2 border-dashed border-border'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <p className='text-sm font-bold'>Browser Notifications</p>
-                            <p className='text-xs text-muted-foreground'>Receive real-time alerts and updates.</p>
-                        </div>
-                        {notificationPermission === 'granted' ? (
-                            <div className='flex items-center gap-2 text-green-500 font-bold text-sm'>
-                                <Check size={16} />
-                                <span>Permission Granted</span>
+                
+                <div className='space-y-8 relative z-10'>
+                    <div className='flex flex-col md:flex-row md:items-center justify-between gap-6'>
+                        <div className='space-y-2'>
+                            <div className='flex items-center gap-4'>
+                                <div className='size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border-2 border-primary/20 shadow-inner'>
+                                    <Bell size={32} />
+                                </div>
+                                <div>
+                                    <h3 className='text-2xl font-black uppercase tracking-tighter'>Notification Preferences</h3>
+                                    <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest'>Dispatcher Management & Mute Controls</p>
+                                </div>
                             </div>
-                        ) : (
-                            <Button onClick={handleNotificationPermission} disabled={notificationPermission === 'denied'}>
-                                {notificationPermission === 'denied' ? 'Permission Denied' : 'Enable Notifications'}
-                            </Button>
-                        )}
+                            <p className='text-sm font-bold leading-relaxed max-w-xl text-muted-foreground'>
+                                Control how and when you receive real-time alerts from the Traconomics Dispatcher.
+                            </p>
+                        </div>
+                        <Button 
+                            onClick={saveSettings} 
+                            disabled={isSaving}
+                            className='bg-black dark:bg-white text-white dark:text-black border-4 border-black dark:border-white rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-y-[-2px] transition-all active:translate-y-[1px]'
+                        >
+                            {isSaving ? <Loader2 className='size-3 mr-2 animate-spin' /> : <Save className='size-3 mr-2' />}
+                            Sync Preferences
+                        </Button>
+                    </div>
+
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                        {/* Global Control */}
+                        <div className='p-6 rounded-[2rem] bg-secondary/30 border-2 border-border space-y-4'>
+                            <div className='flex items-center justify-between'>
+                                <div className='flex items-center gap-3'>
+                                    <Zap className='text-primary' size={20} />
+                                    <h4 className='text-sm font-black uppercase tracking-tight'>Global Master Switch</h4>
+                                </div>
+                                <Switch 
+                                    checked={!notificationPreferences.globalMute}
+                                    onCheckedChange={(checked) => setNotificationPreferences(prev => ({...prev, globalMute: !checked}))}
+                                />
+                            </div>
+                            <p className='text-xs font-medium text-muted-foreground leading-tight'>
+                                When active, the system will process all incoming reports based on your category filters. Muting this disables all dispatcher traffic.
+                            </p>
+                            
+                            <div className='pt-4 border-t border-border/50 space-y-3'>
+                                <div className='flex items-center justify-between'>
+                                    <span className='text-[10px] font-black uppercase tracking-widest text-muted-foreground'>Browser Sync</span>
+                                    {notificationPermission === 'granted' ? (
+                                        <div className='flex items-center gap-1.5 text-emerald-500 font-bold text-[10px] uppercase'>
+                                            <Check size={12} />
+                                            <span>Active</span>
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={handleNotificationPermission}
+                                            className='text-[10px] font-black uppercase text-primary hover:underline'
+                                        >
+                                            Enable Push
+                                        </button>
+                                    )}
+                                </div>
+                                <div className='flex items-center justify-between'>
+                                    <span className='text-[10px] font-black uppercase tracking-widest text-muted-foreground'>App Installation</span>
+                                    {isStandalone ? (
+                                        <div className='flex items-center gap-1.5 text-emerald-500 font-bold text-[10px] uppercase'>
+                                            <Check size={12} />
+                                            <span>Active</span>
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={handlePWAInstall}
+                                            disabled={!deferredPrompt}
+                                            className={cn(
+                                                'text-[10px] font-black uppercase tracking-widest',
+                                                deferredPrompt ? 'text-primary hover:underline' : 'text-muted-foreground cursor-not-allowed opacity-50'
+                                            )}
+                                        >
+                                            {deferredPrompt ? 'Add to Screen' : 'Standalone'}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Category Filters */}
+                        <div className='p-6 rounded-[2rem] bg-secondary/30 border-2 border-border space-y-4'>
+                            <div className='flex items-center gap-3'>
+                                <ShieldCheck className='text-primary' size={20} />
+                                <h4 className='text-sm font-black uppercase tracking-tight'>Category Intelligence</h4>
+                            </div>
+                            
+                            <div className='space-y-3'>
+                                <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
+                                    <div className='flex items-center gap-3'>
+                                        <Clock size={16} className='text-muted-foreground' />
+                                        <span className='text-[10px] font-black uppercase tracking-widest'>Shifts & Claims</span>
+                                    </div>
+                                    <Switch 
+                                        checked={notificationPreferences.categories.shifts}
+                                        onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                            ...prev, 
+                                            categories: { ...prev.categories, shifts: checked }
+                                        }))}
+                                    />
+                                </div>
+                                <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
+                                    <div className='flex items-center gap-3'>
+                                        <ClipboardList size={16} className='text-muted-foreground' />
+                                        <span className='text-[10px] font-black uppercase tracking-widest'>Task Activities</span>
+                                    </div>
+                                    <Switch 
+                                        checked={notificationPreferences.categories.tasks}
+                                        onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                            ...prev, 
+                                            categories: { ...prev.categories, tasks: checked }
+                                        }))}
+                                    />
+                                </div>
+                                <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
+                                    <div className='flex items-center gap-3'>
+                                        <MessageSquare size={16} className='text-muted-foreground' />
+                                        <span className='text-[10px] font-black uppercase tracking-widest'>Messenger Traffic</span>
+                                    </div>
+                                    <Switch 
+                                        checked={notificationPreferences.categories.chats}
+                                        onCheckedChange={(checked) => setNotificationPreferences(prev => ({
+                                            ...prev, 
+                                            categories: { ...prev.categories, chats: checked }
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Muted Employees Cluster */}
+                    <div className='space-y-4'>
+                        <div className='flex items-center justify-between'>
+                            <div className='flex items-center gap-3'>
+                                <Users className='text-primary' size={20} />
+                                <h4 className='text-sm font-black uppercase tracking-tight'>Personnel Mute List</h4>
+                            </div>
+                            <span className='text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase tracking-widest'>
+                                {notificationPreferences.mutedEmployees.length} Muted
+                            </span>
+                        </div>
+
+                        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
+                            {employees.map((emp: any) => {
+                                const isMuted = notificationPreferences.mutedEmployees.includes(emp.id);
+                                return (
+                                    <div 
+                                        key={emp.id} 
+                                        className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50 hover:bg-secondary/40 transition-all'
+                                    >
+                                        <div className='flex items-center gap-3'>
+                                            <div className='size-8 rounded-full overflow-hidden border border-border bg-muted'>
+                                                <img src={getUserAvatar(emp)} alt={emp.name} className='w-full h-full object-cover' />
+                                            </div>
+                                            <div className='min-w-0'>
+                                                <p className='text-[10px] font-black uppercase truncate max-w-[100px]'>{emp.name}</p>
+                                                <p className='text-[8px] font-bold text-muted-foreground uppercase'>{emp.role || 'Staff'}</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                setNotificationPreferences(prev => {
+                                                    const alreadyMuted = prev.mutedEmployees.includes(emp.id);
+                                                    return {
+                                                        ...prev,
+                                                        mutedEmployees: alreadyMuted 
+                                                            ? prev.mutedEmployees.filter(id => id !== emp.id)
+                                                            : [...prev.mutedEmployees, emp.id]
+                                                    };
+                                                });
+                                            }}
+                                            className={cn(
+                                                'p-2 rounded-xl border transition-all',
+                                                isMuted 
+                                                    ? 'bg-destructive/10 text-destructive border-destructive/20' 
+                                                    : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                            )}
+                                        >
+                                            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {employees.length === 0 && (
+                                <div className='col-span-full py-8 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-border'>
+                                    <p className='text-[10px] font-bold text-muted-foreground uppercase tracking-widest'>No employees found to manage</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -468,6 +755,102 @@ export default function SettingsPage() {
                                 {copiedOrgId ? 'Copied' : 'Copy ID'}
                             </Button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Organization Context (AI Intelligence) Section */}
+            <section className='bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden group'>
+                <div className='absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity'>
+                    <Globe size={120} />
+                </div>
+                
+                <div className='space-y-8 relative z-10'>
+                    <div className='flex flex-col md:flex-row md:items-center justify-between gap-6'>
+                        <div className='space-y-2'>
+                            <div className='flex items-center gap-4'>
+                                <div className='size-14 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-500 border-2 border-purple-500/20 shadow-inner'>
+                                    <Sparkles size={32} />
+                                </div>
+                                <div>
+                                    <h3 className='text-2xl font-black uppercase tracking-tighter'>Organization Context</h3>
+                                    <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest'>High-Density Workforce Intelligence</p>
+                                </div>
+                            </div>
+                            <p className='text-sm font-bold leading-relaxed max-w-xl text-muted-foreground'>
+                                Train the Trac AI on your company's mission, products, and culture by analyzing your website. This context helps the AI provide deeper insights into employee work.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className='space-y-6'>
+                        <div className='space-y-3'>
+                            <Label className='text-[10px] font-black uppercase tracking-widest ml-1 flex items-center gap-2'>
+                                <Globe size={14} className='text-primary' /> Website URL for Analysis
+                            </Label>
+                            <div className='flex gap-3'>
+                                <Input 
+                                    placeholder='https://your-company.com'
+                                    value={orgUrl}
+                                    onChange={(e) => setOrgUrl(e.target.value)}
+                                    className='h-12 rounded-xl font-bold bg-background'
+                                />
+                                <Button 
+                                    onClick={handleGenerateContext}
+                                    disabled={isGeneratingContext || !orgUrl}
+                                    className='bg-black dark:bg-white text-white dark:text-black border-4 border-black dark:border-white rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-y-[-2px] transition-all active:translate-y-[1px]'
+                                >
+                                    {isGeneratingContext ? <Loader2 size={16} className='animate-spin' /> : <Sparkles size={16} className='mr-2' />}
+                                    {isGeneratingContext ? 'Analyzing...' : 'Generate Context'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Current/Generated Context Display */}
+                        {(orgData?.aiContext || generatedContext) && (
+                            <div className='space-y-4'>
+                                <div className='flex items-center justify-between'>
+                                    <h4 className='text-xs font-black uppercase tracking-widest flex items-center gap-2'>
+                                        {generatedContext ? <Eye size={14} /> : <ShieldCheck size={14} />}
+                                        {generatedContext ? 'Preview New Intelligence' : 'Active Organizational Context'}
+                                    </h4>
+                                    {generatedContext && (
+                                        <div className='flex gap-2'>
+                                            <Button 
+                                                variant='ghost' 
+                                                size='sm' 
+                                                onClick={() => { setGeneratedContext(null); setShowContextPreview(false); }}
+                                                className='text-destructive hover:bg-destructive/10 rounded-xl font-black uppercase tracking-widest text-[10px]'
+                                            >
+                                                <Trash2 size={14} className='mr-2' /> Discard
+                                            </Button>
+                                            <Button 
+                                                size='sm' 
+                                                onClick={handleSaveContext}
+                                                disabled={isSavingContext}
+                                                className='bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px]'
+                                            >
+                                                {isSavingContext ? <Loader2 size={14} className='animate-spin mr-2' /> : <Save size={14} className='mr-2' />}
+                                                Save Intelligence
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className='p-8 rounded-[2rem] bg-secondary/30 border-2 border-border max-h-[500px] overflow-y-auto custom-scrollbar prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tighter'>
+                                    <ReactMarkdown>
+                                        {generatedContext || orgData?.aiContext || ""}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {!orgData?.aiContext && !generatedContext && (
+                            <div className='py-12 text-center bg-secondary/10 rounded-[2rem] border-2 border-dashed border-border'>
+                                <BrainCircuit className='size-12 mx-auto mb-4 text-muted-foreground/30' />
+                                <p className='text-xs font-bold uppercase tracking-widest text-muted-foreground'>AI Context not yet established</p>
+                                <p className='text-[10px] text-muted-foreground/60 mt-1 uppercase'>Enter your website URL above to build your organizational identity.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>

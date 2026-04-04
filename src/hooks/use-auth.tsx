@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   useEffect(() => {
     // Only run if we have a user and a valid session ID.
-    if (user && sessionId.current && pathname?.startsWith("/dashboard")) {
+    const isProtectedPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks");
+    if (user && sessionId.current && isProtectedPage) {
       // Create a reference to the specific session document.
       const sessionDocRef = doc(db, "users", user.uid, "sessions", sessionId.current);
       // Sanitize the URL path to be a valid Firestore key (replace '/' with '_').
@@ -225,12 +226,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Client-side redirect if session is lost.
+  // Client-side redirect if session is lost or onboarding not completed.
   useEffect(() => {
-    if (!loading && !user && pathname?.startsWith("/dashboard") && !pathname?.includes("/login")) {
-      router.push("/dashboard/login");
+    const isProtectedPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks");
+    const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
+    const isOnboardingPage = pathname?.includes("/onboarding");
+
+    if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
+      if (!user) {
+        const loginUrl = new URL("/dashboard/login", window.location.origin);
+        loginUrl.searchParams.set("callbackUrl", pathname || "/dashboard");
+        router.push(loginUrl.pathname + loginUrl.search);
+      } else if (userData && !userData.onboardingCompleted) {
+        const onboardingUrl = new URL("/dashboard/onboarding", window.location.origin);
+        onboardingUrl.searchParams.set("callbackUrl", pathname || "/dashboard");
+        router.push(onboardingUrl.pathname + onboardingUrl.search);
+      }
     }
-  }, [user, loading, pathname, router]);
+  }, [user, userData, loading, pathname, router]);
     
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>

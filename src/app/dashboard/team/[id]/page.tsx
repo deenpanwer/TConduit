@@ -43,7 +43,7 @@ import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
 import { InviteModal } from "@/components/dashboard/InviteModal";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/dashboard/IntelligenceModal";
-import { cn } from "@/lib/utils";
+import { cn, isEmployeeOnline } from "@/lib/utils";
 import { GlobalDateSelector } from "@/components/dashboard/shared/GlobalDateSelector";
 import { AIPersonnelPulse } from "@/components/dashboard/employee/AIPersonnelPulse";
 
@@ -261,7 +261,7 @@ export default function EmployeeDetailPage() {
       });
       
     const mostRecentShift = relevantShifts[0]; 
-    if (!mostRecentShift) return { intensity: employee?.heartbeat?.isCurrentlyRunning ? 0.1 : 0, aiBrief: null };
+    if (!mostRecentShift) return { intensity: isEmployeeOnline(employee) ? 0.1 : 0, aiBrief: null };
 
     // Root-level fallback for New Schema
     const focus = mostRecentShift.focusScore ?? mostRecentShift.cognitiveReport?.focusScore ?? 0;
@@ -271,7 +271,7 @@ export default function EmployeeDetailPage() {
 
     const compositeScore = (focus + productivity + velocity) / 3;
     let normalizedIntensity = Math.min(Math.max(compositeScore / 70, 0), 1.5);
-    if (employee?.heartbeat?.isCurrentlyRunning && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
+    if (isEmployeeOnline(employee) && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
     return { intensity: normalizedIntensity, aiBrief: brief };
   }, [employee, liveEmployee, workShifts]);

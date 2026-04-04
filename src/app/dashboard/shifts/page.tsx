@@ -19,7 +19,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
-import { useShift, ScheduledShift, LeaveRequest } from "@/hooks/use-shift";
+import { useShift, ScheduledShift, LeaveRequest, ShiftClaim } from "@/hooks/use-shift";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -56,10 +56,19 @@ export default function ShiftsPage() {
     }
   }, [orgId]);
   
+  const shiftUser = useMemo(() => {
+    if (!userData && !user) return null;
+    return {
+      ...userData,
+      uid: user?.uid || userData?.id
+    };
+  }, [userData, user]);
+
   const { 
     shifts, 
     allLeaves,
     allPendingLeaves,
+    allPendingClaims,
     history, 
     loading: shiftsLoading, 
     isPublishing,
@@ -71,8 +80,12 @@ export default function ShiftsPage() {
     discardChanges,
     smartFill, 
     submitLeaveRequest,
-    updateEmployeeDefaults
-  } = useShift(currentDate, orgId, userData, employees);
+    updateEmployeeDefaults,
+    approveClaim,
+    denyClaim,
+    approveLeave,
+    denyLeave
+  } = useShift(currentDate, orgId, shiftUser, employees);
 
   // Consolidate settings (Owner doc vs Org doc)
   const combinedSettings = useMemo(() => {
@@ -187,39 +200,6 @@ export default function ShiftsPage() {
     setIsDrawerOpen(true);
   };
 
-  const handleApproveLeave = async (req: LeaveRequest) => {
-    if (!orgId) return;
-    try {
-      const ref = doc(db, "leaveRequests", req.id);
-      await updateDoc(ref, {
-        status: 'approved',
-        reviewedBy: user?.uid,
-        reviewedByName: userData?.name || user?.displayName,
-        updatedAt: serverTimestamp()
-      });
-      toast.success(`Leave request for ${req.userName} approved.`);
-    } catch (e) {
-      toast.error("Failed to approve leave.");
-    }
-  };
-
-  const handleDenyLeave = async (req: LeaveRequest, denialReason: string) => {
-    if (!orgId) return;
-    try {
-      const ref = doc(db, "leaveRequests", req.id);
-      await updateDoc(ref, {
-        status: 'denied',
-        denialReason,
-        reviewedBy: user?.uid,
-        reviewedByName: userData?.name || user?.displayName,
-        updatedAt: serverTimestamp()
-      });
-      toast.success(`Leave request for ${req.userName} denied.`);
-    } catch (e) {
-      toast.error("Failed to deny leave.");
-    }
-  };
-
   const weekLabel = useMemo(() => {
     const startOfCurrent = startOfWeek(new Date(), { weekStartsOn: combinedSettings.startOfWeek === 'Monday' ? 1 : 0 });
     const isCurrent = isSameDay(daysOfWeek[0], startOfCurrent);
@@ -290,7 +270,7 @@ export default function ShiftsPage() {
           <div className="flex items-center gap-2 md:gap-4">
              <div className="hidden sm:flex items-center bg-secondary/50 rounded-xl p-1 border-2 border-border shadow-inner">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevWeek}><ChevronLeft size={16} /></Button>
-                <div className="min-w-[1000px] md:min-w-[160px] flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-lg transition-colors" onClick={handleToday}>{weekLabel}</div>
+                <div className="min-w-[100px] md:min-w-[160px] flex items-center justify-center cursor-pointer hover:bg-white/5 rounded-lg transition-colors" onClick={handleToday}>{weekLabel}</div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextWeek}><ChevronRight size={16} /></Button>
              </div>
              
@@ -384,7 +364,6 @@ export default function ShiftsPage() {
              {isManager && (
                <Button 
                 onClick={() => setIsGlobalDefaultsOpen(true)}
-                disabled={allLeaves.some(l => l.status === 'approved')}
                 variant="ghost" 
                 className="group h-9 px-4 rounded-xl border-2 border-transparent hover:border-indigo-500/20 hover:bg-indigo-500/5 transition-all w-full sm:w-auto justify-center"
                >
@@ -590,7 +569,6 @@ export default function ShiftsPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  disabled={allLeaves.some(l => l.status === 'approved' && l.userId === (member.id || member.uid))}
                                   className="transition-opacity"
                                   onClick={() => {
                                     setEditingDefaults({
@@ -768,15 +746,18 @@ export default function ShiftsPage() {
           />
         )}</AnimatePresence>
 
-        {/* --- TIME OFF INBOX --- */}
+        {/* --- REQUEST INBOX --- */}
         <AnimatePresence>{isRequestInboxOpen && (
-          <LeaveRequestInbox 
+          <ShiftRequestInbox 
             isOpen={isRequestInboxOpen}
             onClose={() => setIsRequestInboxOpen(false)}
-            requests={allPendingLeaves}
+            leaveRequests={allPendingLeaves}
+            shiftClaims={allPendingClaims}
             allUserLeaves={allLeaves}
-            onApprove={handleApproveLeave}
-            onDeny={handleDenyLeave}
+            onApproveLeave={approveLeave}
+            onDenyLeave={denyLeave}
+            onApproveClaim={approveClaim}
+            onDenyClaim={denyClaim}
           />
         )}</AnimatePresence>
 
@@ -1036,18 +1017,23 @@ const LeaveRequestForm = ({ onClose, onSubmit }: { onClose: () => void; onSubmit
   );
 }
 
-const LeaveRequestInbox = ({ isOpen, onClose, requests, allUserLeaves, onApprove, onDeny }: {
+const ShiftRequestInbox = ({ isOpen, onClose, leaveRequests, shiftClaims, allUserLeaves, onApproveLeave, onDenyLeave, onApproveClaim, onDenyClaim }: {
     isOpen: boolean;
     onClose: () => void;
-    requests: LeaveRequest[];
+    leaveRequests: LeaveRequest[];
+    shiftClaims: ShiftClaim[];
     allUserLeaves: LeaveRequest[];
-    onApprove: (req: LeaveRequest) => void;
-    onDeny: (req: LeaveRequest, reason: string) => void;
+    onApproveLeave: (req: LeaveRequest) => void;
+    onDenyLeave: (req: LeaveRequest, reason: string) => void;
+    onApproveClaim: (claim: ShiftClaim) => void;
+    onDenyClaim: (claim: ShiftClaim, reason?: string) => void;
 }) => {
     const [denialReason, setDenialReason] = useState("");
     const [activeDenial, setActiveDenial] = useState<string | null>(null);
 
     if (!isOpen) return null;
+
+    const totalRequests = leaveRequests.length + shiftClaims.length;
 
     return (
         <>
@@ -1055,12 +1041,12 @@ const LeaveRequestInbox = ({ isOpen, onClose, requests, allUserLeaves, onApprove
             <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-card border-l-4 border-black dark:border-white shadow-2xl z-50 flex flex-col">
               <div className="p-8 border-b-2 flex items-center justify-between bg-secondary/30">
                 <div className="flex items-center gap-4">
-                  <div className="size-14 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 border-2 border-rose-500/20 shadow-sm">
-                    <Coffee size={28} />
+                  <div className="size-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 border-2 border-indigo-500/20 shadow-sm">
+                    <MessageSquare size={28} />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Time Off Hub</h2>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Employee Absence Review</p>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Requests Inbox</h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Personnel Absence & Claims</p>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={onClose} className="rounded-xl"><X size={24} /></Button>
@@ -1068,87 +1054,158 @@ const LeaveRequestInbox = ({ isOpen, onClose, requests, allUserLeaves, onApprove
               
               <ScrollArea className="flex-1 custom-scrollbar">
                 <div className="p-8 space-y-6">
-                    {requests.length === 0 ? (
+                    {totalRequests === 0 ? (
                       <div className="text-center py-20 opacity-20">
                         <Check size={64} className="mx-auto mb-4 text-green-500" />
                         <p className="font-black uppercase text-xs tracking-[0.2em]">All requests reviewed</p>
                       </div>
                     ) : (
-                      requests.map(req => {
-                        const userHistory = allUserLeaves.filter(l => l.userId === req.userId && l.id !== req.id);
-                        const hasConflict = userHistory.some(l => 
-                          l.status === 'approved' && 
-                          isWithinInterval(parseISO(req.startDate), { start: parseISO(l.startDate), end: parseISO(l.endDate) })
-                        );
-                        const duration = formatDistance(parseISO(req.endDate), parseISO(req.startDate), { addSuffix: false });
+                      <>
+                        {/* Leave Requests Section */}
+                        {leaveRequests.length > 0 && (
+                          <div className="space-y-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                              <Coffee size={12} /> Time Off Requests
+                            </h3>
+                            {leaveRequests.map(req => {
+                              const userHistory = allUserLeaves.filter(l => l.userId === req.userId && l.id !== req.id);
+                              const hasConflict = userHistory.some(l => 
+                                l.status === 'approved' && 
+                                isWithinInterval(parseISO(req.startDate), { start: parseISO(l.startDate), end: parseISO(l.endDate) })
+                              );
+                              const duration = formatDistance(parseISO(req.endDate), parseISO(req.startDate), { addSuffix: false });
 
-                        return (
-                          <div key={req.id} className="p-6 rounded-[2rem] border-2 border-border bg-secondary/10 space-y-4 hover:border-primary/20 transition-all group">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="size-10 border-2 border-border">
-                                  <AvatarImage src={getUserAvatar({ name: req.userName, uid: req.userId })} />
-                                  <AvatarFallback>{req.userName?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-sm font-black uppercase tracking-tight">{req.userName}</p>
-                                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-primary/40 text-primary/80">{req.reasonType}</Badge>
+                              return (
+                                <div key={req.id} className="p-6 rounded-[2rem] border-2 border-border bg-secondary/10 space-y-4 hover:border-primary/20 transition-all group">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <Avatar className="size-10 border-2 border-border">
+                                        <AvatarImage src={getUserAvatar({ name: req.userName, uid: req.userId })} />
+                                        <AvatarFallback>{req.userName?.[0]}</AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <p className="text-sm font-black uppercase tracking-tight">{req.userName}</p>
+                                        <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-primary/40 text-primary/80">{req.reasonType}</Badge>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-[10px] font-black text-muted-foreground uppercase">{format(parseISO(req.startDate), 'MMM d')} - {format(parseISO(req.endDate), 'MMM d, yyyy')}</p>
+                                      <p className="text-[9px] font-bold text-muted-foreground/60">{duration}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="p-4 rounded-xl bg-card border border-border/50 text-xs font-bold leading-relaxed text-muted-foreground">
+                                    {req.description || "No details provided."}
+                                  </div>
+
+                                  {hasConflict && (
+                                    <div className="p-3 rounded-xl border flex items-center gap-2 bg-amber-500/10 border-amber-500/20 text-amber-600">
+                                      <AlertCircle size={14} />
+                                      <span className="text-[10px] font-black uppercase tracking-tight">Overlap with approved leave</span>
+                                    </div>
+                                  )}
+
+                                  <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                      <div className="p-3 rounded-lg bg-card border border-border/50">Handover: {req.handoverNote || "N/A"}</div>
+                                      <div className="p-3 rounded-lg bg-card border border-border/50">Contact: {req.emergencyPhone || "N/A"}</div>
+                                  </div>
+                                  
+                                  {activeDenial === req.id ? (
+                                      <div className="flex gap-3">
+                                          <Input 
+                                              placeholder="Reason for denial..." 
+                                              value={denialReason}
+                                              onChange={e => setDenialReason(e.target.value)}
+                                              className="flex-1 h-12 rounded-xl"
+                                          />
+                                          <Button onClick={() => {onDenyLeave(req, denialReason); setActiveDenial(null); setDenialReason('');}} className="h-12 w-12 p-0"><Send size={18}/></Button>
+                                          <Button variant="ghost" onClick={() => setActiveDenial(null)} className="h-12 w-12 p-0"><X size={18}/></Button>
+                                      </div>
+                                  ) : (
+                                    <div className="flex gap-3">
+                                      <Button 
+                                        onClick={() => onApproveLeave(req)}
+                                        className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] bg-green-500 hover:bg-green-600 border-2 border-black/10 text-white"
+                                      >
+                                        Approve
+                                      </Button>
+                                      <Button 
+                                        onClick={() => setActiveDenial(req.id)}
+                                        variant="outline"
+                                        className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] text-red-500 border-2 border-red-500/10 hover:bg-red-500/5"
+                                      >
+                                        Deny
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] font-black text-muted-foreground uppercase">{format(parseISO(req.startDate), 'MMM d')} - {format(parseISO(req.endDate), 'MMM d, yyyy')}</p>
-                                <p className="text-[9px] font-bold text-muted-foreground/60">{duration}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="p-4 rounded-xl bg-card border border-border/50 text-xs font-bold leading-relaxed text-muted-foreground">
-                              {req.description || "No details provided."}
-                            </div>
-
-                            {hasConflict && (
-                              <div className="p-3 rounded-xl border flex items-center gap-2 bg-amber-500/10 border-amber-500/20 text-amber-600">
-                                <AlertCircle size={14} />
-                                <span className="text-[10px] font-black uppercase tracking-tight">Overlap with approved leave</span>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                <div className="p-3 rounded-lg bg-card border border-border/50">Handover: {req.handoverNote || "N/A"}</div>
-                                <div className="p-3 rounded-lg bg-card border border-border/50">Contact: {req.emergencyPhone || "N/A"}</div>
-                            </div>
-                            
-                            {activeDenial === req.id ? (
-                                <div className="flex gap-3">
-                                    <Input 
-                                        placeholder="Reason for denial..." 
-                                        value={denialReason}
-                                        onChange={e => setDenialReason(e.target.value)}
-                                        className="flex-1 h-12 rounded-xl"
-                                    />
-                                    <Button onClick={() => {onDeny(req, denialReason); setActiveDenial(null); setDenialReason('');}} className="h-12 w-12 p-0"><Send size={18}/></Button>
-                                    <Button variant="ghost" onClick={() => setActiveDenial(null)} className="h-12 w-12 p-0"><X size={18}/></Button>
-                                </div>
-                            ) : (
-                              <div className="flex gap-3">
-                                <Button 
-                                  onClick={() => onApprove(req)}
-                                  className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] bg-green-500 hover:bg-green-600 border-2 border-black/10 text-white"
-                                >
-                                  Approve
-                                </Button>
-                                <Button 
-                                  onClick={() => setActiveDenial(req.id)}
-                                  variant="outline"
-                                  className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] text-red-500 border-2 border-red-500/10 hover:bg-red-500/5"
-                                >
-                                  Deny
-                                </Button>
-                              </div>
-                            )}
-
+                              );
+                            })}
                           </div>
-                        );
-                      })
+                        )}
+
+                        {/* Shift Claims Section */}
+                        {shiftClaims.length > 0 && (
+                          <div className="space-y-4 pt-4">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 flex items-center gap-2">
+                              <UserPlus size={12} /> Open Shift Claims
+                            </h3>
+                            {shiftClaims.map(claim => (
+                              <div key={claim.id} className="p-6 rounded-[2rem] border-2 border-border bg-amber-500/5 space-y-4 hover:border-amber-500/20 transition-all group">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="size-10 border-2 border-border">
+                                      <AvatarImage src={getUserAvatar({ name: claim.userName, uid: claim.userId })} />
+                                      <AvatarFallback>{claim.userName?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="text-sm font-black uppercase tracking-tight">{claim.userName}</p>
+                                      <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-amber-500/40 text-amber-600">Shift Claim</Badge>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase">{format(parseISO(claim.date), 'EEEE, MMM d')}</p>
+                                    <p className="text-[9px] font-bold text-muted-foreground/60">{claim.startTime} - {claim.endTime}</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="p-4 rounded-xl bg-card border border-border/50 text-xs font-bold leading-relaxed text-muted-foreground">
+                                  Requested to pick up the open shift scheduled for this slot.
+                                </div>
+
+                                {activeDenial === claim.id ? (
+                                    <div className="flex gap-3">
+                                        <Input 
+                                            placeholder="Reason for denial..." 
+                                            value={denialReason}
+                                            onChange={e => setDenialReason(e.target.value)}
+                                            className="flex-1 h-12 rounded-xl"
+                                        />
+                                        <Button onClick={() => {onDenyClaim(claim, denialReason); setActiveDenial(null); setDenialReason('');}} className="h-12 w-12 p-0"><Send size={18}/></Button>
+                                        <Button variant="ghost" onClick={() => setActiveDenial(null)} className="h-12 w-12 p-0"><X size={18}/></Button>
+                                    </div>
+                                ) : (
+                                  <div className="flex gap-3">
+                                    <Button 
+                                      onClick={() => onApproveClaim(claim)}
+                                      className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] bg-amber-500 hover:bg-amber-600 border-2 border-black/10 text-white"
+                                    >
+                                      Approve Claim
+                                    </Button>
+                                    <Button 
+                                      onClick={() => setActiveDenial(claim.id)}
+                                      variant="outline"
+                                      className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] text-red-500 border-2 border-red-500/10 hover:bg-red-500/5"
+                                    >
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                 </div>
                 </ScrollArea>

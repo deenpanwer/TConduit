@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Zap, BrainCircuit, Sparkles } from 'lucide-react';
 import { GlassCard } from '../main/shared/GlassCard';
-import { cn } from '@/lib/utils';
+import { cn, isEmployeeOnline } from '@/lib/utils';
 import { useTeam } from '@/hooks/use-team';
 import { format } from 'date-fns';
 
@@ -19,7 +19,7 @@ export function CognitiveHub({ employee, intensity = 0, aiBrief = null }: Cognit
   const isSelectedToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   const activeWindow = employee?.heartbeat?.lastActiveWindow || "Idle";
-  const isOnline = employee?.heartbeat?.isCurrentlyRunning && isSelectedToday;
+  const isOnline = isEmployeeOnline(employee) && isSelectedToday;
 
   const [displayedAiBrief, setDisplayedAiBrief] = useState('');
   const [isTypingComplete, setIsTypingComplete] = useState(false);

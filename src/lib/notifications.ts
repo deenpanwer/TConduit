@@ -33,7 +33,12 @@ export const subscribeUserToPush = async (userId: string) => {
     let subscription = await registration.pushManager.getSubscription();
     
     if (!subscription) {
-      // Create a new subscription
+      // Create a new subscription only if we have a valid VAPID key
+      if (!VAPID_PUBLIC_KEY) {
+        console.warn('Push subscription skipped: NEXT_PUBLIC_VAPID_PUBLIC_KEY is not defined.');
+        return null;
+      }
+
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true, // Required for Chrome
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),

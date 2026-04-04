@@ -62,13 +62,45 @@ export async function GET() {
       })
     );
 
-    // 3. Merge and enrich data
+    // 3. Fetch Recent Sessions across the entire system using Collection Group
+    let recentSessions: any[] = [];
+    try {
+      const sessionsSnap = await adminDb.collectionGroup("sessions")
+        .orderBy("startTime", "desc")
+        .limit(50)
+        .get();
+
+      sessionsSnap.forEach(doc => {
+        const data = doc.data();
+        recentSessions.push({
+          id: doc.id,
+          userId: doc.ref.parent.parent?.id,
+          startTime: data.startTime?.toDate ? data.startTime.toDate().toISOString() : data.startTime,
+          endTime: data.endTime?.toDate ? data.endTime.toDate().toISOString() : data.endTime,
+          initialLoadTimeMs: data.initialLoadTimeMs,
+          durationSeconds: data.durationSeconds,
+          pathname: data.pathname,
+          device: data.device || {},
+          pageViews: data.pageViews || {},
+        });
+      });
+    } catch (sessionError) {
+      console.error("Failed to fetch global sessions (likely missing index):", sessionError);
+      // We continue without sessions so the rest of the dashboard works
+    }
+
+    // 4. Merge and enrich data
     const enrichedUsers = ownerUsers.map(user => {
       const orgData = user.ownedOrgId ? orgDataMap[user.ownedOrgId] : null;
       
-      // Calculate last activity
+      // Calculate last activity from session if available
+      const userSessions = recentSessions.filter(s => s.userId === user.id);
+      const lastSession = userSessions[0];
+      
       let lastActivity = user.updatedAt || user.createdAt || null;
-      if (orgData) {
+      if (lastSession) {
+        lastActivity = lastSession.startTime;
+      } else if (orgData) {
         const orgUpdate = orgData.updatedAt;
         if (orgUpdate && (!lastActivity || new Date(orgUpdate) > new Date(lastActivity))) {
           lastActivity = orgUpdate;
@@ -78,7 +110,8 @@ export async function GET() {
       return {
         ...user,
         orgData,
-        lastActivity
+        lastActivity,
+        recentSessions: userSessions // Attach relevant sessions to each owner
       };
     });
 
@@ -89,7 +122,10 @@ export async function GET() {
       return dateB - dateA;
     });
 
-    return NextResponse.json({ users: enrichedUsers });
+    return NextResponse.json({ 
+      users: enrichedUsers,
+      globalSessions: recentSessions // Also return the global feed
+    });
   } catch (error: any) {
     console.error("Internal Dashboard API Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

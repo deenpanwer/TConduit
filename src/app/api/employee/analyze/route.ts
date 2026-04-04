@@ -3,105 +3,108 @@ import { generateText } from 'ai';
 
 export const maxDuration = 60;
 
+/**
+ * ANALYZE API ROUTE
+ * ----------------
+ * Implementation: Temporal Context Collage
+ * 
+ * Instead of sending 15 individual images (very expensive/slow), 
+ * we receive a single 4x4 grid collage representing the entire shift.
+ */
+
 export async function POST(req: Request) {
-  console.log("Analyze API: Request received");
   try {
     const body = await req.json();
     const { employeeName, date, shifts, screenshotUrls, screenshotMetadata } = body;
-    console.log(`Analyze API: Analyzing ${employeeName}, Shifts: ${shifts?.length}, Screenshot URLs: ${screenshotUrls?.length}`);
 
     if (!process.env.MISTRAL_API_KEY) {
-      console.error("Analyze API: Mistral API Key is missing");
-      return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { status: 500 });
     }
-    console.log("Analyze API: MISTRAL_API_KEY present, length:", process.env.MISTRAL_API_KEY.length);
 
     const content: any[] = [];
 
-    // Add main text prompt
+    // 1. High-Context System Instructions
     content.push({
       type: "text",
       text: `
-        CONTEXT: You are the analysis engine for "Trac Diary", a premier employee productivity monitoring system. 
-        You are a high-level Manager reporting directly to the Founder. 
-        Explain to the Founder in maximum 3 bullet points exactly what ${employeeName} did on ${date}. 
-        
-        CRITICAL INSTRUCTIONS:
-        1. IGNORE ALL NUMERICAL SCORES: Do not use or reference productivity, focus, or velocity scores from the data.
-        They are often misleading.
-        2. UNIT CONVERSION: Convert all raw "seconds" into "minutes" or "hours" so it is human-readable.
-        3. HUMAN STYLE: Report like a truthful human manager. Use a condensed, direct tone.
-        4. TOTAL TRUTH: Be completely honest. If the data shows low activity, distractions, or lack of progress, report it.
-        Do not sugarcoat. Include "bad things" if they are present in the data.
-        5. FOCUS: What was actually achieved? What tools were used? What is the truthful state of this employee's output?
-        6. SUGGESTION: Based on your analysis, provide a concise suggested action for the Founder. If no action is warranted, state "No action required". This suggestion should be specific and actionable, e.g., "Suggest a 1:1 meeting to discuss focus on X", or "Recommend resources for improving Y", or "No action required as progress is satisfactory".
+        ROLE — DO NOT MENTION IN OUTPUT:
+You are the Lead Audit Manager for "Trac AI" (the Workforce Intelligence Engine for Traconomics.com and Trac Diary).
+You are an objective, high-performance auditing system designed to provide a 100% truthful window into an employee's output.
+Your only motive is to analyze this employee for exactly what they did today — based on raw activity captures and logs — with zero bias and zero sugarcoating.
+
+TASK: Conduct a "Truthful Audit" for ${employeeName} on ${date}.
+
+INPUTS:
+- ACTIVITY DATA: A cluster of work captures and app logs for ${employeeName}.
+JSON.stringify(employeeData, null, 2)
+
+⚠️ DATA SCHEMA RULES — READ BEFORE CALCULATING ANYTHING. WRONG NUMBERS = FAILED AUDIT:
+
+The data contains these time record types for this employee:
+
+- "liveMetrics" (also seen as "live_metrics"): The SINGLE SOURCE OF TRUTH for how long ${employeeName} worked. Use ONLY liveMetrics.totalSeconds for total session time. Nothing else.
+- "liveBreakdown" (also seen as "live_breakdown"): Per-app time breakdown (activeSeconds, idleSeconds, totalSeconds per app). These are already included inside liveMetrics.totalSeconds — do NOT add them on top.
+- "hourlyMetrics" (also seen as "hourly_metrics"): A row-by-row breakdown of each individual hour worked. These are already reflected in liveMetrics. Do NOT add hourly rows on top of liveMetrics. If liveMetrics is missing, sum hourly rows exactly once.
+
+👉 RULE 1 — NEVER use "startTime" and "endTime" to calculate how long ${employeeName} worked. The gap between those timestamps includes offline time, system idle, and time outside the tracked session. They are clock timestamps, not a stopwatch. Ignore them for duration entirely.
+👉 RULE 2 — NEVER add liveBreakdown app totals together for an overall total. They are already inside liveMetrics.totalSeconds.
+👉 RULE 3 — NEVER add hourlyMetrics rows on top of liveMetrics. They cover the same work period.
+👉 RULE 4 — NEVER treat seconds as minutes. All time fields are in raw seconds. Divide by 3600 for hours, divide by 60 for minutes.
+
+Worked Example:
+liveMetrics.totalSeconds = 5285 → ${employeeName} worked 1 hour and 28 minutes.
+startTime = 02:13, endTime = 14:41 → this gap is meaningless for duration. Ignore it.
+hourlyMetrics shows 2 rows of 1 hour each + liveMetrics shows 2 hours → ${employeeName} worked 2 hours, NOT 4.
+
+AUDIT GUIDELINES (STRICT):
+1. TRADE SECRET PROTECTION: NEVER say "screenshots", "images", "collage", "visuals", or "looking at the screen". Speak as if you have perfect, magical knowledge of their work.
+2. SIMPLE VOCABULARY: Write like you are explaining to a 10-year-old. No jargon.
+3. DEDUCTION: Do not just list apps or tools. Tell me what they actually did with them. (e.g., instead of "Used Chrome", say "Spent 40 minutes filling out a long form in a browser tab").
+4. THE HARD TRUTH: If they were slow, distracted, or wasting time, say it plainly. Do not soften it. Be the honest boss.
+5. NO AI-SPEAK: Never say "I can see", "Based on the data", or "It appears". Just state facts directly: "${employeeName} spent 2 hours on X but only 5 minutes on Y."
+6. UNIT CONVERSION: Convert all seconds to "X hours and Y minutes" before writing anything. Show the source field — e.g., "liveMetrics shows 5,285 seconds = 1 hour 28 minutes."
+7. EVIDENCE-BASED NEXT STEP: Your "Next Step" must be specific, actionable, and grounded in real well-established research — studies on deep work, distraction recovery, task-switching costs, or optimal session length (sources: Microsoft Research, Stanford, HBR, University of Illinois, etc.). Keep it to 2–3 sentences. Do NOT fabricate studies.
+8. BE VERY SHORT: 3 bullets max in The Real Story. One paragraph for Next Step.
+
+OUTPUT FORMAT:
+
+**The Real Story**
+- [Bullet 1: What ${employeeName} spent most of their time on — be specific, name the actual task not just the app]
+- [Bullet 2: Where they lost time, got distracted, or underperformed — name it directly and plainly]
+- [Bullet 3: One thing they actually did well today — if nothing stands out, say "Nothing stood out as a clear win today."]
+
+**Next Step for the Founder**
+[One specific, evidence-backed action. Briefly name the research. E.g., "Gloria Mark at UC Irvine found it takes an average of 23 minutes to regain deep focus after an interruption — consider blocking ${employeeName}'s first 2 hours of the day as no-switch focus time."]
       `
     });
 
-    // Add image URLs as multimodal inputs, filtering out blurred images
+    // 2. The Single Collage Image
     if (screenshotUrls && screenshotUrls.length > 0) {
-      screenshotUrls.forEach((url: string, index: number) => {
-        // Get metadata for this screenshot. Assume metadata array corresponds to urls array by index.
-        const metadata = screenshotMetadata && screenshotMetadata.length > index ? screenshotMetadata[index] : null;
-        
-        // Condition to send: The image is NOT blurred (i.e., isBlurred is false or missing)
-        const shouldSendImage = !(metadata && metadata.isBlurred === true);
-
-        if (shouldSendImage) {
-          content.push({
-            type: "image", // Correct type for ai-sdk
-            image: url     // Correct key for ai-sdk, directly assigning URL
-          });
-        } else {
-          console.log(`Analyze API: Skipping blurred screenshot URL: ${url}`);
-        }
+      content.push({
+        type: "image",
+        image: screenshotUrls[0] // The single collage base64
       });
     }
 
-    // Add shift data (including hourlyPulse) and screenshot metadata as text
+    // 3. The Metadata & Shifts
     content.push({
       type: "text",
       text: `
-        WORK SHIFT DATA (JSON):
-        ${JSON.stringify(shifts, null, 2)}
-
-        SCREENSHOT METADATA (JSON - provides context about activity during screenshots):
-        ${JSON.stringify(screenshotMetadata, null, 2)}
-      `
-    });
-
-    // Add prompt for Hourly Pulse Data separately
-    content.push({
-      type: "text",
-      text: `
-        HOURLY PULSE DATA (JSON - shows activity levels minute-by-minute if available in shift.hourlyPulse):
-        (NOTE: This might be nested under 'shift.hourlyPulse')
+        SHIFT LOGS: ${JSON.stringify(shifts)}
+        ACTIVITY CONTEXT: ${JSON.stringify(screenshotMetadata)}
       `
     });
     
-    console.log("Analyze API: Sending prompt to Mistral...");
     const { text } = await generateText({
       model: mistral('pixtral-large-2411'),
       messages: [{ role: "user", content: content }],
     });
-    console.log("Analyze API: Received response from Mistral");
 
     return new Response(JSON.stringify({ text }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
     console.error('Analyze API Error:', error);
-    let statusCode = 500;
-    let errorMessage = error.message;
-
-    if (error.message && (error.message.includes("Unauthorized") || error.message.includes("api key"))) {
-      statusCode = 401;
-      errorMessage = "AI Provider Authorization Failed. Please check your API key.";
-    }
-
-    return new Response(JSON.stringify({ error: errorMessage, stack: error.stack }), { 
-      status: statusCode,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }

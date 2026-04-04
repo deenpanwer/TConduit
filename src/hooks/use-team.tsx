@@ -8,6 +8,7 @@ import { useAuth } from "./use-auth";
 import { format, parse, isSameDay, startOfMonth, endOfMonth, isValid } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cacheOrchestrator } from "@/lib/cache-orchestrator";
+import { isEmployeeOnline } from "@/lib/utils";
 
 /**
  * TeamContext: The Global Organization Data Orchestrator
@@ -74,6 +75,14 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   const [personnelData, setPersonnelData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDate, _setSelectedDate] = useState(new Date());
+
+  // Add a 60-second ticker to force re-evaluation of staleness (online/offline)
+  // This ensures the UI reflects status changes (e.g. 5-min threshold) even when no Firestore updates occur.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Cache for monthly metrics to avoid re-fetching
   const monthCacheRef = useRef<Record<string, Record<string, { date: string; totalSeconds: number; activeEmployees: number }>>>({});
@@ -215,7 +224,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       });
       personnelListRef.current = currentUids;
 
-      const isPrivileged = userData?.role === 'Owner' || userData?.role === 'Admin' || !!userData?.ownedOrgId;
+      const role = userData?.role?.toLowerCase();
+      const isPrivileged = role === 'owner' || role === 'admin' || role === 'manager' || !!userData?.ownedOrgId;
 
       // --- BATCH PROCESSING: ARCHIVE MODE (HISTORICAL DATA) ---
       // For past dates, we avoid real-time listeners (N-listeners) to save cost and performance.
@@ -329,16 +339,25 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Handle owners
-    if (p.role === 'Owner') {
+    const role = p.role?.toLowerCase();
+    if (role === 'owner') {
       // Include owner ONLY if they have 'lastLoginAppVersion'
       return p.hasOwnProperty('lastLoginAppVersion');
     }
 
     // For non-owners, include them unless they are the currently logged-in user
-    return p.id !== user?.uid;
+    // EXCEPTION: If the user is a Manager/Admin/Owner, they might want to see themselves 
+    // in the list to monitor their own pulse/stats.
+    if (p.id === user?.uid) {
+      const myRole = userData?.role?.toLowerCase();
+      const isPrivilegedUser = myRole === 'owner' || myRole === 'admin' || myRole === 'manager' || !!userData?.ownedOrgId;
+      return isPrivilegedUser; 
+    }
+
+    return true;
   });
   const owner = Object.values(personnelData).find(p => p.id === user?.uid) || 
-                Object.values(personnelData).find(p => p.role === 'Owner') || 
+                Object.values(personnelData).find(p => p.role?.toLowerCase() === 'owner') || 
                 userData;
 
   // --- STATS DERIVATION (REACTIVE AGGREGATION) ---
@@ -359,8 +378,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     const hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }> = {};
 
     Object.values(personnelData).forEach(p => {
-      // 1. Live Pulse Tracking
-      if (p.heartbeat?.isCurrentlyRunning) activeCount++;
+      // 1. Live Pulse Tracking (Staleness Checked)
+      if (isEmployeeOnline(p)) activeCount++;
       
       // 2. Lifecycle Metrics
       totalSecondsAllTime += (p.totalSeconds || 0);

@@ -8,14 +8,14 @@ import {
   TrendingUp, ChevronRight, Globe, Fingerprint, RefreshCcw,
   CreditCard, UserPlus, Info, PlusCircle, ShieldAlert,
   Download, Monitor, MapPin, Shield, Cpu, Laptop,
-  Smartphone, Layout
+  Smartphone, Layout, Trash2, AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow, differenceInDays, isAfter, format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, isEmployeeOnline } from "@/lib/utils";
 import { toast, Toaster } from "sonner";
 import {
   Sheet,
@@ -66,7 +66,7 @@ interface StaffMember {
   role: string;
   photoUrl?: string;
   totalVisits: number;
-  visits: Record<string, any>;
+  recentSessions: any[];
   lastLoginLocation?: {
     city: string;
     country: string;
@@ -280,6 +280,87 @@ export default function InternalDashboard() {
       toast.error(`Error: ${error.message}`);
     } finally {
       setExtendingTrial(false);
+    }
+  };
+
+  /**
+   * Permanently removes a user from Auth and Firestore.
+   * Requires double confirmation for safety.
+   */
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    // 1. Initial Confirmation
+    if (!confirm(`Are you absolutely sure you want to PERMANENTLY delete user "${userName}"? This cannot be undone.`)) return;
+    
+    // 2. Double Confirmation for destructive action
+    const secondCheck = prompt("Type 'DELETE' in all caps to confirm permanent removal:");
+    if (secondCheck !== "DELETE") {
+      toast.error("Deletion aborted. Confirmation failed.");
+      return;
+    }
+
+    setUpdatingField(`${userId}-delete`);
+    try {
+      const res = await fetch("/api/internal/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete user");
+      
+      toast.success(`${userName} has been removed from the system.`);
+      
+      // Update local state for the modal
+      if (orgDetails) {
+        setOrgDetails({
+          ...orgDetails,
+          staff: orgDetails.staff.filter(s => s.id !== userId)
+        });
+      }
+      
+      // Refresh dashboard to remove from main list
+      fetchDashboardData();
+    } catch (error: any) {
+      toast.error(`Deletion Error: ${error.message}`);
+    } finally {
+      setUpdatingField(null);
+    }
+  };
+
+  /**
+   * Destructive action: Removes an entire organization and ALL its users.
+   */
+  const handleDeleteOrg = async (orgId: string, orgName: string) => {
+    // 1. Primary Warning
+    if (!confirm(`CRITICAL WARNING: You are about to delete the entire organization "${orgName}". This will ALSO delete EVERY user associated with it from Firebase Auth and Firestore. Continue?`)) return;
+    
+    // 2. Final Guardrail
+    const confirmationText = `DELETE ${orgName.toUpperCase()}`;
+    const check = prompt(`To proceed, type "${confirmationText}" exactly:`);
+    if (check !== confirmationText) {
+      toast.error("Mass deletion aborted. Text mismatch.");
+      return;
+    }
+
+    setFetchingDetails(true);
+    try {
+      const res = await fetch("/api/internal/delete-org", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete organization");
+      
+      toast.success("Organization and all linked users have been purged.");
+      setSelectedOrgId(null);
+      setOrgDetails(null);
+      
+      // Hard refresh of dashboard data
+      fetchDashboardData();
+    } catch (error: any) {
+      toast.error(`Fatal Purge Error: ${error.message}`);
+      setFetchingDetails(false);
     }
   };
 
@@ -717,9 +798,22 @@ export default function InternalDashboard() {
                         {orgDetails.org.name}
                       </h3>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        Unique ID: {orgDetails.org.id}
+                       Unique ID: {orgDetails.org.id}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Destructive Action Section (Careful Management) */}
+                  <div className="absolute top-6 right-6">
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => orgDetails && handleDeleteOrg(orgDetails.org.id, orgDetails.org.name)}
+                      className="size-10 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all"
+                      title="Purge Entire Organization"
+                    >
+                      <Trash2 size={18} />
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -820,7 +914,7 @@ export default function InternalDashboard() {
                                   <Badge className="text-[8px] font-black py-0 px-2 uppercase rounded-md">
                                     {member.role || 'Staff'}
                                   </Badge>
-                                  {member.heartbeat?.isCurrentlyRunning && (
+                                  {isEmployeeOnline(member) && (
                                     <span className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase">
                                       <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
                                     </span>
@@ -901,8 +995,26 @@ export default function InternalDashboard() {
                                   )}
                               </div>
 
-                              {/* Remote Controls */}
-                              <div className="space-y-4 pt-2">
+                                  <div className="flex items-center justify-between p-3 bg-card border border-border rounded-xl">
+                                      <div className="space-y-0.5">
+                                          <p className="text-[10px] font-black uppercase tracking-tight leading-none text-red-500">Permanent Removal</p>
+                                          <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Delete from Auth & Firestore</p>
+                                      </div>
+                                      <Button
+                                          variant="destructive"
+                                          size="icon"
+                                          disabled={updatingField === `${member.id}-delete`}
+                                          onClick={() => handleDeleteUser(member.id, member.name)}
+                                          className="size-10 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all active:scale-95 shadow-none"
+                                      >
+                                          {updatingField === `${member.id}-delete` ? (
+                                              <Loader2 size={16} className="animate-spin" />
+                                          ) : (
+                                              <Trash2 size={18} />
+                                          )}
+                                      </Button>
+                                  </div>
+
                                   <div className="flex items-center justify-between p-3 bg-card border border-border rounded-xl">
                                       <div className="space-y-0.5">
                                           <Label className="text-[10px] font-black uppercase tracking-wider">Block Trac Diary</Label>
@@ -989,7 +1101,7 @@ export default function InternalDashboard() {
                                       </div>
                                   </div>
                               </div>
-                            </div>
+                            
                           )}
 
                           {/* Diagnostics - Support information - ONLY for Employees */}
@@ -1035,48 +1147,46 @@ export default function InternalDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <TrendingUp size={18} className="text-primary" />
-                      <h4 className="text-sm font-black uppercase tracking-widest">Recent Visits</h4>
+                      <h4 className="text-sm font-black uppercase tracking-widest">Recent Activity Log</h4>
                     </div>
                     <Badge variant="outline" className="font-black text-[10px] rounded-full">
-                      Activity Logs
+                      Last 5 Sessions
                     </Badge>
                   </div>
 
                   <div className="space-y-4">
                     {(() => {
                       // Get owner data from staff list
-                      const owner = orgDetails.staff.find(s => s.role?.toLowerCase() === "owner" || s.role?.toLowerCase() === "founder") || orgDetails.staff[0];
-                      const visits = owner?.visits || {};
-                      const sessionIds = Object.keys(visits).sort((a, b) => Number(b) - Number(a)).slice(0, 5);
+                      const owner = orgDetails?.staff.find(s => s.role?.toLowerCase() === "owner" || s.role?.toLowerCase() === "founder") || orgDetails?.staff[0];
+                      const sessions = owner?.recentSessions || [];
 
-                      if (sessionIds.length === 0) {
+                      if (sessions.length === 0) {
                         return (
                           <div className="py-8 bg-secondary/20 border-2 border-dashed border-border rounded-2xl text-center">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">No visit data recorded yet</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">No session data recorded yet</p>
                           </div>
                         );
                       }
 
-                      return sessionIds.map(id => {
-                        const v = visits[id];
-                        const duration = v.durationSeconds || 0;
+                      return sessions.map(session => {
+                        const duration = session.durationSeconds || 0;
                         const mins = Math.floor(duration / 60);
                         const secs = duration % 60;
-                        const visitDate = v.startTime ? new Date(v.startTime) : new Date(Number(id));
-                        const loadTimeSeconds = (v.initialLoadTimeMs || 0) / 1000;
+                        const visitDate = new Date(session.startTime);
+                        const loadTimeSeconds = (session.initialLoadTimeMs || 0) / 1000;
                         
-                        const pageViews = Object.entries(v.pageViews || {}).sort((a: [string, any], b: [string, any]) => b[1] - a[1]);
+                        const pageViews = Object.entries(session.pageViews || {}).sort((a: [string, any], b: [string, any]) => b[1] - a[1]);
                         const totalViews = pageViews.reduce((sum, [, count]) => sum + (count as number), 0);
 
                         return (
-                          <div key={id} className="bg-card border-2 border-border p-6 rounded-2xl space-y-5 transition-all hover:border-primary/20 hover:shadow-lg">
+                          <div key={session.id} className="bg-card border-2 border-border p-6 rounded-2xl space-y-5 transition-all hover:border-primary/20 hover:shadow-lg">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="size-8 rounded-lg bg-secondary flex items-center justify-center border border-border">
                                   <Clock size={16} className="text-primary" />
                                 </div>
                                 <p className="text-xs font-black uppercase leading-none">
-                                  {visitDate && !isNaN(visitDate.getTime()) ? format(visitDate, 'MMM dd, yyyy @ hh:mm a') : `Visit ID: ${id}`}
+                                  {visitDate && !isNaN(visitDate.getTime()) ? format(visitDate, 'MMM dd, yyyy @ hh:mm a') : 'Session Start'}
                                 </p>
                               </div>
                               <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />

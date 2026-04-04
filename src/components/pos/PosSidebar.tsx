@@ -7,7 +7,8 @@ import { cn, getUserAvatar } from '@/lib/utils';
 import { 
   LayoutDashboard, ShoppingCart, ChevronsLeft, ChevronsRight, 
   Keyboard, Archive, Users, BarChart, Settings, History,
-  Moon, Sun, Briefcase, ChevronDown, X
+  Moon, Sun, Briefcase, ChevronDown, X,
+  ListTodo
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -167,8 +168,8 @@ export function PosSidebar({
                   "flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group",
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img src="/logo.svg" alt="POS Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <img src="/logo.svg" alt="POS Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">POS SYSTEM</span>
@@ -198,6 +199,18 @@ export function PosSidebar({
                   <div className="flex flex-col text-left">
                     <span className="font-bold text-sm">Dashboard</span>
                     <span className="text-[10px] text-muted-foreground">Admin & Staff</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => router.push('/tasks')}
+                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
+                >
+                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <ListTodo className="size-5 text-primary" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-sm">Tasks</span>
+                    <span className="text-[10px] text-muted-foreground">Productivity</span>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuItem 

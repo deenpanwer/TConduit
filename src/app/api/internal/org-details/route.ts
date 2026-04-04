@@ -49,6 +49,32 @@ export async function GET(req: Request) {
       const hbDoc = await adminDb.collection("users").doc(doc.id).collection("live").doc("heartbeat").get();
       const heartbeat = hbDoc.exists ? hbDoc.data() : null;
 
+      // Fetch recent sessions for this user (most recent 5)
+      const recentSessions: any[] = [];
+      try {
+        const sessionsSnap = await adminDb.collection("users").doc(doc.id).collection("sessions")
+          .orderBy("startTime", "desc")
+          .limit(5)
+          .get();
+
+        sessionsSnap.forEach(sDoc => {
+          const sData = sDoc.data();
+          recentSessions.push({
+            id: sDoc.id,
+            startTime: sData.startTime?.toDate ? sData.startTime.toDate().toISOString() : sData.startTime,
+            endTime: sData.endTime?.toDate ? sData.endTime.toDate().toISOString() : sData.endTime,
+            initialLoadTimeMs: sData.initialLoadTimeMs,
+            durationSeconds: sData.durationSeconds,
+            pathname: sData.pathname,
+            device: sData.device || {},
+            pageViews: sData.pageViews || {},
+          });
+        });
+      } catch (sessionError) {
+        console.error(`Failed to fetch sessions for user ${doc.id}:`, sessionError);
+        // Continue without sessions for this user
+      }
+
       return {
         id: doc.id,
         name: d.name || d.displayName || "Unknown",
@@ -56,7 +82,7 @@ export async function GET(req: Request) {
         role: d.role,
         photoUrl: d.photoUrl || d.photoURL,
         totalVisits: d.totalVisits || 0,
-        visits: d.visits || {},
+        recentSessions: recentSessions, // Use real session data
         lastLoginLocation: d.lastLoginLocation || null,
         lastLoginAppVersion: d.lastLoginAppVersion || null,
         lastLoginOs: d.lastLoginOs || null,
@@ -77,7 +103,7 @@ export async function GET(req: Request) {
         } : null,
         createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
         updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt,
-        lastActivity: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null)
+        lastActivity: recentSessions[0]?.startTime || (d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null))
       };
     }));
 

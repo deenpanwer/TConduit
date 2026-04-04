@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getUserAvatar } from "@/lib/utils";
+import { getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { format, parse, isValid } from "date-fns";
 
 export const WorkforceRegistry = ({
@@ -42,122 +42,80 @@ export const WorkforceRegistry = ({
   const getShiftStatus = (employee: any) => {
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
+    const isOnline = isEmployeeOnline(employee);
 
-    const isOnline = !!employee.heartbeat?.isCurrentlyRunning;
+    const scheduledStartTimeStr = employee.trackingSettings?.shiftDefaults?.startTime;
+    const scheduledEndTimeStr = employee.trackingSettings?.shiftDefaults?.endTime;
+    const hasSchedule = scheduledStartTimeStr && scheduledEndTimeStr;
 
-    const scheduledStartTimeStr =
-      employee.trackingSettings?.shiftDefaults?.startTime;
-    const scheduledEndTimeStr =
-      employee.trackingSettings?.shiftDefaults?.endTime;
-
-    const actualShift = employee.workShifts?.find((s: any) =>
-      s.id.startsWith(todayStr),
-    );
+    const actualShift = employee.workShifts?.find((s: any) => s.id.startsWith(todayStr));
     const actualStartTime = actualShift ? parseShiftDate(actualShift.startTime) : null;
+    const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
+
+    const scheduledStartTime = hasSchedule ? parse(`${todayStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+    const scheduledEndTime = hasSchedule ? parse(`${todayStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
 
     const formatDuration = (ms: number) => {
-        if (ms < 0) ms = 0;
-        const totalMinutes = Math.floor(ms / (1000 * 60));
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        
-        if (hours > 0 && minutes > 0) {
-            return `${hours}h ${minutes}m`;
-        } else if (hours > 0) {
-            return `${hours}h`;
-        } else {
-            return `${minutes}m`;
-        }
+      if (ms < 0) ms = 0;
+      const totalMinutes = Math.floor(ms / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+      if (hours > 0) return `${hours}h`;
+      return `${minutes}m`;
     };
     
     // This part of the function determines the textual status for display,
     // while the `isOnline` boolean (the source of truth) controls the green/grey dot.
 
-    if (!scheduledStartTimeStr || !scheduledEndTimeStr) {
-        if (actualStartTime) {
-          return {
-            status: isOnline ? "Online" : "Offline",
-            details: `Clocked in at ${format(actualStartTime, "hh:mm a")}`,
-            actualStartTime,
-            isOnline,
-          };
-        }
-      return { status: "Offline", details: "No active shift.", actualStartTime: null, isOnline };
-    }
-
-    const scheduledStartTime = parse(
-      `${todayStr} ${scheduledStartTimeStr}`,
-      "yyyy-MM-dd HH:mm",
-      new Date(),
-    );
-    const scheduledEndTime = parse(
-      `${todayStr} ${scheduledEndTimeStr}`,
-      "yyyy-MM-dd HH:mm",
-      new Date(),
-    );
-
-    const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
-
-    // Display logic for completed shifts
-    if (actualEndTime) {
-        if (isValid(scheduledEndTime) && actualEndTime > scheduledEndTime) {
-            const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
-            const overtimeStr = formatDuration(overtimeMs);
-            return { 
-                status: 'Completed (OT)', 
-                details: `Worked ${overtimeStr} of overtime.`,
-                actualStartTime,
-                isOnline
-            };
-        }
-        return { 
-            status: 'Completed', 
-            details: `Shift ended at ${format(actualEndTime, 'hh:mm a')}`,
-            actualStartTime,
-            isOnline
-        };
-    }
-
-    // Display logic for active shifts, which depends on the `isOnline` status
     if (isOnline) {
-      if (isValid(scheduledEndTime) && now > scheduledEndTime) {
+      if (!actualStartTime) {
+        return { details: "Awaiting first data...", actualStartTime: null, isOnline };
+      }
+      if (scheduledEndTime && isValid(scheduledEndTime) && now > scheduledEndTime) {
         const overtimeMs = now.getTime() - scheduledEndTime.getTime();
-        const overtimeStr = formatDuration(overtimeMs);
-        return {
-          status: "Overtime",
-          details: `Overtime: ${overtimeStr}`,
-          actualStartTime,
-          isOnline,
-        };
+        return { details: `Overtime: ${formatDuration(overtimeMs)}`, actualStartTime, isOnline };
       }
-      if (actualStartTime) {
-        if (isValid(scheduledStartTime) && actualStartTime > scheduledStartTime) {
+      if (scheduledStartTime && isValid(scheduledStartTime)) {
+        if (actualStartTime > scheduledStartTime) {
           const latenessMs = actualStartTime.getTime() - scheduledStartTime.getTime();
-          const latenessStr = formatDuration(latenessMs);
-          return {
-            status: "Late",
-            details: `Started ${latenessStr} late at ${format(actualStartTime, "hh:mm a")}`,
-            actualStartTime,
-            isOnline,
-          };
+          return { details: `Started ${formatDuration(latenessMs)} late`, actualStartTime, isOnline };
+        } else if (actualStartTime.getTime() < scheduledStartTime.getTime() - 60000) { // More than 1 minute early
+          const earlyMs = scheduledStartTime.getTime() - actualStartTime.getTime();
+          return { details: `Started ${formatDuration(earlyMs)} early`, actualStartTime, isOnline };
         }
-        return {
-          status: "On Time",
-          details: `Started shift at ${format(actualStartTime, "hh:mm a")}`,
-          actualStartTime,
-          isOnline,
-        };
       }
-      return { status: "Online", details: "Awaiting first data...", actualStartTime: null, isOnline };
+      return { details: "Not a single minute late", actualStartTime, isOnline };
+    }
+
+    // Fallback for an offline status based on our authoritative `isOnline` check
+    if (actualEndTime) {
+      if (scheduledEndTime && isValid(scheduledEndTime) && actualEndTime > scheduledEndTime) {
+        const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
+        return { details: `Worked ${formatDuration(overtimeMs)} of overtime.`, actualStartTime, isOnline };
+      }
+      return { details: `Shift ended at ${format(actualEndTime, 'hh:mm a')}`, actualStartTime, isOnline };
+    }
+
+    if (actualStartTime) {
+      return { details: "Session ended", actualStartTime, isOnline };
     }
     
-    // Fallback for an offline status based on our authoritative `isOnline` check
     return {
-      status: "Offline",
-      details: actualStartTime ? "Session ended" : `Scheduled: ${scheduledStartTimeStr}-${scheduledEndTimeStr}`,
+      details: hasSchedule ? `Scheduled: ${scheduledStartTimeStr}-${scheduledEndTimeStr}` : "No active shift.",
       actualStartTime: null,
       isOnline
     };
+  };
+
+  const formatTimeToAmPm = (timeString: string) => {
+    if (!timeString) return "";
+    try {
+      const date = parse(timeString, 'HH:mm', new Date());
+      return isValid(date) ? format(date, 'hh:mm a') : timeString;
+    } catch (error) {
+      return timeString;
+    }
   };
 
   const SkeletonRow = () => (
@@ -257,7 +215,7 @@ export const WorkforceRegistry = ({
                                 <span>Shift Timings</span>
                               </div>
                               <div className="text-xs font-mono font-bold text-gray-500 dark:text-gray-400 tracking-tighter text-right">
-                                <p>Scheduled: {emp.trackingSettings.shiftDefaults.startTime} - {emp.trackingSettings.shiftDefaults.endTime}</p>
+                                <p>Scheduled: {formatTimeToAmPm(emp.trackingSettings.shiftDefaults.startTime)} - {formatTimeToAmPm(emp.trackingSettings.shiftDefaults.endTime)}</p>
                                 {shiftStatus.actualStartTime ? (
                                   <p className='text-emerald-500'>Started: {format(shiftStatus.actualStartTime, 'hh:mm a')}</p>
                                 ) : <p className='opacity-50'>Started: (Pending)</p>}

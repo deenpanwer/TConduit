@@ -54,10 +54,20 @@ export async function POST(req: Request) {
         Extract the following unstructured dump into a structured task:
         "${text}"
       `;
+    } else if (mode === 'suggest_subtask') {
+      userPrompt = `
+        SUGGEST SUBTASK MODE:
+        Task Title: "${context?.title}"
+        Task Description: "${context?.description}"
+        Existing Subtasks: ${JSON.stringify(context?.subtasks || [])}
+
+        Based on the above, suggest ONE additional high-impact, atomic subtask that would be logical to include.
+        Return ONLY the JSON for the subtask: {"title": "..."}
+      `;
     }
 
     const { text: responseText } = await generateText({
-      model: mistral('mistral-large-latest'),
+      model: mistral('ministral-3b-2512'),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

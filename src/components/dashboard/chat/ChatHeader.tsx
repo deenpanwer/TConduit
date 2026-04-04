@@ -1,10 +1,6 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Bell, BellOff, BellRing } from "lucide-react";
-import { cn, getUserAvatar } from "@/lib/utils";
-import { useNotificationSettings, NotificationSetting } from "@/hooks/use-notification-settings";
+import { getUserAvatar } from "@/lib/utils";
 
 interface Employee {
   id: string;
@@ -15,12 +11,9 @@ interface Employee {
 
 interface ChatHeaderProps {
   selectedEmployee: Employee | null;
-  chatId: string | null;
 }
 
-export function ChatHeader({ selectedEmployee, chatId }: ChatHeaderProps) {
-  const { setting, updateSetting } = useNotificationSettings(chatId || '');
-  
+export function ChatHeader({ selectedEmployee }: ChatHeaderProps) {
   if (!selectedEmployee) {
     return (
       <div className="flex items-center gap-4 p-5 border-b border-border/40 bg-card/50 backdrop-blur-md">
@@ -51,24 +44,6 @@ export function ChatHeader({ selectedEmployee, chatId }: ChatHeaderProps) {
           </span>
         </div>
       </div>
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            {setting === 'all' ? <BellRing className="h-5 w-5" /> : <BellOff className="h-5 w-5 text-muted-foreground" />}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => updateSetting('all')}>
-            <Bell className="mr-2 h-4 w-4" />
-            <span>All Messages</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => updateSetting('silent')}>
-            <BellOff className="mr-2 h-4 w-4" />
-            <span>Silent</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 }

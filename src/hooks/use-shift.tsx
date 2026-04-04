@@ -53,7 +53,21 @@ export interface LeaveRequest {
   reviewedAt?: any;
   createdAt?: any;
 }
-
+export interface ShiftClaim {
+  id: string;
+  shiftId: string;
+  userId: string;
+  userName: string;
+  orgId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: 'pending' | 'approved' | 'denied';
+  createdAt: any;
+  reviewedAt?: any;
+  reviewedBy?: string;
+  reviewedByName?: string;
+}
 export interface HistoryLog {
   id: string;
   action: string;
@@ -67,15 +81,16 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [allLeaves, setAllLeaves] = useState<LeaveRequest[]>([]);
   const [allPendingLeaves, setAllPendingLeaves] = useState<LeaveRequest[]>([]);
+  const [allPendingClaims, setAllPendingClaims] = useState<ShiftClaim[]>([]);
   const [history, setHistory] = useState<HistoryLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
-
+  
   const weekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const startDateStr = format(weekStart, 'yyyy-MM-dd');
   const endDateStr = format(weekEnd, 'yyyy-MM-dd');
-
+  
   // MERGE LOGIC: Real Shifts + Recurring Virtual Shifts
   const mergedShifts = useMemo(() => {
     const combined = [...localShifts];
@@ -84,7 +99,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     employees.forEach(emp => {
       const defaults = emp.trackingSettings?.shiftDefaults;
       if (!defaults?.startTime || !defaults?.endTime) return;
-
+      
       for (let i = 0; i < 7; i++) {
         const day = addDays(weekStart, i);
         const dayStr = format(day, 'yyyy-MM-dd');
@@ -112,7 +127,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
     return combined;
   }, [localShifts, employees, weekStart, orgId]);
-
+  
   const addHistory = useCallback((action: string, details: string) => {
     setHistory((prev) => [
       {
@@ -136,7 +151,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
     const shiftsRef = collection(db, 'organizations', orgId, 'scheduled_shifts');
     const leavesRef = collection(db, 'organizations', orgId, 'leave_requests');
-
+    const claimsRef = collection(db, 'organizations', orgId, 'shift_claims');
     const qShifts = query(
       shiftsRef,
       where('date', '>=', startDateStr),
@@ -144,7 +159,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     );
 
     const qAllPendingLeaves = query(leavesRef, where('status', '==', 'pending'));
-
+    const qAllPendingClaims = query(claimsRef, where('status', '==', 'pending'));
     const unsubShifts = onSnapshot(
       qShifts,
       (snapshot) => {
@@ -167,7 +182,10 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as LeaveRequest[];
       setAllPendingLeaves(data);
     });
-
+    const unsubAllPendingClaims = onSnapshot(qAllPendingClaims, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as ShiftClaim[];
+      setAllPendingClaims(data);
+    });
     const unsubLeaves = onSnapshot(
       leavesRef,
       (snapshot) => {
@@ -186,10 +204,11 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     return () => {
       unsubShifts();
       unsubAllPending();
+      unsubAllPendingClaims();
       unsubLeaves();
     };
   }, [orgId, startDateStr, endDateStr, user?.role, user?.uid]);
-
+  
   const addShift = useCallback(
     (shift: Omit<ScheduledShift, 'id' | 'orgId' | 'lastModifiedBy' | 'lastModifiedRole'>) => {
       const id = `local_${Math.random().toString(36).substr(2, 9)}`;
@@ -197,7 +216,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         ...shift,
         id,
         orgId: orgId!,
-        lastModifiedBy: user?.uid,
+        lastModifiedBy: user?.uid || user?.id,
         lastModifiedRole: user?.role || 'manager',
         status: 'draft',
         provenance: [
@@ -280,7 +299,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     try {
       const batch = writeBatch(db);
       const shiftsRef = collection(db, 'organizations', orgId, 'scheduled_shifts');
-
+      
       const localIds = localShifts.map((s) => s.id);
       const toDelete = remoteShifts.filter((rs) => !localIds.includes(rs.id));
       toDelete.forEach((rs) => {
@@ -291,12 +310,12 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         const isNew = ls.id.startsWith('local_');
         const finalId = isNew ? doc(shiftsRef).id : ls.id;
         const shiftDoc = doc(shiftsRef, finalId);
-
+        
         const data = {
           ...ls,
           id: finalId,
           status: 'published',
-          lastModifiedBy: user.uid,
+          lastModifiedBy: user.uid || user.id,
           lastModifiedByName: user.name || user.displayName,
           updatedAt: serverTimestamp(),
           createdAt: isNew ? serverTimestamp() : ls.createdAt || serverTimestamp(),
@@ -323,7 +342,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       setIsPublishing(false);
     }
   }, [orgId, user, localShifts, remoteShifts]);
-
+  
   const discardChanges = useCallback(() => {
     setLocalShifts(remoteShifts);
     setHistory([]);
@@ -342,21 +361,21 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
       const offDays = settings?.offDays || [];
       const shiftSeconds = settings?.defaultShiftSeconds || 32400;
-
+      
       const startTime = '09:00';
       const startHour = 9;
       const durationHours = shiftSeconds / 3600;
       const endHour = (startHour + durationHours) % 24;
       const endTime = `${String(Math.floor(endHour)).padStart(2, '0')}:00`;
-
+      
       for (let i = 0; i < 7; i++) {
         const day = addDays(weekStart, i);
         const dayStr = format(day, 'yyyy-MM-dd');
         const dayName = format(day, 'EEE');
-
+        
         if (isAfter(today, day) && !isSameDay(today, day)) continue;
         if (offDays.includes(dayName)) continue;
-
+        
         employeeIds.forEach((uid) => {
           const emp = employees.find((e) => e.id === uid || e.uid === uid);
           const hasShift = newShifts.some((s) => s.userId === uid && s.date === dayStr);
@@ -397,13 +416,13 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     },
     [weekStart, localShifts, leaveRequests, orgId, user, addHistory]
   );
-  
+
   const submitLeaveRequest = useCallback(async (leaveRequestData: Omit<LeaveRequest, 'id' | 'orgId' | 'userId' | 'userName' | 'createdAt' | 'status' | 'reviewedAt' | 'reviewedBy' | 'reviewedByName'>) => {
     if (!orgId || !user) {
         toast.error("Authentication details are missing.");
         return;
     }
-
+    
     try {
         const leaveCollectionRef = collection(db, 'organizations', orgId, 'leave_requests');
         
@@ -420,43 +439,140 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         };
 
         await addDoc(leaveCollectionRef, newLeaveRequest);
-
+        
         toast.success("Leave request submitted successfully.");
-
-    } catch (error) {
+    
+      } catch (error) {
         console.error("Error submitting leave request:", error);
         toast.error("Failed to submit leave request.");
     }
   }, [orgId, user]);
+    const updateEmployeeDefaults = useCallback(async (userId: string, startTime: string | null, endTime: string | null) => {
+      try {
+        const { deleteField } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'users', userId), {
+          'trackingSettings.shiftDefaults': (startTime && endTime) ? { startTime, endTime } : deleteField()
+        });
+        toast.success(startTime ? "Default shift updated." : "Recurring shift removed.");
+      } catch (e) {
+        toast.error("Failed to update regular hours.");
+      }
+    }, []);
+    const approveClaim = useCallback(async (claim: ShiftClaim) => {
+      if (!orgId || !user) return;
+      try {
+        const batch = writeBatch(db);
+        // 1. Update the Shift document
+        const shiftRef = doc(db, 'organizations', orgId, 'scheduled_shifts', claim.shiftId);
+        batch.update(shiftRef, {
+          userId: claim.userId,
+          userName: claim.userName,
+          updatedAt: serverTimestamp(),
+          lastModifiedBy: user.uid || user.id,
+          lastModifiedRole: user.role || 'manager'
+        });
+        // 2. Update the Claim document
+        const claimRef = doc(db, 'organizations', orgId, 'shift_claims', claim.id);
+        batch.update(claimRef, {
+          status: 'approved',
+          reviewedBy: user.uid || user.id,
+          reviewedByName: user.name || user.displayName || 'Manager',
+          reviewedAt: serverTimestamp()
+        });
+        // 3. Deny other pending claims for the same shift
+        const otherClaims = allPendingClaims.filter(c => c.shiftId === claim.shiftId && c.id !== claim.id);
+        otherClaims.forEach(oc => {
+          const ocRef = doc(db, 'organizations', orgId, 'shift_claims', oc.id);
+          batch.update(ocRef, {
+            status: 'denied',
+            reviewedBy: user.uid || user.id,
+            reviewedByName: user.name || user.displayName || 'Manager',
+            reviewedAt: serverTimestamp(),
+            denialReason: 'Shift assigned to another employee'
+          });
+        });
+        await batch.commit();
+        toast.success(`Shift claim for ${claim.userName} approved.`);
+      } catch (error) {
+        console.error("Error approving claim:", error);
+        toast.error("Failed to approve shift claim.");
+      }
+    }, [orgId, user, allPendingClaims]);
 
-  const updateEmployeeDefaults = useCallback(async (userId: string, startTime: string | null, endTime: string | null) => {
-    try {
-      const { deleteField } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'users', userId), {
-        'trackingSettings.shiftDefaults': (startTime && endTime) ? { startTime, endTime } : deleteField()
-      });
-      toast.success(startTime ? "Default shift updated." : "Recurring shift removed.");
-    } catch (e) {
-      toast.error("Failed to update regular hours.");
+      const denyClaim = useCallback(async (claim: ShiftClaim, reason?: string) => {
+        if (!orgId || !user) return;
+        try {
+          const claimRef = doc(db, 'organizations', orgId, 'shift_claims', claim.id);
+          await updateDoc(claimRef, {
+            status: 'denied',
+            reviewedBy: user.uid || user.id,
+            reviewedByName: user.name || user.displayName || 'Manager',
+            reviewedAt: serverTimestamp(),
+            denialReason: reason || 'Declined by manager'
+          });
+          toast.success(`Shift claim for ${claim.userName} denied.`);
+        } catch (error) {
+          console.error("Error denying claim:", error);
+          toast.error("Failed to deny shift claim.");
+        }
+      }, [orgId, user]);
+      const approveLeave = useCallback(async (req: LeaveRequest) => {
+        if (!orgId || !user) return;
+        try {
+          const ref = doc(db, "organizations", orgId, "leave_requests", req.id);
+          await updateDoc(ref, {
+            status: 'approved',
+            reviewedBy: user.uid || user.id,
+            reviewedByName: user.name || user.displayName || 'Manager',
+            reviewedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          toast.success(`Leave request for ${req.userName} approved.`);
+        } catch (e) {
+          console.error("Leave approval error:", e);
+          toast.error("Failed to approve leave.");
+        }
+      }, [orgId, user]);
+
+      const denyLeave = useCallback(async (req: LeaveRequest, denialReason: string) => {
+        if (!orgId || !user) return;
+        try {
+          const ref = doc(db, "organizations", orgId, "leave_requests", req.id);
+          await updateDoc(ref, {
+            status: 'denied',
+            denialReason: denialReason || 'Declined by manager',
+            reviewedBy: user.uid || user.id,
+            reviewedByName: user.name || user.displayName || 'Manager',
+            reviewedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          toast.success(`Leave request for ${req.userName} denied.`);
+        } catch (e) {
+          console.error("Leave denial error:", e);
+          toast.error("Failed to deny leave.");
+        }
+      }, [orgId, user]);
+      return {
+        shifts: mergedShifts,
+        leaveRequests,
+        allLeaves,
+        allPendingLeaves,
+        allPendingClaims,
+        history,
+        loading,
+        isPublishing,
+        hasChanges: JSON.stringify(localShifts) !== JSON.stringify(remoteShifts),
+        addShift,
+        updateShift,
+        deleteShift,
+        publishChanges,
+        discardChanges,
+        smartFill,
+        submitLeaveRequest,
+        updateEmployeeDefaults,
+        approveClaim,
+        denyClaim,
+        approveLeave,
+        denyLeave
+      };
     }
-  }, []);
-
-  return {
-    shifts: mergedShifts,
-    leaveRequests,
-    allLeaves,
-    allPendingLeaves,
-    history,
-    loading,
-    isPublishing,
-    hasChanges: JSON.stringify(localShifts) !== JSON.stringify(remoteShifts),
-    addShift,
-    updateShift,
-    deleteShift,
-    publishChanges,
-    discardChanges,
-    smartFill,
-    submitLeaveRequest,
-    updateEmployeeDefaults
-  };
-}
