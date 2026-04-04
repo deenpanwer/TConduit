@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useRef, Suspense } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
@@ -28,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   
   // --- DETAILED ANALYTICS TRACKING REFS ---
   // We use refs to store session information across re-renders without triggering them.
@@ -192,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       logDuration(); // Final attempt to log duration.
       window.removeEventListener("beforeunload", logDuration);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [user]); // Re-run if the user object changes.
 
@@ -227,7 +226,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Client-side redirect if session is lost or onboarding not completed.
+  return (
+    <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
+      <Suspense fallback={null}>
+        <AuthRedirectHandler 
+          user={user} 
+          userData={userData} 
+          loading={loading} 
+          pathname={pathname} 
+          router={router} 
+        />
+      </Suspense>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+function AuthRedirectHandler({ user, userData, loading, pathname, router }: any) {
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     const isProtectedPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks");
     const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
@@ -247,12 +264,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user, userData, loading, pathname, searchParams, router]);
-    
-  return (
-    <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
-      {children}
-    </AuthContext.Provider>
-  );
+
+  return null;
 }
 
 export const useAuth = () => useContext(AuthContext);

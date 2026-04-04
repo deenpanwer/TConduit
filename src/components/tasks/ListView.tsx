@@ -246,7 +246,7 @@ const TaskRowDesktop = ({
                                 <span>Subtasks</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleBranchToggle('resources')} className='gap-2'>
-                                {expandedBranches.resources ? <ChevronDown size={14}/> : <LinkIcon size={14} />}\
+                                {expandedBranches.resources ? <ChevronDown size={14}/> : <LinkIcon size={14} />}
                                 <span>Resources</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
