@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import TimezoneSelect, { type ITimezone, allTimezones } from 'react-timezone-select';
+
 
 const TEAM_SIZES = [
   { id: "1", label: "1 (Just me)" },
@@ -57,7 +58,7 @@ const DAYS = [
   { id: 0, label: "Sun" },
 ];
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -949,5 +950,17 @@ export default function OnboardingPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   );
 }

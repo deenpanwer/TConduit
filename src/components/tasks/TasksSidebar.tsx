@@ -289,8 +289,8 @@ export function TasksSidebar({
               </Tooltip>
             </TooltipProvider>
             <div className="space-y-1">
-                <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && view === "list"} />
-                <NavItem icon={LayoutGrid} label="Board View" href="/tasks?view=board" active={pathname === "/tasks" && (view === "board" || !view)} />
+                <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && (view === "list" || !view)} />
+                <NavItem icon={LayoutGrid} label="Board View" href="/tasks?view=board" active={pathname === "/tasks" && view === "board"} />
                 <NavItem icon={Calendar} label="Timeline View" href="/tasks?view=timeline" active={pathname === "/tasks" && view === "timeline"} />
             </div>
 

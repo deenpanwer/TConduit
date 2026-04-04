@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCRMLeads } from "@/hooks/use-crm-leads";
 import { useCRMNotes } from "@/hooks/use-crm-notes";
@@ -38,7 +38,7 @@ interface CallModalState {
     isOpen: boolean;
 }
 
-export default function LeadDetailPage() {
+function LeadDetailPageContent() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -201,6 +201,14 @@ export default function LeadDetailPage() {
         <DialogContent><DialogHeader><DialogTitle>Graduate to Deal?</DialogTitle></DialogHeader><div className="py-10 text-center space-y-8"><p>This will convert the lead into an active business opportunity.</p><div className="flex gap-4 pt-4 justify-center"><Button variant="ghost" onClick={() => setIsConvertModalOpen(false)}>Hold Back</Button><Button onClick={async () => { await updateEntity(lead.id, { status: 'qualified' }); toast.success("Lead Qualified!"); setIsConvertModalOpen(false);}}>Convert Now</Button></div></div></DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function LeadDetailPage() {
+  return (
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin" size={32} /></div>}>
+      <LeadDetailPageContent />
+    </Suspense>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useCRM, CRMEntity, FieldConfig, ViewConfig, CRMConfig } from "@/hooks/use-crm";
 import { Button } from "@/components/ui/button";
 import { 
@@ -450,7 +450,7 @@ const CRMListView = ({
   );
 };
 
-export default function NotesPage() {
+function NotesPageContent() {
   const { notes, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity, config, leads } = useCRM();
   const router = useRouter();
   const pathname = usePathname();
@@ -649,5 +649,17 @@ export default function NotesPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function NotesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    }>
+      <NotesPageContent />
+    </Suspense>
   );
 }

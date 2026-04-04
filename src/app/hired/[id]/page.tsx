@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { OnboardingHub } from "@/components/OnboardingHub";
 import { useHiredCandidates } from "@/hooks/use-hired-candidates";

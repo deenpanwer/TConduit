@@ -1,7 +1,7 @@
 "use client";
 
 import 'regenerator-runtime/runtime';
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback, Suspense } from "react";
 import { 
   motion, AnimatePresence, LayoutGroup 
 } from "framer-motion";
@@ -56,6 +56,9 @@ const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
 
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSidebar } from '@/hooks/use-sidebar';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/router';
 
 function TasksPageContent() {
   const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
@@ -63,10 +66,22 @@ function TasksPageContent() {
   const { user, userData } = useAuth();
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
+  const { setIsMobileOpen } = useSidebar();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
-  const [activeView, setActiveView] = useState<"board" | "timeline" | "list">("board");
+  
+  const activeView = (searchParams.get("view") as "board" | "timeline" | "list") || "list";
+
+  const setActiveView = (view: "board" | "timeline" | "list") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", view);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   const [editingNewTask, setEditingNewTask] = useState<Partial<Task> | null>(null);
   const [pendingVoiceTaskData, setPendingVoiceTaskData] = useState<Partial<Task> | null>(null);
   
@@ -461,6 +476,14 @@ function TasksPageContent() {
 
                 <div className="flex items-center gap-1 border-l border-border/40 pl-3">
                     <Button 
+                        variant={activeView === "list" ? "secondary" : "ghost"} 
+                        size="sm" 
+                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
+                        onClick={() => setActiveView("list")}
+                    >
+                        <ListIcon size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "List"}
+                    </Button>
+                    <Button 
                         variant={activeView === "board" ? "secondary" : "ghost"} 
                         size="sm" 
                         className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
@@ -475,14 +498,6 @@ function TasksPageContent() {
                         onClick={() => setActiveView("timeline")}
                     >
                         <Clock size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Timeline"}
-                    </Button>
-                    <Button 
-                        variant={activeView === "list" ? "secondary" : "ghost"} 
-                        size="sm" 
-                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
-                        onClick={() => setActiveView("list")}
-                    >
-                        <ListIcon size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "List"}
                     </Button>
                 </div>
 
@@ -1397,7 +1412,16 @@ function TasksPageContent() {
 export default function TasksPage() {
     return (
         <TasksProvider>
-            <TasksPageContent />
+            <Suspense fallback={
+                <div className="flex-1 flex items-center justify-center bg-background">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        <p className="text-muted-foreground font-medium animate-pulse">Initializing Workspace...</p>
+                    </div>
+                </div>
+            }>
+                <TasksPageContent />
+            </Suspense>
         </TasksProvider>
     );
 }

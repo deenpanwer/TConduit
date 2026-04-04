@@ -26,8 +26,9 @@ import { NoteModal } from "@/components/crm/forms/NoteModal";
 import { CRMEntity } from "@/hooks/use-crm-module";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { Suspense } from "react";
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   const { user } = useAuth();
   const { entities: leads, config, updateEntity, deleteEntity, updateConfig, pageSize, setPageSize, addEntity, loading } = useCRMLeads();
   const { addEntity: addNote } = useCRMNotes();
@@ -289,5 +290,17 @@ export default function LeadsPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    }>
+      <LeadsPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useCRM, CRMEntity, FieldConfig, ViewConfig, CRMConfig } from "@/hooks/use-crm";
 import { Button } from "@/components/ui/button";
 import { 
@@ -455,7 +455,7 @@ const CRMListView = ({
   );
 };
 
-export default function CallLogsPage() {
+function CallLogsPageContent() {
   const { calls, leads, config, loading, updateEntity, deleteEntity, updateModuleConfig, pageSize, setPageSize, addEntity } = useCRM();
   const router = useRouter();
   const pathname = usePathname();
@@ -601,5 +601,17 @@ export default function CallLogsPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function CallLogsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    }>
+      <CallLogsPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useCRMDeals } from "@/hooks/use-crm-deals";
 import { useCRM } from "@/hooks/use-crm";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { CRMTable } from "@/components/crm/shared/CRMTable";
 import { CRMKanban } from "@/components/crm/shared/CRMKanban";
 
-export default function DealsPage() {
+function DealsPageContent() {
   const { 
     entities, config, loading, updateEntity, deleteEntity, updateConfig, 
     pageSize, setPageSize, addEntity, searchQuery, setSearchQuery,
@@ -240,5 +240,17 @@ export default function DealsPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function DealsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    }>
+      <DealsPageContent />
+    </Suspense>
   );
 }

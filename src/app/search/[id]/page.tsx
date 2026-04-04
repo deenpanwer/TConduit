@@ -12,7 +12,7 @@ import {
   Star, Clock, Zap, MessageSquare, CheckCircle, 
   Layers, Box, Menu, ChevronDown, ChevronRight, Check
 } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useTheme } from "next-themes";
 import { CandidateCard } from "@/components/ai-elements/CandidateCard";
 import ProfileDrawer2 from "@/components/ai-elements/ProfileDrawer2";
@@ -40,7 +40,7 @@ interface UnifiedProfile {
   raw_data: any; 
 }
 
-const SearchPage = () => {
+const SearchPageContent = () => {
   const [stage, setStage] = useState("stage1");
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -540,4 +540,31 @@ const SearchPage = () => {
   );
 };
 
-export default SearchPage;
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+const Loader2 = ({ className, size }: { className?: string, size?: number }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size || 24} 
+    height={size || 24} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={cn("animate-spin", className)}
+  >
+    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+  </svg>
+);
