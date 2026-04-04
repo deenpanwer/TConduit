@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('trac_auth_session');
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   // 1. Only protect the dashboard root and its sub-pages
   // We explicitly EXCLUDE login and signup from protection
@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
   if (isProtectedPage && !isAuthPage) {
     if (!session || !session.value) {
       const loginUrl = new URL('/dashboard/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
+      loginUrl.searchParams.set('callbackUrl', pathname + search);
       return NextResponse.redirect(loginUrl);
     }
   }

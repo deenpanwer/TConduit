@@ -57,8 +57,7 @@ const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSidebar } from '@/hooks/use-sidebar';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useRouter } from 'next/router';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function TasksPageContent() {
   const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();

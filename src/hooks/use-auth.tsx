@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import posthog from 'posthog-js';
 import { getPageLoadTime, getDeviceCapabilities, getPushSubscription } from "@/lib/performance";
 
@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   
   // --- DETAILED ANALYTICS TRACKING REFS ---
   // We use refs to store session information across re-renders without triggering them.
@@ -233,17 +234,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isOnboardingPage = pathname?.includes("/onboarding");
 
     if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
+      const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/dashboard");
+      
       if (!user) {
         const loginUrl = new URL("/dashboard/login", window.location.origin);
-        loginUrl.searchParams.set("callbackUrl", pathname || "/dashboard");
+        loginUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(loginUrl.pathname + loginUrl.search);
       } else if (userData && !userData.onboardingCompleted) {
         const onboardingUrl = new URL("/dashboard/onboarding", window.location.origin);
-        onboardingUrl.searchParams.set("callbackUrl", pathname || "/dashboard");
+        onboardingUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(onboardingUrl.pathname + onboardingUrl.search);
       }
     }
-  }, [user, userData, loading, pathname, router]);
+  }, [user, userData, loading, pathname, searchParams, router]);
     
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>

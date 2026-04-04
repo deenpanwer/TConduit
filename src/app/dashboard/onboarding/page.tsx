@@ -103,7 +103,7 @@ function OnboardingContent() {
 
         // Compatibility with Electron app field name 'employeeOnboardingV1Complete'
         if (data?.onboardingCompleted || data?.employeeOnboardingV1Complete) {
-          router.push("/dashboard");
+          router.push(callbackUrl);
           return;
         }
 
