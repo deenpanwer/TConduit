@@ -11,6 +11,7 @@ import { TeamProvider } from '@/hooks/use-team';
 import { TasksProvider } from '@/hooks/useTasks';
 import { CRMProvider } from '@/hooks/use-crm';
 import { PosProvider } from '@/hooks/use-pos';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -63,16 +64,18 @@ export default function RootLayout({
                 <TasksProvider>
                 <PosProvider> {/* <-- Wrap with PosProvider */} 
                  <CRMProvider>
-                  <ThemeProvider
-                    attribute="class"
-                    defaultTheme="system"
-                    enableSystem
-                    disableTransitionOnChange
-                  >
-                    {children}
-                    <Toaster />
-                    <Analytics />
-                  </ThemeProvider>
+                  <TooltipProvider>
+                    <ThemeProvider
+                      attribute="class"
+                      defaultTheme="system"
+                      enableSystem
+                      disableTransitionOnChange
+                    >
+                      {children}
+                      <Toaster />
+                      <Analytics />
+                    </ThemeProvider>
+                  </TooltipProvider>
                  </CRMProvider>
                  </PosProvider>
                 </TasksProvider>

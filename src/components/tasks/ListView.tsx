@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { 
   Plus, ChevronRight, 
   ChevronDown, Save, Undo2, 
@@ -10,7 +10,12 @@ import {
   UserPlus, X,
   Check,
   Trash2,
-  GripVertical
+  GripVertical,
+  Image as ImageIcon,
+  Type,
+  Maximize2,
+  ListTodo,
+  Minus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -22,6 +27,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import { 
+    Tooltip, 
+    TooltipContent, 
+    TooltipProvider, 
+    TooltipTrigger 
+} from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn, getUserAvatar } from '@/lib/utils';
@@ -86,8 +97,60 @@ const PriorityPill = ({ priority, onChange, disabled }: { priority: Priority, on
 };
 
 /**
+ * A specialized cell for duration (hours).
+ * Provides a dropdown for days and a numeric input for remaining hours.
+ */
+const HoursCell = ({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) => {
+    const days = Math.floor(value / 24);
+    const hours = value % 24;
+
+    const dayOptions = [
+        { label: '0d', val: 0 },
+        { label: '1d', val: 1 },
+        { label: '2d', val: 2 },
+        { label: '3d', val: 3 },
+        { label: '4d', val: 4 },
+        { label: '5d', val: 5 },
+        { label: '1w', val: 7 },
+    ];
+
+    const currentDayOpt = dayOptions.find(o => o.val === days) || { label: `${days}d`, val: days };
+
+    return (
+        <div className='flex items-center h-full w-full group/hours'>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={disabled}>
+                    <div className='h-full px-2 flex items-center justify-center border-r border-border/40 text-[10px] font-black cursor-pointer hover:bg-secondary/10 transition-colors uppercase bg-orange-500/5 text-orange-600'>
+                        {currentDayOpt.label}
+                    </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='center' className='min-w-[80px]'>
+                    {dayOptions.map(opt => (
+                        <DropdownMenuItem key={opt.val} onClick={() => onChange(opt.val * 24 + hours)}>
+                            {opt.label}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <div className='flex-1 h-full'>
+                <GridCell 
+                    isEditable={!disabled} 
+                    type='number' 
+                    value={hours} 
+                    onChange={(v) => onChange(days * 24 + Math.max(0, v))} 
+                    className='text-center font-mono font-bold text-orange-600 pr-0 pl-1'
+                    placeholder='h'
+                    min={0}
+                />
+            </div>
+        </div>
+    );
+};
+
+/**
  * A generic, editable cell for the grid.
  * Toggles between a display view and an input field on click.
+ * It maintains a stable `relative` positioned container to prevent layout jumps.
  */
 const GridCell = ({ 
     children, 
@@ -96,7 +159,12 @@ const GridCell = ({
     value,
     onChange,
     type = 'text',
-    placeholder = ''
+    placeholder = '',
+    multiline = false,
+    startInEditMode = false,
+    onDidEndEditing,
+    min,
+    step,
 }: { 
     children?: React.ReactNode, 
     className?: string, 
@@ -104,54 +172,545 @@ const GridCell = ({
     value?: string | number,
     onChange?: (val: any) => void,
     type?: 'text' | 'number',
-    placeholder?: string
+    placeholder?: string,
+    multiline?: boolean,
+    startInEditMode?: boolean,
+    onDidEndEditing?: () => void,
+    min?: number,
+    step?: number,
 }) => {
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing, setIsEditing] = useState(startInEditMode);
     const inputRef = useRef<HTMLInputElement>(null);
+    const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
     // Focus and select the input text when entering edit mode.
     useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
+        if (isEditing) {
+            // Use a timeout to ensure the element is visible and focusable after the state update.
+            const timer = setTimeout(() => {
+                if (multiline && textAreaRef.current) {
+                    textAreaRef.current.focus();
+                    textAreaRef.current.select();
+                } else if (inputRef.current) {
+                    inputRef.current.focus();
+                    inputRef.current.select();
+                }
+            }, 0);
+            return () => clearTimeout(timer);
         }
-    }, [isEditing]);
+    }, [isEditing, multiline]);
 
-    // Render an input field if in edit mode.
-    if (isEditable && isEditing) {
-        return (
-            <div className={cn('h-full w-full border-2 border-primary z-10 bg-background', className)}>
-                <input 
-                    ref={inputRef}
-                    type={type}
-                    value={value}
-                    onChange={(e) => onChange?.(type === 'number' ? Number(e.target.value) : e.target.value)}
-                    onBlur={() => setIsEditing(false)}
-                    onKeyDown={(e) => e.key === 'Enter' && setIsEditing(false)}
-                    className='w-full h-full px-3 text-sm bg-transparent outline-none font-medium'
-                    placeholder={placeholder}
-                />
-            </div>
-        );
-    }
+    const exitEditing = () => {
+        setIsEditing(false);
+        if (onDidEndEditing) {
+            onDidEndEditing();
+        }
+    };
 
-    // Render the display view.
+    const handleEditorKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            exitEditing();
+        }
+    };
+
     return (
         <div 
             className={cn(
-                'h-full w-full flex items-center px-3 text-sm transition-colors', 
+                'relative h-full w-full flex items-center px-3 text-sm transition-colors',
                 isEditable && 'cursor-text hover:bg-secondary/10',
-                'truncate'
+                className
             )}
-            onClick={() => isEditable && setIsEditing(true)}
+            onClick={() => isEditable && !isEditing && setIsEditing(true)}
         >
-            {children || (value !== null && value !== undefined && value !== '') 
-                ? <div className="truncate">{String(value)}</div> 
-                : (isEditable ? <span className="text-muted-foreground/30 font-normal italic">{placeholder || "Empty"}</span> : value)}
+            {/* --- Display View (conditionally invisible) --- */}
+            <div className={cn('w-full truncate', isEditing && 'invisible')}>
+                {children || (value !== null && value !== undefined && value !== '') 
+                    ? String(value) 
+                    : (isEditable ? <span className="text-muted-foreground/30 font-normal italic">{placeholder || "Empty"}</span> : value)}
+            </div>
+
+            {/* --- Editing View (Conditional Overlay) --- */}
+            {isEditable && isEditing && (
+                 <div className={cn(
+                    'absolute top-0 left-0 right-0 z-20 bg-background shadow-lg ring-2 ring-primary',
+                    multiline ? 'h-auto' : 'h-full'
+                )}>
+                    {multiline ? (
+                        <textarea 
+                            ref={textAreaRef}
+                            value={value}
+                            onChange={(e) => onChange?.(e.target.value)}
+                            onBlur={exitEditing}
+                            onKeyDown={handleEditorKeyDown}
+                            className='w-full p-3 text-sm bg-background outline-none font-medium resize-none overflow-y-auto min-h-[120px] max-h-[240px] whitespace-pre-wrap'
+                            placeholder={placeholder}
+                        />
+                    ) : (
+                        <input 
+                            ref={inputRef}
+                            type={type}
+                            value={value}
+                            onChange={(e) => onChange?.(type === 'number' ? Number(e.target.value) : e.target.value)}
+                            onBlur={exitEditing}
+                            onKeyDown={handleEditorKeyDown}
+                            className='w-full h-full px-3 text-sm bg-transparent outline-none font-medium'
+                            placeholder={placeholder}
+                            min={min}
+                            step={step}
+                        />
+                    )}
+                    <div className="absolute -bottom-5 right-0 text-[9px] font-bold text-primary uppercase tracking-tighter bg-background px-1 border border-primary/20 rounded shadow-sm">
+                        Enter to save
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
+
+/**
+ * A zoomable image modal with pan/move ability.
+ */
+const ImageModal = ({ url, title, onClose }: { url: string; title: string; onClose: () => void }) => {
+    const [scale, setScale] = useState(1);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+
+    return (
+        <div className='fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md' onClick={onClose}>
+            <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }} 
+                animate={{ scale: 1, opacity: 1 }}
+                className='relative max-w-[90vw] max-h-[90vh] bg-card rounded-2xl shadow-2xl overflow-hidden'
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className='absolute top-4 right-4 z-10 flex gap-2'>
+                    <button onClick={() => setScale(s => Math.min(s + 0.2, 3))} className='p-2 rounded-full bg-background/50 hover:bg-background transition-colors'><Plus size={18} /></button>
+                    <button onClick={() => setScale(s => Math.max(s - 0.2, 0.5))} className='p-2 rounded-full bg-background/50 hover:bg-background transition-colors'><Minus size={18} /></button>
+                    <button onClick={onClose} className='p-2 rounded-full bg-primary text-primary-foreground hover:brightness-110 transition-colors'><X size={18} /></button>
+                </div>
+
+                <div className='p-4 border-b border-border/40'>
+                    <h3 className='font-bold text-sm'>{title}</h3>
+                </div>
+
+                <div className='relative overflow-hidden cursor-move flex items-center justify-center' style={{ width: '80vw', height: '70vh' }}>
+                    <motion.img 
+                        src={url} 
+                        alt={title}
+                        drag
+                        dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                        style={{ scale, x: position.x, y: position.y }}
+                        className='max-w-full max-h-full object-contain pointer-events-auto'
+                    />
+                </div>
+                
+                <div className="p-2 bg-secondary/20 flex justify-center gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    <span>Scroll to zoom</span>
+                    <span>Drag to move</span>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
+/**
+ * A small preview of an image that can be clicked to open the modal.
+ */
+const ImagePreview = ({ url, title }: { url: string; title: string }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <>
+            <div className='relative size-8 rounded-md overflow-hidden cursor-zoom-in group shadow-sm border border-border/40' onClick={() => setIsOpen(true)}>
+                <img src={url} alt={title} className='w-full h-full object-cover transition-transform group-hover:scale-110' />
+                <div className='absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity'>
+                    <Maximize2 size={12} className='text-white' />
+                </div>
+            </div>
+            {isOpen && <ImageModal url={url} title={title} onClose={() => setIsOpen(false)} />}
+        </>
+    );
+}
+
+/**
+ * A ticker/badge for showing sub-item counts.
+ */
+const CountTicker = ({ count, icon: Icon, color }: { count: number, icon: any, color: string }) => {
+    if (count === 0) return null;
+    return (
+        <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase", color)}>
+            <Icon size={10} />
+            <span>{count}</span>
+        </div>
+    );
+};
+
+interface HierarchicalTableProps {
+    items: any[];
+    type: 'subtasks' | 'resources' | 'descriptions' | 'images';
+    depth: number;
+    onUpdate: (updatedItems: any[]) => void;
+    onDelete: (id: string) => void;
+    isParentExpanded: boolean;
+    itemToAutoEdit?: string | null;
+    onItemEditDone?: () => void;
+    shouldFocusQuickAdd?: boolean;
+    onFocusHandled?: () => void;
+    onAISuggest?: () => Promise<void>;
+    isLoading?: boolean;
+}
+
+const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExpanded, itemToAutoEdit, onItemEditDone, shouldFocusQuickAdd, onFocusHandled, onAISuggest, isLoading }: HierarchicalTableProps) => {
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [quickAddValue, setQuickAddValue] = useState("");
+    const [isSuggestingAI, setIsSuggestingAI] = useState(false);
+    const quickAddInputRef = useRef<HTMLInputElement>(null);
+
+    // ... (rest of the component)
+
+    const handleSuggestAI = async () => {
+        if (!onAISuggest) return;
+        setIsSuggestingAI(true);
+        try {
+            await onAISuggest();
+        } finally {
+            setIsSuggestingAI(false);
+        }
+    };
+
+    // When the parent container expands, focus the quick add input for low-latency entry.
+    useEffect(() => {
+        if (shouldFocusQuickAdd || isLoading) {
+            setIsCollapsed(false);
+            if (shouldFocusQuickAdd) {
+                // Timeout allows animation to finish before focusing.
+                const timer = setTimeout(() => {
+                    quickAddInputRef.current?.focus();
+                }, 200);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [shouldFocusQuickAdd, isLoading]);
+
+    // If this table has the item that needs to be auto-edited, make sure this table is expanded.
+    useEffect(() => {
+        if (itemToAutoEdit && items.some(item => item.id === itemToAutoEdit)) {
+            setIsCollapsed(false);
+        }
+    }, [itemToAutoEdit, items]);
+
+    const config = {
+        subtasks: { label: 'Subtasks', icon: ListTodo, color: 'blue', bg: 'bg-blue-500/5', text: 'text-blue-800 dark:text-blue-200', border: 'border-blue-500/20' },
+        resources: { label: 'Resources', icon: LinkIcon, color: 'purple', bg: 'bg-purple-500/5', text: 'text-purple-800 dark:text-purple-200', border: 'border-purple-500/20' },
+        descriptions: { label: 'Notes', icon: Type, color: 'emerald', bg: 'bg-emerald-500/5', text: 'text-emerald-800 dark:text-emerald-200', border: 'border-emerald-500/20' },
+        images: { label: 'Images', icon: ImageIcon, color: 'orange', bg: 'bg-orange-500/5', text: 'text-orange-800 dark:text-orange-200', border: 'border-orange-500/20' },
+    }[type];
+
+    // Lighter background based on depth
+    const backgroundStyle = { 
+        backgroundColor: `hsla(${type === 'subtasks' ? 221 : type === 'resources' ? 281 : type === 'descriptions' ? 142 : 24}, 80%, ${95 - (depth * 2)}%, ${0.05 + (depth * 0.02)})` 
+    };
+
+    const handleUpdateItem = (id: string, updates: any) => {
+        onUpdate(items.map(item => item.id === id ? { ...item, ...updates } : item));
+    };
+
+    const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+    const [itemActiveTypeToFocus, setItemActiveTypeToFocus] = useState<Record<string, string | null>>({});
+
+    const toggleExpand = (id: string) => {
+        setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const handleItemQuickAdd = (itemId: string, subType: string) => {
+        setExpandedIds(prev => ({ ...prev, [itemId]: true }));
+        setItemActiveTypeToFocus(prev => ({ ...prev, [itemId]: subType }));
+    };
+
+    return (
+        <div className={cn('border-l-2 ml-10', config.border)} style={backgroundStyle}>
+            {/* Header */}
+            <div 
+                className={cn('flex h-8 text-xs font-bold items-center gap-2 px-4 uppercase tracking-widest', config.text, 'cursor-pointer')}
+                onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+                <config.icon size={14} />
+                <span>{config.label}</span>
+                {(items.length > 0 || isLoading) && <ChevronRight size={14} className={cn('transition-transform text-muted-foreground/50', !isCollapsed && 'rotate-90')} />}
+                <span className='ml-auto bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-full text-[10px]'>{items.length}</span>
+            </div>
+
+            {/* Items */}
+            <AnimatePresence>
+                {!isCollapsed && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className='overflow-hidden'>
+                        <div className='flex flex-col'>
+                            {items.map((item, idx) => (
+                                <div key={item.id} className='flex flex-col border-b border-border/40 group/item'>
+                                    <div className='flex h-10 items-center hover:bg-black/5 dark:hover:bg-white/5 transition-colors'>
+                                        {/* Actions/Expand */}
+                                        <div className='w-10 shrink-0 flex items-center justify-center'>
+                                            {(item.subtasks?.length > 0 || item.resources?.length > 0 || item.images?.length > 0 || item.descriptions?.length > 0) && (
+                                                <button onClick={() => toggleExpand(item.id)} className='p-1 rounded-full hover:bg-black/10'>
+                                                    <ChevronRight size={14} className={cn('transition-transform', expandedIds[item.id] && 'rotate-90')} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Main Content Cell */}
+                                        <div className='flex-1 flex items-center px-3 gap-3'>
+                                            {type === 'subtasks' && (
+                                                <button onClick={() => handleUpdateItem(item.id, { completed: !item.completed })}>
+                                                    {item.completed ? <CheckCircle2 size={16} className='text-blue-500' /> : <Circle size={16} className='text-muted-foreground/30' />}
+                                                </button>
+                                            )}
+                                            
+                                            {type === 'images' && <ImagePreview url={item.url} title={item.title} />}
+
+                                            <div className='flex-1 flex flex-col justify-center'>
+                                                {type === 'descriptions' ? (
+                                                    <GridCell 
+                                                        isEditable 
+                                                        multiline
+                                                        value={item.text} 
+                                                        onChange={(v) => handleUpdateItem(item.id, { text: v })} 
+                                                        placeholder='Add description...'
+                                                        startInEditMode={item.id === itemToAutoEdit}
+                                                        onDidEndEditing={onItemEditDone}
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <GridCell 
+                                                            isEditable 
+                                                            value={item.title} 
+                                                            onChange={(v) => handleUpdateItem(item.id, { title: v })} 
+                                                            placeholder='Title'
+                                                            className={cn('font-bold', type === 'subtasks' && item.completed && 'line-through text-muted-foreground')}
+                                                            startInEditMode={item.id === itemToAutoEdit}
+                                                            onDidEndEditing={onItemEditDone}
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+                                            
+                                            {type === 'resources' && (
+                                                <div className='flex-[1.5] min-w-0'>
+                                                    <GridCell 
+                                                        isEditable 
+                                                        value={item.url} 
+                                                        onChange={(v) => handleUpdateItem(item.id, { url: v })} 
+                                                        placeholder='URL'
+                                                        className='text-xs text-blue-500 hover:underline truncate'
+                                                    />
+                                                </div>
+                                            )}
+                                            
+                                            {type === 'images' && (
+                                                <div className='flex-[1.5] min-w-0'>
+                                                    <GridCell 
+                                                        isEditable 
+                                                        value={item.url} 
+                                                        onChange={(v) => handleUpdateItem(item.id, { url: v })} 
+                                                        placeholder='Image URL'
+                                                        className='text-xs text-muted-foreground/50 truncate'
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Ticklers & Actions */}
+                                        <div className='flex items-center gap-2 px-4'>
+                                            <CountTicker count={(item.subtasks || []).length} icon={ListTodo} color="bg-blue-500/10 text-blue-600" />
+                                            <CountTicker count={(item.resources || []).length} icon={LinkIcon} color="bg-purple-500/10 text-purple-600" />
+                                            <CountTicker count={(item.descriptions || []).length} icon={Type} color="bg-emerald-500/10 text-emerald-600" />
+                                            <CountTicker count={(item.images || []).length} icon={ImageIcon} color="bg-orange-500/10 text-orange-600" />
+
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button className='p-1 rounded-md opacity-100 hover:bg-black/10'><MoreHorizontal size={14} /></button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align='end' className='w-48' onCloseAutoFocus={(e) => e.preventDefault()}>
+                                                    <DropdownMenuLabel>Manage Item</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => handleItemQuickAdd(item.id, 'descriptions')}>
+                                                        <Plus size={14} className='mr-2 text-emerald-500' /> Add Description
+                                                    </DropdownMenuItem>
+                                                    {(type === 'subtasks' || type === 'resources') && (
+                                                        <>
+                                                            <DropdownMenuItem onClick={() => handleItemQuickAdd(item.id, 'resources')}>
+                                                                <LinkIcon size={14} className='mr-2 text-purple-500' /> Add Resource
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleItemQuickAdd(item.id, 'images')}>
+                                                                <ImageIcon size={14} className='mr-2 text-orange-500' /> Add Image
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleItemQuickAdd(item.id, 'subtasks')}>
+                                                                <Plus size={14} className='mr-2 text-blue-500' /> Add Subtask
+                                                            </DropdownMenuItem>
+                                                        </>
+                                                    )}
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => onDelete(item.id)} className='text-destructive focus:text-destructive'>
+                                                        <Trash2 size={14} className='mr-2' /> Delete Item
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
+
+                                    {/* Nested Sub-tables */}
+                                    <AnimatePresence>
+                                        {expandedIds[item.id] && (
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className='overflow-hidden bg-black/[0.01] dark:bg-white/[0.01]'>
+                                                <div className='pb-2'>
+                                                    {((item.descriptions || []).length > 0 || itemActiveTypeToFocus[item.id] === 'descriptions') && (
+                                                        <HierarchicalTable 
+                                                            items={item.descriptions || []} 
+                                                            type='descriptions' 
+                                                            depth={depth + 1} 
+                                                            onUpdate={(newItems) => handleUpdateItem(item.id, { descriptions: newItems })}
+                                                            onDelete={(subId) => handleUpdateItem(item.id, { descriptions: item.descriptions.filter((s: any) => s.id !== subId) })}
+                                                            isParentExpanded={expandedIds[item.id]}
+                                                            itemToAutoEdit={itemToAutoEdit}
+                                                            onItemEditDone={onItemEditDone}
+                                                            shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'descriptions'}
+                                                            onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                        />
+                                                    )}
+                                                    {((item.images || []).length > 0 || itemActiveTypeToFocus[item.id] === 'images') && (
+                                                        <HierarchicalTable 
+                                                            items={item.images || []} 
+                                                            type='images' 
+                                                            depth={depth + 1} 
+                                                            onUpdate={(newItems) => handleUpdateItem(item.id, { images: newItems })}
+                                                            onDelete={(subId) => handleUpdateItem(item.id, { images: item.images.filter((s: any) => s.id !== subId) })}
+                                                            isParentExpanded={expandedIds[item.id]}
+                                                            itemToAutoEdit={itemToAutoEdit}
+                                                            onItemEditDone={onItemEditDone}
+                                                            shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'images'}
+                                                            onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                        />
+                                                    )}
+                                                    {((item.resources || []).length > 0 || itemActiveTypeToFocus[item.id] === 'resources') && (
+                                                        <HierarchicalTable 
+                                                            items={item.resources || []} 
+                                                            type='resources' 
+                                                            depth={depth + 1} 
+                                                            onUpdate={(newItems) => handleUpdateItem(item.id, { resources: newItems })}
+                                                            onDelete={(subId) => handleUpdateItem(item.id, { resources: item.resources.filter((s: any) => s.id !== subId) })}
+                                                            isParentExpanded={expandedIds[item.id]}
+                                                            itemToAutoEdit={itemToAutoEdit}
+                                                            onItemEditDone={onItemEditDone}
+                                                            shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'resources'}
+                                                            onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                        />
+                                                    )}
+                                                    {((item.subtasks || []).length > 0 || itemActiveTypeToFocus[item.id] === 'subtasks') && (
+                                                        <HierarchicalTable 
+                                                            items={item.subtasks || []} 
+                                                            type='subtasks' 
+                                                            depth={depth + 1} 
+                                                            onUpdate={(newItems) => handleUpdateItem(item.id, { subtasks: newItems })}
+                                                            onDelete={(subId) => handleUpdateItem(item.id, { subtasks: item.subtasks.filter((s: any) => s.id !== subId) })}
+                                                            isParentExpanded={expandedIds[item.id]}
+                                                            itemToAutoEdit={itemToAutoEdit}
+                                                            onItemEditDone={onItemEditDone}
+                                                            shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'subtasks'}
+                                                            onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+
+                            {isLoading && (
+                                <div className="flex flex-col opacity-50">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="flex flex-col border-b border-border/20">
+                                            <div className="flex h-10 items-center">
+                                                <div className="w-10 shrink-0 flex items-center justify-center">
+                                                    <ChevronRight size={14} className="rotate-90 opacity-20" />
+                                                </div>
+                                                <div className="flex-1 px-3">
+                                                    <SkeletonLoader className="h-4" />
+                                                </div>
+                                            </div>
+                                            {/* Skeleton Note Sub-table under the skeleton subtask */}
+                                            {type === 'subtasks' && (
+                                                <div className="border-l-2 ml-10 border-emerald-500/20 bg-emerald-500/5 pb-2">
+                                                     <div className="flex h-8 items-center gap-2 px-4 uppercase tracking-widest text-[10px] font-bold text-emerald-800/40">
+                                                        <Type size={14} />
+                                                        <span>Notes</span>
+                                                     </div>
+                                                     <div className="flex h-10 items-center">
+                                                        <div className="w-10 shrink-0" />
+                                                        <div className="flex-1 px-3">
+                                                            <SkeletonLoader className="h-3 w-1/2" />
+                                                        </div>
+                                                     </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Quick Add Row for this table */}
+                            <div className='flex h-12 items-center border-b border-border/40 hover:bg-black/5 transition-colors'>
+                                <div className='w-10 shrink-0 flex items-center justify-center'>
+                                    {type === 'subtasks' && onAISuggest && (
+                                        <button onClick={handleSuggestAI} disabled={isSuggestingAI} className="p-1.5 rounded-md text-primary/40 hover:text-primary hover:bg-primary/5 transition-colors">
+                                            <Sparkles size={14} className={isSuggestingAI ? "animate-pulse" : ""} />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className='flex-1 flex flex-col justify-center px-3'>
+                                    <div className="flex items-center gap-3">
+                                        <Plus size={14} className='text-muted-foreground/30' />
+                                        <input 
+                                            ref={quickAddInputRef}
+                                            placeholder={`+ Add ${type.slice(0, -1)}`} 
+                                            value={quickAddValue}
+                                            onBlur={() => onFocusHandled?.()}
+                                            onChange={(e) => setQuickAddValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && quickAddValue.trim()) {
+                                                    const title = quickAddValue.trim();
+                                                    const newItem = type === 'descriptions' 
+                                                        ? { id: Math.random().toString(), text: title, createdAt: new Date() }
+                                                        : type === 'subtasks'
+                                                        ? { id: Math.random().toString(), title, description: '', completed: false }
+                                                        : { id: Math.random().toString(), title, completed: false, url: '', createdAt: new Date() };
+                                                    onUpdate([...items, newItem]);
+                                                    setQuickAddValue('');
+                                                }
+                                            }}
+                                            className='bg-transparent w-full text-xs font-medium outline-none placeholder:text-muted-foreground/30 placeholder:italic'
+                                        />
+                                    </div>
+                                    <AnimatePresence>
+                                        {quickAddValue.length > 0 && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: -5 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -5 }}
+                                                className="text-[8px] text-primary/60 font-black uppercase tracking-widest pointer-events-none pl-7"
+                                            >
+                                                Press Enter to add
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
 
 /**
  * Represents a single row in the task grid, including its sub-branching UI.
@@ -175,51 +734,76 @@ const TaskRowDesktop = ({
     handleEnhanceTask: (id: string) => void, // Callback to trigger AI enhancement.
     isEnhancing: boolean // Flag indicating if this specific task is being enhanced.
 }) => {
-    // State now tracks each branch's expanded state independently.
-    const [expandedBranches, setExpandedBranches] = useState({ 
-        subtasks: false, 
-        resources: false 
-    });
-    
-    // State for the new resource input fields.
-    const [newResourceTitle, setNewResourceTitle] = useState("");
-    const [newResourceUrl, setNewResourceUrl] = useState("");
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
+    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | null>(null);
 
-    // Determines if the AI enhance feature can be used (based on text length).
     const canEnhance = (localTask.title?.length || 0) > 20 || (localTask.description?.length || 0) > 20;
 
-    // Automatically expand the sub-task view when AI enhancement starts.
+    const subItemCounts = useMemo(() => {
+        return {
+            subtasks: (localTask.subtasks || []).length,
+            resources: (localTask.resources || []).length,
+            notes: (localTask.nestedDescriptions || []).length,
+            images: (localTask.images || []).length,
+        };
+    }, [localTask]);
+
+    const hasAnySubItems = useMemo(() => {
+        return Object.values(subItemCounts).some(count => count > 0);
+    }, [subItemCounts]);
+
     useEffect(() => {
         if (isEnhancing) {
-            setExpandedBranches(prev => ({ ...prev, subtasks: true }));
+            setIsExpanded(true);
         }
     }, [isEnhancing]);
 
-    /**
-     * Toggles the specified branch open or closed.
-     */
-    const handleBranchToggle = (branch: 'subtasks' | 'resources') => {
-        setExpandedBranches(prev => ({ ...prev, [branch]: !prev[branch] }));
-    };
-
-    /**
-     * Adds a new resource to the task's local state.
-     */
-    const handleAddResource = () => {
-        if (!newResourceTitle.trim()) return;
-        const newRes: Resource = {
-            id: Math.random().toString(),
-            title: newResourceTitle.trim(),
-            url: newResourceUrl.trim(),
-            type: 'link',
-            createdAt: new Date()
-        };
-        onUpdate({ resources: [...(localTask.resources || []), newRes] });
-        setNewResourceTitle('');
-        setNewResourceUrl('');
+    const handleItemAdd = (type: 'nestedDescriptions' | 'images' | 'resources' | 'subtasks') => {
+        setIsExpanded(true);
+        setActiveTypeToFocus(type);
     }
 
-    const isAnyBranchExpanded = expandedBranches.subtasks || expandedBranches.resources;
+    const toggleExpansion = () => {
+        if (!isExpanded) {
+            setActiveTypeToFocus('subtasks');
+        }
+        setIsExpanded(!isExpanded);
+    }
+
+    const handleSuggestSubtask = async () => {
+        try {
+            const response = await fetch('/api/tasks/enhance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: localTask.title,
+                    mode: 'suggest_subtask',
+                    context: { 
+                        title: localTask.title,
+                        description: localTask.description,
+                        subtasks: localTask.subtasks || []
+                    }
+                }),
+            });
+
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            
+            const newSubtask = {
+                id: Math.random().toString(),
+                title: data.title,
+                description: data.description,
+                completed: false
+            };
+            
+            onUpdate({ subtasks: [...(localTask.subtasks || []), newSubtask] });
+            toast.success('Subtask suggested by AI');
+        } catch (error) {
+            console.error('AI suggest error:', error);
+            toast.error('Failed to suggest subtask');
+        }
+    };
 
     return (
         <div className='flex flex-col'>
@@ -232,67 +816,50 @@ const TaskRowDesktop = ({
                     </div>
                 </div>
 
-                {/* Branching Toggle Dropdown */}
+                {/* Branching Toggle */}
                 <div className='sticky left-10 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60 bg-background'>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button className='p-1 rounded-sm transition-colors hover:bg-secondary/20'>
-                                <ChevronRight size={14} className={cn('transition-transform', isAnyBranchExpanded && 'rotate-90')} />
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button 
+                                onClick={toggleExpansion}
+                                className='p-1 rounded-sm transition-colors hover:bg-secondary/20 relative'
+                            >
+                                <ChevronRight size={14} className={cn('transition-transform', hasAnySubItems ? 'text-primary' : 'text-muted-foreground/30', isExpanded && 'rotate-90')} />
+                                {isExpanded && <div className="absolute inset-0 border border-primary/20 rounded-sm animate-pulse" />}
                             </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='start' className='w-48'>
-                            <DropdownMenuItem onClick={() => handleBranchToggle('subtasks')} className='gap-2'>
-                                {expandedBranches.subtasks ? <ChevronDown size={14}/> : <Plus size={14} />}
-                                <span>Subtasks</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleBranchToggle('resources')} className='gap-2'>
-                                {expandedBranches.resources ? <ChevronDown size={14}/> : <LinkIcon size={14} />}
-                                <span>Resources</span>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="flex flex-col gap-1 p-2">
+                            {hasAnySubItems ? (
+                                <>
+                                    <p className="text-[10px] font-black uppercase tracking-widest border-b border-border/40 pb-1 mb-1">Hierarchy Contents</p>
+                                    {subItemCounts.subtasks > 0 && <div className="flex items-center gap-2 text-[10px] font-bold"><ListTodo size={10} className="text-blue-500"/> {subItemCounts.subtasks} Subtasks</div>}
+                                    {subItemCounts.resources > 0 && <div className="flex items-center gap-2 text-[10px] font-bold"><LinkIcon size={10} className="text-purple-500"/> {subItemCounts.resources} Resources</div>}
+                                    {subItemCounts.notes > 0 && <div className="flex items-center gap-2 text-[10px] font-bold"><Type size={10} className="text-emerald-500"/> {subItemCounts.notes} Notes</div>}
+                                    {subItemCounts.images > 0 && <div className="flex items-center gap-2 text-[10px] font-bold"><ImageIcon size={10} className="text-orange-500"/> {subItemCounts.images} Images</div>}
+                                </>
+                            ) : (
+                                <p className="text-[10px] font-bold">No sub-items. Click to add subtasks.</p>
+                            )}
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
 
                 {/* Title Cell with integrated AI Icon */}
                 <div className='sticky left-20 z-10 flex flex-[1.5] min-w-[250px] border-r border-border/60 bg-background'>
-                    {/* The main editable part of the cell. min-w-0 is crucial for flexbox truncation. */}
                     <div className="flex-grow h-full min-w-0">
-                        {isEnhancing ? (
-                            <SkeletonLoader /> 
-                        ) : (
-                            <GridCell 
-                                isEditable 
-                                value={localTask.title} 
-                                onChange={(v) => onUpdate({ title: v })}
-                                className={cn('font-bold pr-0', localTask.flagged && 'line-through text-muted-foreground decoration-border')}
-                            />
-                        )}
+                        <GridCell isEditable value={localTask.title} onChange={(v) => onUpdate({ title: v })} className={cn('font-bold pr-0', localTask.flagged && 'line-through text-muted-foreground decoration-border')} placeholder='Task Title' />
                     </div>
-
-                    {/* Dedicated, permanent space for the AI icon */}
                     <div className='w-12 flex-shrink-0 h-full flex items-center justify-center border-l border-transparent group-hover:border-border/40 transition-colors'>
-                        {isEnhancing ? (
-                            <Sparkles size={18} className="text-primary animate-pulse" />
-                        ) : !canEnhance ? (
-                             <div title='Write a longer title or description to enable AI'>
-                                <Sparkles size={18} className="text-muted-foreground/20" />
-                            </div>
-                        ) : (
-                            <button 
-                                onClick={() => handleEnhanceTask(task.id)}
-                                className='p-1 rounded-md text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors'
-                                title='Enhance with AI'
-                            >
-                                <Sparkles size={18} />
-                            </button>
-                        )}
+                        <button onClick={() => canEnhance && handleEnhanceTask(task.id)} disabled={!canEnhance} className='p-1 rounded-md transition-colors disabled:text-muted-foreground/20 disabled:cursor-not-allowed text-primary/70 hover:text-primary enabled:hover:bg-primary/10' title={canEnhance ? 'Enhance with AI' : 'Write a longer title or description to enable AI'} >
+                            <Sparkles size={18} className={cn(isEnhancing && "animate-pulse")} />
+                        </button>
                     </div>
                 </div>
 
 
                 {/* Description Cell */}
-                <div className='flex-[2] min-w-[400px] border-r border-border/60 relative'>
-                    {isEnhancing ? <SkeletonLoader/> : <GridCell isEditable value={localTask.description} onChange={(v) => onUpdate({ description: v })} className='text-xs text-muted-foreground font-medium' placeholder='Add description...' />}
+                <div className='flex-[2] min-w-[400px] border-r border-border/60 relative group-hover:bg-secondary/[0.05] transition-colors'>
+                    {isEnhancing ? <SkeletonLoader/> : <GridCell isEditable multiline value={localTask.description} onChange={(v) => onUpdate({ description: v })} className='text-xs text-muted-foreground font-medium leading-relaxed' placeholder='Add brief description...' />}
                 </div>
 
                 {/* Collaborators Cell */}
@@ -335,8 +902,8 @@ const TaskRowDesktop = ({
                 </div>
                 
                 {/* Points & Hours Cells */}
-                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <GridCell isEditable type='number' value={localTask.leaderPoints || 0} onChange={(v) => onUpdate({ leaderPoints: v })} className='text-center font-mono font-bold text-blue-600'/>}</div>
-                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <GridCell isEditable type='number' value={localTask.deadlineHours || 0} onChange={(v) => onUpdate({ deadlineHours: v })} className='text-center font-mono font-bold text-orange-600' placeholder='Hours'/>}</div>
+                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <GridCell isEditable type='number' value={localTask.leaderPoints || 0} onChange={(v) => onUpdate({ leaderPoints: Math.max(0, v) })} className='text-center font-mono font-bold text-blue-600' min={0} step={10}/>}</div>
+                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <HoursCell value={localTask.deadlineHours || 0} onChange={(v) => onUpdate({ deadlineHours: v })} disabled={isEnhancing} />}</div>
                 
                 {/* Due Date Cell */}
                 <div className='w-32 shrink-0 border-r border-border/60'>
@@ -379,8 +946,31 @@ const TaskRowDesktop = ({
                 <div className='w-10 shrink-0 flex items-center justify-center'>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><button className='p-1 rounded-md hover:bg-secondary/20'><MoreHorizontal size={16} /></button></DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
+                        <DropdownMenuContent align='end' className='w-56' onCloseAutoFocus={(e) => e.preventDefault()}>
                             <DropdownMenuItem onClick={() => onTaskClick(task.id)}><ExternalLink size={14} className='mr-2'/> Open Drawer</DropdownMenuItem>
+                            <DropdownMenuSeparator/>
+                            <DropdownMenuLabel className='text-[10px] uppercase tracking-widest text-muted-foreground'>Quick Add</DropdownMenuLabel>
+                            {/* (now do this that adding anything from the right side dropdown add that and its ready to start typing) */}
+                            <DropdownMenuItem onClick={() => handleItemAdd('nestedDescriptions')} className='gap-2'>
+                                <Plus size={14} className='text-emerald-500' />
+                                <span className="flex-1">Add Note</span>
+                                <CountTicker count={(localTask.nestedDescriptions || []).length} icon={Type} color="bg-emerald-500/10 text-emerald-600" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleItemAdd('images')} className='gap-2'>
+                                <Plus size={14} className='text-orange-500' />
+                                <span className="flex-1">Add Image</span>
+                                <CountTicker count={(localTask.images || []).length} icon={ImageIcon} color="bg-orange-500/10 text-orange-600" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleItemAdd('resources')} className='gap-2'>
+                                <Plus size={14} className='text-purple-500' />
+                                <span className="flex-1">Add Resource</span>
+                                <CountTicker count={(localTask.resources || []).length} icon={LinkIcon} color="bg-purple-500/10 text-purple-600" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleItemAdd('subtasks')} className='gap-2'>
+                                <Plus size={14} className='text-blue-500' />
+                                <span className="flex-1">Add Subtask</span>
+                                <CountTicker count={(localTask.subtasks || []).length} icon={ListTodo} color="bg-blue-500/10 text-blue-600" />
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem onClick={() => onDelete(task.id)} className='text-destructive focus:text-destructive'><Trash2 size={14} className='mr-2'/> Delete Task</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -388,137 +978,69 @@ const TaskRowDesktop = ({
                 </div>
             </div>
 
-            {/* --- Sub-branching UI (Rendered independently) --- */}
+            {/* --- Hierarchical Sub-tables --- */}
             <AnimatePresence>
-                {expandedBranches.subtasks && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className='overflow-hidden'>
-                        <div className='border-t-2 border-blue-500/20'>
-                            {/* Subtasks Header */}
-                            <div className='flex h-8 text-xs font-bold bg-blue-500/5 text-blue-800 dark:text-blue-200'>
-                                <div className='sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 flex items-center justify-center bg-blue-500/5'>
-                                    <button onClick={() => handleBranchToggle('subtasks')} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-                                        <ChevronDown size={16} />
-                                    </button>
-                                </div>
-                                <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 px-4 flex items-center gap-2 uppercase tracking-wider bg-blue-500/5'>Subtasks</div>
-                                {/* Filler divs for alignment */}
-                                <div className='flex-[2] min-w-[400px] border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-24 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-24 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-16 shrink-0 border-r border-border/60 bg-blue-500/5' />
-                                <div className='w-10 shrink-0 bg-blue-500/5' />
-                            </div>
-
-                            {/* Subtasks Content */}
-                            {isEnhancing ? ( 
-                                [...Array(3)].map((_, i) => (
-                                    <div key={i} className="flex h-9 border-b border-border/40 text-sm">
-                                        <div className="sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-background" />
-                                        <div className="sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 pl-4 bg-background flex items-center"><div className="w-0.5 h-full bg-border/30"></div></div>
-                                        <div className="sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 flex items-center gap-3 px-3 bg-background">
-                                            <div className="size-4 rounded-full bg-secondary/50 animate-pulse" />
-                                            <div className="h-4 w-4/5 bg-secondary/50 rounded-md animate-pulse" />
-                                        </div>
-                                        <div className='flex-[2] min-w-[400px] border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-16 shrink-0 border-r border-border/60' /><div className='w-10 shrink-0' />
-                                    </div>
-                                ))
-                            ) : (
-                                <>
-                                    {(localTask.subtasks || []).map((sub, idx) => (
-                                        <div key={sub.id} className="flex h-9 border-b border-border/40 group/sub text-sm">
-                                            <div className="sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-background" />
-                                            <div className="sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 pl-4 bg-background flex items-center"><div className="w-0.5 h-full bg-border/30"></div></div>
-                                            <div className="sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 flex items-center gap-3 px-3 bg-background">
-                                                <button onClick={() => { const newSubs = [...(localTask.subtasks || [])]; newSubs[idx].completed = !newSubs[idx].completed; onUpdate({ subtasks: newSubs }); }}>
-                                                    {sub.completed ? <CheckCircle2 size={14} className='text-blue-500' /> : <Circle size={14} className='text-muted-foreground/30' />}
-                                                </button>
-                                                <input value={sub.title} onChange={(e) => { const newSubs = [...(localTask.subtasks || [])]; newSubs[idx].title = e.target.value; onUpdate({ subtasks: newSubs });}} className={cn('bg-transparent w-full focus:outline-none', sub.completed && 'line-through text-muted-foreground')} />
-                                            </div>
-                                            <div className='flex-[2] min-w-[400px] border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-16 shrink-0 border-r border-border/60' /><div className='w-10 shrink-0' />
-                                        </div>
-                                    ))}
-                                    <div className="flex h-9 border-b border-border/40 text-sm">
-                                        <div className="sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-background" />
-                                        <div className="sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 pl-4 bg-background flex items-center" />
-                                        <div className="sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 flex items-center gap-3 px-3 bg-background">
-                                            <Plus size={14} className='text-muted-foreground/50' />
-                                            <input placeholder="+ Add subitem" onKeyDown={(e) => { if (e.key === 'Enter' && e.currentTarget.value.trim()) { const newSub = { id: Math.random().toString(), title: e.currentTarget.value.trim(), completed: false }; onUpdate({ subtasks: [...(localTask.subtasks || []), newSub] }); e.currentTarget.value = ''; }}} className='bg-transparent w-full focus:outline-none placeholder:text-muted-foreground/50 italic' />
-                                        </div>
-                                        <div className='flex-[2] min-w-[400px] border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-24 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-32 shrink-0 border-r border-border/60' /><div className='w-16 shrink-0 border-r border-border/60' /><div className='w-10 shrink-0' />
-                                    </div>
-                                </> 
+                {isExpanded && (hasAnySubItems || activeTypeToFocus || isEnhancing) && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className='overflow-x-auto custom-scrollbar-thin'>
+                        <div className='pb-4' style={{ minWidth: 'max-content' }}>
+                            {((localTask.nestedDescriptions?.length || 0) > 0 || activeTypeToFocus === 'nestedDescriptions') && (
+                                <HierarchicalTable 
+                                    items={localTask.nestedDescriptions || []} 
+                                    type='descriptions' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ nestedDescriptions: newItems })}
+                                    onDelete={(id) => onUpdate({ nestedDescriptions: localTask.nestedDescriptions?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'nestedDescriptions'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                />
                             )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {expandedBranches.resources && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className='overflow-hidden'>
-                        <div className='border-t-2 border-purple-500/20'>
-                             {/* Resources Header */}
-                            <div className='flex h-8 text-xs font-bold bg-purple-500/5 text-purple-800 dark:text-purple-200'>
-                                <div className='sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 flex items-center justify-center bg-purple-500/5'>
-                                    <button onClick={() => handleBranchToggle('resources')} className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10">
-                                        <ChevronDown size={16} />
-                                    </button>
-                                </div>
-                                <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 px-4 flex items-center gap-2 uppercase tracking-wider bg-purple-500/5'>Resources</div>
-                                <div className='flex-[2] min-w-[400px] border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-24 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-24 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-32 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-16 shrink-0 border-r border-border/60 bg-purple-500/5' />
-                                <div className='w-10 shrink-0 bg-purple-500/5' />
-                            </div>
-
-                             {/* Resources Content */}
-                            {(localTask.resources || []).map((res, idx) => (
-                                <div key={res.id} className="flex h-9 border-b border-border/40 group/res text-sm">
-                                    <div className="sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-background" />
-                                    <div className="sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 pl-4 bg-background flex items-center"><div className="w-0.5 h-full bg-border/30"></div></div>
-                                    <div className="sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 flex items-center gap-3 px-3 bg-background">
-                                        <LinkIcon size={14} className="text-purple-500/50" />
-                                        <input value={res.title} onChange={(e) => { const newRes = [...(localTask.resources || [])]; newRes[idx] = {...newRes[idx], title: e.target.value}; onUpdate({ resources: newRes });}} className='bg-transparent w-full focus:outline-none font-medium' placeholder="Resource name"/>
-                                    </div>
-                                    <div className='flex-[2] min-w-[400px] border-r border-border/60 flex items-center px-3'>
-                                        <input value={res.url} onChange={(e) => { const newRes = [...(localTask.resources || [])]; newRes[idx] = {...newRes[idx], url: e.target.value}; onUpdate({ resources: newRes });}} className='bg-transparent w-full focus:outline-none text-xs text-blue-500 hover:underline' placeholder="https://example.com"/>
-                                    </div>
-                                    <div className='w-32 shrink-0 border-r border-border/60' />
-                                    <div className='w-24 shrink-0 border-r border-border/60' />
-                                    <div className='w-24 shrink-0 border-r border-border/60' />
-                                    <div className='w-32 shrink-0 border-r border-border/60' />
-                                    <div className='w-32 shrink-0 border-r border-border/60' />
-                                    <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center'><button onClick={() => onUpdate({ resources: localTask.resources?.filter(r => r.id !== res.id) })} className="p-1 rounded-full hover:bg-destructive/10 text-destructive opacity-0 group-hover/res:opacity-100"><X size={14} /></button></div>
-                                    <div className='w-10 shrink-0' />
-                                </div>
-                            ))}
-                            <div className="flex h-9 border-b border-border/40 text-sm">
-                                <div className="sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 bg-background" />
-                                <div className="sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 pl-4 bg-background flex items-center" />
-                                <div className="sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 flex items-center gap-3 px-3 bg-background">
-                                    <Plus size={14} className='text-muted-foreground/50' />
-                                    <input placeholder="+ Add resource" value={newResourceTitle} onChange={(e) => setNewResourceTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddResource() }} className='bg-transparent w-full focus:outline-none placeholder:text-muted-foreground/50 italic' />
-                                </div>
-                                <div className='flex-[2] min-w-[400px] border-r border-border/60 px-3'>
-                                    <input placeholder="https://example.com" value={newResourceUrl} onChange={(e) => setNewResourceUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddResource() }} className='bg-transparent w-full focus:outline-none text-xs placeholder:text-muted-foreground/50'/>
-                                </div>
-                                <div className='w-32 shrink-0 border-r border-border/60' />
-                                <div className='w-24 shrink-0 border-r border-border/60' />
-                                <div className='w-24 shrink-0 border-r border-border/60' />
-                                <div className='w-32 shrink-0 border-r border-border/60' />
-                                <div className='w-32 shrink-0 border-r border-border/60' />
-                                <div className='w-16 shrink-0 border-r border-border/60' />
-                                <div className='w-10 shrink-0' />
-                            </div>
+                            {((localTask.images?.length || 0) > 0 || activeTypeToFocus === 'images') && (
+                                <HierarchicalTable 
+                                    items={localTask.images || []} 
+                                    type='images' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ images: newItems })}
+                                    onDelete={(id) => onUpdate({ images: localTask.images?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'images'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                />
+                            )}
+                            {((localTask.resources?.length || 0) > 0 || activeTypeToFocus === 'resources') && (
+                                <HierarchicalTable 
+                                    items={localTask.resources || []} 
+                                    type='resources' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ resources: newItems })}
+                                    onDelete={(id) => onUpdate({ resources: localTask.resources?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'resources'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                />
+                            )}
+                            {((localTask.subtasks?.length || 0) > 0 || activeTypeToFocus === 'subtasks' || isEnhancing) && (
+                                <HierarchicalTable 
+                                    items={localTask.subtasks || []} 
+                                    type='subtasks' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ subtasks: newItems })}
+                                    onDelete={(id) => onUpdate({ subtasks: localTask.subtasks?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'subtasks'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    onAISuggest={handleSuggestSubtask}
+                                    isLoading={isEnhancing}
+                                />
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -528,6 +1050,252 @@ const TaskRowDesktop = ({
 };
 
 // --- Task Row (Mobile Checklist - Keep Inspired) ---
+
+/**
+ * Recursive list for mobile view hierarchy.
+ */
+const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, shouldFocusQuickAdd, onFocusHandled, onAISuggest, isLoading }: { 
+    items: any[], 
+    type: 'subtasks' | 'resources' | 'descriptions' | 'images',
+    onUpdate: (updated: any[]) => void,
+    onDelete: (id: string) => void,
+    depth?: number,
+    shouldFocusQuickAdd?: boolean,
+    onFocusHandled?: () => void,
+    onAISuggest?: () => Promise<void>,
+    isLoading?: boolean
+}) => {
+    const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isSuggestingAI, setIsSuggestingAI] = useState(false);
+    const [quickAddValue, setQuickAddValue] = useState("");
+    const quickAddInputRef = useRef<HTMLInputElement>(null);
+
+    // ... (rest of the component)
+
+    const handleSuggestAI = async () => {
+        if (!onAISuggest) return;
+        setIsSuggestingAI(true);
+        try {
+            await onAISuggest();
+        } finally {
+            setIsSuggestingAI(false);
+        }
+    };
+
+    useEffect(() => {
+        if (shouldFocusQuickAdd || isLoading) {
+            setIsCollapsed(false);
+            if (shouldFocusQuickAdd) {
+                const timer = setTimeout(() => {
+                    quickAddInputRef.current?.focus();
+                }, 150);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [shouldFocusQuickAdd, isLoading]);
+
+    const config = {
+        subtasks: { icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-500/5', label: 'Subtasks' },
+        resources: { icon: LinkIcon, color: 'text-purple-500', bg: 'bg-purple-500/5', label: 'Resources' },
+        descriptions: { icon: Type, color: 'text-emerald-500', bg: 'bg-emerald-500/5', label: 'Notes' },
+        images: { icon: ImageIcon, color: 'text-orange-500', bg: 'bg-orange-500/5', label: 'Images' },
+    }[type];
+
+    const handleUpdateItem = (id: string, updates: any) => {
+        onUpdate(items.map(item => item.id === id ? { ...item, ...updates } : item));
+    };
+
+    return (
+        <div className={cn("mt-2 space-y-2 border-l border-border/40", depth > 0 && "ml-4")}>
+            <div 
+                className="flex items-center gap-2 px-2 py-1 cursor-pointer"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+                <config.icon size={12} className={config.color} />
+                <span className={cn("text-[9px] font-black uppercase tracking-widest", config.color)}>{config.label}</span>
+                {(items.length > 0 || isLoading) && <ChevronRight size={12} className={cn('ml-1 transition-transform text-muted-foreground/50', !isCollapsed && 'rotate-90')} />}
+                <span className="ml-auto text-[9px] font-bold opacity-30 bg-black/5 dark:bg-white/5 px-1.5 rounded-full">{items.length}</span>
+            </div>
+            <AnimatePresence>
+                {!isCollapsed && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pl-2">
+                        <div className="space-y-2">
+                            {items.map((item) => (
+                                <div key={item.id} className={cn("flex flex-col bg-background/40 rounded-xl border border-border/20 overflow-hidden", config.bg)}>
+                                    <div className="flex items-center p-3 gap-3">
+                                        {type === 'subtasks' && (
+                                            <button onClick={() => handleUpdateItem(item.id, { completed: !item.completed })}>
+                                                {item.completed ? <CheckCircle2 size={16} className='text-blue-500' /> : <Circle size={16} className='text-muted-foreground/30' />}
+                                            </button>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            {type === 'descriptions' ? (
+                                                <textarea 
+                                                    value={item.text}
+                                                    onChange={(e) => handleUpdateItem(item.id, { text: e.target.value })}
+                                                    className="w-full bg-transparent border-none p-0 text-xs focus:outline-none resize-none leading-relaxed"
+                                                    placeholder="Note text..."
+                                                    rows={1}
+                                                    onInput={(e) => {
+                                                        const target = e.target as HTMLTextAreaElement;
+                                                        target.style.height = 'auto';
+                                                        target.style.height = target.scrollHeight + 'px';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <input 
+                                                    value={item.title}
+                                                    onChange={(e) => handleUpdateItem(item.id, { title: e.target.value })}
+                                                    className={cn("w-full bg-transparent border-none p-0 text-xs font-bold focus:outline-none", item.completed && "line-through text-muted-foreground/50")}
+                                                    placeholder="Title"
+                                                />
+                                            )}
+                                            {(type === 'resources' || type === 'images') && (
+                                                <input 
+                                                    value={item.url}
+                                                    onChange={(e) => handleUpdateItem(item.id, { url: e.target.value })}
+                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-blue-500 focus:outline-none truncate"
+                                                    placeholder="URL"
+                                                />
+                                            )}
+                                        </div>
+
+                                        <button onClick={() => setExpandedIds(prev => ({ ...prev, [item.id]: !prev[item.id] }))} className="p-1">
+                                            <ChevronDown size={14} className={cn("text-muted-foreground/40 transition-transform", expandedIds[item.id] && "rotate-180")} />
+                                        </button>
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button className="p-1"><MoreHorizontal size={14} className="text-muted-foreground/40" /></button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => {
+                                                    const newDesc = { id: Math.random().toString(), text: '', createdAt: new Date() };
+                                                    handleUpdateItem(item.id, { descriptions: [...(item.descriptions || []), newDesc] });
+                                                    setExpandedIds(prev => ({ ...prev, [item.id]: true }));
+                                                }}>
+                                                    <Plus size={14} className="mr-2" /> Add Note
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => {
+                                                    const newRes = { id: Math.random().toString(), title: '', url: '', type: 'link', createdAt: new Date() };
+                                                    handleUpdateItem(item.id, { resources: [...(item.resources || []), newRes] });
+                                                    setExpandedIds(prev => ({ ...prev, [item.id]: true }));
+                                                }}>
+                                                    <LinkIcon size={14} className="mr-2" /> Add Resource
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => {
+                                                    const newImg = { id: Math.random().toString(), title: '', url: '', createdAt: new Date() };
+                                                    handleUpdateItem(item.id, { images: [...(item.images || []), newImg] });
+                                                    setExpandedIds(prev => ({ ...prev, [item.id]: true }));
+                                                }}>
+                                                    <ImageIcon size={14} className="mr-2" /> Add Image
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => {
+                                                    const newSub = { id: Math.random().toString(), title: '', completed: false };
+                                                    handleUpdateItem(item.id, { subtasks: [...(item.subtasks || []), newSub] });
+                                                    setExpandedIds(prev => ({ ...prev, [item.id]: true }));
+                                                }}>
+                                                    <Plus size={14} className="mr-2 text-blue-500" /> Add Subtask
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => onDelete(item.id)} className="text-destructive">
+                                                    <Trash2 size={14} className="mr-2" /> Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    {/* Nested Items Mobile */}
+                                    <AnimatePresence>
+                                        {expandedIds[item.id] && (
+                                            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="px-3 pb-3">
+                                                {(item.descriptions || []).length > 0 && <MobileHierarchicalList items={item.descriptions} type="descriptions" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { descriptions: val })} onDelete={(id) => handleUpdateItem(item.id, { descriptions: item.descriptions.filter((i: any) => i.id !== id) })} />}
+                                                {(item.images || []).length > 0 && <MobileHierarchicalList items={item.images} type="images" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { images: val })} onDelete={(id) => handleUpdateItem(item.id, { images: item.images.filter((i: any) => i.id !== id) })} />}
+                                                {(item.resources || []).length > 0 && <MobileHierarchicalList items={item.resources} type="resources" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { resources: val })} onDelete={(id) => handleUpdateItem(id, { resources: item.resources.filter((i: any) => i.id !== id) })} />}
+                                                {(item.subtasks || []).length > 0 && <MobileHierarchicalList items={item.subtasks} type="subtasks" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { subtasks: val })} onDelete={(id) => handleUpdateItem(item.id, { subtasks: item.subtasks.filter((i: any) => i.id !== id) })} />}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+
+                            {isLoading && (
+                                <div className="space-y-2 opacity-50">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="flex flex-col bg-background/40 rounded-xl border border-border/20 overflow-hidden">
+                                            <div className="p-4">
+                                                <SkeletonLoader className="h-4 w-3/4" />
+                                            </div>
+                                            {type === 'subtasks' && (
+                                                <div className="px-4 pb-4">
+                                                    <div className="mt-2 space-y-2 border-l border-border/40 ml-4">
+                                                        <div className="flex items-center gap-2 px-2 py-1">
+                                                            <Type size={12} className="text-emerald-500/40" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/40">Notes</span>
+                                                        </div>
+                                                        <div className="pl-2">
+                                                            <div className="bg-background/40 rounded-xl border border-border/20 p-3">
+                                                                <SkeletonLoader className="h-3 w-1/2" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Quick Add Row Mobile */}
+                            <div className="flex flex-col bg-background/20 rounded-xl border border-dashed border-border/40 overflow-hidden">
+                                <div className="flex items-center gap-3 p-3">
+                                    {type === 'subtasks' && onAISuggest && (
+                                        <button onClick={handleSuggestAI} disabled={isSuggestingAI} className="p-1 rounded-md text-primary/40">
+                                            <Sparkles size={14} className={isSuggestingAI ? "animate-pulse" : ""} />
+                                        </button>
+                                    )}
+                                    <Plus size={14} className="text-muted-foreground/30" />
+                                    <input 
+                                        ref={quickAddInputRef}
+                                        className="flex-1 bg-transparent border-none p-0 text-xs italic focus:outline-none"
+                                        placeholder={`+ Add ${type.slice(0, -1)}`}
+                                        value={quickAddValue}
+                                        onChange={(e) => setQuickAddValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && quickAddValue.trim()) {
+                                                const title = quickAddValue.trim();
+                                                const newItem = type === 'descriptions' 
+                                                    ? { id: Math.random().toString(), text: title, createdAt: new Date() }
+                                                    : type === 'subtasks'
+                                                    ? { id: Math.random().toString(), title, description: '', completed: false }
+                                                    : { id: Math.random().toString(), title, completed: false, url: '', createdAt: new Date() };
+                                                onUpdate([...items, newItem]);
+                                                setQuickAddValue('');
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <AnimatePresence>
+                                    {quickAddValue.length > 0 && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="px-10 pb-2 text-[8px] text-primary/60 font-black uppercase tracking-widest pointer-events-none"
+                                        >
+                                            Press Enter to add
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
 
 const TaskRowMobile = ({ 
     task, 
@@ -550,93 +1318,139 @@ const TaskRowMobile = ({
 }) => {
     const [expandedBranches, setExpandedBranches] = useState({ 
         subtasks: false, 
-        resources: false 
+        resources: false,
+        nestedDescriptions: false,
+        images: false
     });
+    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'subtasks' | 'resources' | 'nestedDescriptions' | 'images' | null>(null);
+    
+    // Create drag controls to link the handle to the drag gesture
+    const dragControls = useDragControls();
 
-    const isAnyBranchExpanded = expandedBranches.subtasks || expandedBranches.resources;
+    const isAnyBranchExpanded = useMemo(() => {
+        return Object.values(expandedBranches).some(v => v) || !!activeTypeToFocus;
+    }, [expandedBranches, activeTypeToFocus]);
+
+    useEffect(() => {
+        if (isEnhancing) {
+            setExpandedBranches({ subtasks: true, resources: false, nestedDescriptions: false, images: false });
+            setActiveTypeToFocus('subtasks');
+        }
+    }, [isEnhancing]);
+
+    const handleQuickAdd = (type: keyof typeof expandedBranches) => {
+        setExpandedBranches(prev => ({ ...prev, [type]: true }));
+        setActiveTypeToFocus(type);
+    }
+
+    const handleSuggestSubtask = async () => {
+        try {
+            const response = await fetch('/api/tasks/enhance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: localTask.title,
+                    mode: 'suggest_subtask',
+                    context: { 
+                        title: localTask.title,
+                        description: localTask.description,
+                        subtasks: localTask.subtasks || []
+                    }
+                }),
+            });
+
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            
+            const newSubtask = {
+                id: Math.random().toString(),
+                title: data.title,
+                descriptions: data.description ? [{ id: Math.random().toString(), text: data.description, createdAt: new Date() }] : [],
+                completed: false
+            };
+            
+            onUpdate({ subtasks: [...(localTask.subtasks || []), newSubtask] });
+            toast.success('Subtask suggested by AI');
+        } catch (error) {
+            console.error('AI suggest error:', error);
+            toast.error('Failed to suggest subtask');
+        }
+    };
 
     return (
         <Reorder.Item 
-            value={task} 
-            className="group flex flex-col bg-background/50 border border-border/40 rounded-2xl overflow-hidden shadow-sm active:scale-[0.98] transition-all"
+            value={task}
+            dragListener={false} 
+            dragControls={dragControls} 
+            layoutId={task.id} 
+            whileDrag={{ scale: 0.98, boxShadow: "0px 10px 30px rgba(0,0,0,0.2)", cursor: 'grabbing' }}
+            className="group flex flex-col bg-background/50 border border-border/40 rounded-2xl overflow-hidden shadow-sm transition-shadow"
         >
             <div className="flex items-center p-4 gap-3 relative">
-                {/* 6-dot handle */}
-                <div className="cursor-grab active:cursor-grabbing text-muted-foreground/30">
-                    <GripVertical size={20} />
-                </div>
+                <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab touch-none p-2 -ml-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"><GripVertical size={20} /></div>
 
-                {/* Checkbox */}
                 <button 
                     onClick={() => onUpdate({ flagged: !localTask.flagged })}
-                    className={cn(
-                        "size-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-                        localTask.flagged ? "bg-green-500 border-green-500 text-white" : "border-border"
-                    )}
+                    className={cn("size-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0", localTask.flagged ? "bg-green-500 border-green-500 text-white" : "border-border")}
                 >
                     {localTask.flagged && <Check size={14} />}
                 </button>
 
-                {/* Branch Toggle Dropdown */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded-md hover:bg-secondary/20 transition-colors">
-                            <ChevronRight size={16} className={cn("text-muted-foreground/40 transition-transform", isAnyBranchExpanded && "rotate-90")} />
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-40">
-                        <DropdownMenuItem onClick={() => setExpandedBranches(prev => ({ ...prev, subtasks: !prev.subtasks }))} className="gap-2">
-                            <Plus size={14} /> Subtasks
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setExpandedBranches(prev => ({ ...prev, resources: !prev.resources }))} className="gap-2">
-                            <LinkIcon size={14} /> Resources
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Branch Toggle Button (Mobile) */}
+                <button 
+                    onClick={() => {
+                        if (isAnyBranchExpanded) {
+                            setExpandedBranches({ subtasks: false, resources: false, nestedDescriptions: false, images: false });
+                            setActiveTypeToFocus(null);
+                        } else {
+                            // Open subtasks by default, and others only if they have data
+                            setExpandedBranches({ 
+                                subtasks: true, 
+                                resources: (localTask.resources || []).length > 0, 
+                                nestedDescriptions: (localTask.nestedDescriptions || []).length > 0, 
+                                images: (localTask.images || []).length > 0 
+                            });
+                            setActiveTypeToFocus('subtasks');
+                        }
+                    }}
+                    className="p-1 rounded-md hover:bg-secondary/20 transition-colors"
+                >
+                    <ChevronRight size={16} className={cn("text-muted-foreground/40 transition-transform", isAnyBranchExpanded && "rotate-90", Object.values(localTask).some(v => Array.isArray(v) && v.length > 0) ? "text-primary" : "opacity-30")} />
+                </button>
 
-                {/* Editable Title */}
                 <div className="flex-1 min-w-0">
-                    {isEnhancing ? (
-                        <div className="h-5 w-full bg-secondary/30 animate-pulse rounded" />
-                    ) : (
+                    {isEnhancing ? <div className="h-5 w-full bg-secondary/30 animate-pulse rounded" /> : (
                         <input 
                             value={localTask.title}
                             onChange={(e) => onUpdate({ title: e.target.value })}
-                            className={cn(
-                                "w-full bg-transparent border-none p-0 text-sm font-bold focus:outline-none transition-all",
-                                localTask.flagged && "text-muted-foreground/50 line-through decoration-border"
-                            )}
+                            className={cn("w-full bg-transparent border-none p-0 text-sm font-bold focus:outline-none transition-all", localTask.flagged && "text-muted-foreground/50 line-through decoration-border")}
                             placeholder="Task title"
                         />
                     )}
                 </div>
 
-                {/* AI Sparkle */}
-                <button 
-                    onClick={() => handleEnhanceTask(task.id)}
-                    className={cn(
-                        "p-1.5 rounded-md transition-all",
-                        isEnhancing ? "text-primary animate-pulse" : "text-muted-foreground/30 hover:text-primary hover:bg-primary/5"
-                    )}
-                >
-                    <Sparkles size={16} />
-                </button>
+                <button onClick={() => handleEnhanceTask(task.id)} className={cn("p-1.5 rounded-md transition-all", isEnhancing ? "text-primary animate-pulse" : "text-muted-foreground/30 hover:text-primary hover:bg-primary/5")}><Sparkles size={16} /></button>
 
-                {/* Right Menu */}
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded-md hover:bg-secondary/20 text-muted-foreground/40">
-                            <MoreHorizontal size={18} />
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onTaskClick(task.id)} className="gap-2">
-                            <ExternalLink size={14} /> Open Drawer
+                    <DropdownMenuTrigger asChild><button className="p-1 rounded-md hover:bg-secondary/20 text-muted-foreground/40"><MoreHorizontal size={18} /></button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => onTaskClick(task.id)} className="gap-2"><ExternalLink size={14} /> Open Drawer</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Quick Add</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleQuickAdd('nestedDescriptions')} className="gap-2">
+                            <Plus size={14} className="text-emerald-500" /> Add Note
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleQuickAdd('images')} className="gap-2">
+                            <Plus size={14} className="text-orange-500" /> Add Image
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleQuickAdd('resources')} className="gap-2">
+                            <Plus size={14} className="text-purple-500" /> Add Resource
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleQuickAdd('subtasks')} className="gap-2">
+                            <Plus size={14} className="text-blue-500" /> Add Subtask
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onDelete(task.id)} className="gap-2 text-destructive">
-                            <Trash2 size={14} /> Delete
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(task.id)} className="gap-2 text-destructive"><Trash2 size={14} /> Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -644,122 +1458,48 @@ const TaskRowMobile = ({
             {/* Sub-branching Mobile */}
             <AnimatePresence>
                 {isAnyBranchExpanded && (
-                    <motion.div 
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="px-4 pb-4 border-t border-border/20 bg-secondary/[0.02]"
-                    >
-                        {expandedBranches.subtasks && (
-                            <div className="mt-3 space-y-2">
-                                <div 
-                                    className="flex items-center justify-between mb-2 cursor-pointer active:opacity-60 transition-opacity"
-                                    onClick={() => setExpandedBranches(prev => ({ ...prev, subtasks: false }))}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <CheckCircle2 size={12} className="text-blue-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Subtasks</span>
-                                    </div>
-                                    <ChevronDown size={14} className="text-muted-foreground/40 rotate-180" />
-                                </div>
-                                {isEnhancing ? (
-                                    <div className="space-y-2">
-                                        {[...Array(2)].map((_, i) => (
-                                            <div key={i} className="h-8 w-full bg-secondary/20 animate-pulse rounded-md" />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <>
-                                        {(localTask.subtasks || []).map((sub, idx) => (
-                                            <div key={sub.id} className="flex items-center gap-2 py-1">
-                                                <button onClick={() => {
-                                                    const newSubs = [...(localTask.subtasks || [])];
-                                                    newSubs[idx].completed = !newSubs[idx].completed;
-                                                    onUpdate({ subtasks: newSubs });
-                                                }}>
-                                                    {sub.completed ? <CheckCircle2 size={14} className='text-blue-500' /> : <Circle size={14} className='text-muted-foreground/30' />}
-                                                </button>
-                                                <input 
-                                                    value={sub.title}
-                                                    onChange={(e) => {
-                                                        const newSubs = [...(localTask.subtasks || [])];
-                                                        newSubs[idx].title = e.target.value;
-                                                        onUpdate({ subtasks: newSubs });
-                                                    }}
-                                                    className={cn("flex-1 bg-transparent border-none p-0 text-xs focus:outline-none", sub.completed && "line-through text-muted-foreground")}
-                                                />
-                                            </div>
-                                        ))}
-                                        <div className="flex items-center gap-2 py-1">
-                                            <Plus size={14} className="text-muted-foreground/30" />
-                                            <input 
-                                                className="flex-1 bg-transparent border-none p-0 text-xs italic focus:outline-none placeholder:text-muted-foreground/30"
-                                                placeholder="+ Add subtask"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                        const newSub = { id: Math.random().toString(), title: e.currentTarget.value.trim(), completed: false };
-                                                        onUpdate({ subtasks: [...(localTask.subtasks || []), newSub] });
-                                                        e.currentTarget.value = '';
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-4 pb-4 border-t border-border/20 bg-secondary/[0.02]">
+                        {(expandedBranches.nestedDescriptions || activeTypeToFocus === 'nestedDescriptions') && (
+                            <MobileHierarchicalList 
+                                items={localTask.nestedDescriptions || []} 
+                                type="descriptions" 
+                                onUpdate={(val) => onUpdate({ nestedDescriptions: val })} 
+                                onDelete={(id) => onUpdate({ nestedDescriptions: localTask.nestedDescriptions?.filter(i => i.id !== id) })} 
+                                shouldFocusQuickAdd={activeTypeToFocus === 'nestedDescriptions'}
+                                onFocusHandled={() => setActiveTypeToFocus(null)}
+                            />
                         )}
-
-                        {expandedBranches.resources && (
-                            <div className="mt-4 space-y-2">
-                                <div 
-                                    className="flex items-center justify-between mb-2 cursor-pointer active:opacity-60 transition-opacity"
-                                    onClick={() => setExpandedBranches(prev => ({ ...prev, resources: false }))}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <LinkIcon size={12} className="text-purple-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-purple-600">Resources</span>
-                                    </div>
-                                    <ChevronDown size={14} className="text-muted-foreground/40 rotate-180" />
-                                </div>
-                                {(localTask.resources || []).map((res, idx) => (
-                                    <div key={res.id} className="flex flex-col gap-1 p-2 bg-background rounded-lg border border-border/40">
-                                        <input 
-                                            value={res.title}
-                                            onChange={(e) => {
-                                                const newRes = [...(localTask.resources || [])];
-                                                newRes[idx].title = e.target.value;
-                                                onUpdate({ resources: newRes });
-                                            }}
-                                            className="bg-transparent border-none p-0 text-xs font-bold focus:outline-none"
-                                            placeholder="Resource name"
-                                        />
-                                        <input 
-                                            value={res.url}
-                                            onChange={(e) => {
-                                                const newRes = [...(localTask.resources || [])];
-                                                newRes[idx].url = e.target.value;
-                                                onUpdate({ resources: newRes });
-                                            }}
-                                            className="bg-transparent border-none p-0 text-[10px] text-blue-500 focus:outline-none truncate"
-                                            placeholder="URL Link"
-                                        />
-                                    </div>
-                                ))}
-                                <div className="flex items-center gap-2 p-2 border border-dashed border-border/60 rounded-lg">
-                                    <Plus size={14} className="text-muted-foreground/30" />
-                                    <input 
-                                        className="flex-1 bg-transparent border-none p-0 text-xs italic focus:outline-none"
-                                        placeholder="+ Add resource"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                                                const newRes: Resource = { id: Math.random().toString(), title: e.currentTarget.value.trim(), url: "", type: "link", createdAt: new Date() };
-                                                onUpdate({ resources: [...(localTask.resources || []), newRes] });
-                                                e.currentTarget.value = '';
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            </div>
+                        {(expandedBranches.images || activeTypeToFocus === 'images') && (
+                            <MobileHierarchicalList 
+                                items={localTask.images || []} 
+                                type="images" 
+                                onUpdate={(val) => onUpdate({ images: val })} 
+                                onDelete={(id) => onUpdate({ images: localTask.images?.filter(i => i.id !== id) })} 
+                                shouldFocusQuickAdd={activeTypeToFocus === 'images'}
+                                onFocusHandled={() => setActiveTypeToFocus(null)}
+                            />
+                        )}
+                        {(expandedBranches.resources || activeTypeToFocus === 'resources') && (
+                            <MobileHierarchicalList 
+                                items={localTask.resources || []} 
+                                type="resources" 
+                                onUpdate={(val) => onUpdate({ resources: val })} 
+                                onDelete={(id) => onUpdate({ resources: localTask.resources?.filter(i => i.id !== id) })} 
+                                shouldFocusQuickAdd={activeTypeToFocus === 'resources'}
+                                onFocusHandled={() => setActiveTypeToFocus(null)}
+                            />
+                        )}
+                        {(expandedBranches.subtasks || activeTypeToFocus === 'subtasks' || isEnhancing) && (
+                            <MobileHierarchicalList 
+                                items={localTask.subtasks || []} 
+                                type="subtasks" 
+                                onUpdate={(val) => onUpdate({ subtasks: val })} 
+                                onDelete={(id) => onUpdate({ subtasks: localTask.subtasks?.filter(i => i.id !== id) })} 
+                                shouldFocusQuickAdd={activeTypeToFocus === 'subtasks'}
+                                onFocusHandled={() => setActiveTypeToFocus(null)}
+                                onAISuggest={handleSuggestSubtask}
+                                isLoading={isEnhancing}
+                            />
                         )}
                     </motion.div>
                 )}
@@ -789,6 +1529,19 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
 
   // State for the "Add new task" input field.
   const [newTaskTitle, setNewTaskTitle] = useState("");
+
+  // Refs for the input fields
+  const desktopAddTaskInputRef = useRef<HTMLInputElement>(null);
+  const mobileAddTaskInputRef = useRef<HTMLInputElement>(null);
+
+  // Effect to focus the input on mount
+  useEffect(() => {
+      if (isMobile) {
+          mobileAddTaskInputRef.current?.focus();
+      } else {
+          desktopAddTaskInputRef.current?.focus();
+      }
+  }, [isMobile]); // Re-run if isMobile changes
 
   // State to track the saving process for bulk updates.
   const [isSaving, setIsSaving] = useState(false);
@@ -859,11 +1612,17 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
           if (!response.ok) throw new Error('API Error');
           
           const data = await response.json();
+          const enhancedSubtasks = (data.subtasks || []).map((s: any) => ({
+              ...s,
+              id: s.id || Math.random().toString(),
+              descriptions: s.description ? [{ id: Math.random().toString(), text: s.description, createdAt: new Date() }] : []
+          }));
+
           handleUpdateLocal(taskId, {
               title: data.title || taskToEnhance.title,
               description: data.description || taskToEnhance.description,
               priority: data.priority || taskToEnhance.priority,
-              subtasks: data.subtasks || taskToEnhance.subtasks,
+              subtasks: enhancedSubtasks,
               leaderPoints: data.leaderPoints || taskToEnhance.leaderPoints,
               deadlineHours: data.deadlineHours || taskToEnhance.deadlineHours
           });
@@ -936,8 +1695,9 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                   <div className="flex items-center gap-3 p-4 bg-secondary/10 border-2 border-dashed border-border/40 rounded-2xl">
                       <Plus size={20} className="text-muted-foreground/40" />
                       <input 
-                          className="flex-1 bg-transparent border-none p-0 text-sm font-bold focus:outline-none placeholder:text-muted-foreground/30"
-                          placeholder="Quick add task..."
+                          ref={mobileAddTaskInputRef} 
+                          className='flex-1 bg-transparent border-none p-0 text-sm font-bold focus:outline-none placeholder:text-muted-foreground/30'
+                          placeholder='Quick add task...'
                           value={newTaskTitle}
                           onChange={(e) => setNewTaskTitle(e.target.value)}
                           onKeyDown={async (e) => {
@@ -962,7 +1722,7 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
       <div className='h-14 px-6 flex items-center justify-between bg-secondary/[0.03] border-b border-border/60 shrink-0'>
           <div className='flex items-center gap-4'>
               <div>
-                <h2 className='text-[11px] font-black uppercase tracking-[0.2em] text-primary/80'>Workspace Grid</h2>
+                <h2 className='text-[11px] font-black uppercase tracking-[0.2em] text-primary/80'>Tasks Table</h2>
                 <p className='text-[10px] font-bold text-muted-foreground uppercase'>{tasks.length} Active Items</p>
               </div>
           </div>
@@ -1024,21 +1784,21 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                       </div>
                       <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 bg-background' />
                       <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 bg-background flex flex-col justify-center py-1'>
-                          <input 
-                              className='w-full h-full px-4 text-sm font-medium focus:outline-none bg-transparent placeholder:text-muted-foreground/30 placeholder:italic'
-                              placeholder='+ Add task'
-                              value={newTaskTitle}
-                              onChange={(e) => setNewTaskTitle(e.target.value)}
-                              onKeyDown={async (e) => {
-                                  if (e.key === 'Enter' && newTaskTitle.trim()) {
-                                      const title = newTaskTitle.trim();
-                                      setNewTaskTitle(''); // Clear input immediately
-                                      await addTask(title, 'todo');
-                                      toast.success('New task created');
-                                  }
-                              }}
-                          />
-                          <AnimatePresence>
+                                                <input 
+                                                    ref={desktopAddTaskInputRef} 
+                                                    className='w-full h-full px-4 text-sm font-medium focus:outline-none bg-transparent placeholder:text-muted-foreground/30 placeholder:italic'
+                                                    placeholder='+ Add task'
+                                                    value={newTaskTitle}
+                                                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter' && newTaskTitle.trim()) {
+                                                            const title = newTaskTitle.trim();
+                                                            setNewTaskTitle(''); // Clear input immediately
+                                                            await addTask(title, 'todo');
+                                                            toast.success('New task created');
+                                                        }
+                                                    }}
+                                                />                          <AnimatePresence>
                               {newTaskTitle.length > 2 && (
                                   <motion.div 
                                       initial={{ opacity: 0, y: -5 }}

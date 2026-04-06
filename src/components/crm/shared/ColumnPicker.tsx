@@ -79,9 +79,8 @@ export function ColumnPicker({ onSelect, availableTemplates, children }: ColumnP
     { label: "Numbers", type: "number", icon: Hash, category: "Essentials", color: "text-emerald-500", description: "Raw numerical data" },
 
     // SUPER USEFUL
-    { label: "Files", type: "text", icon: FileText, category: "Super Useful", color: "text-blue-400", description: "Attach documents" },
+    { label: "Files", type: "file", icon: FileText, category: "Super Useful", color: "text-blue-400", description: "Attach documents" },
     { label: "Checkbox", type: "checkbox", icon: CheckSquare, category: "Super Useful", color: "text-green-500", description: "Mark as done" },
-    { label: "Formula", type: "number", icon: Calculator, category: "Super Useful", color: "text-orange-500", description: "Auto-calculated values" },
     { label: "Timeline", type: "timeline", icon: Clock, category: "Super Useful", color: "text-pink-500", description: "Visualize date ranges" },
     { label: "Priority", type: "select", icon: Flag, category: "Super Useful", color: "text-red-500", description: "Set urgency levels", template: { key: "priority", label: "Priority", type: "select" } },
     { label: "Link", type: "link", icon: LinkIcon, category: "Super Useful", color: "text-sky-500", description: "External web links" },

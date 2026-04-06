@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Plus, MoreVertical, Check, X, MessageSquare, Paperclip, GripVertical, Search, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CRMEntity, ModuleConfig, ViewConfig, FieldConfig } from "@/hooks/use-crm-module";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
 import { Badge } from "@/components/ui/badge";
 
 /**
@@ -100,6 +101,11 @@ export function CRMKanban({
   entities, config, updateEntity, addEntity, deleteEntity, updateConfig, 
   onEntityClick, actions, onQuickAdd
 }: CRMKanbanProps) {
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalNode(document.body);
+  }, []);
   
   const [addingToStage, setAddingToStage] = useState<string | null>(null);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
@@ -303,78 +309,93 @@ export function CRMKanban({
 
                     {groupedEntities[stage.value]?.map((entity, index) => (
                       <Draggable key={entity.id} draggableId={entity.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={cn(
-                              "group relative bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:shadow-md transition-all select-none",
-                              snapshot.isDragging ? "shadow-2xl ring-2 ring-blue-500 scale-[1.03] z-[1000] rotate-1" : ""
-                            )}
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                                {editingEntityId === entity.id ? (
-                                    <InlineCardEditor
-                                        initialValue={entity.name}
-                                        onSave={(name) => { updateEntity(entity.id, { name }); setEditingEntityId(null); }}
-                                        onCancel={() => setEditingEntityId(null)}
-                                    />
-                                ) : (
-                                    <h4
-                                        className="text-[11px] font-black uppercase tracking-widest text-foreground truncate flex-1 pr-2 cursor-text hover:text-blue-600 transition-colors"
-                                        onDoubleClick={(e) => { e.stopPropagation(); setEditingEntityId(entity.id); }}
-                                    >
-                                        {entity.name}
-                                    </h4>
-                                )}
-
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 rounded-lg">
-                                    <MoreVertical size={12}/>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52 z-[100]">
-                                    <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}>
-                                        <ExternalLink size={12} className="mr-2 text-blue-500" /> Open Lead
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => setEditingEntityId(entity.id)}>
-                                        <GripVertical size={12} className="mr-2 text-muted-foreground" /> Rename
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    {actions && actions(entity)}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-
-                            {/* FIELDS DISPLAY */}
-                            <div className="space-y-1.5 opacity-70">
-                                {view.visibleFields.slice(0, 3).map(fieldId => {
-                                    const field = config.fields.find(f => f.id === fieldId);
-                                    if (!field || field.key === 'status') return null;
-                                    const val = entity.data[field.key];
-                                    if (!val) return null;
-                                    return (
-                                        <div key={fieldId} className="flex items-center gap-2">
-                                            <span className="text-[8px] font-black uppercase text-muted-foreground/40 w-14 shrink-0 truncate">{field.label}</span>
-                                            <span className="text-[9px] font-bold truncate text-foreground/80">{String(val)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-3 pt-2 border-t border-border/10 flex items-center justify-between">
-                                <div className="flex -space-x-1">
-                                    <div className="size-4 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[7px] font-black text-blue-500">AI</div>
+                        {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => {
+                          const child = (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              style={{
+                                ...provided.draggableProps.style,
+                                width: snapshot.isDragging ? '300px' : provided.draggableProps.style?.width,
+                              }}
+                              className={cn(
+                                "group relative bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:shadow-md transition-all select-none",
+                                snapshot.isDragging ? "shadow-2xl ring-2 ring-blue-500 scale-[1.03] z-[9999] rotate-1" : ""
+                              )}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div {...provided.dragHandleProps} className="p-1 -ml-1 hover:bg-secondary/80 rounded transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100">
+                                    <GripVertical size={12} className="text-muted-foreground" />
+                                  </div>
+                                  {editingEntityId === entity.id ? (
+                                      <InlineCardEditor
+                                          initialValue={entity.name}
+                                          onSave={(name) => { updateEntity(entity.id, { name }); setEditingEntityId(null); }}
+                                          onCancel={() => setEditingEntityId(null)}
+                                      />
+                                  ) : (
+                                      <h4
+                                          className="text-[11px] font-black uppercase tracking-widest text-foreground truncate flex-1 cursor-text hover:text-blue-600 transition-colors"
+                                          onDoubleClick={(e) => { e.stopPropagation(); setEditingEntityId(entity.id); }}
+                                      >
+                                          {entity.name}
+                                      </h4>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-2 text-muted-foreground/30">
-                                    <MessageSquare size={10} />
-                                    <Paperclip size={10} />
-                                </div>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 rounded-lg">
+                                      <MoreVertical size={12}/>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-52 z-[100]">
+                                      <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}>
+                                          <ExternalLink size={12} className="mr-2 text-blue-500" /> Open Lead
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => setEditingEntityId(entity.id)}>
+                                          <GripVertical size={12} className="mr-2 text-muted-foreground" /> Rename
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      {actions && actions(entity)}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+
+                              {/* FIELDS DISPLAY */}
+                              <div className="space-y-1.5 opacity-70 ml-5">
+                                  {view.visibleFields.slice(0, 3).map(fieldId => {
+                                      const field = config.fields.find(f => f.id === fieldId);
+                                      if (!field || field.key === 'status') return null;
+                                      const val = entity.data[field.key];
+                                      if (!val) return null;
+                                      return (
+                                          <div key={fieldId} className="flex items-center gap-2">
+                                              <span className="text-[8px] font-black uppercase text-muted-foreground/40 w-14 shrink-0 truncate">{field.label}</span>
+                                              <span className="text-[9px] font-bold truncate text-foreground/80">{String(val)}</span>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+
+                              <div className="mt-3 pt-2 border-t border-border/10 flex items-center justify-between ml-5">
+                                  <div className="flex -space-x-1">
+                                      <div className="size-4 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[7px] font-black text-blue-500">AI</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-muted-foreground/30">
+                                      <MessageSquare size={10} />
+                                      <Paperclip size={10} />
+                                  </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+
+                          if (snapshot.isDragging && portalNode) {
+                            return createPortal(child, portalNode);
+                          }
+                          return child;
+                        }}
                       </Draggable>
                     ))}
                   </AnimatePresence>

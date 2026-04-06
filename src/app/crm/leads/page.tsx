@@ -222,7 +222,13 @@ function LeadsPageContent() {
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/20 p-4 rounded-3xl border border-border/20 shadow-inner">
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
-          <Input placeholder="SEARCH BY NAME, EMAIL, OR ORGANIZATION..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" />
+          <Input 
+            autoFocus
+            placeholder="SEARCH BY NAME, EMAIL, OR ORGANIZATION..." 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" 
+          />
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>

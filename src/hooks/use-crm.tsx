@@ -52,7 +52,7 @@ export interface FieldConfig {
   key: string;
   label: string;
   description?: string;
-  type: 'text' | 'number' | 'select' | 'date' | 'currency' | 'email' | 'phone' | 'textarea' | 'checkbox' | 'timeline' | 'link' | 'people' | 'label';
+  type: 'text' | 'number' | 'select' | 'date' | 'currency' | 'email' | 'phone' | 'textarea' | 'checkbox' | 'timeline' | 'link' | 'people' | 'label' | 'file';
   isSystem: boolean;
   isVisible: boolean;
   order: number;
@@ -151,12 +151,12 @@ const DEFAULT_CONFIG: CRMConfig = {
         { id: 'f1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
         { id: 'f_last', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
         { id: 'f2', key: 'company', label: 'Organization', type: 'text', isSystem: true, isVisible: true, order: 2 },
-        { id: 'f5', key: 'status', label: 'Stage', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
+        { id: 'f5', key: 'status', label: 'Status', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
           { label: 'New', value: 'new', color: 'blue' },
           { label: 'Talking', value: 'contacted', color: 'yellow' },
           { label: 'Qualified', value: 'qualified', color: 'purple' },
         ]},
-        { id: 'f6', key: 'priority', label: 'Urgency', type: 'select', isSystem: true, isVisible: true, order: 4, options: [
+        { id: 'f6', key: 'priority', label: 'Priority', type: 'select', isSystem: true, isVisible: true, order: 4, options: [
           { label: 'Low', value: 'low', color: 'gray' },
           { label: 'Medium', value: 'medium', color: 'orange' },
           { label: 'High', value: 'high', color: 'red' },
@@ -168,10 +168,16 @@ const DEFAULT_CONFIG: CRMConfig = {
         ]},
         { id: 'f3', key: 'email', label: 'Email', type: 'email', isSystem: true, isVisible: false, order: 7 },
         { id: 'f_mob', key: 'mobile', label: 'Mobile No.', type: 'phone', isSystem: true, isVisible: false, order: 8 },
-        { id: 'f_job', key: 'jobTitle', label: 'Job Title', type: 'text', isSystem: true, isVisible: false, order: 9 },
-        { id: 'f_ind', key: 'industry', label: 'Industry', type: 'text', isSystem: true, isVisible: false, order: 10 },
+        { id: 'f_job', key: 'jobTitle', label: 'Job Title', type: 'select', isSystem: true, isVisible: false, order: 9, options: [
+          { label: 'CEO', value: 'ceo' }, { label: 'CTO', value: 'cto' }, { label: 'Founder', value: 'founder' }, { label: 'Owner', value: 'owner' }, { label: 'Manager', value: 'manager' }, { label: 'Director', value: 'director' }, { label: 'VP', value: 'vp' }, { label: 'Engineer', value: 'engineer' }, { label: 'Sales Lead', value: 'sales_lead' }, { label: 'Designer', value: 'designer' }, { label: 'Analyst', value: 'analyst' },
+        ] },
+        { id: 'f_ind', key: 'industry', label: 'Industry', type: 'select', isSystem: true, isVisible: false, order: 10, options: [
+          { label: 'Technology', value: 'technology' }, { label: 'Healthcare', value: 'healthcare' }, { label: 'Finance', value: 'finance' }, { label: 'Education', value: 'education' }, { label: 'Manufacturing', value: 'manufacturing' }, { label: 'Retail', value: 'retail' }, { label: 'Energy', value: 'energy' }, { label: 'Telecommunications', value: 'telecommunications' }, { label: 'Real Estate', value: 'real_estate' }, { label: 'Transportation', value: 'transportation' }, { label: 'Media', value: 'media' }, { label: 'Other', value: 'other' },
+        ] },
         { id: 'f_web', key: 'website', label: 'Website', type: 'text', isSystem: true, isVisible: false, order: 11 },
-        { id: 'f_src', key: 'source', label: 'Lead Source', type: 'text', isSystem: true, isVisible: false, order: 12 },
+        { id: 'f_src', key: 'source', label: 'Lead Source', type: 'select', isSystem: true, isVisible: false, order: 12, options: [
+          { label: 'Website', value: 'website' }, { label: 'LinkedIn', value: 'linkedin' }, { label: 'Referral', value: 'referral' }, { label: 'Cold Call', value: 'cold_call' }, { label: 'Cold Email', value: 'cold_email' }, { label: 'Event', value: 'event' }, { label: 'Twitter', value: 'twitter' }, { label: 'Instagram', value: 'instagram' }, { label: 'Advertisement', value: 'advertisement' },
+        ] },
         { id: 'f_peop', key: 'people', label: 'People', type: 'people', isSystem: true, isVisible: false, order: 13 },
         { id: 'f_time', key: 'timeline', label: 'Timeline', type: 'timeline', isSystem: true, isVisible: false, order: 14 },
         { id: 'f_link', key: 'link', label: 'Link', type: 'link', isSystem: true, isVisible: false, order: 15 },
@@ -204,7 +210,7 @@ const DEFAULT_CONFIG: CRMConfig = {
           { label: '201-500', value: '201-500' },
           { label: '500+', value: '500+' },
         ]},
-        { id: 'd_ind', key: 'industry', label: 'Industry', type: 'text', isSystem: true, isVisible: true, order: 5 },
+        { id: 'd_ind', key: 'industry', label: 'Industry', type: 'select', isSystem: true, isVisible: true, order: 5, options: [] },
         { id: 'd_sal', key: 'salutation', label: 'Salutation', type: 'select', isSystem: true, isVisible: true, order: 6, options: [
           { label: 'Mr', value: 'Mr' },
           { label: 'Ms', value: 'Ms' },
@@ -250,7 +256,7 @@ const DEFAULT_CONFIG: CRMConfig = {
           { label: '201-500', value: '201-500' },
           { label: '500+', value: '500+' },
         ]},
-        { id: 'o5', key: 'industry', label: 'Industry', type: 'text', isSystem: true, isVisible: true, order: 4 },
+        { id: 'o5', key: 'industry', label: 'Industry', type: 'select', isSystem: true, isVisible: true, order: 4, options: [] },
         { id: 'o6', key: 'street', label: 'Street', type: 'text', isSystem: true, isVisible: true, order: 5 },
         { id: 'o7', key: 'city', label: 'City', type: 'text', isSystem: true, isVisible: true, order: 6 },
         { id: 'o8', key: 'state', label: 'State', type: 'text', isSystem: true, isVisible: true, order: 7 },
@@ -596,6 +602,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
                 else if (key === 'isDeleted') updated.isDeleted = value;
                 else updated.data = { ...updated.data, [key]: value };
             });
+            updated.data = { ...updated.data, lastInteraction: new Date().toISOString() };
             const newOptimistic = [...prev];
             newOptimistic[index] = updated;
             return newOptimistic;
@@ -631,7 +638,8 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       const firestoreUpdates: any = {
         updatedAt: serverTimestamp(),
         lastEditedBy: user.uid,
-        history: arrayUnion(historyEntry)
+        history: arrayUnion(historyEntry),
+        'data.lastInteraction': new Date().toISOString()
       };
 
       // Flatten data updates for nested firestore update

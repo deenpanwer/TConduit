@@ -41,6 +41,9 @@ export interface Subtask {
   completed: boolean;
   completedBy?: string; 
   pointsAwarded?: number; // The exact points given for this subtask
+  descriptions?: NestedDescription[];
+  resources?: Resource[];
+  images?: NestedImage[];
 }
 
 export interface Comment {
@@ -50,12 +53,27 @@ export interface Comment {
   createdAt: any;
 }
 
+export interface NestedDescription {
+  id: string;
+  text: string;
+  createdAt: any;
+}
+
+export interface NestedImage {
+  id: string;
+  title: string;
+  url: string;
+  createdAt: any;
+}
+
 export interface Resource {
   id: string;
   title: string;
   url: string;
   type: string;
   createdAt: any;
+  descriptions?: NestedDescription[];
+  images?: NestedImage[];
 }
 
 export interface HistoryEntry {
@@ -85,6 +103,8 @@ export interface Task {
   tags: string[];
   subtasks: Subtask[];
   resources?: Resource[];
+  nestedDescriptions?: NestedDescription[];
+  images?: NestedImage[];
   comments: Comment[];
   history: HistoryEntry[];
   flagged?: boolean;
@@ -140,7 +160,9 @@ interface TasksContextType {
     leaderPoints?: number, 
     deadlineHours?: number,
     subtasks?: Subtask[],
-    resources?: Resource[]
+    resources?: Resource[],
+    nestedDescriptions?: NestedDescription[],
+    images?: NestedImage[]
   ) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -265,7 +287,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       leaderPoints: number = 0,
       deadlineHours: number = 0,
       subtasks: Subtask[] = [],
-      resources: Resource[] = []
+      resources: Resource[] = [],
+      nestedDescriptions: NestedDescription[] = [],
+      images: NestedImage[] = []
     ): Promise<string | null> => {
       console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
       
@@ -286,6 +310,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignees,
         subtasks,
         resources,
+        nestedDescriptions,
+        images,
         comments: [],
         tags: [],
         flagged: false,
@@ -297,7 +323,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length },
+                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length },
                 createdAt: new Date(),
             }
         ],

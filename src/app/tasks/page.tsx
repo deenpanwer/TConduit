@@ -319,8 +319,9 @@ function TasksPageContent() {
   }, [tasks, selectedTaskId, editingNewTask]);
 
   const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
-    setInitialMetadata({ status: initialStatus, date: initialDate });
-    setShowCreateTaskModal(true);
+    // setInitialMetadata({ status: initialStatus, date: initialDate });
+    // setShowCreateTaskModal(true);
+	handleAddNewTaskTypeClick(initialStatus, initialDate);
   }, []);
 
   const handleAddNewTaskTypeClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
@@ -584,7 +585,7 @@ function TasksPageContent() {
                         className={cn("font-semibold text-xs h-8 rounded-md", isMobile ? "px-2" : "px-3")}
                         onClick={() => {
                           setInitialMetadata({});
-                          setShowCreateTaskModal(true);
+                          handleAddNewTaskClick();
                         }}
                     >
                         <Plus size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Add Task"}
@@ -1288,9 +1289,9 @@ function TasksPageContent() {
           </>
         )}
       </AnimatePresence>
-
+{/*
       <AnimatePresence>
-        {/* New Task Creation Modal (Selection) */}
+        {/ New Task Creation Modal (Selection) /}
         {showCreateTaskModal && (
           <motion.div
             key="create-task-modal-overlay"
@@ -1332,7 +1333,8 @@ function TasksPageContent() {
             </motion.div>
           </motion.div>
         )}
-
+		</AnimatePresence>
+*/}
         {/* Voice Task Creator Modal */}
         {createTaskMode === "voice" && (
             <motion.div
@@ -1403,7 +1405,6 @@ function TasksPageContent() {
                 setBulkInput={setBulkInput}
             />
         )}
-        </AnimatePresence>
     </>
   );
 }

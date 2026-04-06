@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "CRM Lead Details | Trac AI",
-    description: "View details for a specific CRM lead.",
+    title: "CRM Emails | Trac AI",
+    description: "Review and analyze emails from your CRM.",
 };
 
-export default function CrmLeadDetailsLayout({
+export default function CrmEmailsLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;

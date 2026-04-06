@@ -1,14 +1,14 @@
-import { Metadata } from 'next';
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Leads | TRAC AI CRM',
-  description: 'Manage and track your sales leads and opportunities.',
+    title: "CRM Leads | Trac AI",
+    description: "Manage and view your CRM leads.",
 };
 
-export default function LeadsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return <>{children}</>;
+export default function CrmLeadsLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return <>{children}</>;
 }

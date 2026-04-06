@@ -1,223 +1,286 @@
 "use client";
 
 import React, { useState, useMemo, Suspense } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import { useCRM } from "@/hooks/use-crm";
 import { useCRMLeads } from "@/hooks/use-crm-leads";
 import { useCRMNotes } from "@/hooks/use-crm-notes";
 import { useCRMCalls } from "@/hooks/use-crm-calls";
-import { useAuth } from "@/hooks/use-auth";
+import { CRMEntity, FieldConfig } from "@/hooks/use-crm-module";
 import { Button } from "@/components/ui/button";
 import { 
-  ChevronLeft, Mail, 
-  Building2, Clock, History, Trash2, 
-  ArrowLeft, AlertCircle, User, StickyNote, 
-  PhoneCall, ArrowRightLeft, Briefcase,
-  FileText
+  Briefcase, 
+  PhoneCall, 
+  NotebookPen, 
+  Loader2, 
+  ArrowLeft,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { InlineEdit } from "@/components/crm/shared/InlineEdit";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from 'date-fns';
+
+import { InlineEditField } from "@/components/crm/shared/InlineEditField"; 
 import { ActivityTimeline } from "@/components/crm/ActivityTimeline";
-import { NoteModal } from "@/components/crm/forms/NoteModal";
+import { DealModal } from "@/components/crm/forms/DealModal";
 import { CallModal } from "@/components/crm/forms/CallModal";
-import { cn } from "@/lib/utils";
-import { CRMEntity } from "@/hooks/use-crm";
+import { NoteModal } from "@/components/crm/forms/NoteModal";
+import { useAuth } from "@/hooks/use-auth";
 
-interface NoteModalState {
-  mode: 'create' | 'edit' | 'preview';
-  note: any | null;
-  isOpen: boolean;
-}
-
-interface CallModalState {
-    mode: 'create' | 'edit' | 'preview';
-    call: any | null;
-    isOpen: boolean;
-}
-
-function LeadDetailPageContent() {
-  const { id } = useParams();
+function LeadDetailClientPage() {
+  const { user } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, userData } = useAuth();
-  const { entities: leads, updateEntity, deleteEntity, config, loading } = useCRMLeads();
-  const { addEntity: addNote } = useCRMNotes();
-  const { addEntity: addCall } = useCRMCalls();
+  const params = useParams();
+  const leadId = params.id as string;
 
-  const [noteModal, setNoteModal] = useState<NoteModalState>({ mode: 'create', note: null, isOpen: false });
-  const [callModal, setCallModal] = useState<CallModalState>({ mode: 'create', call: null, isOpen: false });
-  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const { updateEntityField } = useCRM();
+  const { entities: leads, config, loading: leadsLoading } = useCRMLeads();
+  const { entities: notes, addEntity: addNote, loading: notesLoading } = useCRMNotes();
+  const { entities: calls, addEntity: addCall, loading: callsLoading } = useCRMCalls();
 
-  const lead = useMemo(() => leads.find(l => l.id === id), [leads, id]);
+  const [showDealModal, setShowDealModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
 
-  const fromView = searchParams.get("from") || "list";
-  const backPath = `/crm/leads?view=${fromView}`;
+  const lead = useMemo(() => leads.find((l) => l.id === leadId), [leads, leadId]);
 
-  const allActivities = lead?.history || [];
-  const notes = allActivities.filter(a => a.type === 'Note');
-  const calls = allActivities.filter(a => a.type === 'Call');
+  const leadNotes = useMemo(() => notes.filter(n => n.data.relatedTo === leadId), [notes, leadId]);
+  const leadCalls = useMemo(() => calls.filter(c => c.data.relatedTo === leadId), [calls, leadId]);
 
-  const handleNoteSubmit = (noteData: { content: string }) => {
+  const visibleFields = useMemo(() => {
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const visibleIds = listView?.visibleFields || [];
+    
+    return visibleIds
+      .map(id => config.fields.find(f => f.id === id))
+      .filter((field): field is FieldConfig => 
+        !!field && 
+        !['firstName', 'lastName', 'name'].includes(field.key)
+      );
+  }, [config.fields, config.views]);
+
+  const handleSaveField = async (fieldKey: string, value: any) => {
     if (!lead) return;
-    addNote({ 
-        name: `Note for ${lead.name}`,
-        data: {
-            content: noteData.content,
-            relatedTo: lead.id 
-        }
+    await updateEntityField(lead.id, fieldKey, value);
+  };
+  
+  const handleNoteSubmit = async (noteData: any) => {
+    await addNote({
+      name: `Note for ${lead?.name}`,
+      data: { ...noteData, relatedTo: lead!.id }
     });
-    toast.success("Note added successfully!");
-    setNoteModal({ mode: 'create', note: null, isOpen: false });
+    toast.success("Note added!");
+    setShowNoteModal(false);
   };
 
-  const handleCallSubmit = (callData: any) => {
-    if (!lead) return;
-    addCall({ 
-        summary: callData.summary, 
-        data: {
-            ...callData,
-            relatedTo: lead.id 
-        }
+  const handleCallSubmit = async (callData: any) => {
+    await addCall({
+      name: `Call with ${lead?.name}`,
+      data: { ...callData, relatedTo: lead!.id }
     });
-    toast.success("Call logged successfully!");
-    setCallModal({ mode: 'create', call: null, isOpen: false });
+    toast.success("Call logged!");
+    setShowCallModal(false);
   };
 
-  if (loading && !lead) {
-    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin" size={32} /></div>;
+  const leadName = useMemo(() => {
+    if (!lead) return "Lead Not Found";
+    const firstName = lead.data.firstName || "";
+    const lastName = lead.data.lastName || "";
+    return lead.name || `${firstName} ${lastName}`.trim() || "Unnamed Lead";
+  }, [lead]);
+
+  if (leadsLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={48} />
+      </div>
+    );
   }
 
-  if (!lead) { 
+  if (!lead) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center min-h-screen">
-        <div className="size-16 rounded-3xl bg-secondary flex items-center justify-center mb-4"><AlertCircle className="text-muted-foreground" size={32} /></div>
-        <h2 className="text-xl font-bold uppercase tracking-tighter">Lead not found</h2>
-        <Button variant="outline" className="mt-6 rounded-xl font-bold text-xs uppercase tracking-widest" onClick={() => router.push(backPath)}>
-          <ArrowLeft size={16} className="mr-2" /> Back to Leads
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
+        <h2 className="text-2xl font-bold">Lead Not Found</h2>
+        <p>We couldn't find the lead you're looking for.</p>
+        <Button onClick={() => router.push('/crm/leads')}>
+          <ArrowLeft className="mr-2" size={16} /> Back to Leads
         </Button>
       </div>
     );
   }
 
-  const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this lead?")) {
-      await deleteEntity(lead.id);
-      router.push(backPath);
-    }
-  };
-
-  const handleUpdateField = (key: string, value: any) => {
-    updateEntity(lead.id, { [key]: value });
-  };
-
-  const statusField = config.fields.find(f => f.key === 'status');
-  const currentStatus = statusField?.options?.find(o => o.value === lead.data.status);
-  
-  const initialCallData = { from: userData?.name || user?.displayName || "You", to: String(lead.data.mobile || ""), type: "Outgoing", status: "completed", summary: "", duration: 0, relatedTo: lead.id };
-
   return (
-    <div className="flex flex-col h-full bg-background/50">
-      <NoteModal isOpen={noteModal.isOpen} onOpenChange={(isOpen) => setNoteModal({ ...noteModal, isOpen })} mode={noteModal.mode} note={noteModal.note} onSubmit={handleNoteSubmit} leads={[lead]} />
-      <CallModal isOpen={callModal.isOpen} onOpenChange={(isOpen) => setCallModal({ ...callModal, isOpen })} mode={callModal.mode} call={callModal.call} onSubmit={handleCallSubmit} leads={[lead]} initialData={callModal.call} />
-      
-      <header className="p-6 border-b border-border/40 bg-card/30 backdrop-blur-md sticky top-0 z-20">
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" size="sm" className="rounded-lg text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground" onClick={() => router.push(backPath)}>
-            <ChevronLeft size={16} className="mr-1" /> Back to Pipeline
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setNoteModal({ mode: 'create', note: null, isOpen: true })} className="rounded-xl border-border/40 h-9 font-black text-[10px] uppercase px-4 shadow-sm"><StickyNote className="mr-2 h-3.5 w-3.5" /> Add Note</Button>
-            <Button variant="outline" size="sm" onClick={() => setCallModal({ mode: 'create', call: initialCallData, isOpen: true })} className="rounded-xl border-border/40 h-9 font-black text-[10px] uppercase px-4 shadow-sm"><PhoneCall className="mr-2 h-3.5 w-3.5" /> Log Interaction</Button>
-            {lead.data.status !== 'won' && <Button onClick={() => setIsConvertModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 font-black text-[10px] uppercase px-6 shadow-xl shadow-blue-500/20"><ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Launch Deal</Button>}
-            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-red-500 hover:bg-red-500/10" onClick={handleDelete}><Trash2 size={16} /></Button>
-          </div>
-        </div>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-           <div className="space-y-4 flex-1">
-            <div className="flex items-center gap-5">
-              <div className="size-16 rounded-[1.25rem] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-500/20 shrink-0 border-2 border-white/10">{lead.name.charAt(0)}</div>
-              <div className="min-w-0 flex-1">
-                <InlineEdit value={lead.name} onSave={(val) => updateEntity(lead.id, { name: val })} className="text-4xl font-black tracking-tighter mb-1 h-auto p-0 hover:bg-transparent bg-transparent border-none" />
-                <div className="flex items-center gap-2 text-muted-foreground"><Briefcase size={14} className="shrink-0 text-blue-500" /><InlineEdit value={lead.data.company || "Individual"} onSave={(val) => handleUpdateField('company', val)} className="text-sm font-bold h-auto p-0 hover:bg-transparent bg-transparent border-none text-muted-foreground" /></div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge className={cn("px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-500 border-blue-500/20 shadow-sm")} variant="outline">{currentStatus?.label || lead.data.status}</Badge>
-              <Badge variant="secondary" className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-secondary/50 border-none">{lead.data.priority} Priority</Badge>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1 shrink-0 bg-blue-500/[0.03] p-5 rounded-3xl border border-blue-500/10 shadow-inner min-w-[180px]">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Estimated Value</p>
-            <h2 className="text-4xl font-black text-blue-600 tracking-tighter">${Number(lead.data.value || 0).toLocaleString()}</h2>
-          </div>
-        </div>
-      </header>
+    <>
+      <DealModal 
+          isOpen={showDealModal} 
+          onOpenChange={setShowDealModal}
+          mode="create"
+          deal={null}
+          initialData={{ 
+              organization: lead.data.company, 
+              firstName: lead.data.firstName, 
+              lastName: lead.data.lastName, 
+              email: lead.data.email, 
+              mobile: lead.data.mobile, 
+              name: `${leadName} - Deal` 
+          }}
+      />
+      <CallModal 
+          isOpen={showCallModal} 
+          onOpenChange={setShowCallModal}
+          mode="create"
+          call={null}
+          leads={leads}
+          onSubmit={handleCallSubmit}
+          initialData={{ from: user?.displayName, relatedTo: lead.id }}
+      />
+      <NoteModal 
+          isOpen={showNoteModal} 
+          onOpenChange={setShowNoteModal}
+          mode="create"
+          note={null}
+          leads={leads}
+          onSubmit={handleNoteSubmit}
+          initialData={{ relatedTo: lead.id }}
+      />
 
-      <main className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="bg-secondary/20 p-1.5 rounded-2xl border border-border/40 w-full justify-start mb-8 backdrop-blur-sm shadow-inner max-w-fit"><TabsTrigger value="details">Details</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger><TabsTrigger value="notes">Notes</TabsTrigger><TabsTrigger value="calls">Call Logs</TabsTrigger><TabsTrigger value="emails">Emails</TabsTrigger></TabsList>
-              <TabsContent value="details" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                 <Card className="border-border/30 bg-card/40 backdrop-blur-md rounded-3xl shadow-xl">
-                   <CardHeader><CardTitle>Organization Context</CardTitle></CardHeader>
-                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Entity Name</label><InlineEdit value={lead.data.company || ''} onSave={(val) => handleUpdateField('company', val)} /></div>
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Industry</label><InlineEdit value={lead.data.industry || ''} onSave={(val) => handleUpdateField('industry', val)} /></div>
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Website</label><InlineEdit value={lead.data.website || ''} onSave={(val) => handleUpdateField('website', val)} /></div>
-                   </CardContent>
-                 </Card>
-                 <Card className="border-border/30 bg-card/40 backdrop-blur-md rounded-3xl shadow-xl">
-                   <CardHeader><CardTitle>Point of Contact</CardTitle></CardHeader>
-                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">First Name</label><InlineEdit value={lead.data.firstName || ''} onSave={(val) => handleUpdateField('firstName', val)} /></div>
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Last Name</label><InlineEdit value={lead.data.lastName || ''} onSave={(val) => handleUpdateField('lastName', val)} /></div>
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Job Title</label><InlineEdit value={lead.data.jobTitle || ''} onSave={(val) => handleUpdateField('jobTitle', val)} /></div>
-                     <div className="space-y-2"><label className="text-sm text-muted-foreground">Email</label><InlineEdit value={lead.data.email || ''} onSave={(val) => handleUpdateField('email', val)} /></div>
-                   </CardContent>
-                 </Card>
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="mb-6">
+            <Button 
+                variant="ghost" 
+                onClick={() => router.push('/crm/leads')}
+                className="group text-muted-foreground hover:text-foreground transition-colors"
+            >
+                <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Back to Leads</span>
+            </Button>
+        </div>
+
+        <div className="w-full h-48 md:h-64 lg:h-80 rounded-2xl overflow-hidden relative shadow-lg">
+          <Image
+            src={`https://picsum.photos/seed/${lead.data.firstName || 'lead'}/1600/400`}
+            alt="Cover Photo"
+            layout="fill"
+            objectFit="cover"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center md:items-end -mt-12 md:-mt-20 px-4 md:px-8 z-10 relative">
+          <div className="flex-shrink-0">
+            <Avatar className="h-28 w-28 md:h-40 md:w-40 border-4 border-background shadow-md bg-muted">
+              <AvatarImage src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${lead.data.firstName || 'avatar'}`} alt={leadName} />
+              <AvatarFallback>{(lead.data.firstName || '').charAt(0)}</AvatarFallback>
+            </Avatar>
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-center w-full mt-4 md:ml-6">
+              <div className="text-center md:text-left">
+                  <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{leadName}</h1>
+                  <p className="text-muted-foreground text-lg">{lead.data.jobTitle || 'No title specified'}</p>
+              </div>
+              <div className="flex items-center gap-3 mt-4 md:mt-0">
+                <Button onClick={() => setShowDealModal(true)} size="lg" className="bg-green-600 hover:bg-green-700 shadow-md">
+                  <Briefcase size={16} className="mr-2" /> Start a Deal
+                </Button>
+                <Button onClick={() => setShowCallModal(true)} size="lg" variant="outline" className="shadow-sm">
+                  <PhoneCall size={16} className="mr-2" /> Log a Call
+                </Button>
+                <Button onClick={() => setShowNoteModal(true)} size="lg" variant="outline" className="shadow-sm">
+                  <NotebookPen size={16} className="mr-2" /> Add a Note
+                </Button>
+              </div>
+          </div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 flex flex-col gap-6">
+              <Card className="shadow-sm">
+                  <CardHeader>
+                      <CardTitle className="text-xl">About This Lead</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                      {visibleFields.map((field: FieldConfig) => (
+                        <InlineEditField
+                            key={field.key}
+                            label={field.label}
+                            value={lead.data[field.key] || ''}
+                            onSave={(newValue) => handleSaveField(field.key, newValue)}
+                            type={field.type as any}
+                            options={field.options}
+                            readOnly={field.key === 'lastInteraction'}
+                        />
+                      ))}
+                  </CardContent>
+              </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="activity" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="activity">Activities</TabsTrigger>
+                <TabsTrigger value="notes">Notes ({leadNotes.length})</TabsTrigger>
+                <TabsTrigger value="emails">Emails</TabsTrigger>
+                <TabsTrigger value="calls">Calls ({leadCalls.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-4">
+                  <Card className="shadow-sm">
+                      <CardHeader><CardTitle>Recent History</CardTitle></CardHeader>
+                      <CardContent>
+                          <ActivityTimeline history={lead.history || []} />
+                      </CardContent>
+                  </Card>
               </TabsContent>
-              <TabsContent value="activity" className="mt-0"><ActivityTimeline history={allActivities} /></TabsContent>
-              <TabsContent value="notes" className="mt-0">
-                 {notes.length > 0 ? <div className="space-y-4">{notes.map(note => (<Card key={note.id} onClick={() => setNoteModal({ mode: 'preview', note, isOpen: true })} className="cursor-pointer transition-all"><CardContent className="p-6"><p className="truncate">{note.content}</p><p>{note.userName} on {new Date(note.timestamp).toLocaleDateString()}</p></CardContent></Card>))}</div> : <EmptyState icon={<FileText size={32}/>} title="No Notes Yet" subtitle="All notes for this lead will appear here." buttonText="Create First Note" onButtonClick={() => setNoteModal({ mode: 'create', note: null, isOpen: true })} />}
+              <TabsContent value="notes" className="mt-4">
+                  <Card className="shadow-sm">
+                      <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+                      <CardContent>
+                          {notesLoading ? <Loader2 className="animate-spin"/> :
+                           leadNotes.length > 0 ? (
+                            <ul className="space-y-4">{leadNotes.map(note => <li key={note.id} className="p-3 bg-muted/50 rounded-lg">{note.data.content}</li>)}</ul>
+                           ) : <p>No notes yet.</p>
+                          }
+                      </CardContent>
+                  </Card>
               </TabsContent>
-              <TabsContent value="calls" className="mt-0">
-                 {calls.length > 0 ? <div className="space-y-4">{calls.map(call => (<Card key={call.id} onClick={() => setCallModal({ mode: 'preview', call: call.details, isOpen: true })} className="cursor-pointer"><CardContent className="p-6"><p className="font-semibold">{call.content}</p><div><span>{call.userName} on {new Date(call.timestamp).toLocaleDateString()}</span><span>{call.details?.duration} mins</span></div></CardContent></Card>))}</div> : <EmptyState icon={<PhoneCall size={32}/>} title="No Call Logs" subtitle="Logged calls and interactions will appear here." buttonText="Log First Call" onButtonClick={() => setCallModal({ mode: 'create', call: initialCallData, isOpen: true })} />}
+              <TabsContent value="emails" className="mt-4">
+                  <Card className="shadow-sm">
+                      <CardHeader><CardTitle>Emails</CardTitle></CardHeader>
+                      <CardContent><p>Email integration is not set up yet.</p></CardContent>
+                  </Card>
               </TabsContent>
-              <TabsContent value="emails" className="mt-0"><EmptyState icon={<Mail size={32}/>} title="Coming Soon" subtitle="Email integration is on the roadmap." /></TabsContent>
+              <TabsContent value="calls" className="mt-4">
+                  <Card className="shadow-sm">
+                      <CardHeader><CardTitle>Call Logs</CardTitle></CardHeader>
+                      <CardContent>
+                          {callsLoading ? <Loader2 className="animate-spin"/> :
+                            leadCalls.length > 0 ? (
+                              <ul className="space-y-4">{leadCalls.map(call => <li key={call.id} className="p-3 bg-muted/50 rounded-lg">{call.data.summary}</li>)}</ul>
+                            ) : <p>No calls logged yet.</p>
+                          }
+                      </CardContent>
+                  </Card>
+              </TabsContent>
             </Tabs>
           </div>
-          <aside className="space-y-8">
-            <Card className="border-border/30 bg-card/40 backdrop-blur-md"><CardHeader><CardTitle>Intelligence</CardTitle></CardHeader><CardContent className="space-y-6"><div className="flex justify-between items-center"><div className="flex items-center gap-3"><Clock size={14} /> Created</div><span>{new Date(lead.createdAt).toLocaleDateString()}</span></div><div className="flex justify-between items-center"><div className="flex items-center gap-3"><History size={14} /> Modified</div><span>{new Date(lead.updatedAt).toLocaleDateString()}</span></div><div className="flex justify-between items-center"><div className="flex items-center gap-3"><User size={14} /> Owner</div><span>{userData?.name || "System AI"}</span></div></CardContent></Card>
-            <div className="p-8 rounded-[2rem] bg-gradient-to-br from-blue-600 to-indigo-700 text-white"><h3 className="font-black">Next Suggested Action</h3><p>The lead is in {currentStatus?.label || lead.data.status} stage. Schedule a discovery call.</p><Button variant="secondary" className="w-full">Book Discovery Call</Button></div>
-          </aside>
         </div>
-      </main>
-
-      <Dialog open={isConvertModalOpen} onOpenChange={setIsConvertModalOpen}>
-        <DialogContent><DialogHeader><DialogTitle>Graduate to Deal?</DialogTitle></DialogHeader><div className="py-10 text-center space-y-8"><p>This will convert the lead into an active business opportunity.</p><div className="flex gap-4 pt-4 justify-center"><Button variant="ghost" onClick={() => setIsConvertModalOpen(false)}>Hold Back</Button><Button onClick={async () => { await updateEntity(lead.id, { status: 'qualified' }); toast.success("Lead Qualified!"); setIsConvertModalOpen(false);}}>Convert Now</Button></div></div></DialogContent>
-      </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 
 export default function LeadDetailPage() {
   return (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin" size={32} /></div>}>
-      <LeadDetailPageContent />
+    <Suspense fallback={
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={48} />
+      </div>
+    }>
+      <LeadDetailClientPage />
     </Suspense>
   );
 }
-
-const Loader2 = ({ className, size }: { className?: string, size?: number }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("animate-spin", className)}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>);
-
-const EmptyState = ({icon, title, subtitle, buttonText, onButtonClick}: any) => (
-    <div className="flex flex-col items-center justify-center p-20 border-2 border-dashed border-border/20 rounded-[2.5rem] text-center space-y-6 bg-secondary/5">
-        <div className="size-20 rounded-[2rem] bg-secondary flex items-center justify-center text-muted-foreground/40 shadow-inner">{icon}</div>
-        <div className="space-y-1"><h3 className="font-black text-xl tracking-tighter uppercase">{title}</h3><p className="text-xs text-muted-foreground font-bold max-w-xs mx-auto">{subtitle}</p></div>
-        {buttonText && <Button variant="outline" size="sm" onClick={onButtonClick} className="rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] h-12 px-10 border-2 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all">{buttonText}</Button>}
-    </div>
-);

@@ -9,6 +9,9 @@ import { useCRMDeals } from '@/hooks/use-crm-deals';
 import { CRMEntity, FieldConfig } from '@/hooks/use-crm-module';
 import { Settings, ArrowLeft } from 'lucide-react';
 import { FieldEditor } from './FieldEditor';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface DealModalProps {
   isOpen: boolean;
@@ -55,7 +58,13 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
 
   const handleSubmit = async () => {
     const entityData = { ...formData };
-    const dealName = entityData.name || `Unnamed Deal ${new Date().getTime()}`;
+    
+    // Improved name logic
+    let dealName = entityData.name;
+    if (!dealName || dealName.trim() === '') {
+        const org = entityData.organization || "";
+        dealName = org ? `${org} - Deal` : `Unnamed Deal ${new Date().getTime()}`;
+    }
 
     if (currentMode === 'create') {
       await addEntity({ name: dealName, data: entityData });
@@ -67,7 +76,6 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
 
   const handleConfigSave = async () => {
     await updateConfig({ fields: editedFields });
-    console.log("New deal field configuration saved!");
     setCurrentMode(previousMode);
   }
 
@@ -77,7 +85,10 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
   };
 
   const renderField = (field: FieldConfig) => {
-    if (!field.isVisible) return null;
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const isVisibleInList = listView?.visibleFields?.includes(field.id);
+    
+    if (!field.isVisible || !isVisibleInList) return null;
     const value = formData[field.key] || "";
 
     const label = (
@@ -94,7 +105,11 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
             <Input 
                 id={field.key} 
                 value={value}
-                onChange={e => handleInputChange(field.key, e.target.value)} 
+                onChange={e => {
+                    const val = e.target.value;
+                    if ((field.type === 'number' || field.type === 'currency') && val !== "" && Number(val) < 0) return;
+                    handleInputChange(field.key, val);
+                }} 
                 className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
                 disabled={currentMode === 'preview'}
                 type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
@@ -119,6 +134,60 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
                     </SelectContent>
                 </Select>
             </div>
+        );
+      case 'date':
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start" disabled={currentMode === 'preview'}>
+                  {value ? format(new Date(value), "PPP") : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={value ? new Date(value) : undefined}
+                  onSelect={(date) => {
+                    if (date) handleInputChange(field.key, date.toISOString());
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      case 'timeline':
+        const range = typeof value === 'string' ? JSON.parse(value || '{}') : (value || { from: undefined, to: undefined });
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start truncate" disabled={currentMode === 'preview'}>
+                  {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={range.from ? new Date(range.from) : new Date()}
+                  selected={{ 
+                    from: range.from ? new Date(range.from) : undefined, 
+                    to: range.to ? new Date(range.to) : undefined 
+                  }}
+                  onSelect={(newRange) => {
+                    if (newRange?.from) {
+                      handleInputChange(field.key, JSON.stringify({ from: newRange.from.toISOString(), to: newRange.to?.toISOString() }));
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         );
       default: return null;
     }
@@ -163,7 +232,11 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
         </DialogHeader>
         
         {currentMode === 'configure' ? (
-            <FieldEditor fields={editedFields} onFieldsChange={setEditedFields} />
+            <FieldEditor 
+                fields={editedFields} 
+                onFieldsChange={setEditedFields} 
+                availableTemplates={config.fields.filter(f => f.isSystem)}
+            />
         ) : (
             <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">

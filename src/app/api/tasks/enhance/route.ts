@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       {
         "title": "Stark, high-impact title (max 60 chars)",
         "description": "Professional, detailed description following the 'Modern Founder' aesthetic - minimalist but high density.",
-        "subtasks": [{"id": "uuid", "title": "Atomic action item", "completed": false}],
+        "subtasks": [{"id": "uuid", "title": "Atomic action item", "description": "Single-line high-density context", "completed": false}],
         "priority": "low" | "medium" | "high" | "critical",
         "tags": ["relevant", "contextual", "tags"],
         "leaderPoints": 10-100,
@@ -34,8 +34,9 @@ export async function POST(req: Request) {
       2. If the user input is vague, use the provided CONTEXT to infer missing details.
       3. Output ONLY valid JSON. No markdown formatting.
       4. Ensure subtasks are actionable and atomic.
-      5. Assign leaderPoints based on complexity (simple=10, hard=50, massive=100).
-      6. Assign deadlineHours based on estimated effort (1, 2, 4, 8, 24, 48, etc).
+      5. Every subtask MUST have a single-line description/note.
+      6. Assign leaderPoints based on complexity (simple=10, hard=50, massive=100).
+      7. Assign deadlineHours based on estimated effort (1, 2, 4, 8, 24, 48, etc).
     `;
 
     let userPrompt = "";
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
         User provided: "${text}"
         Current Context: ${JSON.stringify(context || {})}
         
-        Refine the title, expand the description into a professional brief, and generate 3-5 logical subtasks.
+        Refine the title, expand the description into a professional brief, and generate 3-5 logical subtasks, each with a brief 1-line description.
       `;
     } else if (mode === 'bulk') {
       userPrompt = `
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         Existing Subtasks: ${JSON.stringify(context?.subtasks || [])}
 
         Based on the above, suggest ONE additional high-impact, atomic subtask that would be logical to include.
-        Return ONLY the JSON for the subtask: {"title": "..."}
+        Return ONLY the JSON for the subtask: {"title": "...", "description": "..."}
       `;
     }
 

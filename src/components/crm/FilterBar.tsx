@@ -73,6 +73,7 @@ export function FilterBar({
       <div className="relative w-full md:w-72">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
+          autoFocus
           placeholder={searchPlaceholder}
           className="pl-9 h-10 bg-card/50 border-border/40 focus-visible:ring-primary/20"
           onChange={(e) => onSearch(e.target.value)}

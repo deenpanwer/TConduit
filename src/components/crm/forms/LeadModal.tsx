@@ -9,6 +9,9 @@ import { useCRMLeads } from '@/hooks/use-crm-leads';
 import { CRMEntity, FieldConfig } from '@/hooks/use-crm-module';
 import { Settings, ArrowLeft } from 'lucide-react';
 import { FieldEditor } from './FieldEditor';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -57,7 +60,15 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
     const entityData = { ...formData };
     const firstName = entityData[config.fields.find(f => f.key === 'firstName')?.key || '' ] || '';
     const lastName = entityData[config.fields.find(f => f.key === 'lastName')?.key || '' ] || '';
-    let leadName = entityData.name || `${firstName} ${lastName}`.trim() || `Unnamed Lead ${new Date().getTime()}`;
+    
+    // Improved name logic: if name is not explicitly set, use firstName or firstName + lastName
+    let leadName = entityData.name;
+    if (!leadName || leadName.trim() === '') {
+        leadName = `${firstName} ${lastName}`.trim();
+    }
+    if (!leadName || leadName.trim() === '') {
+        leadName = firstName || `Unnamed Lead ${new Date().getTime()}`;
+    }
 
     if (currentMode === 'create') {
       await addEntity({ name: leadName, data: entityData });
@@ -80,7 +91,13 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
   };
 
   const renderField = (field: FieldConfig) => {
-    if (!field.isVisible) return null;
+    // Only show fields that are in the list view's visibleFields
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const isVisibleInList = listView?.visibleFields?.includes(field.id);
+    
+    // During creation/edit, we might want to show all visible fields or just list-visible ones.
+    // The user said: "we show the non hidden fields where which means in this crm whatever columns the employer has set we only show them in the individual leads page okay... and edit the leadsmodal to comply with this logic"
+    if (!field.isVisible || !isVisibleInList) return null;
     const value = formData[field.key] || "";
 
     const label = (
@@ -97,7 +114,11 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
             <Input 
                 id={field.key} 
                 value={value}
-                onChange={e => handleInputChange(field.key, e.target.value)} 
+                onChange={e => {
+                    const val = e.target.value;
+                    if ((field.type === 'number' || field.type === 'currency') && val !== "" && Number(val) < 0) return;
+                    handleInputChange(field.key, val);
+                }} 
                 className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
                 disabled={currentMode === 'preview'}
                 type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
@@ -123,10 +144,63 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
                 </Select>
             </div>
         );
+      case 'date':
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start" disabled={currentMode === 'preview'}>
+                  {value ? format(new Date(value), "PPP") : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={value ? new Date(value) : undefined}
+                  onSelect={(date) => {
+                    if (date) handleInputChange(field.key, date.toISOString());
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      case 'timeline':
+        const range = typeof value === 'string' ? JSON.parse(value || '{}') : (value || { from: undefined, to: undefined });
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start truncate" disabled={currentMode === 'preview'}>
+                  {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={range.from ? new Date(range.from) : new Date()}
+                  selected={{ 
+                    from: range.from ? new Date(range.from) : undefined, 
+                    to: range.to ? new Date(range.to) : undefined 
+                  }}
+                  onSelect={(newRange) => {
+                    if (newRange?.from) {
+                      handleInputChange(field.key, JSON.stringify({ from: newRange.from.toISOString(), to: newRange.to?.toISOString() }));
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
       default: return null;
     }
   };
-
   const getTitle = () => {
       switch(currentMode) {
           case 'create': return 'Create New Lead';
@@ -166,7 +240,11 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
         </DialogHeader>
         
         {currentMode === 'configure' ? (
-            <FieldEditor fields={editedFields} onFieldsChange={setEditedFields} />
+            <FieldEditor 
+                fields={editedFields} 
+                onFieldsChange={setEditedFields} 
+                availableTemplates={config.fields.filter(f => f.isSystem)}
+            />
         ) : (
             <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
