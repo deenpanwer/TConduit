@@ -302,7 +302,7 @@ export function CRMTable({
     return ids
       .map(id => {
         const field = config.fields.find(f => f.id === id);
-        if (!field) return null;
+        if (!field || !field.isVisible) return null;
         const label = optimisticLabels[id] || field.label;
         return { ...field, label };
       })

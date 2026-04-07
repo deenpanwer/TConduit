@@ -9,21 +9,25 @@ import { useCRMNotes } from '@/hooks/use-crm-notes';
 import { CRMEntity, FieldConfig } from '@/hooks/use-crm-module';
 import { Settings, ArrowLeft } from 'lucide-react';
 import { FieldEditor } from './FieldEditor';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface NoteModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   mode: 'create' | 'edit' | 'preview' | 'configure';
   note: CRMEntity | null;
-  leads: CRMEntity[];
-  onSubmit: (data: any) => void;
+  leads?: CRMEntity[];
+  organizations?: CRMEntity[];
+  onSubmit?: (data: any) => void;
   initialStage?: string;
   initialData?: Record<string, any>;
   onClose?: () => void;
 }
 
-export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads, onSubmit, initialStage, initialData, onClose }: NoteModalProps) {
-  const { config, updateConfig } = useCRMNotes();
+export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads = [], organizations = [], onSubmit, initialStage, initialData, onClose }: NoteModalProps) {
+  const { addEntity, updateEntity, config, updateConfig } = useCRMNotes();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [currentMode, setCurrentMode] = useState(initialMode);
   const [previousMode, setPreviousMode] = useState(initialMode);
@@ -55,14 +59,24 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmitLocal = () => {
-    onSubmit(formData);
+  const handleSubmit = async () => {
+    const entityData = { ...formData };
+    const noteName = entityData.name || `Unnamed Note ${new Date().getTime()}`;
+
+    if (onSubmit) {
+      onSubmit(entityData);
+    } else {
+      if (currentMode === 'create') {
+        await addEntity({ name: noteName, data: entityData });
+      } else if (currentMode === 'edit' && note) {
+        await updateEntity(note.id, { ...entityData, name: noteName });
+      }
+    }
     handleClose();
   };
 
   const handleConfigSave = async () => {
     await updateConfig({ fields: editedFields });
-    console.log("New note field configuration saved!");
     setCurrentMode(previousMode);
   }
 
@@ -72,8 +86,11 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
   };
 
   const renderField = (field: FieldConfig) => {
-    if (!field.isVisible) return null;
-    let value = formData[field.key] || "";
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const isVisibleInList = listView?.visibleFields?.includes(field.id);
+    
+    if (!field.isVisible || !isVisibleInList) return null;
+    const value = formData[field.key] || "";
 
     const label = (
       <label htmlFor={field.key} className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block px-1">
@@ -82,13 +99,15 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
     );
 
     if (field.key === 'relatedTo') {
-      const leadName = value ? (leads.find(l => l.id === value)?.name || 'N/A') : 'N/A';
+      // Find name from either leads or organizations
+      const relatedEntity = leads.find(l => l.id === value) || organizations.find(o => o.id === value);
+      const displayName = value ? (relatedEntity?.name || value) : 'N/A';
       return (
         <div key={field.key} className="space-y-1">
           {label}
           <Input 
               id={field.key} 
-              value={leadName}
+              value={displayName}
               className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
               disabled
           />
@@ -104,7 +123,11 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
             <Input 
                 id={field.key} 
                 value={value}
-                onChange={e => handleInputChange(field.key, e.target.value)} 
+                onChange={e => {
+                    const val = e.target.value;
+                    if ((field.type === 'number' || field.type === 'currency') && val !== "" && Number(val) < 0) return;
+                    handleInputChange(field.key, val);
+                }} 
                 className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
                 disabled={currentMode === 'preview'}
                 type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
@@ -129,6 +152,60 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
                     </SelectContent>
                 </Select>
             </div>
+        );
+      case 'date':
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start" disabled={currentMode === 'preview'}>
+                  {value ? format(new Date(value), "PPP") : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={value ? new Date(value) : undefined}
+                  onSelect={(date) => {
+                    if (date) handleInputChange(field.key, date.toISOString());
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      case 'timeline':
+        const range = typeof value === 'string' ? JSON.parse(value || '{}') : (value || { from: undefined, to: undefined });
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start truncate" disabled={currentMode === 'preview'}>
+                  {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={range.from ? new Date(range.from) : new Date()}
+                  selected={{ 
+                    from: range.from ? new Date(range.from) : undefined, 
+                    to: range.to ? new Date(range.to) : undefined 
+                  }}
+                  onSelect={(newRange) => {
+                    if (newRange?.from) {
+                      handleInputChange(field.key, JSON.stringify({ from: newRange.from.toISOString(), to: newRange.to?.toISOString() }));
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         );
       default: return null;
     }
@@ -173,7 +250,11 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
         </DialogHeader>
         
         {currentMode === 'configure' ? (
-            <FieldEditor fields={editedFields} onFieldsChange={setEditedFields} />
+            <FieldEditor 
+                fields={editedFields} 
+                onFieldsChange={setEditedFields} 
+                availableTemplates={config.fields.filter(f => f.isSystem)}
+            />
         ) : (
             <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -200,7 +281,7 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
                 {currentMode !== 'preview' && (
                     <Button 
                     type="submit" 
-                    onClick={handleSubmitLocal}
+                    onClick={handleSubmit}
                     className="rounded-xl font-black text-[10px] uppercase tracking-widest h-12 px-10 bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
                     >
                     {currentMode === 'create' ? 'Launch Note' : 'Save Changes'}

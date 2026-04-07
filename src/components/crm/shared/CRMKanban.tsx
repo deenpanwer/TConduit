@@ -367,7 +367,7 @@ export function CRMKanban({
                               <div className="space-y-1.5 opacity-70 ml-5">
                                   {view.visibleFields.slice(0, 3).map(fieldId => {
                                       const field = config.fields.find(f => f.id === fieldId);
-                                      if (!field || field.key === 'status') return null;
+                                      if (!field || !field.isVisible || field.key === 'status') return null;
                                       const val = entity.data[field.key];
                                       if (!val) return null;
                                       return (

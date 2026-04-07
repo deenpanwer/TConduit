@@ -2,7 +2,8 @@
 
 import { useCRMModule, ModuleConfig } from "./use-crm-module";
 
-const DEFAULT_ORGS_CONFIG: ModuleConfig = {
+// This default config is now only a fallback for when the global config hasn't loaded yet.
+const FALLBACK_ORGS_CONFIG: ModuleConfig = {
   name: "Organizations",
   description: "Companies you do business with.",
   fields: [
@@ -15,6 +16,11 @@ const DEFAULT_ORGS_CONFIG: ModuleConfig = {
   ]
 };
 
+/**
+ * REFACTORED: This hook now relies on the global CRMProvider for its configuration.
+ */
 export function useCRMOrganizations() {
-  return useCRMModule('organizations', DEFAULT_ORGS_CONFIG);
+  // It still calls the reusable module engine, but the engine is now getting its
+  // config from the central useCRM hook, not from its own Firestore call.
+  return useCRMModule('organizations', FALLBACK_ORGS_CONFIG);
 }

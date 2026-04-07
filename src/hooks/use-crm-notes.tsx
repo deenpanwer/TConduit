@@ -2,7 +2,8 @@
 
 import { useCRMModule, ModuleConfig } from "./use-crm-module";
 
-const DEFAULT_NOTES_CONFIG: ModuleConfig = {
+// This default config is now only a fallback for when the global config hasn't loaded yet.
+const FALLBACK_NOTES_CONFIG: ModuleConfig = {
   name: "Notes",
   description: "Private thoughts and records.",
   fields: [
@@ -16,6 +17,9 @@ const DEFAULT_NOTES_CONFIG: ModuleConfig = {
   ]
 };
 
+/**
+ * REFACTORED: This hook now relies on the global CRMProvider for its configuration.
+ */
 export function useCRMNotes() {
-  return useCRMModule('notes', DEFAULT_NOTES_CONFIG);
+  return useCRMModule('notes', FALLBACK_NOTES_CONFIG);
 }

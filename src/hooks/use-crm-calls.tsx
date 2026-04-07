@@ -2,7 +2,8 @@
 
 import { useCRMModule, ModuleConfig } from "./use-crm-module";
 
-const DEFAULT_CALLS_CONFIG: ModuleConfig = {
+// This default config is now only a fallback for when the global config hasn't loaded yet.
+const FALLBACK_CALLS_CONFIG: ModuleConfig = {
     name: "Phone Calls",
     description: "Logs of interactions.",
     fields: [
@@ -26,6 +27,9 @@ const DEFAULT_CALLS_CONFIG: ModuleConfig = {
     ]
 };
 
+/**
+ * REFACTORED: This hook now relies on the global CRMProvider for its configuration.
+ */
 export function useCRMCalls() {
-  return useCRMModule('calls', DEFAULT_CALLS_CONFIG);
+  return useCRMModule('calls', FALLBACK_CALLS_CONFIG);
 }

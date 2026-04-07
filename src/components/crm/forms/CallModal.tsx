@@ -1,29 +1,34 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCRMCalls } from '@/hooks/use-crm-calls';
 import { CRMEntity, FieldConfig } from '@/hooks/use-crm-module';
 import { Settings, ArrowLeft } from 'lucide-react';
 import { FieldEditor } from './FieldEditor';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface CallModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   mode: 'create' | 'edit' | 'preview' | 'configure';
   call: CRMEntity | null;
-  leads: CRMEntity[];
-  onSubmit: (data: any) => void;
+  leads?: CRMEntity[];
+  organizations?: CRMEntity[];
+  contacts?: CRMEntity[];
+  onSubmit?: (data: any) => void;
   initialStage?: string;
   initialData?: Record<string, any>;
   onClose?: () => void;
 }
 
-export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads, onSubmit, initialStage, initialData, onClose }: CallModalProps) {
-  const { config, updateConfig } = useCRMCalls();
+export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads = [], organizations = [], contacts = [], onSubmit, initialStage, initialData, onClose }: CallModalProps) {
+  const { addEntity, updateEntity, config, updateConfig } = useCRMCalls();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [currentMode, setCurrentMode] = useState(initialMode);
   const [previousMode, setPreviousMode] = useState(initialMode);
@@ -55,14 +60,24 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmitLocal = () => {
-    onSubmit(formData);
+  const handleSubmit = async () => {
+    const entityData = { ...formData };
+    const callSummary = entityData.summary || `Call log ${new Date().getTime()}`;
+
+    if (onSubmit) {
+      onSubmit(entityData);
+    } else {
+      if (currentMode === 'create') {
+        await addEntity({ name: callSummary, data: entityData });
+      } else if (currentMode === 'edit' && call) {
+        await updateEntity(call.id, { ...entityData, name: callSummary });
+      }
+    }
     handleClose();
   };
 
   const handleConfigSave = async () => {
     await updateConfig({ fields: editedFields });
-    console.log('New call field configuration saved!');
     setCurrentMode(previousMode);
   }
 
@@ -72,8 +87,11 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
   };
 
   const renderField = (field: FieldConfig) => {
-    if (!field.isVisible) return null;
-    let value = formData[field.key] || '';
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const isVisibleInList = listView?.visibleFields?.includes(field.id);
+    
+    if (!field.isVisible || !isVisibleInList) return null;
+    const value = formData[field.key] || "";
 
     const label = (
       <label htmlFor={field.key} className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-1.5 block px-1">
@@ -82,13 +100,15 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
     );
 
     if (field.key === 'relatedTo') {
-      const leadName = value ? (leads.find(l => l.id === value)?.name || 'N/A') : 'N/A';
+      // Find name from either leads, organizations or contacts
+      const relatedEntity = leads.find(l => l.id === value) || organizations.find(o => o.id === value) || contacts.find(c => c.id === value);
+      const displayName = value ? (relatedEntity?.name || value) : 'N/A';
       return (
         <div key={field.key} className="space-y-1">
           {label}
           <Input 
               id={field.key} 
-              value={leadName}
+              value={displayName}
               className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
               disabled
           />
@@ -104,7 +124,11 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
             <Input 
                 id={field.key} 
                 value={value}
-                onChange={e => handleInputChange(field.key, e.target.value)} 
+                onChange={e => {
+                    const val = e.target.value;
+                    if ((field.type === 'number' || field.type === 'currency') && val !== "" && Number(val) < 0) return;
+                    handleInputChange(field.key, val);
+                }} 
                 className="h-12 bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4" 
                 disabled={currentMode === 'preview'}
                 type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
@@ -130,15 +154,69 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
                 </Select>
             </div>
         );
+      case 'date':
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start" disabled={currentMode === 'preview'}>
+                  {value ? format(new Date(value), "PPP") : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={value ? new Date(value) : undefined}
+                  onSelect={(date) => {
+                    if (date) handleInputChange(field.key, date.toISOString());
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      case 'timeline':
+        const range = typeof value === 'string' ? JSON.parse(value || '{}') : (value || { from: undefined, to: undefined });
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-12 w-full bg-secondary/5 border-border/20 rounded-xl text-[11px] font-bold focus:ring-blue-500/20 px-4 justify-start truncate" disabled={currentMode === 'preview'}>
+                  {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : `SELECT ${field.label.toUpperCase()}...`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={range.from ? new Date(range.from) : new Date()}
+                  selected={{ 
+                    from: range.from ? new Date(range.from) : undefined, 
+                    to: range.to ? new Date(range.to) : undefined 
+                  }}
+                  onSelect={(newRange) => {
+                    if (newRange?.from) {
+                      handleInputChange(field.key, JSON.stringify({ from: newRange.from.toISOString(), to: newRange.to?.toISOString() }));
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
       default: return null;
     }
   };
 
   const getTitle = () => {
       switch(currentMode) {
-          case 'create': return 'Create New Call';
-          case 'edit': return 'Edit Call';
-          case 'preview': return 'Call Profile';
+          case 'create': return 'Create New Call Log';
+          case 'edit': return 'Edit Call Log';
+          case 'preview': return 'Call Details';
           case 'configure': return 'Configure Call Fields';
           default: return '';
       }
@@ -173,7 +251,11 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
         </DialogHeader>
         
         {currentMode === 'configure' ? (
-            <FieldEditor fields={editedFields} onFieldsChange={setEditedFields} />
+            <FieldEditor 
+                fields={editedFields} 
+                onFieldsChange={setEditedFields} 
+                availableTemplates={config.fields.filter(f => f.isSystem)}
+            />
         ) : (
             <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -200,10 +282,10 @@ export function CallModal({ isOpen, onOpenChange, mode: initialMode, call, leads
                 {currentMode !== 'preview' && (
                     <Button 
                     type="submit" 
-                    onClick={handleSubmitLocal}
+                    onClick={handleSubmit}
                     className="rounded-xl font-black text-[10px] uppercase tracking-widest h-12 px-10 bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
                     >
-                    {currentMode === 'create' ? 'Launch Call' : 'Save Changes'}
+                    {currentMode === 'create' ? 'Launch Call Log' : 'Save Changes'}
                     </Button>
                 )}
             </>

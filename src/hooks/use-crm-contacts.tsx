@@ -2,7 +2,8 @@
 
 import { useCRMModule, ModuleConfig } from "./use-crm-module";
 
-const DEFAULT_CONTACTS_CONFIG: ModuleConfig = {
+// This default config is now only a fallback for when the global config hasn't loaded yet.
+const FALLBACK_CONTACTS_CONFIG: ModuleConfig = {
   name: "Contacts",
   description: "Individual people.",
   fields: [
@@ -19,6 +20,9 @@ const DEFAULT_CONTACTS_CONFIG: ModuleConfig = {
   ]
 };
 
+/**
+ * REFACTORED: This hook now relies on the global CRMProvider for its configuration.
+ */
 export function useCRMContacts() {
-  return useCRMModule('contacts', DEFAULT_CONTACTS_CONFIG);
+  return useCRMModule('contacts', FALLBACK_CONTACTS_CONFIG);
 }

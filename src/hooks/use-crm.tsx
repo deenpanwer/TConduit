@@ -401,10 +401,17 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
                           ...sysField,
                           isVisible: storedField.isVisible !== undefined ? storedField.isVisible : sysField.isVisible,
                           order: storedField.order !== undefined ? storedField.order : sysField.order,
-                          options: storedField.options || sysField.options
+                          options: storedField.options || sysField.options,
+                          description: storedField.description || sysField.description
                       };
                   }
-                  return sysField;
+                  // If it's a system field but NOT in stored config, it means it was explicitly removed/hidden
+                  // We keep it in the blueprint but mark it as hidden so it doesn't reappear in Active Details.
+                  const hasStoredFields = (storedConfig.modules[k].fields || []).length > 0;
+                  return {
+                      ...sysField,
+                      isVisible: hasStoredFields ? false : sysField.isVisible
+                  };
               });
 
               const newFields = [...updatedFields, ...customFields].sort((a, b) => a.order - b.order);
@@ -741,17 +748,19 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const configRef = doc(db, `organizations/${orgId}/crm_config`, 'main');
-      const newModuleConfig = { ...config.modules[module], ...updates };
       
-      const finalConfig = cleanObject({
+      // We perform a surgical update using dot notation to avoid overwriting other modules
+      // or using a stale local config object.
+      const modulePath = `modules.${module}`;
+      const cleanedUpdates = cleanObject(updates);
+      
+      await setDoc(configRef, {
         modules: {
-          ...config.modules,
-          [module]: newModuleConfig
+          [module]: cleanedUpdates
         }
-      });
-
-      await setDoc(configRef, finalConfig, { merge: true });
-      toast.success("Settings saved");
+      }, { merge: true });
+      
+      toast.success("Settings saved to cloud");
     } catch (e) {
       console.error("Error updating CRM config:", e);
       toast.error("Failed to save settings");
