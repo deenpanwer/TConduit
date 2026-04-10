@@ -7,7 +7,7 @@ import { useCRMCalls } from "@/hooks/use-crm-calls";
 import { 
   LayoutGrid, List as ListIcon, Plus, Search, 
   Filter, Download, ArrowUpDown, Loader2,
-  ExternalLink, Eye, Edit2, PhoneCall, NotebookPen, Trash
+  ExternalLink, Eye, Edit2, PhoneCall, NotebookPen, Trash, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,6 +125,7 @@ function DealsPageContent() {
   const dealActions = (deal: CRMEntity) => (
     <>
       <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => router.push(`/crm/deals/${deal.id}?from=${activeView}`)}><ExternalLink size={12} className="mr-2 text-blue-500"/> Open Deal</DropdownMenuItem>
+      <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => router.push(`/crm/invoices/builder?type=deal&id=${deal.id}`)}><FileText size={12} className="mr-2 text-purple-500"/> Create Invoice</DropdownMenuItem>
       <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => { setSelectedDeal(deal); setModalMode('preview'); setShowDealModal(true); }}><Eye size={12} className="mr-2 text-blue-500"/> View details</DropdownMenuItem>
       <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => { setSelectedDeal(deal); setModalMode('edit'); setShowDealModal(true); }}><Edit2 size={12} className="mr-2 text-blue-500"/> Edit Deal</DropdownMenuItem>
       <DropdownMenuSeparator />

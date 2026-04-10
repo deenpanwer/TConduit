@@ -102,7 +102,7 @@ export function AppGrid() {
                         )} strokeWidth={2.5} />
                       </div>
                       <div className="text-center">
-                        <span className="block font-black text-sm uppercase italic tracking-tighter font-poppins mb-1">
+                      <span className="block font-black text-sm tracking-tighter font-poppins mb-1">
                           {app.title}
                         </span>
                         <span className="block text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">

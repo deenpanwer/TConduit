@@ -15,12 +15,12 @@ export const PricingNavbar = () => {
       </Link>
       
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/login">
+        <Link href="/ems/login">
           <Button variant="ghost" className="font-bold uppercase text-[10px] tracking-widest hover:bg-primary/5">
             Login
           </Button>
         </Link>
-        <Link href="/dashboard/signup">
+        <Link href="/ems/signup">
           <Button className="rounded-none font-black uppercase text-[10px] tracking-widest border-[3px] border-black dark:border-white hover:bg-primary/5 transition-all active:scale-95 h-10 px-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
             Start Here
           </Button>

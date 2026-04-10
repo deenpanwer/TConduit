@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
+import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { CRMSidebar } from "./crm-sidebar"; // Ensure this matches your export name
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";

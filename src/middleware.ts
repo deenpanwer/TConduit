@@ -8,11 +8,11 @@ export function middleware(request: NextRequest) {
   // 1. Only protect the dashboard root and its sub-pages
   // We explicitly EXCLUDE login and signup from protection
   const isAuthPage = pathname.includes('/login') || pathname.includes('/signup') || pathname.includes('/forgot-password') || pathname.startsWith('/api/employee/analyze');  
-  const isProtectedPage = pathname.startsWith('/dashboard') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks');
+  const isProtectedPage = pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname === '/dashboard';
 
   if (isProtectedPage && !isAuthPage) {
     if (!session || !session.value) {
-      const loginUrl = new URL('/dashboard/login', request.url);
+      const loginUrl = new URL('/ems/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname + search);
       return NextResponse.redirect(loginUrl);
     }
@@ -29,5 +29,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/crm/:path*', '/pos/:path*', '/tasks/:path*', '/yc'],
+  matcher: ['/ems/:path*', '/crm/:path*', '/pos/:path*', '/tasks/:path*', '/dashboard', '/yc'],
 };

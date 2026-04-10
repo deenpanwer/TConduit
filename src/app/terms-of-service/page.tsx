@@ -2,12 +2,12 @@ import React from 'react';
 
 const TermsOfServicePage = () => {
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-4">Terms of Service for Traconomics</h1>
-        <p className="text-gray-600 mb-8">Last Updated: March 29, 2026</p>
+        <h1 className="text-3xl font-bold mb-4 text-foreground">Terms of Service for Traconomics</h1>
+        <p className="text-muted-foreground mb-8">Last Updated: March 29, 2026</p>
 
-        <div className="prose max-w-none">
+        <div className="prose dark:prose-invert max-w-none">
           <p>
             Please read these Terms of Service ("Terms", "Terms of Service") carefully before using the
             traconomics.com website (the "Service") operated by Traconomics ("us", "we", or "our").

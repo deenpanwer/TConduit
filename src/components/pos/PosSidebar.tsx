@@ -25,16 +25,54 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
-
 import { db } from "@/lib/firebase";
-import { getDocs, collection, query, where, limit } from "firebase/firestore";
+import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 
 interface PosSidebarProps {
-  isCollapsed: boolean;
+  isCollapsed: boolean; 
   setIsCollapsed: (v: boolean) => void;
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
 }
+
+const MODULE_CONFIG = [
+  {
+    id: "ems",
+    title: "EMS",
+    description: "Enterprise Management",
+    icon: LayoutDashboard,
+    href: "/ems",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "crm",
+    title: "CRM",
+    description: "Customer Relations",
+    icon: Briefcase,
+    href: "/crm",
+    color: "text-blue-500",
+    bg: "bg-blue-500/10"
+  },
+  {
+    id: "tasks",
+    title: "Tasks",
+    description: "Productivity & Ops",
+    icon: ListTodo,
+    href: "/tasks",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "pos",
+    title: "POS System",
+    description: "Retail & Transactions",
+    icon: ShoppingCart,
+    href: "/pos/checkout",
+    color: "text-orange-500",
+    bg: "bg-orange-500/10"
+  }
+];
 
 export function PosSidebar({ 
   isCollapsed, 
@@ -48,15 +86,18 @@ export function PosSidebar({
   const { user, userData } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   // Swipe logic refs
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+
   useEffect(() => {
     setMounted(true);
 
-    async function fetchPartnerBranding() {
+    async function fetchData() {
       if (userData?.partnerSlug) {
         try {
           const q = query(collection(db, "partners"), where("slug", "==", userData.partnerSlug), limit(1));
@@ -68,12 +109,27 @@ export function PosSidebar({
           console.error("Error fetching POS sidebar branding:", err);
         }
       }
+
+      if (orgId) {
+        try {
+          const orgDoc = await getDoc(doc(db, "organizations", orgId));
+          if (orgDoc.exists()) {
+            setSelectedModules(orgDoc.data()?.selectedModules || []);
+          }
+        } catch (err) {
+          console.error("Error fetching org modules:", err);
+        }
+      }
     }
-    fetchPartnerBranding();
-  }, [userData?.partnerSlug]);
+    fetchData();
+  }, [userData?.partnerSlug, orgId]);
 
   if (!mounted) return null;
 
+  const currentModule = MODULE_CONFIG.find(m => m.id === "pos")!;
+  const otherModules = MODULE_CONFIG.filter(m => 
+    m.id !== "pos" && (selectedModules.length === 0 || selectedModules.includes(m.id))
+  );
   // --- SWIPE HANDLERS ---
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;

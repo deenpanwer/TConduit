@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
-import { Shimmer } from "@/components/dashboard/main/shared/Shimmer";
+import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { TasksSidebar } from "./TasksSidebar";
-import { InviteModal } from "@/components/dashboard/InviteModal";
+import { InviteModal } from "@/components/ems/InviteModal";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, useSidebar } from "@/hooks/use-sidebar";

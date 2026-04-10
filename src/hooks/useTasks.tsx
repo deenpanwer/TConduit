@@ -39,11 +39,12 @@ export interface Subtask {
   id: string;
   title: string;
   completed: boolean;
-  completedBy?: string; 
+  completedBy?: string | null; 
   pointsAwarded?: number; // The exact points given for this subtask
   descriptions?: NestedDescription[];
   resources?: Resource[];
   images?: NestedImage[];
+  subtasks?: Subtask[];
 }
 
 export interface Comment {
@@ -372,7 +373,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const updateTask = useCallback(
     async (taskId: string, updates: Partial<Task>, actionName: string = 'updated', skipHistory: boolean = false) => {
       if (!orgId || !user) return;
-      
+
       const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
       const currentTask = tasks.find(t => t.id === taskId);
       if (!currentTask) return;
@@ -380,6 +381,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       let history = currentTask.history || [];
       const cleanUpdates = { ...updates };
 
+      // Helper to deeply clean objects of undefined values
+      const deepClean = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(v => deepClean(v));
+        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+          return Object.entries(obj).reduce((acc, [key, value]) => {
+            acc[key] = deepClean(value);
+            return acc;
+          }, {} as any);
+        }
+        return obj === undefined ? null : obj;
+      };
       // --- Point Awarding Logic ---
       if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
         // 1. Subtask Toggled
@@ -403,13 +416,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                         const deduction = oldSub.pointsAwarded || pointsPerSub;
                         awardPointsToUser(earner, -deduction, taskId, currentTask.title, `Unchecked subtask: ${sub.title}`, 'subtask');
                         sub.pointsAwarded = 0;
-                        sub.completedBy = undefined;
-                    }
-                }
-            });
-            cleanUpdates.subtasks = newSubs;
-        }
-
+                        sub.completedBy = null;
+                        }
+                        }
+                        });
+                        cleanUpdates.subtasks = newSubs;
+                        }
         // 2. Full Task Completion (Flagged)
         if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
             if (updates.flagged === true) {
@@ -437,12 +449,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const isComment = actionName === 'comment_added';
       const isDeletion = actionName === 'deleted';
 
-      const finalUpdates = Object.entries(cleanUpdates).reduce((acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as any);
+      const finalUpdates = deepClean(cleanUpdates);
 
       if (!skipHistory && (isMovingToDone || isManualSave || isComment || isDeletion)) {
         const historyEntry = {
@@ -454,16 +461,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         };
         history = [...history, historyEntry];
       }
-      
+
       const taskToUpdate = {
         ...finalUpdates,
         updatedAt: serverTimestamp(),
-        history
+        history: deepClean(history)
       };
 
       try {
         await updateDoc(taskDocRef, taskToUpdate);
-        
         // If task is completed, notify the assignees or others
         if (finalUpdates.status === 'done') {
             const notificationTitle = `Task Completed`;

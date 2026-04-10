@@ -83,12 +83,13 @@ export interface CRMConfig {
     deals: ModuleConfig;
     calls: ModuleConfig;
     notes: ModuleConfig;
+    invoices: ModuleConfig;
   };
 }
 
 export interface EntityHistory {
   id: string;
-  type: 'Note' | 'Email' | 'Call' | 'Task' | 'Comment' | 'System';
+  type: 'Note' | 'Email' | 'Call' | 'Task' | 'Comment' | 'System' | 'Invoice';
   action: string;
   content: string;
   userId: string;
@@ -101,7 +102,7 @@ export interface CRMEntity {
   id: string;
   orgId: string;
   name: string;
-  type: 'lead' | 'organization' | 'contact' | 'deal' | 'call' | 'note';
+  type: 'lead' | 'organization' | 'contact' | 'deal' | 'call' | 'note' | 'invoice';
   data: Record<string, any>;
   history: EntityHistory[];
   isDeleted: boolean;
@@ -123,6 +124,7 @@ interface CRMContextType {
   deals: CRMEntity[];
   calls: CRMEntity[];
   notes: CRMEntity[];
+  invoices: CRMEntity[];
   
   // Configuration and state
   config: CRMConfig;
@@ -336,6 +338,28 @@ const DEFAULT_CONFIG: CRMConfig = {
       views: [
         { id: 'nv1', name: 'Grid', type: 'kanban', visibleFields: ['n1', 'n2', 'n3'], kanbanFieldId: 'n3' },
         { id: 'nv2', name: 'List', type: 'list', visibleFields: ['n1', 'n3'] },
+      ]
+    },
+    invoices: {
+      name: "Invoices",
+      description: "Professional invoices for your clients and deals.",
+      fields: [
+        { id: 'inv1', key: 'invoiceNumber', label: 'Invoice #', type: 'text', isSystem: true, isVisible: true, order: 0 },
+        { id: 'inv2', key: 'clientName', label: 'Client', type: 'text', isSystem: true, isVisible: true, order: 1 },
+        { id: 'inv3', key: 'amount', label: 'Amount', type: 'currency', isSystem: true, isVisible: true, order: 2 },
+        { id: 'inv4', key: 'status', label: 'Status', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
+          { label: 'Draft', value: 'draft', color: 'gray' },
+          { label: 'Sent', value: 'sent', color: 'blue' },
+          { label: 'Paid', value: 'paid', color: 'green' },
+          { label: 'Overdue', value: 'overdue', color: 'red' },
+          { label: 'Cancelled', value: 'cancelled', color: 'gray' },
+        ]},
+        { id: 'inv5', key: 'dueDate', label: 'Due Date', type: 'date', isSystem: true, isVisible: true, order: 4 },
+        { id: 'inv6', key: 'relatedTo', label: 'Related To', type: 'text', isSystem: true, isVisible: true, order: 5 },
+        { id: 'inv7', key: 'currency', label: 'Currency', type: 'text', isSystem: true, isVisible: true, order: 6 },
+      ],
+      views: [
+        { id: 'invv1', name: 'All Invoices', type: 'list', visibleFields: ['inv1', 'inv2', 'inv3', 'inv4', 'inv5', 'inv6'] },
       ]
     }
   }
@@ -773,6 +797,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const deals = useMemo(() => combinedEntities.filter(e => e.type === 'deal'), [combinedEntities]);
   const calls = useMemo(() => combinedEntities.filter(e => e.type === 'call'), [combinedEntities]);
   const notes = useMemo(() => combinedEntities.filter(e => e.type === 'note'), [combinedEntities]);
+  const invoices = useMemo(() => combinedEntities.filter(e => e.type === 'invoice'), [combinedEntities]);
 
   return (
     <CRMContext.Provider value={{
@@ -783,6 +808,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       deals,
       calls,
       notes,
+      invoices,
       config, 
       loading, 
       pageSize,

@@ -1,11 +1,13 @@
+
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   motion, AnimatePresence 
 } from "framer-motion";
 import { 
-  Plus, Calendar, X, Check, Layers, Trash2, Sparkles, Wand2, Link as LinkIcon, Minus, AtSign, ImageIcon
+  Plus, Calendar, X, Check, Layers, Trash2, Sparkles, Wand2, Link as LinkIcon, Minus, AtSign, ImageIcon,
+  Mic, StopCircle, Pause, Play, Volume2, MicOff, MoreHorizontal, FileText, ChevronRight, ChevronDown, ListTodo, MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,11 +26,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn, getUserAvatar } from "@/lib/utils";
 import { format } from "date-fns";
-import { Task, Priority } from "@/hooks/useTasks";
+import { useTasks, Task, Priority, Subtask } from "@/hooks/useTasks";
 import { PRIORITIES, AutoResizingTextarea } from "./BoardView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { InlineAudioPlayer } from "./InlineAudioPlayer";
+import { toast } from "sonner";
+import { triggerSmallConfetti } from "@/lib/confetti";
+import { useAuth } from "@/hooks/use-auth";
+import { 
+  CountTicker, 
+  HierarchyQuickAdd, 
+  DrawerHierarchicalTable, 
+  DrawerHierarchyItem, 
+  UnifiedHierarchyRoot 
+} from "./HierarchicalUI";
 
 interface TypedTaskCreatorProps {
   editingNewTask: Partial<Task> | null;
@@ -40,7 +54,7 @@ interface TypedTaskCreatorProps {
   canManage: boolean;
   isEnhancing: boolean;
   setIsEnhancing: (val: boolean) => void;
-  handleEnhanceTask: () => Promise<void>;
+  handleEnhanceTask: (transcript?: string) => Promise<void>;
   handleBulkParse: () => Promise<void>;
   isBulkMode: boolean;
   setIsBulkMode: (val: boolean) => void;
@@ -51,6 +65,81 @@ interface TypedTaskCreatorProps {
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
+const MAX_AUDIO_DURATION_SECONDS = 300;
+
+// --- Hierarchical Components for Drawer (Reference-Inspired) ---
+interface CommentsSectionProps {
+  taskId: string;
+  comments: any[];
+  personnel: any[];
+}
+
+function CommentsSection({ taskId, comments, personnel }: CommentsSectionProps) {
+    const [newComment, setNewComment] = useState("");
+    const { addComment } = useTasks();
+
+    return (
+        <div className="space-y-4">
+            <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                <MessageSquare size={12} className="text-primary" /> Comments ({(comments || []).length})
+            </label>
+            
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar-thin">
+                {(comments || []).length === 0 ? (
+                    <div className="text-center py-8 opacity-20 italic text-xs">No comments yet.</div>
+                ) : (
+                    comments.map((comment: any, idx: number) => {
+                        const author = personnel.find((p: any) => p.id === comment.userId);
+                        return (
+                            <div key={comment.id || idx} className="flex gap-3 group/comment">
+                                <Avatar className="h-6 w-6 shrink-0 mt-0.5">
+                                    <AvatarImage src={getUserAvatar(author)} />
+                                    <AvatarFallback className="text-[8px]">{author?.name?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-foreground/70">{author?.name || 'Unknown'}</span>
+                                        <span className="text-[8px] text-muted-foreground">
+                                            {comment.createdAt?.seconds ? format(new Date(comment.createdAt.seconds * 1000), 'MMM d, h:mm a') : 'Just now'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground leading-relaxed bg-secondary/10 p-2 rounded-lg border border-border/20">
+                                        {comment.text}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            <div className="flex items-start gap-3 bg-secondary/20 p-2 rounded-xl border border-border/40 focus-within:border-primary/40 transition-all">
+                <AutoResizingTextarea 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 text-xs bg-transparent border-none p-0 focus:ring-0 placeholder:text-muted-foreground/30 min-h-[40px] max-h-[120px]"
+                    maxHeight={120}
+                />                <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-8 w-8 text-primary hover:bg-primary/10 rounded-full shrink-0"
+                    disabled={!newComment.trim()}
+                    onClick={async () => {
+                        if (taskId === 'new') {
+                            toast.error("Save the task first to add comments.");
+                            return;
+                        }
+                        await addComment(taskId, newComment);
+                        setNewComment("");
+                    }}
+                >
+                    <Plus size={16} />
+                </Button>
+            </div>
+        </div>
+    );
+}
 
 export function TypedTaskCreator({
   editingNewTask,
@@ -72,6 +161,134 @@ export function TypedTaskCreator({
   const [showBottomFadeTitle, setShowBottomFadeTitle] = useState(false);
   const [showTopFadeDescription, setShowTopFadeDescription] = useState(false);
   const [showBottomFadeDescription, setShowBottomFadeDescription] = useState(false);
+
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentRecordingTime, setCurrentRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const onUpdateTaskRef = useRef(onUpdateTask);
+
+  // Keep ref up to date to avoid closure issues
+  useEffect(() => {
+    onUpdateTaskRef.current = onUpdateTask;
+  }, [onUpdateTask]);
+
+  const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition();
+  const { user } = useAuth();
+
+  // Recording Logic
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const startRecording = async () => {
+    resetTranscript();
+    setIsRecording(true);
+    setIsPaused(false);
+    setCurrentRecordingTime(0);
+    recordingStartTimeRef.current = Date.now();
+    audioChunksRef.current = [];
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const options = { mimeType: 'audio/webm;codecs=opus' };
+      const recorder = new MediaRecorder(stream, options);
+      
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+        const finalDuration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          onUpdateTaskRef.current("new", {
+            audioBase64: base64data,
+            audioMimeType: 'audio/webm;codecs=opus',
+            audioDuration: finalDuration
+          });
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      if (browserSupportsSpeechRecognition) {
+        SpeechRecognition.startListening({ continuous: true });
+      }
+
+      recordingTimerRef.current = setInterval(() => {
+        setCurrentRecordingTime(prev => {
+          if (prev >= MAX_AUDIO_DURATION_SECONDS) {
+            stopRecording();
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+
+    } catch (err) {
+      console.error("Failed to start recording", err);
+      toast.error("Could not access microphone");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (browserSupportsSpeechRecognition) {
+      SpeechRecognition.stopListening();
+    }
+    setIsRecording(false);
+    setIsPaused(false);
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (browserSupportsSpeechRecognition) SpeechRecognition.stopListening();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      recordingTimerRef.current = setInterval(() => {
+        setCurrentRecordingTime(prev => prev + 1);
+      }, 1000);
+      if (browserSupportsSpeechRecognition) {
+        SpeechRecognition.startListening({ continuous: true });
+      }
+      setIsPaused(false);
+    }
+  };
 
   const { deadlineValue, deadlineUnit, noDeadline } = useMemo(() => {
     const hours = editingNewTask?.deadlineHours;
@@ -113,7 +330,7 @@ export function TypedTaskCreator({
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className={cn(
         "fixed z-50 bg-card border border-border/50 shadow-2xl overflow-hidden flex flex-col outline-none",
-        isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-full max-w-lg rounded-2xl"
+        isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-1/2 rounded-2xl"
       )}
     >
       <div className="h-40 shrink-0 relative bg-secondary/30 group">
@@ -195,6 +412,21 @@ export function TypedTaskCreator({
 
           <div className="flex items-center gap-2">
               <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                    "h-8 px-3 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none",
+                    ((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || !!editingNewTask?.audioBase64)
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-secondary/50 text-muted-foreground border-transparent opacity-50 cursor-not-allowed"
+                )}
+                onClick={() => handleEnhanceTask(transcript)}
+                disabled={isEnhancing || !((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || !!editingNewTask?.audioBase64)}
+              >
+                {isEnhancing ? <Wand2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                {isEnhancing ? "Enhancing..." : "AI Enhance"}
+              </Button>
+              <Button
                 variant="ghost"
                 className={cn("h-8 px-3 rounded-md text-xs flex items-center gap-2 transition-colors", isBulkMode ? "bg-primary/10 text-primary" : "text-muted-foreground")}
                 onClick={() => setIsBulkMode(!isBulkMode)}
@@ -206,7 +438,7 @@ export function TypedTaskCreator({
               <Button 
                 variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
                 onClick={() => {
-                    onUpdateTask("new", { title: "", description: "", subtasks: [], resources: [] });
+                    onUpdateTask("new", { title: "", description: "", subtasks: [], resources: [], audioBase64: undefined });
                     setBulkInput("");
                 }}
                 title="Clear"
@@ -215,6 +447,27 @@ export function TypedTaskCreator({
               </Button>
           </div>
         </div>
+
+        {editingNewTask?.audioBase64 && (
+          <div className="mb-8 p-4 bg-secondary/20 rounded-2xl border border-border/50 relative group/audio">
+            <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                    <Volume2 size={12} className="text-primary" /> Voice Brief
+                </label>
+                <Button 
+                    variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover/audio:opacity-100 transition-opacity"
+                    onClick={() => onUpdateTask("new", { audioBase64: undefined, audioDuration: undefined, audioMimeType: undefined })}
+                >
+                    <X size={12} />
+                </Button>
+            </div>
+            <InlineAudioPlayer 
+              audioBase64={editingNewTask.audioBase64}
+              audioMimeType={editingNewTask.audioMimeType || 'audio/webm;codecs=opus'}
+              audioDuration={editingNewTask.audioDuration || 0}
+            />
+          </div>
+        )}
 
         {isBulkMode ? (
             <div className="space-y-4 mb-8">
@@ -245,10 +498,12 @@ export function TypedTaskCreator({
               <Skeleton className="h-12 w-full mb-6 rounded-xl" />
           ) : (
             <AutoResizingTextarea
+                autoFocus={!editingNewTask?.title}
                 value={editingNewTask?.title || ""}
                 onChange={(e) => onUpdateTask("new", { title: e.target.value }, 'updated', true)}
                 className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
                 placeholder="Task Title"
+
                 setShowTopFade={setShowTopFadeTitle}
                 setShowBottomFade={setShowBottomFadeTitle}
                 maxHeight={MAX_TEXTAREA_HEIGHT_TITLE}
@@ -267,14 +522,14 @@ export function TypedTaskCreator({
                    <DropdownMenuContent>
                        <DropdownMenuLabel>Team Members</DropdownMenuLabel>
                        <DropdownMenuSeparator />
-                       {personnel.map(p => {
-                           const isAssigned = (editingNewTask?.assignees || []).some(uid => uid === p.id);
+                       {personnel.map((p: any) => {
+                           const isAssigned = (editingNewTask?.assignees || []).some((uid: any) => uid === p.id);
                            return (
                                <DropdownMenuItem 
                                    key={`new-task-assign-user-${p.id}`}
                                    onClick={() => {
                                        if (isAssigned) {
-                                          onUpdateTask("new", { assignees: (editingNewTask?.assignees || []).filter(uid => uid !== p.id) }, 'assignees_updated');
+                                          onUpdateTask("new", { assignees: (editingNewTask?.assignees || []).filter((uid: any) => uid !== p.id) }, 'assignees_updated');
                                        } else {
                                           onUpdateTask("new", { assignees: [...(editingNewTask?.assignees || []), p.id] }, 'assignees_updated');
                                        }
@@ -295,8 +550,8 @@ export function TypedTaskCreator({
            </label>
             <div className="flex flex-wrap gap-2">
                {(editingNewTask?.assignees || []).length > 0 ? (
-                  editingNewTask?.assignees?.map(uid => {
-                     const u = personnel.find(p => p.id === uid);
+                  editingNewTask?.assignees?.map((uid: any) => {
+                     const u = personnel.find((p: any) => p.id === uid);
                      if (!u) return null;
                      return (
                         <Badge key={`new-task-assignee-${uid}`} variant="secondary" className="pl-1 pr-2 py-1 gap-2 hover:bg-secondary/80">
@@ -309,7 +564,7 @@ export function TypedTaskCreator({
                               size={12} 
                               className="cursor-pointer text-muted-foreground hover:text-destructive"
                               onClick={() => {
-                                    const newAssignees = (editingNewTask?.assignees || []).filter(a => a !== uid);
+                                    const newAssignees = (editingNewTask?.assignees || []).filter((a: any) => a !== uid);
                                     onUpdateTask("new", { assignees: newAssignees }, 'assignees_updated');
                               }}
                             />
@@ -394,7 +649,7 @@ export function TypedTaskCreator({
                 <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={handleEnhanceTask}
+                    onClick={() => handleEnhanceTask()}
                     disabled={isEnhancing}
                     className="h-7 text-[9px] uppercase font-bold tracking-widest text-primary gap-1.5 hover:bg-primary/5"
                 >
@@ -421,133 +676,102 @@ export function TypedTaskCreator({
            </div>
         </div>
         <div className="mb-8">
-           <div className="flex items-center justify-between mb-3">
-              <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
-                 Subtasks
-              </label>
-              <span className="text-[10px] font-mono text-muted-foreground/50">
-                 {(editingNewTask?.subtasks || []).filter(s => s.completed).length}/{(editingNewTask?.subtasks || []).length}
-              </span>
-           </div>
-           <div className="space-y-1">
-              {isEnhancing ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-8 w-full rounded-md" />
-                    <Skeleton className="h-8 w-full rounded-md opacity-60" />
-                  </div>
-              ) : (
-                <>
-                {(editingNewTask?.subtasks || []).map((sub, idx) => (
-                    <div key={sub.id} className="flex items-center gap-2 group/sub">
-                        <button 
-                        onClick={() => {
-                            const newSub = [...(editingNewTask?.subtasks || [])];
-                            newSub[idx].completed = !newSub[idx].completed;
-                            onUpdateTask("new", { subtasks: newSub });
-                        }}
-                        className={cn(
-                            "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
-                            sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
-                        )}
-                        >
-                        {sub.completed && <Check size={12} />}
-                        </button>
-                        <AutoResizingTextarea
-                            value={sub.title}
-                            onChange={(e) => {
-                                const newSub = [...(editingNewTask?.subtasks || [])];
-                                newSub[idx].title = e.target.value;
-                                onUpdateTask("new", { subtasks: newSub }, 'updated', true);
-                            }}
-                            className={cn(
-                                "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
-                                sub.completed && "text-muted-foreground line-through decoration-border"
-                            )}
-                            maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
-                        />
-                        <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                            const newSub = (editingNewTask?.subtasks || []).filter(s => s.id !== sub.id);
-                            onUpdateTask("new", { subtasks: newSub });
-                            }}
-                        >
-                            <X size={12} />
-                        </Button>
-                    </div>
-                ))}
-                    <Button 
-                        variant="ghost" size="sm" 
-                        className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                        onClick={() => onUpdateTask("new", { subtasks: [...(editingNewTask?.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
-                    >
-                        <Plus size={14} className="mr-2" /> Add Item
-                    </Button>
-                </>
-              )}
-           </div>
+           <UnifiedHierarchyRoot 
+                task={editingNewTask}
+                onUpdateTask={(updates) => onUpdateTask("new", updates)}
+                canManage={canManage}
+                user={user}
+                isEnhancing={isEnhancing}
+           />
         </div>
 
-        <div className="mb-8">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3 block">
-                Resources
-            </label>
-            <div className="space-y-2">
-                {(editingNewTask?.resources || []).map((res, idx) => (
-                    <div key={res.id} className="flex items-center gap-2 group/res bg-secondary/10 p-2 rounded-lg border border-border/40">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                           <LinkIcon size={12} className="text-primary shrink-0" />
-                           <Input 
-                              value={res.title}
-                              onChange={(e) => {
-                                  const newRes = [...(editingNewTask?.resources || [])];
-                                  newRes[idx].title = e.target.value;
-                                  onUpdateTask("new", { resources: newRes }, 'updated', true);
-                              }}
-                              placeholder="Resource Title"
-                              className="h-6 bg-transparent border-none p-0 text-xs font-bold focus-visible:ring-0"
-                           />
-                        </div>
-                        <Input 
-                            value={res.url}
-                            onChange={(e) => {
-                                const newRes = [...(editingNewTask?.resources || [])];
-                                newRes[idx].url = e.target.value;
-                                onUpdateTask("new", { resources: newRes }, 'updated', true);
-                            }}
-                            placeholder="URL (docs, pdfs, images...)"
-                            className="h-5 bg-transparent border-none p-0 text-[10px] text-muted-foreground focus-visible:ring-0"
-                        />
-                    </div>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/res:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                            const newRes = (editingNewTask?.resources || []).filter(r => r.id !== res.id);
-                            onUpdateTask("new", { resources: newRes });
-                        }}
-                    >
-                        <X size={12} />
-                    </Button>
-                    </div>
-                ))}
-                <Button 
-                    variant="ghost" size="sm" 
-                    className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                    onClick={() => onUpdateTask("new", { resources: [...(editingNewTask?.resources || []), { id: Math.random().toString(), title: "", url: "", type: "link", createdAt: new Date() }] })}
-                >
-                    <Plus size={14} className="mr-2" /> Add Resource
-                </Button>
+        {(editingNewTask as any)?.id && (editingNewTask as any)?.id !== 'new' && (
+            <div className="mb-8 pt-8 border-t border-border/40">
+                <CommentsSection 
+                    taskId={(editingNewTask as any).id}
+                    comments={editingNewTask?.comments || []}
+                    personnel={personnel}
+                />
             </div>
-        </div>
+        )}
+
         </>
         )}
       </div>
-      <div className="flex items-center justify-end gap-2 p-4 border-t border-border/50 bg-card shrink-0">
-        <Button variant="outline" onClick={onCancel}>
-           Cancel
-        </Button>
-        <Button onClick={onSave}  disabled={isEnhancing || (!isBulkMode && !editingNewTask?.title)}>
-           Create Task
-        </Button>
+      <div className="p-4 border-t border-border/50 bg-card shrink-0 relative overflow-hidden">
+        <AnimatePresence mode="wait">
+            {isRecording ? (
+                <motion.div 
+                    key="recording-bar"
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 50, opacity: 0 }}
+                    className="flex items-center gap-4 bg-primary/5 rounded-xl px-4 py-2"
+                >
+                    <div className="flex items-center gap-2 text-red-500 animate-pulse">
+                        <Mic size={16} />
+                        <span className="text-sm font-mono font-bold tabular-nums">{formatDuration(currentRecordingTime)}</span>
+                    </div>
+                    
+                    <div className="flex-1 h-8 flex items-center justify-center">
+                        <div className="flex gap-0.5 items-center">
+                            {[...Array(20)].map((_: any, i: number) => (
+                                <motion.div 
+                                    key={i}
+                                    animate={{ height: isPaused ? 2 : Math.random() * 20 + 2 }}
+                                    transition={{ repeat: Infinity, duration: 0.2, repeatType: "reverse" }}
+                                    className="w-1 bg-primary rounded-full"
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                         {isPaused ? (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={resumeRecording}><Play size={16} /></Button>
+                         ) : (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={pauseRecording}><Pause size={16} /></Button>
+                         )}
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { stopRecording(); resetTranscript(); onUpdateTask("new", { audioBase64: undefined }); }}><Trash2 size={16} /></Button>
+                         <Button size="icon" className="h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-lg" onClick={stopRecording}><Check size={16} /></Button>
+                    </div>
+                </motion.div>
+            ) : (
+                <motion.div 
+                    key="standard-footer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" onClick={onCancel} className="text-xs font-bold uppercase tracking-widest px-4">
+                           Cancel
+                        </Button>
+                        <Button onClick={onSave} className="h-10 px-6 rounded-lg text-xs font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all" disabled={isEnhancing || (!isBulkMode && !editingNewTask?.title)}>
+                           Create Task
+                        </Button>
+                    </div>
+
+                    <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        animate={isRecording ? { 
+                            scale: [1, 1.2, 1],
+                            backgroundColor: ["rgba(239, 68, 68, 0.2)", "rgba(239, 68, 68, 0.5)", "rgba(239, 68, 68, 0.2)"]
+                        } : {}}
+                        transition={isRecording ? { repeat: Infinity, duration: 1.5 } : {}}
+                        className={cn(
+                            "h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-lg",
+                            isRecording ? "bg-red-500 text-white shadow-red-500/20" : "bg-secondary/30 hover:bg-primary hover:text-primary-foreground"
+                        )}
+                        onClick={isRecording ? stopRecording : startRecording}
+                    >
+                        <Mic size={24} className={cn(isRecording && "animate-pulse")} />
+                    </motion.button>
+                </motion.div>
+            )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

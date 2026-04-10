@@ -23,7 +23,7 @@ export default function PartnerLandingPage() {
           const snap = await getDocs(q);
   
           if (snap.empty) {
-            router.replace("/dashboard/signup");
+            router.replace("/ems/signup");
             return;
           }
   
@@ -60,7 +60,7 @@ export default function PartnerLandingPage() {
           document.cookie = `trac_partner_slug=${slug}; path=/; max-age=2592000`;
         } catch (err) {
           console.error("Error:", err);
-          router.replace("/dashboard/signup");
+          router.replace("/ems/signup");
         } finally {
           setLoading(false);
         }
@@ -102,7 +102,7 @@ export default function PartnerLandingPage() {
         </p>
 
         <Button 
-          onClick={() => router.push("/dashboard/signup")}
+          onClick={() => router.push("/ems/signup")}
           className="w-full h-20 md:h-24 rounded-[1.5rem] md:rounded-[2rem] text-xl md:text-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 group active:scale-95 transition-all"
         >
           START NOW

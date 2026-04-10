@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineAudioPlayer } from "./InlineAudioPlayer";
+import { triggerBigConfetti } from "@/lib/confetti";
 
 // --- Utility Components ---
 
@@ -627,7 +628,11 @@ const MobileBoardView = ({
   return (
     <div className="flex flex-col gap-4 pb-20">
       {COLUMNS.map(column => {
-        const columnTasks = tasks.filter(t => t.status === column.id);
+        const columnTasks = tasks.filter(t => 
+          column.id === 'done' 
+            ? (t.status === 'done' || t.flagged)
+            : (t.status === column.id && !t.flagged)
+        );
         const isOpen = expandedColumns[column.id];
         const highPriorityCount = columnTasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
 
@@ -777,7 +782,11 @@ export function BoardView({
             <div key={column.id} className="h-full flex-1 min-w-0">
               <Column 
                 column={column}
-                tasks={tasks.filter(t => t.status === column.id)}
+                tasks={tasks.filter(t => 
+                  column.id === 'done' 
+                    ? (t.status === 'done' || t.flagged)
+                    : (t.status === column.id && !t.flagged)
+                )}
                 onTaskClick={onTaskClick}
                 onDeleteTask={onDeleteTask}
                 onDropTask={onDropTask}

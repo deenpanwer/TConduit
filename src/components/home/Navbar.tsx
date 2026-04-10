@@ -20,7 +20,7 @@ const APPS = [
   { name: "Accounting", href: "/apps/accounting", icon: Calculator, description: "Bookkeeping made simple.", color: "text-rose-500" },
   { name: "POS", href: "/apps/pos", icon: ShoppingCart, description: "In-store sales and payments.", color: "text-orange-500" },
   { name: "Tasks", href: "/apps/tasks", icon: ClipboardList, description: "Manage team projects.", color: "text-purple-500" },
-  { name: "Dashboard", href: "/apps/dashboard", icon: LayoutDashboard, description: "Your business command center.", color: "text-sky-500" },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Your business command center.", color: "text-sky-500" },
   { name: "Inventory", href: "/apps/inventory", icon: Package, description: "Real-time stock tracking.", color: "text-emerald-500" },
   { name: "Manufacturing", href: "/apps/manufacturing", icon: Factory, description: "Production line control.", color: "text-slate-500" },
   { name: "Lead Hunter", href: "/apps/lead-hunter", icon: Search, description: "Find new prospects fast.", color: "text-indigo-500" },
@@ -141,9 +141,9 @@ export function Navbar() {
         </div>
 
         <div className="hidden lg:flex items-center gap-8">
-          <Link href="/dashboard/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
+          <Link href="/ems/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
           <Link 
-            href="/dashboard/signup" 
+            href="/ems/signup" 
             className="bg-black dark:bg-white text-white dark:text-black font-black text-[11px] uppercase tracking-[0.3em] px-12 py-4 rounded-full hover:scale-105 transition-all active:scale-95 shadow-2xl shadow-primary/20"
           >
             Start Now
@@ -214,14 +214,14 @@ export function Navbar() {
               </Link>
               <div className="grid grid-cols-2 gap-4">
                 <Link 
-                  href="/dashboard/login"
+                  href="/ems/login"
                   onClick={() => setMobileMenuOpen(false)}
                   className="py-6 text-center font-black text-[11px] uppercase tracking-[0.3em] border-2 border-black/10 dark:border-white/10 rounded-[2rem] active:scale-95 transition-transform"
                 >
                   Login
                 </Link>
                 <Link 
-                  href="/dashboard/signup"
+                  href="/ems/signup"
                   onClick={() => setMobileMenuOpen(false)}
                   className="py-6 text-center font-black text-[11px] uppercase tracking-[0.3em] bg-black dark:bg-white text-white dark:text-black rounded-[2rem] shadow-xl active:scale-95 transition-transform"
                 >

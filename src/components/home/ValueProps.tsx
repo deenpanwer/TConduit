@@ -2,15 +2,16 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Zap, Shield, Globe, Database, Settings } from "lucide-react";
+import { Sparkles, Zap, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const SECTIONS = [
   {
     title: "AI that does the work for you.",
     description: "Our AI agents handle the boring stuff. From finding new leads to setting up meetings, Trac AI takes care of it so you can focus on growing your business.",
     icon: Sparkles,
-    image: "/1.png",
+    image: "/diary/demo2.png",
     direction: "ltr",
     accent: "blue"
   },
@@ -18,7 +19,7 @@ const SECTIONS = [
     title: "Everything in one place. Finally.",
     description: "Stop jumping between different apps. In Trac, everything talks to each other. Your sales leads turn into hired team members with just one click.",
     icon: Zap,
-    image: "/diary/1.png",
+    image: "/diary/demo3.png",
     direction: "rtl",
     accent: "purple"
   },
@@ -50,11 +51,13 @@ export function ValueProps() {
             <div className="flex-1">
               <div className={cn(
                 "size-16 rounded-2xl flex items-center justify-center mb-8 shadow-lg",
-                `bg-${section.accent}-500/10 text-${section.accent}-500`
+                section.accent === "blue" && "bg-blue-500/10 text-blue-500",
+                section.accent === "purple" && "bg-purple-500/10 text-purple-500",
+                section.accent === "emerald" && "bg-emerald-500/10 text-emerald-500"
               )}>
                 <section.icon size={32} strokeWidth={2.5} />
               </div>
-              <h2 className="text-4xl md:text-7xl font-black font-poppins tracking-tighter mb-8 leading-[0.9] italic uppercase selection:bg-primary selection:text-white">
+              <h2 className="text-4xl md:text-7xl font-black tracking-tighter mb-8 leading-[0.9] italic uppercase">
                 {section.title}
               </h2>
               <p className="text-xl md:text-2xl text-muted-foreground font-medium max-w-xl leading-relaxed">
@@ -63,29 +66,46 @@ export function ValueProps() {
               
               <div className="mt-12 flex flex-wrap items-center gap-6">
                  <button className="px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-black text-lg rounded-full hover:scale-105 transition-transform active:scale-95 shadow-xl">
-                   Try it free
+                    Try it free
                  </button>
                  <div className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground cursor-pointer hover:text-black dark:hover:text-white transition-colors border-b-2 border-transparent hover:border-black/10">
-                   SEE THE DETAILS
+                    SEE THE DETAILS
                  </div>
               </div>
             </div>
 
+            {/* --- SEAMLESS STACKED MOCKUP --- */}
             <div className="flex-1 w-full aspect-[4/3] relative group">
+              {/* Outer Shadow Layer */}
               <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-[3rem] -rotate-3 group-hover:rotate-0 transition-transform duration-700" />
-              <div className="absolute inset-0 bg-white dark:bg-[#111] rounded-[3rem] border border-black/10 dark:border-white/10 overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700">
-                <div className="h-10 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 flex items-center px-6 gap-2">
+              
+              {/* Main Window Container (Flexbox for stacking) */}
+              <div className="absolute inset-0 bg-white dark:bg-[#111] rounded-[3rem] border border-black/10 dark:border-white/10 overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700 flex flex-col">
+                
+                {/* 1. Dedicated Header Section (Apple Style) */}
+                <div className="h-10 shrink-0 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 flex items-center px-6 gap-2 relative z-20">
                    <div className="size-2.5 rounded-full bg-red-400/50" />
                    <div className="size-2.5 rounded-full bg-yellow-400/50" />
                    <div className="size-2.5 rounded-full bg-green-400/50" />
                 </div>
-                <div className="p-12 h-full flex items-center justify-center relative">
-                   <div className="w-full h-full bg-black/[0.02] dark:bg-white/[0.02] rounded-2xl animate-pulse-slow overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_3s_infinite]" />
-                   </div>
+                
+                {/* 2. Dedicated Content Section (Image is seamless) */}
+                <div className="relative w-full flex-grow p-1"> {/* p-1 added for a tight border effect around the image */}
+                  <div className="relative w-full h-full rounded-b-2xl overflow-hidden">
+                    <Image 
+                      src={section.image}
+                      alt={section.title}
+                      fill
+                      className="object-cover object-top" // ensures the top of the app UI is visible
+                      sizes="(max-w-7xl) 50vw, 100vw"
+                    />
+                    {/* Screen Glare Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
+                  </div>
                 </div>
               </div>
             </div>
+            {/* --------------------------- */}
           </div>
         </section>
       ))}

@@ -7,7 +7,7 @@ import { useCRMCalls } from "@/hooks/use-crm-calls";
 import { 
   LayoutGrid, List as ListIcon, Plus, Search, 
   Filter, Download, ArrowUpDown, Loader2,
-  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash
+  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +134,7 @@ function LeadsPageContent() {
   const leadActions = (lead: CRMEntity) => (
     <>
       <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => router.push(`/crm/leads/${lead.id}?from=${activeView}`)}><ExternalLink size={12} className="mr-2 text-blue-500"/> Open Lead</DropdownMenuItem>
+      <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => router.push(`/crm/invoices/builder?type=lead&id=${lead.id}`)}><FileText size={12} className="mr-2 text-purple-500"/> Create Invoice</DropdownMenuItem>
       <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => { setSelectedLead(lead); setModalMode('preview'); setShowLeadModal(true); }}><Eye size={12} className="mr-2 text-blue-500"/> View Profile</DropdownMenuItem>
       <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => { setSelectedLead(lead); setModalMode('edit'); setShowLeadModal(true); }}><Edit2 size={12} className="mr-2 text-blue-500"/> Edit Details</DropdownMenuItem>
       <DropdownMenuSeparator />

@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   useEffect(() => {
     // Only run if we have a user and a valid session ID.
-    const isProtectedPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks");
+    const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
     if (user && sessionId.current && isProtectedPage) {
       // Create a reference to the specific session document.
       const sessionDocRef = doc(db, "users", user.uid, "sessions", sessionId.current);
@@ -246,19 +246,19 @@ function AuthRedirectHandler({ user, userData, loading, pathname, router }: any)
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const isProtectedPage = pathname?.startsWith("/dashboard") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks");
+    const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
     const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
     const isOnboardingPage = pathname?.includes("/onboarding");
 
     if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
-      const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/dashboard");
+      const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/ems");
       
       if (!user) {
-        const loginUrl = new URL("/dashboard/login", window.location.origin);
+        const loginUrl = new URL("/ems/login", window.location.origin);
         loginUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(loginUrl.pathname + loginUrl.search);
       } else if (userData && !userData.onboardingCompleted) {
-        const onboardingUrl = new URL("/dashboard/onboarding", window.location.origin);
+        const onboardingUrl = new URL("/ems/onboarding", window.location.origin);
         onboardingUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(onboardingUrl.pathname + onboardingUrl.search);
       }

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import 'regenerator-runtime/runtime';
 import React, { useState, useMemo, useRef, useEffect, useCallback, Suspense } from "react";
@@ -34,23 +34,25 @@ import { cn, getUserAvatar } from "@/lib/utils";
 import { format, isToday, isTomorrow, isYesterday, formatDistanceToNow } from "date-fns";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { TasksProvider, useTasks, Task, Status, Priority } from "@/hooks/useTasks";
+import { TasksProvider, useTasks, Task, Status, Priority, Subtask } from "@/hooks/useTasks";
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
 import { BoardView, AutoResizingTextarea, PRIORITIES } from "@/components/tasks/BoardView";
 import { TimelineView } from "@/components/tasks/TimelineView";
 import { ListView } from "@/components/tasks/ListView";
-import { InviteModal } from "@/components/dashboard/InviteModal";
-import { PaywallScreen } from "@/components/dashboard/PaywallScreen";
-import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
+import { InviteModal } from "@/components/ems/InviteModal";
+import { PaywallScreen } from "@/components/ems/PaywallScreen";
+import { SubscriptionBadge } from "@/components/ems/SubscriptionBadge";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { VoiceTaskCreator } from "@/components/tasks/VoiceTaskCreator";
+// import { VoiceTaskCreator } from "@/components/tasks/VoiceTaskCreator";
 import { TypedTaskCreator } from "@/components/tasks/TypedTaskCreator";
+import { UnifiedHierarchyRoot } from "@/components/tasks/HierarchicalUI";
 import { InlineAudioPlayer } from "@/components/tasks/InlineAudioPlayer";
+import { triggerBigConfetti, triggerSmallConfetti } from "@/lib/confetti";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Wand2, Layers, FileText, Eraser } from "lucide-react";
-
+import { Sparkles, Wand2, Layers, FileText, Eraser, LayoutDashboard } from "lucide-react";
+import { TasksDashboardContent } from "@/components/tasks/TasksDashboardContent";
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
@@ -73,16 +75,20 @@ function TasksPageContent() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   
-  const activeView = (searchParams.get("view") as "board" | "timeline" | "list") || "list";
+  const activeView = (searchParams.get("view") as "board" | "timeline" | "list" | "dashboard") || "dashboard";
 
-  const setActiveView = (view: "board" | "timeline" | "list") => {
+  const setActiveView = (view: "board" | "timeline" | "list" | "dashboard") => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", view);
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const [editingNewTask, setEditingNewTask] = useState<Partial<Task> | null>(null);
-  const [pendingVoiceTaskData, setPendingVoiceTaskData] = useState<Partial<Task> | null>(null);
+  const [drafts, setDrafts] = useState<Partial<Task>[]>([]);
+  const [activeDraftIndex, setActiveDraftIndex] = useState<number | null>(null);
+
+  const editingNewTask = useMemo(() => 
+    activeDraftIndex !== null ? drafts[activeDraftIndex] : null
+  , [drafts, activeDraftIndex]);
   
   useEffect(() => {
     if (userData) {
@@ -100,28 +106,33 @@ function TasksPageContent() {
 
   // Draft System
   useEffect(() => {
-    const savedTypeDraft = localStorage.getItem('trac_task_draft_type');
-    const savedVoiceDraft = localStorage.getItem('trac_task_draft_voice');
-    
-    if (savedTypeDraft) setEditingNewTask(JSON.parse(savedTypeDraft));
-    if (savedVoiceDraft) setPendingVoiceTaskData(JSON.parse(savedVoiceDraft));
+    const savedDrafts = localStorage.getItem('trac_task_drafts');
+    if (savedDrafts) {
+      setDrafts(JSON.parse(savedDrafts));
+    } else {
+      // Migration from old single-draft system
+      const oldTypeDraft = localStorage.getItem('trac_task_draft_type');
+      const oldVoiceDraft = localStorage.getItem('trac_task_draft_voice');
+      const migrated: Partial<Task>[] = [];
+      if (oldTypeDraft) migrated.push({ ...JSON.parse(oldTypeDraft), id: 'migrated-type-' + Date.now() });
+      if (oldVoiceDraft) migrated.push({ ...JSON.parse(oldVoiceDraft), id: 'migrated-voice-' + Date.now() });
+      
+      if (migrated.length > 0) {
+        setDrafts(migrated);
+        localStorage.setItem('trac_task_drafts', JSON.stringify(migrated));
+        localStorage.removeItem('trac_task_draft_type');
+        localStorage.removeItem('trac_task_draft_voice');
+      }
+    }
   }, []);
 
   useEffect(() => {
-    if (editingNewTask) {
-        localStorage.setItem('trac_task_draft_type', JSON.stringify(editingNewTask));
+    if (drafts.length > 0) {
+        localStorage.setItem('trac_task_drafts', JSON.stringify(drafts));
     } else {
-        localStorage.removeItem('trac_task_draft_type');
+        localStorage.removeItem('trac_task_drafts');
     }
-  }, [editingNewTask]);
-
-  useEffect(() => {
-    if (pendingVoiceTaskData) {
-        localStorage.setItem('trac_task_draft_voice', JSON.stringify(pendingVoiceTaskData));
-    } else {
-        localStorage.removeItem('trac_task_draft_voice');
-    }
-  }, [pendingVoiceTaskData]);
+  }, [drafts]);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -148,9 +159,10 @@ function TasksPageContent() {
   const [showBottomFadeDescription, setShowBottomFadeDescription] = useState(false);
 
   // AI Enhancement for Manual Task
-  const handleEnhanceTask = async () => {
-    if (!editingNewTask?.title && !editingNewTask?.description) {
-      toast.error("Please enter a title or description first.");
+  const handleEnhanceTask = async (transcript?: string) => {
+    const textToUse = transcript || editingNewTask?.description || editingNewTask?.title;
+    if (!textToUse) {
+      toast.error("Please enter a title, description or record audio first.");
       return;
     }
 
@@ -160,7 +172,7 @@ function TasksPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: editingNewTask.description || editingNewTask.title,
+          text: textToUse,
           mode: 'enhance',
           context: editingNewTask
         }),
@@ -168,14 +180,25 @@ function TasksPageContent() {
 
       if (response.ok) {
         const data = await response.json();
-        setEditingNewTask(prev => ({
-          ...prev,
-          title: data.title || prev?.title,
-          description: data.description || prev?.description,
-          priority: data.priority || prev?.priority,
-          subtasks: data.subtasks || prev?.subtasks,
-          resources: data.resources || prev?.resources,
-        }));
+        
+        // Map subtasks recursively to include nested notes if description is provided
+        const mapSubtask = (s: any): any => ({
+            ...s,
+            id: s.id || `ai-st-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            completed: s.completed || false,
+            descriptions: s.description ? [{ id: `ai-desc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, text: s.description, createdAt: new Date() }] : [],
+            subtasks: (s.subtasks || []).map(mapSubtask)
+        });
+
+        const enhancedSubtasks = (data.subtasks || []).map(mapSubtask);
+
+        handleUpdateTaskLocal("new", {
+          title: data.title || editingNewTask?.title,
+          description: data.description || editingNewTask?.description,
+          priority: data.priority || editingNewTask?.priority,
+          subtasks: enhancedSubtasks.length > 0 ? enhancedSubtasks : editingNewTask?.subtasks,
+          resources: data.resources || editingNewTask?.resources,
+        });
         toast.success("Task enhanced by AI.");
       }
     } catch (error) {
@@ -205,14 +228,13 @@ function TasksPageContent() {
 
       if (response.ok) {
         const data = await response.json();
-        setEditingNewTask(prev => ({
-            ...prev,
+        handleUpdateTaskLocal("new", {
             title: data.title,
             description: data.description,
             priority: data.priority,
             subtasks: data.subtasks,
             resources: data.resources,
-        }));
+        });
         setIsBulkMode(false);
         toast.success("AI parsed your bulk input.");
       }
@@ -319,14 +341,26 @@ function TasksPageContent() {
   }, [tasks, selectedTaskId, editingNewTask]);
 
   const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
-    // setInitialMetadata({ status: initialStatus, date: initialDate });
-    // setShowCreateTaskModal(true);
-	handleAddNewTaskTypeClick(initialStatus, initialDate);
-  }, []);
-
-  const handleAddNewTaskTypeClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
-    if (!editingNewTask) {
-        const newTask: Partial<Task> = {
+    // Check if we already have an empty draft
+    const emptyDraftIndex = drafts.findIndex(d => !d.title && !d.description && !d.audioBase64);
+    
+    if (emptyDraftIndex !== -1) {
+        setActiveDraftIndex(emptyDraftIndex);
+        if (initialStatus || initialDate) {
+            setDrafts(prev => {
+                const updated = [...prev];
+                updated[emptyDraftIndex] = {
+                    ...updated[emptyDraftIndex],
+                    status: initialStatus || updated[emptyDraftIndex].status || "todo",
+                    dueDate: initialDate ? initialDate.toISOString() : (updated[emptyDraftIndex].dueDate || new Date().toISOString())
+                };
+                return updated;
+            });
+        }
+    } else {
+        const newDraftId = 'draft-' + Date.now();
+        const newDraft: Partial<Task> = {
+            id: newDraftId,
             title: "",
             description: "",
             status: initialStatus || "todo",
@@ -340,38 +374,29 @@ function TasksPageContent() {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        setEditingNewTask(newTask);
-    } else if (initialStatus || initialDate) {
-        // Only update if specific metadata was passed (e.g. from board column/timeline day)
-        setEditingNewTask(prev => ({
-            ...prev,
-            status: initialStatus || prev?.status || "todo",
-            dueDate: initialDate ? initialDate.toISOString() : (prev?.dueDate || new Date().toISOString())
-        }));
+        setDrafts(prev => {
+            const newList = [...prev, newDraft];
+            setActiveDraftIndex(newList.length - 1);
+            return newList;
+        });
     }
     
     setSelectedTaskId("new");
-    setShowCreateTaskModal(false); // Close selection modal
-    setCreateTaskMode("type"); // Ensure it's set for type mode
-  }, [editingNewTask]);
+    setShowCreateTaskModal(false);
+    setCreateTaskMode("type");
+  }, [drafts]);
 
   const handleUpdateTaskLocal = useCallback((id: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => {
-    if (id === "new") {
-      setEditingNewTask(prev => prev ? { ...prev, ...updates } : null);
+    if (id === "new" && activeDraftIndex !== null) {
+      setDrafts(prev => {
+          const newDrafts = [...prev];
+          newDrafts[activeDraftIndex] = { ...newDrafts[activeDraftIndex], ...updates };
+          return newDrafts;
+      });
     } else {
-      // For existing tasks, find the task and update it in the local state
-      const taskIndex = tasks.findIndex(t => t.id === id);
-      if (taskIndex !== -1) {
-        const updatedTask = { ...tasks[taskIndex], ...updates };
-        const newTasks = [...tasks];
-        newTasks[taskIndex] = updatedTask;
-        // Here you might want to update the state that holds the tasks array
-        // This part depends on how you manage your state (e.g., using a state setter from useState)
-        // For now, let's assume `updateTask` handles the actual state update
-      }
       updateTask(id, updates, action, skipHistory);
     }
-}, [tasks, updateTask]);
+  }, [activeDraftIndex, updateTask]);
 
   const handleSaveNewTask = useCallback(async () => {
     if (editingNewTask && selectedTaskId === "new") {
@@ -383,51 +408,36 @@ function TasksPageContent() {
         editingNewTask.description, 
         editingNewTask.priority, 
         editingNewTask.assignees, 
-        undefined,
+        editingNewTask.audioBase64 ? {
+            base64: editingNewTask.audioBase64,
+            mimeType: editingNewTask.audioMimeType || 'audio/webm;codecs=opus',
+            duration: editingNewTask.audioDuration || 0
+        } : undefined,
         editingNewTask.leaderPoints || 20,
         editingNewTask.deadlineHours,
         editingNewTask.subtasks || [],
-        editingNewTask.resources || []
+        editingNewTask.resources || [],
+        editingNewTask.nestedDescriptions || [],
+        editingNewTask.images || []
       );
       if (newId) {
-        // Update the rest of the fields (tags, coverImage, etc.)
         const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, ...rest } = editingNewTask;
         if (Object.keys(rest).length > 0) {
             await updateTask(newId, rest);
         }
         toast.success("Task created!");
+        
+        // Remove from drafts
+        if (activeDraftIndex !== null) {
+            setDrafts(prev => prev.filter((_, i) => i !== activeDraftIndex));
+            setActiveDraftIndex(null);
+        }
       }
-      setEditingNewTask(null);
       setSelectedTaskId(null);
       setLocalTask(null);
-      setCreateTaskMode(null); // Reset mode
+      setCreateTaskMode(null);
     }
-  }, [editingNewTask, selectedTaskId, addTask, updateTask]);
-
-  const handleSaveVoiceTask = useCallback(async (audioData: { base64: string; mimeType: string; duration: number }, metadata: Partial<Task>) => {
-    // metadata already contains title, priority, assignees, dueDate, status, subtasks
-    const newId = await addTask(
-      metadata.title || "Voice Task",
-      metadata.status || "todo",
-      metadata.description,
-      metadata.priority,
-      metadata.assignees,
-      audioData,
-      metadata.leaderPoints,
-      metadata.deadlineHours,
-      metadata.subtasks || [],
-      metadata.resources || []
-    );
-    if (newId) {
-      toast.success("Voice task created!");
-      setPendingVoiceTaskData(null); // Clear draft
-    } else {
-      toast.error("Failed to create voice task.");
-    }
-    setSelectedTaskId(null);
-    setCreateTaskMode(null); // Reset mode
-    setShowCreateTaskModal(false); // Close selection modal
-  }, [addTask]);
+  }, [editingNewTask, selectedTaskId, addTask, updateTask, activeDraftIndex]);
 
   const handleDeleteTaskLocal = useCallback((id: string) => {
     deleteTask(id);
@@ -476,6 +486,14 @@ function TasksPageContent() {
 
                 <div className="flex items-center gap-1 border-l border-border/40 pl-3">
                     <Button 
+                        variant={activeView === "dashboard" ? "secondary" : "ghost"} 
+                        size="sm" 
+                        className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
+                        onClick={() => setActiveView("dashboard")}
+                    >
+                        <LayoutDashboard size={14} className={cn(!isMobile && "mr-2")} /> {!isMobile && "Overview"}
+                    </Button>
+                    <Button 
                         variant={activeView === "list" ? "secondary" : "ghost"} 
                         size="sm" 
                         className={cn("h-8 text-xs", isMobile ? "px-2" : "px-3")}
@@ -509,7 +527,7 @@ function TasksPageContent() {
                             <Button variant="ghost" size="sm" className="h-8 text-xs gap-2">
                                 <FileText size={14} />
                                 <span className="hidden sm:inline">Drafts</span>
-                                {(editingNewTask || pendingVoiceTaskData) && (
+                                {drafts.length > 0 && (
                                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                                 )}
                             </Button>
@@ -520,62 +538,48 @@ function TasksPageContent() {
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Stored on this device only</p>
                             </div>
                             <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
-                                {!editingNewTask && !pendingVoiceTaskData ? (
+                                {drafts.length === 0 ? (
                                     <div className="py-8 text-center text-muted-foreground/40 text-xs italic">
                                         No active drafts
                                     </div>
                                 ) : (
-                                    <>
-                                        {editingNewTask && (
-                                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
-                                                <div 
-                                                    className="flex-1 cursor-pointer"
-                                                    onClick={() => {
-                                                        setCreateTaskMode("type");
-                                                        setSelectedTaskId("new");
-                                                    }}
-                                                >
-                                                    <p className="text-xs font-bold truncate">{editingNewTask.title || "Untitled Type Draft"}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase">Type Draft</p>
+                                    drafts.map((draft, idx) => (
+                                        <div key={draft.id || idx} className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
+                                            <div 
+                                                className="flex-1 cursor-pointer"
+                                                onClick={() => {
+                                                    setActiveDraftIndex(idx);
+                                                    setSelectedTaskId("new");
+                                                    setCreateTaskMode("type");
+                                                }}
+                                            >
+                                                <p className="text-xs font-bold truncate">{draft.title || "Untitled Draft"}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className="text-[9px] text-muted-foreground uppercase">{draft.audioBase64 ? 'Voice' : 'Type'}</p>
+                                                    {draft.status && (
+                                                        <Badge variant="outline" className="text-[8px] py-0 px-1 border-border/50 uppercase">{draft.status}</Badge>
+                                                    )}
                                                 </div>
-                                                <Button 
-                                                    variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => {
-                                                        if (confirm("Clear this draft forever?")) {
-                                                            setEditingNewTask(null);
-                                                            localStorage.removeItem('trac_task_draft_type');
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 size={12} />
-                                                </Button>
                                             </div>
-                                        )}
-                                        {pendingVoiceTaskData && (
-                                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
-                                                <div 
-                                                    className="flex-1 cursor-pointer"
-                                                    onClick={() => {
-                                                        setCreateTaskMode("voice");
-                                                    }}
-                                                >
-                                                    <p className="text-xs font-bold truncate">{pendingVoiceTaskData.title || "Untitled Voice Draft"}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase">Voice Draft</p>
-                                                </div>
-                                                <Button 
-                                                    variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => {
-                                                        if (confirm("Clear this draft forever?")) {
-                                                            setPendingVoiceTaskData(null);
-                                                            localStorage.removeItem('trac_task_draft_voice');
+                                            <Button 
+                                                variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                                                onClick={() => {
+                                                    if (confirm("Clear this draft forever?")) {
+                                                        const newDrafts = drafts.filter((_, i) => i !== idx);
+                                                        setDrafts(newDrafts);
+                                                        if (activeDraftIndex === idx) {
+                                                            setActiveDraftIndex(null);
+                                                            setSelectedTaskId(null);
+                                                        } else if (activeDraftIndex !== null && activeDraftIndex > idx) {
+                                                            setActiveDraftIndex(activeDraftIndex - 1);
                                                         }
-                                                    }}
-                                                >
-                                                    <Trash2 size={12} />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </>
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 size={12} />
+                                            </Button>
+                                        </div>
+                                    ))
                                 )}
                             </div>
                         </PopoverContent>
@@ -615,17 +619,21 @@ function TasksPageContent() {
                     userData={userData}
                 />
             ) : activeView === "board" ? (
-                <BoardView 
-                    tasks={filteredTasks}
-                    onTaskClick={setSelectedTaskId}
-                    onDeleteTask={handleDeleteTaskLocal}
-                    onDropTask={(taskId, status) => updateTask(taskId, { status })}
-                    onQuickAdd={(status, title) => addTask(title, status)}
-                    onAddClick={handleAddNewTaskClick}
-                    onQuickEdit={(id, title) => updateTask(id, { title })}
-                    canManage={canManageTasks}
-                    personnel={personnel}
-                />
+            <BoardView
+            tasks={filteredTasks}
+            onTaskClick={setSelectedTaskId}
+            onDeleteTask={handleDeleteTaskLocal}
+            onDropTask={(taskId, status) => {
+               if (status === 'done') triggerBigConfetti();
+               updateTask(taskId, { status });
+            }}
+            onQuickAdd={(status, title) => addTask(title, status)}
+            onAddClick={handleAddNewTaskClick}
+            onQuickEdit={(id, title) => updateTask(id, { title })}
+            canManage={canManageTasks}
+            personnel={personnel}
+            />
+
             ) : activeView === "timeline" ? (
                 <TimelineView 
                     tasks={filteredTasks}
@@ -637,6 +645,12 @@ function TasksPageContent() {
                     canManage={canManageTasks}
                     personnel={personnel}
                 />
+            ) : activeView === "dashboard" ? (
+                <ScrollArea className="h-full">
+                    <TasksDashboardContent 
+                        onTaskClick={setSelectedTaskId}
+                    />
+                </ScrollArea>
             ) : (
                 <ListView 
                     tasks={filteredTasks}
@@ -735,7 +749,7 @@ function TasksPageContent() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className={cn(
                 "fixed z-50 bg-card border border-border/50 shadow-2xl overflow-hidden flex flex-col outline-none",
-                isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-full max-w-lg rounded-2xl"
+                isMobile ? "inset-0 rounded-none" : "inset-y-4 right-4 w-1/2 rounded-2xl"
               )}
             >
               <div className="h-40 shrink-0 relative bg-secondary/30 group">
@@ -868,7 +882,11 @@ function TasksPageContent() {
                                ? "text-[#1DB954] hover:text-[#1ed760] bg-[#1DB954]/10 border border-[#1DB954]/20" 
                                : "text-muted-foreground hover:text-foreground"
                             )}
-                            onClick={() => handleUpdateTaskLocal(selectedTaskId!, { flagged: !selectedTask.flagged }, 'task_completed')}
+                            onClick={() => {
+                               const newVal = !selectedTask.flagged;
+                               if (newVal) triggerBigConfetti();
+                               handleUpdateTaskLocal(selectedTaskId!, { flagged: newVal }, 'task_completed');
+                            }}
                         >
                             {selectedTask.flagged ? <Check size={12} strokeWidth={3} className="animate-in zoom-in" /> : <Flag size={12} fill="none" />}
                             {selectedTask.flagged ? 'Complete' : 'Mark as Complete'}
@@ -879,6 +897,7 @@ function TasksPageContent() {
                         {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
                      )}>
                         <AutoResizingTextarea
+                           autoFocus={selectedTaskId === 'new' || !selectedTask.title}
                            value={selectedTask.title || ""}
                            onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { title: e.target.value }, 'updated', true)}
                            onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
@@ -912,7 +931,7 @@ function TasksPageContent() {
                                               size={12} 
                                               className="cursor-pointer text-muted-foreground hover:text-destructive"
                                               onClick={() => {
-                                                    const newAssignees = selectedTask.assignees.filter(a => a !== uid);
+                                                    const newAssignees = (selectedTask.assignees || []).filter(a => a !== uid);
                                                     handleUpdateTaskLocal(selectedTaskId!, { assignees: newAssignees }, 'assignees_updated');
                                               }}
                                            />
@@ -1030,146 +1049,13 @@ function TasksPageContent() {
                         </div>
                      )}
 
-                     <div>
-                        <div className="flex items-center justify-between mb-3">
-                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
-                              Subtasks
-                           </label>
-                           <span className="text-[10px] font-mono text-muted-foreground/50">
-                              {Math.round(((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100)}% Complete
-                           </span>
-                        </div>
-
-                        <div className="w-full h-1.5 bg-secondary/30 rounded-full mb-4 overflow-hidden">
-                           <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${((selectedTask.subtasks || []).filter(s => s.completed).length / (selectedTask.subtasks || []).length || 0) * 100}%` }}
-                              className="h-full bg-primary rounded-full"
-                           />
-                        </div>
-
-                        <div className="space-y-1">
-                           {(selectedTask.subtasks || []).map((sub, idx) => (
-                              <div key={sub.id} className="flex items-center gap-2 group/sub">
-                                 <button 
-                                    onClick={() => {
-                                       const newSub = [...(selectedTask.subtasks || [])];
-                                       newSub[idx].completed = !newSub[idx].completed;
-                                       newSub[idx].completedBy = newSub[idx].completed ? user?.uid : undefined;
-                                       handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
-                                    }}
-                                    className={cn(
-                                       "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
-                                       sub.completed ? "bg-primary border-primary text-primary-foreground" : "border-border hover:border-primary"
-                                    )}
-                                 >
-                                    {sub.completed && <Check size={12} />}
-                                 </button>
-                                 <AutoResizingTextarea
-                                       value={sub.title}
-                                       onChange={(e) => {
-                                          const newSub = [...(selectedTask.subtasks || [])];
-                                          newSub[idx].title = e.target.value;
-                                          handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub }, 'updated', true);
-                                       }}
-                                       onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                                       className={cn(
-                                          "relative w-full flex-1 h-8 border-none shadow-none focus-visible:ring-0 bg-transparent px-2 text-sm focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-md scrollbar-hide",
-                                          sub.completed && "text-muted-foreground line-through decoration-border"
-                                       )}
-                                       maxHeight={MAX_TEXTAREA_HEIGHT_SUBTASK}
-                                       readOnly={!canManageTasks}
-                                    />
-                                 
-                                 {sub.completed && sub.completedBy && (
-                                    <div className="flex items-center gap-1 bg-secondary/50 px-1.5 py-0.5 rounded text-[9px] text-muted-foreground whitespace-nowrap">
-                                       <Check size={8} /> {personnel.find(p => p.id === sub.completedBy)?.name?.split(' ')[0] || 'User'}
-                                    </div>
-                                 )}
-
-                                    <Button size="icon" variant="ghost" className="h-6 w-6 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
-                                        onClick={() => {
-                                        const newSub = selectedTask.subtasks.filter(s => s.id !== sub.id);
-                                        handleUpdateTaskLocal(selectedTaskId!, { subtasks: newSub });
-                                        }}
-                                    >
-                                        <X size={12} />
-                                    </Button>
-                              </div>
-                           ))}
-                            <Button 
-                                variant="ghost" size="sm" 
-                                className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                                onClick={() => handleUpdateTaskLocal(selectedTaskId!, { subtasks: [...(selectedTask.subtasks || []), { id: Math.random().toString(), title: "", completed: false }] })}
-                                disabled={!canManageTasks}
-                            >
-                                <Plus size={14} className="mr-2" /> Add Item
-                            </Button>
-                        </div>
-                     </div>
-
                      <div className="mb-8">
-                        <div className="flex items-center justify-between mb-3">
-                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest">
-                              Resources
-                           </label>
-                        </div>
-                        <div className="space-y-2">
-                           {(selectedTask.resources || []).map((res, idx) => (
-                              <div key={res.id} className="flex items-center gap-2 group/res bg-secondary/10 p-2 rounded-lg border border-border/40">
-                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                       <LinkIcon size={12} className="text-primary shrink-0" />
-                                       <Input 
-                                          value={res.title} // Corrected from res.name
-                                          onChange={(e) => {
-                                             const newRes = [...(selectedTask.resources || [])];
-                                             newRes[idx].title = e.target.value;
-                                             handleUpdateTaskLocal(selectedTaskId!, { resources: newRes }, 'updated', true);
-                                          }}
-                                          onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                                          placeholder="Resource Title" // Corrected placeholder
-                                          className="h-6 bg-transparent border-none p-0 text-xs font-bold focus-visible:ring-0"
-                                       />
-                                    </div>
-                                    <Input 
-                                       value={res.url}
-                                       onChange={(e) => {
-                                          const newRes = [...(selectedTask.resources || [])];
-                                          newRes[idx].url = e.target.value;
-                                          handleUpdateTaskLocal(selectedTaskId!, { resources: newRes }, 'updated', true);
-                                       }}
-                                       onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
-                                       placeholder="URL (docs, pdfs, images...)"
-                                       className="h-5 bg-transparent border-none p-0 text-[10px] text-muted-foreground focus-visible:ring-0"
-                                    />
-                                 </div>
-                                 <div className="flex items-center gap-1 opacity-0 group-hover/res:opacity-100 transition-opacity">
-                                    {res.url && (
-                                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => window.open(res.url, '_blank')}>
-                                          <ArrowUpRight size={12} />
-                                       </Button>
-                                    )}
-                                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                        onClick={() => {
-                                           const newRes = selectedTask.resources!.filter(r => r.id !== res.id);
-                                           handleUpdateTaskLocal(selectedTaskId!, { resources: newRes });
-                                        }}
-                                    >
-                                        <X size={12} />
-                                    </Button>
-                                 </div>
-                              </div>
-                           ))}
-                           <Button 
-                              variant="ghost" size="sm" 
-                              className="h-8 text-xs text-muted-foreground hover:text-primary justify-start pl-1 mt-2"
-                              onClick={() => handleUpdateTaskLocal(selectedTaskId!, { resources: [...(selectedTask.resources || []), { id: Math.random().toString(), title: "", url: "", type: "link", createdAt: new Date() }] })}
-                              disabled={!canManageTasks}
-                           >
-                              <Plus size={14} className="mr-2" /> Add Resource
-                           </Button>
-                        </div>
+                        <UnifiedHierarchyRoot 
+                           task={selectedTask}
+                           onUpdateTask={(updates) => handleUpdateTaskLocal(selectedTaskId!, updates)}
+                           canManage={canManageTasks}
+                           user={user}
+                        />
                      </div>
 
                      <div className="mt-12 pt-8 border-t border-border/30">
@@ -1335,46 +1221,6 @@ function TasksPageContent() {
         )}
 		</AnimatePresence>
 */}
-        {/* Voice Task Creator Modal */}
-        {createTaskMode === "voice" && (
-            <motion.div
-                key="voice-task-modal-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => {
-                  if (pendingVoiceTaskData && (pendingVoiceTaskData.title || pendingVoiceTaskData.description)) {
-                      localStorage.setItem('trac_task_draft_voice', JSON.stringify(pendingVoiceTaskData));
-                      toast.info("Voice task saved as draft", {
-                          description: "You can recover it from the Drafts menu."
-                      });
-                  }
-                  setCreateTaskMode(null);
-                }}
-                className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
-            >
-                <motion.div
-                    key="voice-task-modal-content"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="bg-card rounded-2xl shadow-2xl border flex flex-col max-w-md w-full h-[90vh]"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <VoiceTaskCreator
-                        onSave={handleSaveVoiceTask}
-                        onCancel={() => setCreateTaskMode(null)} // Simplified onCancel
-                        isLoading={false}
-                        canManage={canManageTasks}
-                        initialStatus={initialMetadata.status}
-                        initialDueDate={initialMetadata.date}
-                        initialData={pendingVoiceTaskData || undefined}
-                        onDataChange={setPendingVoiceTaskData}
-                    />
-                </motion.div>
-            </motion.div>
-        )}
-        
         {/* New Task Typing Modal */}
         {(selectedTaskId === "new" && createTaskMode === "type") && (
             <TypedTaskCreator 
@@ -1382,14 +1228,28 @@ function TasksPageContent() {
                 onUpdateTask={handleUpdateTaskLocal}
                 onSave={handleSaveNewTask}
                 onCancel={() => {
-                    if (editingNewTask && (editingNewTask.title || editingNewTask.description)) {
+                    const hasContent = !!(
+                        editingNewTask?.title || 
+                        editingNewTask?.description || 
+                        editingNewTask?.audioBase64 ||
+                        (editingNewTask?.subtasks && editingNewTask.subtasks.length > 0) ||
+                        (editingNewTask?.resources && editingNewTask.resources.length > 0) ||
+                        (editingNewTask?.images && editingNewTask.images.length > 0) ||
+                        (editingNewTask?.nestedDescriptions && editingNewTask.nestedDescriptions.length > 0)
+                    );
+
+                    if (editingNewTask && hasContent) {
                         toast.info("Task draft saved.", {
                             description: "You can recover it from the Drafts menu."
                         });
                     } else {
-                        setEditingNewTask(null);
+                        // Remove empty draft if cancelled
+                        if (activeDraftIndex !== null) {
+                            setDrafts(prev => prev.filter((_, i) => i !== activeDraftIndex));
+                        }
                     }
                     setSelectedTaskId(null);
+                    setActiveDraftIndex(null);
                     setCreateTaskMode(null);
                 }}
                 personnel={personnel}

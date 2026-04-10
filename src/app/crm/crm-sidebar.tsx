@@ -4,7 +4,8 @@ import { cn, getUserAvatar } from "@/lib/utils";
 import { 
   LayoutDashboard, Users, Briefcase, Building, ChevronDown, 
   ChevronsRight, ChevronsLeft, Moon, Sun, ShoppingCart, 
-  X, NotebookPen, PhoneIncoming, Settings, Sparkles
+  X, NotebookPen, PhoneIncoming, Settings, Sparkles,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +25,7 @@ import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { getDocs, collection, query, where, limit } from "firebase/firestore";
+import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 
 interface CRMSidebarProps {
   isCollapsed: boolean;
@@ -32,6 +33,45 @@ interface CRMSidebarProps {
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
 }
+
+const MODULE_CONFIG = [
+  {
+    id: "ems",
+    title: "EMS",
+    description: "Enterprise Management",
+    icon: LayoutDashboard,
+    href: "/ems",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "crm",
+    title: "CRM",
+    description: "Customer Relations",
+    icon: Briefcase,
+    href: "/crm",
+    color: "text-blue-500",
+    bg: "bg-blue-500/10"
+  },
+  {
+    id: "tasks",
+    title: "Tasks",
+    description: "Productivity & Ops",
+    icon: NotebookPen,
+    href: "/tasks",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "pos",
+    title: "POS System",
+    description: "Retail & Transactions",
+    icon: ShoppingCart,
+    href: "/pos/checkout",
+    color: "text-orange-500",
+    bg: "bg-orange-500/10"
+  }
+];
 
 export function CRMSidebar({
   isCollapsed,
@@ -45,13 +85,16 @@ export function CRMSidebar({
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+
   useEffect(() => { 
     setMounted(true); 
-    async function fetchPartnerBranding() {
+    async function fetchData() {
       if (userData?.partnerSlug) {
         try {
           const q = query(collection(db, "partners"), where("slug", "==", userData.partnerSlug), limit(1));
@@ -63,11 +106,27 @@ export function CRMSidebar({
           console.error("Error fetching CRM branding:", err);
         }
       }
+
+      if (orgId) {
+        try {
+          const orgDoc = await getDoc(doc(db, "organizations", orgId));
+          if (orgDoc.exists()) {
+            setSelectedModules(orgDoc.data()?.selectedModules || []);
+          }
+        } catch (err) {
+          console.error("Error fetching org modules:", err);
+        }
+      }
     }
-    fetchPartnerBranding();
-  }, [userData?.partnerSlug]);
+    fetchData();
+  }, [userData?.partnerSlug, orgId]);
 
   if (!mounted) return null;
+
+  const currentModule = MODULE_CONFIG.find(m => m.id === "crm")!;
+  const otherModules = MODULE_CONFIG.filter(m => 
+    m.id !== "crm" && (selectedModules.length === 0 || selectedModules.includes(m.id))
+  );
 
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.targetTouches[0].clientX; };
   const handleTouchMove = (e: React.TouchEvent) => { touchEndX.current = e.targetTouches[0].clientX; };
@@ -144,9 +203,11 @@ export function CRMSidebar({
                         <span className="font-poppins font-black text-xl tracking-tighter uppercase leading-none text-[#0f172a] dark:text-white">
                           CRM
                         </span>
-                        <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1 text-[#0f172a]/80 dark:text-white/80">
-                          SUBSIDIARY OF {partnerBrand}
-                        </span>
+                        {partnerBrand && (
+                          <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1 text-[#0f172a]/80 dark:text-white/80">
+                            SUBSIDIARY OF {partnerBrand}
+                          </span>
+                        )}
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">
                           RELATIONS
                         </span>
@@ -160,32 +221,37 @@ export function CRMSidebar({
                 <div className="px-2 py-2 mb-2">
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
                 </div>
-                <DropdownMenuItem onClick={() => router.push('/dashboard')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center"><LayoutDashboard className="size-5 text-primary" /></div>
-                  <div className="flex flex-col text-left"><span className="font-bold text-sm">Dashboard</span><span className="text-[10px] text-muted-foreground">Admin & Staff</span></div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/tasks')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center"><NotebookPen className="size-5 text-primary" /></div>
-                  <div className="flex flex-col text-left"><span className="font-bold text-sm">Tasks</span><span className="text-[10px] text-muted-foreground">Productivity</span></div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/pos/checkout')} className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer">
-                  <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center"><ShoppingCart className="size-5 text-orange-500" /></div>
-                  <div className="flex flex-col text-left"><span className="font-bold text-sm">POS System</span><span className="text-[10px] text-muted-foreground">Retail</span></div>
-                </DropdownMenuItem>
                 
-                {/* RE-ADDED CURRENT PRODUCT ITEM */}
+                {/* CURRENT MODULE */}
                 <DropdownMenuItem 
                   disabled
                   className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
                 >
-                  <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Briefcase className="size-5 text-blue-500" />
+                  <div className={cn("size-10 rounded-xl flex items-center justify-center", currentModule.bg)}>
+                    <currentModule.icon className={cn("size-5", currentModule.color)} />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">CRM Dashboard</span>
+                    <span className="font-bold text-sm">{currentModule.title}</span>
                     <span className="text-[10px] text-muted-foreground">Current Product</span>
                   </div>
                 </DropdownMenuItem>
+
+                {/* OTHER MODULES */}
+                {otherModules.map((module) => (
+                  <DropdownMenuItem 
+                    key={module.id}
+                    onClick={() => router.push(module.href)}
+                    className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
+                  >
+                    <div className={cn("size-10 rounded-xl flex items-center justify-center", module.bg)}>
+                      <module.icon className={cn("size-5", module.color)} />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold text-sm">{module.title}</span>
+                      <span className="text-[10px] text-muted-foreground">{module.description}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -197,6 +263,7 @@ export function CRMSidebar({
             <NavItem icon={Briefcase} label="Deals" href="/crm/deals" active={pathname === "/crm/deals"} />
             <NavItem icon={Building} label="Organizations" href="/crm/organizations" active={pathname === "/crm/organizations"} />
             <NavItem icon={Users} label="Contacts" href="/crm/contacts" active={pathname?.startsWith("/crm/contacts")} />
+            <NavItem icon={FileText} label="Invoices" href="/crm/invoices" active={pathname?.startsWith("/crm/invoices")} />
             <NavItem icon={NotebookPen} label="Notes" href="/crm/notes" active={pathname === "/crm/notes"} />
             <NavItem icon={PhoneIncoming} label="Call Logs" href="/crm/call-logs" active={pathname === "/crm/call-logs"} />
             <NavItem icon={Settings} label="Config" href="/crm/config" active={pathname === "/crm/config"} />
@@ -206,12 +273,12 @@ export function CRMSidebar({
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-4 shrink-0">
             <button 
               onClick={() => {
-                router.push("/dashboard/settings");
+                router.push("/ems/settings");
                 if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
               }} 
               className={cn(
                 "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group", 
-                pathname === "/dashboard/settings" && "bg-secondary ring-1 ring-border", 
+                pathname === "/ems/settings" && "bg-secondary ring-1 ring-border", 
                 (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
               )}
             >

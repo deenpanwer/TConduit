@@ -40,6 +40,7 @@ import { format, isValid } from 'date-fns';
 import { useTasks, Task, Priority, Subtask, Resource } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
+import { triggerBigConfetti, triggerSmallConfetti } from '@/lib/confetti';
 
 // --- Types & Interfaces ---
 
@@ -412,6 +413,9 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
     };
 
     const handleUpdateItem = (id: string, updates: any) => {
+        if (type === 'subtasks' && updates.completed === true) {
+            triggerSmallConfetti();
+        }
         onUpdate(items.map(item => item.id === id ? { ...item, ...updates } : item));
     };
 
@@ -811,7 +815,10 @@ const TaskRowDesktop = ({
             <div className='flex h-10 border-b border-border/60 group hover:bg-secondary/[0.02] transition-colors'>
                 {/* Checkbox */}
                 <div className={cn('sticky left-0 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60', localTask.flagged ? 'bg-green-500/10' : 'bg-background')}>
-                    <div className='cursor-pointer' onClick={() => onUpdate({ flagged: !localTask.flagged })}>
+                    <div className='cursor-pointer' onClick={() => {
+                        if (!localTask.flagged) triggerBigConfetti();
+                        onUpdate({ flagged: !localTask.flagged });
+                    }}>
                         {localTask.flagged ? <CheckCircle2 size={16} className='text-green-500' /> : <Circle size={16} className='text-muted-foreground/30 hover:text-primary transition-colors' />}
                     </div>
                 </div>
@@ -1103,6 +1110,9 @@ const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, sh
     }[type];
 
     const handleUpdateItem = (id: string, updates: any) => {
+        if (type === 'subtasks' && updates.completed === true) {
+            triggerSmallConfetti();
+        }
         onUpdate(items.map(item => item.id === id ? { ...item, ...updates } : item));
     };
 
@@ -1390,7 +1400,10 @@ const TaskRowMobile = ({
                 <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab touch-none p-2 -ml-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"><GripVertical size={20} /></div>
 
                 <button 
-                    onClick={() => onUpdate({ flagged: !localTask.flagged })}
+                    onClick={() => {
+                        if (!localTask.flagged) triggerBigConfetti();
+                        onUpdate({ flagged: !localTask.flagged });
+                    }}
                     className={cn("size-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0", localTask.flagged ? "bg-green-500 border-green-500 text-white" : "border-border")}
                 >
                     {localTask.flagged && <Check size={14} />}
@@ -1647,6 +1660,9 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
       }));
   }, [orderedTasks, localChanges]);
 
+  const activeTasks = useMemo(() => displayTasks.filter(t => !t.flagged), [displayTasks]);
+  const completedTasks = useMemo(() => displayTasks.filter(t => t.flagged), [displayTasks]);
+
   // Render a simplified mobile view if screen is small.
   if (isMobile) {
       return (
@@ -1676,7 +1692,7 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   <Reorder.Group axis="y" values={orderedTasks} onReorder={setOrderedTasks} className="space-y-3">
-                      {displayTasks.map(task => (
+                      {activeTasks.map(task => (
                           <TaskRowMobile 
                               key={task.id} 
                               task={orderedTasks.find(t => t.id === task.id)!}
@@ -1710,6 +1726,31 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                           }}
                       />
                   </div>
+
+                  {completedTasks.length > 0 && (
+                      <div className="mt-8 space-y-3">
+                          <div className="flex items-center gap-2 px-1">
+                              <CheckCircle2 size={14} className="text-green-500" />
+                              <h3 className="text-[10px] font-black uppercase tracking-widest text-green-700">Completed</h3>
+                              <span className="text-[10px] font-bold text-green-600/50 ml-auto">{completedTasks.length} Items</span>
+                          </div>
+                          <div className="opacity-60 grayscale-[0.5] space-y-3">
+                              {completedTasks.map(task => (
+                                  <TaskRowMobile 
+                                      key={task.id} 
+                                      task={orderedTasks.find(t => t.id === task.id)!}
+                                      localTask={task}
+                                      onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                                      onDelete={deleteTask}
+                                      onTaskClick={onTaskClick}
+                                      handleEnhanceTask={handleEnhanceWithAI}
+                                      isEnhancing={isEnhancing === task.id}
+                                      personnel={personnel}
+                                  />
+                              ))}
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       );
@@ -1763,7 +1804,7 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
 
               {/* Task Rows Body */}
               <div className='flex flex-col'>
-                  {displayTasks.map(task => (
+                  {activeTasks.map(task => (
                       <TaskRowDesktop 
                           key={task.id} 
                           task={orderedTasks.find(t => t.id === task.id)!}
@@ -1822,6 +1863,46 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                       <div className='w-10 shrink-0' />
                   </div>
               </div>
+
+              {completedTasks.length > 0 && (
+                <div className="mt-12 flex flex-col h-full border-t border-border/40 bg-secondary/[0.02]">
+                    <div className='sticky top-0 z-20 flex h-10 bg-green-500/5 border-b border-border/40 shrink-0 group/completed-header'>
+                        <div className='sticky left-0 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center justify-center'>
+                            <Check size={12} className='text-green-600' />
+                        </div>
+                        <div className='sticky left-10 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/10' />
+                        <div className='sticky left-20 z-20 flex-[1.5] min-w-[250px] border-r border-border/60 bg-green-500/10 flex items-center px-4'>
+                            <span className='text-[10px] font-black uppercase tracking-[0.2em] text-green-700/80'>Completed Items</span>
+                            <span className='ml-3 text-[10px] font-bold text-green-600/60 bg-green-500/10 px-2 py-0.5 rounded-full'>{completedTasks.length} Done</span>
+                        </div>
+                        {/* Headers for Completed Section */}
+                        <div className='flex-[2] min-w-[400px] border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Description</div>
+                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Assignees</div>
+                        <div className='w-24 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Priority</div>
+                        <div className='w-24 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Due Date</div>
+                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Subtasks</div>
+                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Resources</div>
+                        <div className='w-16 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Status</div>
+                        <div className='w-10 shrink-0 bg-green-500/10' />
+                    </div>
+
+                    <div className='flex flex-col opacity-60 grayscale-[0.3] hover:opacity-100 hover:grayscale-0 transition-all'>
+                        {completedTasks.map(task => (
+                            <TaskRowDesktop 
+                                key={task.id} 
+                                task={orderedTasks.find(t => t.id === task.id)!}
+                                localTask={task}
+                                onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                                onDelete={deleteTask}
+                                onTaskClick={onTaskClick}
+                                personnel={personnel}
+                                handleEnhanceTask={handleEnhanceWithAI}
+                                isEnhancing={isEnhancing === task.id}
+                            />
+                        ))}
+                    </div>
+                </div>
+              )}
           </div>
       </div>
     </div>

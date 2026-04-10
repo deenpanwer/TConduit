@@ -28,7 +28,8 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
     contacts,
     organizations,
     calls,
-    notes
+    notes,
+    invoices
   } = useCRM();
 
   // Local state for searching/filtering
@@ -43,7 +44,8 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
     contacts,
     organizations,
     calls,
-    notes
+    notes,
+    invoices
   };
 
   // Select the appropriate entities for this module instance.

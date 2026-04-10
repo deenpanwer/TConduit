@@ -20,7 +20,7 @@ const PLATFORM_LINKS = [
   { name: "Inventory", href: "/apps/inventory", icon: Package },
   { name: "Procurement", href: "/apps/procurement", icon: ShoppingCart },
   { name: "Manufacturing", href: "/apps/manufacturing", icon: Factory },
-  { name: "Dashboard", href: "/apps/dashboard", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Shifts", href: "/apps/shifts", icon: CalendarClock },
   { name: "Hiring", href: "/apps/hiring", icon: UserSearch },
   { name: "ATS", href: "/apps/ats", icon: Users },

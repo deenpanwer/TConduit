@@ -32,7 +32,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { useShift } from "@/hooks/use-shift";
 import { db } from "@/lib/firebase";
-import { getDocs, collection, query, where, limit } from "firebase/firestore";
+import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 
 interface TasksSidebarProps {
   isCollapsed: boolean;
@@ -42,6 +42,45 @@ interface TasksSidebarProps {
   employees: any[];
   onInviteClick?: () => void;
 }
+
+const MODULE_CONFIG = [
+  {
+    id: "ems",
+    title: "EMS",
+    description: "Enterprise Management",
+    icon: LayoutDashboard,
+    href: "/ems",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "crm",
+    title: "CRM",
+    description: "Customer Relations",
+    icon: Briefcase,
+    href: "/crm",
+    color: "text-blue-500",
+    bg: "bg-blue-500/10"
+  },
+  {
+    id: "tasks",
+    title: "Tasks",
+    description: "Productivity & Ops",
+    icon: ListTodo,
+    href: "/tasks",
+    color: "text-primary",
+    bg: "bg-primary/10"
+  },
+  {
+    id: "pos",
+    title: "POS System",
+    description: "Retail & Transactions",
+    icon: ShoppingCart,
+    href: "/pos/checkout",
+    color: "text-orange-500",
+    bg: "bg-orange-500/10"
+  }
+];
 
 export function TasksSidebar({
   isCollapsed,
@@ -58,6 +97,7 @@ export function TasksSidebar({
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const { allPendingLeaves, allPendingClaims } = useShift(new Date(), orgId, (userData && user) ? { ...userData, uid: user.uid } : null, employees);
@@ -70,7 +110,7 @@ export function TasksSidebar({
   useEffect(() => { 
     setMounted(true); 
     
-    async function fetchPartnerBranding() {
+    async function fetchData() {
       if (userData?.partnerSlug) {
         try {
           const q = query(collection(db, "partners"), where("slug", "==", userData.partnerSlug), limit(1));
@@ -82,11 +122,27 @@ export function TasksSidebar({
           console.error("Error fetching tasks sidebar branding:", err);
         }
       }
+
+      if (orgId) {
+        try {
+          const orgDoc = await getDoc(doc(db, "organizations", orgId));
+          if (orgDoc.exists()) {
+            setSelectedModules(orgDoc.data()?.selectedModules || []);
+          }
+        } catch (err) {
+          console.error("Error fetching org modules:", err);
+        }
+      }
     }
-    fetchPartnerBranding();
-  }, [userData?.partnerSlug]);
+    fetchData();
+  }, [userData?.partnerSlug, orgId]);
 
   if (!mounted) return null;
+
+  const currentModule = MODULE_CONFIG.find(m => m.id === "tasks")!;
+  const otherModules = MODULE_CONFIG.filter(m => 
+    m.id !== "tasks" && (selectedModules.length === 0 || selectedModules.includes(m.id))
+  );
 
   // --- SWIPE HANDLERS ---
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -216,54 +272,37 @@ export function TasksSidebar({
                 <div className="px-2 py-2 mb-2">
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
                 </div>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/dashboard')}
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <LayoutDashboard className="size-5 text-primary" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">Dashboard</span>
-                    <span className="text-[10px] text-muted-foreground">Engineering Ops</span>
-                  </div>
-                </DropdownMenuItem>
+                
+                {/* CURRENT MODULE */}
                 <DropdownMenuItem 
                   disabled
                   className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
                 >
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <ListTodo className="size-5 text-primary" />
+                  <div className={cn("size-10 rounded-xl flex items-center justify-center", currentModule.bg)}>
+                    <currentModule.icon className={cn("size-5", currentModule.color)} />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">Tasks</span>
+                    <span className="font-bold text-sm">{currentModule.title}</span>
                     <span className="text-[10px] text-muted-foreground">Current Product</span>
                   </div>
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/pos/checkout')}
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                    <ShoppingCart className="size-5 text-orange-500" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">POS System</span>
-                    <span className="text-[10px] text-muted-foreground">Retail & Transactions</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/crm')}
-                  className="flex items-center gap-4 p-3 rounded-xl cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Briefcase className="size-5 text-blue-500" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">CRM Dashboard</span>
-                    <span className="text-[10px] text-muted-foreground">Customer Relations</span>
-                  </div>
-                </DropdownMenuItem>
+
+                {/* OTHER MODULES */}
+                {otherModules.map((module) => (
+                  <DropdownMenuItem 
+                    key={module.id}
+                    onClick={() => router.push(module.href)}
+                    className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
+                  >
+                    <div className={cn("size-10 rounded-xl flex items-center justify-center", module.bg)}>
+                      <module.icon className={cn("size-5", module.color)} />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold text-sm">{module.title}</span>
+                      <span className="text-[10px] text-muted-foreground">{module.description}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -289,16 +328,17 @@ export function TasksSidebar({
               </Tooltip>
             </TooltipProvider>
             <div className="space-y-1">
-                <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && (view === "list" || !view)} />
+                <NavItem icon={LayoutDashboard} label="Overview" href="/tasks?view=dashboard" active={pathname === "/tasks" && (view === "dashboard" || !view)} />
+                <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && view === "list"} />
                 <NavItem icon={LayoutGrid} label="Board View" href="/tasks?view=board" active={pathname === "/tasks" && view === "board"} />
                 <NavItem icon={Calendar} label="Timeline View" href="/tasks?view=timeline" active={pathname === "/tasks" && view === "timeline"} />
             </div>
 
             <div className="pt-4 mt-4 border-t border-border/40">
-                {(!isCollapsed || isMobileSidebarOpen) && <p className="px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">Back to Dashboard</p>}
+                {(!isCollapsed || isMobileSidebarOpen) && <p className="px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">Back to EMS</p>}
                 <div className="space-y-1">
-                    <NavItem icon={LayoutDashboard} label="Dashboard" href="/dashboard" active={false} />
-                    <NavItem icon={MessageSquare} label="Chat" href="/dashboard/chat" active={false} />
+                    <NavItem icon={LayoutDashboard} label="Overview" href="/ems" active={false} />
+                    <NavItem icon={MessageSquare} label="Chat" href="/ems/chat" active={false} />
                 </div>
             </div>
           </div>
@@ -310,7 +350,7 @@ export function TasksSidebar({
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => {
-                      router.push("/dashboard/settings");
+                      router.push("/ems/settings");
                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                     }}
                     className={cn(
@@ -331,7 +371,6 @@ export function TasksSidebar({
                             <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Admin"}</div>
                             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{userData?.role || "Owner"}</div>
                         </div>
-                        <Settings size={14} className="text-muted-foreground ml-2 shrink-0 group-hover:text-primary transition-colors" />
                       </div>
                     )}
                   </button>
