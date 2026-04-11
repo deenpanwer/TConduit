@@ -6,15 +6,19 @@ import {
 } from "framer-motion";
 import { 
   Plus, X, Check, Trash2, Link as LinkIcon, ImageIcon,
-  MoreHorizontal, FileText, ChevronRight, ListTodo
+  MoreHorizontal, FileText, ChevronRight, ListTodo, Mic, FileVideo
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Task } from "@/hooks/useTasks";
+import { Task, Attachment } from "@/hooks/useTasks";
 import { AutoResizingTextarea } from "./BoardView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { triggerSmallConfetti } from "@/lib/confetti";
+import { FilePreviewModal } from "./FilePreviewModal";
+import { useUpload, ActiveUpload } from "@/hooks/useUploadProgress";
+import { Progress } from "@/components/ui/progress";
+import { Download } from "lucide-react";
 
 export const CountTicker = ({ count, icon: Icon, color }: { count: number, icon: any, color: string }) => {
     if (count === 0) return null;
@@ -26,7 +30,7 @@ export const CountTicker = ({ count, icon: Icon, color }: { count: number, icon:
     );
 };
 
-export function HierarchyQuickAdd({ onAdd }: { onAdd: (type: 'subtasks' | 'notes' | 'images' | 'resources') => void }) {
+export function HierarchyQuickAdd({ onAdd }: { onAdd: (type: 'subtasks' | 'notes' | 'images' | 'resources' | 'files') => void }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -46,6 +50,9 @@ export function HierarchyQuickAdd({ onAdd }: { onAdd: (type: 'subtasks' | 'notes
                 <DropdownMenuItem onClick={() => onAdd('images')} className="gap-2">
                     <ImageIcon size={14} className="text-orange-500" /> Image
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAdd('files')} className="gap-2">
+                    <FileText size={14} className="text-rose-500" /> File
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAdd('resources')} className="gap-2">
                     <LinkIcon size={14} className="text-purple-500" /> Link
                 </DropdownMenuItem>
@@ -56,7 +63,7 @@ export function HierarchyQuickAdd({ onAdd }: { onAdd: (type: 'subtasks' | 'notes
 
 interface DrawerHierarchicalTableProps {
     items: any[];
-    type: 'subtasks' | 'notes' | 'resources' | 'images';
+    type: 'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes' | 'files';
     depth: number;
     onUpdate: (updatedItems: any[]) => void;
     onDelete: (id: string) => void;
@@ -66,6 +73,7 @@ interface DrawerHierarchicalTableProps {
     shouldFocusQuickAdd?: boolean;
     onFocusHandled?: () => void;
     forceExpand?: boolean;
+    onUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const DrawerHierarchicalTable = ({ 
@@ -79,18 +87,24 @@ export const DrawerHierarchicalTable = ({
     isAIEnhancing,
     shouldFocusQuickAdd,
     onFocusHandled,
-    forceExpand
+    forceExpand,
+    onUpload
 }: DrawerHierarchicalTableProps) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
     const [isAdding, setIsAdding] = useState(false);
     const quickAddInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { uploads } = useUpload();
 
     const config = {
         subtasks: { label: 'Subtasks', icon: ListTodo, color: 'text-blue-600', hue: 221, bg: 'bg-blue-500/5', border: 'border-blue-500/20' },
         notes: { label: 'Notes', icon: FileText, color: 'text-emerald-600', hue: 142, bg: 'bg-emerald-500/5', border: 'border-emerald-500/20' },
         resources: { label: 'Resources', icon: LinkIcon, color: 'text-purple-600', hue: 281, bg: 'bg-purple-500/5', border: 'border-purple-500/20' },
         images: { label: 'Images', icon: ImageIcon, color: 'text-orange-600', hue: 24, bg: 'bg-orange-500/5', border: 'border-orange-500/20' },
+        attachments: { label: 'Files', icon: FileText, color: 'text-rose-600', hue: 350, bg: 'bg-rose-500/5', border: 'border-rose-500/20' },
+        files: { label: 'Files', icon: FileText, color: 'text-rose-600', hue: 350, bg: 'bg-rose-500/5', border: 'border-rose-500/20' },
+        voiceNotes: { label: 'Voice Notes', icon: Mic, color: 'text-amber-600', hue: 40, bg: 'bg-amber-500/5', border: 'border-amber-500/20' },
     }[type];
 
     // Priority 1: Handle focus and expansion for Quick Add
@@ -181,7 +195,7 @@ export const DrawerHierarchicalTable = ({
                                 <DrawerHierarchyItem 
                                     key={item.id || idx}
                                     item={item}
-                                    type={type}
+                                    type={type === 'files' ? 'attachments' : type}
                                     depth={depth}
                                     canManage={canManage}
                                     user={user}
@@ -196,56 +210,89 @@ export const DrawerHierarchicalTable = ({
                                 />
                             ))}
 
+                            {/* Active Uploads for this section */}
+                            {Object.values(uploads).filter(u => (type === 'files' && !u.type.startsWith('audio/')) || (type === 'voiceNotes' && u.type.startsWith('audio/'))).map((upload: ActiveUpload) => (
+                                <div key={upload.id} className="flex items-center gap-3 px-4 py-2 bg-primary/5 border-t border-border/5 animate-pulse">
+                                    <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold truncate">{upload.name}</p>
+                                        <Progress value={upload.progress} className="h-0.5 mt-1" />
+                                    </div>
+                                    <span className="text-[8px] font-black uppercase opacity-40">
+                                        {upload.progress === 100 || upload.status === 'done' ? 'Upload Complete' : 'Uploading...'}
+                                    </span>
+                                </div>
+                            ))}
+
                             {isAIEnhancing && items.length === 0 && (
                                 <div className="py-3 px-4">
                                     <Skeleton className="h-8 w-full rounded-lg opacity-20" />
                                 </div>
                             )}
                             
-                            {/* Quick Add Row */}
-                            <div className={cn(
-                                "flex items-center gap-3 px-4 py-3 border-t border-border/5 transition-colors group/quick-add",
-                                isAdding ? "bg-primary/5" : "bg-background/20"
-                            )}>
-                                <Plus size={12} className={cn("transition-colors", config.color, (isAdding || quickAddValue) ? "opacity-100" : "opacity-20")} />
-                                <input 
-                                    ref={quickAddInputRef}
-                                    className="bg-transparent border-none p-0 text-[11px] font-bold outline-none flex-1 placeholder:italic placeholder:text-muted-foreground/20"
-                                    placeholder={`+ Add ${config.label.slice(0, -1)}...`}
-                                    value={quickAddValue}
-                                    onFocus={() => setIsAdding(true)}
-                                    onChange={(e) => setQuickAddValue(e.target.value)}
-                                    onBlur={() => {
-                                        // Delay to allow clicking other elements or the save button
-                                        setTimeout(() => {
-                                            if (!quickAddValue.trim()) {
+                            {/* Quick Add / Upload Row */}
+                            {type === 'files' ? (
+                                <div 
+                                    className="flex items-center gap-3 px-4 py-3 border-t border-border/5 bg-background/20 cursor-pointer hover:bg-primary/5 transition-colors group/upload"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Plus size={12} className={cn("transition-colors", config.color)} />
+                                    <span className="text-[11px] font-bold opacity-40 group-hover/upload:opacity-100 transition-opacity">
+                                        Click to upload (Max {user?.isPremium || user?.orgIsPremium ? '250MB' : '10MB'})
+                                    </span>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={onUpload} 
+                                        className="hidden" 
+                                    />
+                                </div>
+                            ) : (
+                                <div className={cn(
+                                    "flex items-center gap-3 px-4 py-3 border-t border-border/5 transition-colors group/quick-add",
+                                    isAdding ? "bg-primary/5" : "bg-background/20"
+                                )}>
+                                    <Plus size={12} className={cn("transition-colors", config.color, (isAdding || quickAddValue) ? "opacity-100" : "opacity-20")} />
+                                    <input 
+                                        ref={quickAddInputRef}
+                                        className="bg-transparent border-none p-0 text-[11px] font-bold outline-none flex-1 placeholder:italic placeholder:text-muted-foreground/20"
+                                        placeholder={
+                                            type === 'voiceNotes' ? "Voice input active..." : 
+                                            `+ Add ${config.label.slice(0, -1)}...`
+                                        }
+                                        value={type === 'voiceNotes' ? "" : quickAddValue}
+                                        disabled={type === 'voiceNotes'}
+                                        onFocus={() => setIsAdding(true)}
+                                        onChange={(e) => setQuickAddValue(e.target.value)}
+                                        onBlur={() => {
+                                            setTimeout(() => {
+                                                if (!quickAddValue.trim()) {
+                                                    setIsAdding(false);
+                                                    onFocusHandled?.();
+                                                }
+                                            }, 200);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleQuickAdd();
+                                            if (e.key === 'Escape') {
+                                                setQuickAddValue("");
                                                 setIsAdding(false);
                                                 onFocusHandled?.();
+                                                quickAddInputRef.current?.blur();
                                             }
-                                        }, 200);
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            handleQuickAdd();
-                                        }
-                                        if (e.key === 'Escape') {
-                                            setQuickAddValue("");
-                                            setIsAdding(false);
-                                            onFocusHandled?.();
-                                            quickAddInputRef.current?.blur();
-                                        }
-                                    }}
-                                />
-                                {(isAdding || quickAddValue) && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, x: 10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="text-[8px] font-black uppercase tracking-tighter opacity-20"
-                                    >
-                                        Enter to Save / Esc to Cancel
-                                    </motion.div>
-                                )}
-                            </div>
+                                        }}
+                                    />
+                                    {(isAdding || quickAddValue) && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, x: 10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            className="text-[8px] font-black uppercase tracking-tighter opacity-20"
+                                        >
+                                            Enter to Save / Esc to Cancel
+                                        </motion.div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -256,7 +303,7 @@ export const DrawerHierarchicalTable = ({
 
 interface DrawerHierarchyItemProps {
     item: any;
-    type: 'subtasks' | 'notes' | 'resources' | 'images';
+    type: 'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes';
     onUpdate: (updates: any) => void;
     onDelete: () => void;
     depth: number;
@@ -267,13 +314,16 @@ interface DrawerHierarchyItemProps {
 
 export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, canManage, user, isAIEnhancing, forceExpand }: DrawerHierarchyItemProps & { forceExpand?: boolean }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [activeFocusType, setActiveFocusType] = useState<'subtasks' | 'notes' | 'resources' | 'images' | null>(null);
+    const [previewFile, setPreviewFile] = useState<any>(null);
+    const [activeFocusType, setActiveFocusType] = useState<'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes' | null>(null);
     
     const subItemCounts = {
         subtasks: (item.subtasks || []).length,
         notes: (item.descriptions || []).length,
         resources: (item.resources || []).length,
         images: (item.images || []).length,
+        attachments: (item.attachments || []).length,
+        voiceNotes: (item.voiceNotes || []).length,
     };
 
     const hasAnySubItems = Object.values(subItemCounts).some(c => c > 0);
@@ -302,7 +352,18 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
         notes: { icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-500/5', label: 'Note', border: 'border-emerald-500/20' },
         resources: { icon: LinkIcon, color: 'text-purple-600', bg: 'bg-purple-500/5', label: 'Resource', border: 'border-purple-500/20' },
         images: { icon: ImageIcon, color: 'text-orange-600', bg: 'bg-orange-500/5', label: 'Image', border: 'border-orange-500/20' },
+        attachments: { icon: FileText, color: 'text-rose-600', bg: 'bg-rose-500/5', label: 'File', border: 'border-rose-500/20' },
+        voiceNotes: { icon: Mic, color: 'text-amber-600', bg: 'bg-amber-500/5', label: 'Voice', border: 'border-amber-500/20' },
     }[type];
+
+    const getFileIcon = (mimeType: string, name: string) => {
+        if (mimeType?.includes('pdf')) return <FileText size={14} className="text-rose-500" />;
+        if (mimeType?.includes('sheet') || mimeType?.includes('excel') || mimeType?.includes('csv')) return <FileText size={14} className="text-emerald-500" />;
+        if (mimeType?.includes('video') || name?.match(/\.(mp4|mov|avi|webm)$/i)) return <FileVideo size={14} className="text-amber-500" />;
+        if (mimeType?.includes('image')) return <ImageIcon size={14} className="text-orange-500" />;
+        if (mimeType?.includes('audio')) return <Mic size={14} className="text-blue-500" />;
+        return <FileText size={14} className="opacity-40" />;
+    };
 
     return (
         <div className="group/item flex flex-col w-full border-b border-border/5 last:border-none transition-all duration-200">
@@ -345,7 +406,10 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                 )}
 
                 {/* Content Cell */}
-                <div className="flex-1 min-w-0 pt-0.5">
+                <div 
+                    className={cn("flex-1 min-w-0 pt-0.5", (type === 'images' || type === 'attachments' || type === 'voiceNotes') && "cursor-pointer")}
+                    onClick={() => (type === 'images' || type === 'attachments' || type === 'voiceNotes') && setPreviewFile(item)}
+                >
                     {type === 'notes' ? (
                         <AutoResizingTextarea 
                             value={item.text}
@@ -354,6 +418,22 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                             placeholder="Type note details..."
                             maxHeight={1000} 
                         />
+                    ) : type === 'attachments' ? (
+                        <div className="flex items-center justify-between group/file pr-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                {getFileIcon(item.type, item.name)}
+                                <span className="text-[12px] font-bold truncate">{item.name}</span>
+                                <span className="text-[9px] opacity-30 font-black uppercase">{(item.size / 1024).toFixed(0)} KB</span>
+                            </div>
+                            <Button 
+                                variant="ghost" size="icon" 
+                                className="h-6 w-6 opacity-0 group-hover/file:opacity-100 transition-opacity"
+                                asChild
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <a href={item.url} download target="_blank"><Download size={12} /></a>
+                            </Button>
+                        </div>
                     ) : (
                         <div className="space-y-1">
                             <AutoResizingTextarea 
@@ -484,6 +564,11 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                     </motion.div>
                 )}
             </AnimatePresence>
+            <FilePreviewModal 
+                file={previewFile} 
+                isOpen={!!previewFile} 
+                onClose={() => setPreviewFile(null)} 
+            />
         </div>
     );
 }
@@ -493,17 +578,19 @@ export function UnifiedHierarchyRoot({
     onUpdateTask, 
     canManage, 
     user,
-    isEnhancing 
+    isEnhancing,
+    onUpload
 }: { 
     task: Partial<Task> | null, 
     onUpdateTask: (updates: Partial<Task>) => void,
     canManage: boolean,
     user: any,
-    isEnhancing?: boolean
+    isEnhancing?: boolean,
+    onUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [globalForceExpand, setGlobalForceExpand] = useState<boolean | undefined>(undefined);
-    const [activeFocusType, setActiveFocusType] = useState<'subtasks' | 'notes' | 'resources' | 'images' | null>(null);
+    const [activeFocusType, setActiveFocusType] = useState<'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes' | 'files' | null>(null);
 
     const subItemCounts = useMemo(() => {
         return {
@@ -511,14 +598,16 @@ export function UnifiedHierarchyRoot({
             notes: (task?.nestedDescriptions || []).length,
             resources: (task?.resources || []).length,
             images: (task?.images || []).length,
+            attachments: (task?.attachments || []).length,
+            voiceNotes: (task?.voiceNotes || []).length,
         };
     }, [task]);
 
     const hasContent = Object.values(subItemCounts).some(count => count > 0);
 
-    const handleAddRoot = (type: 'subtasks' | 'notes' | 'resources' | 'images') => {
+    const handleAddRoot = (type: 'subtasks' | 'notes' | 'resources' | 'images' | 'files') => {
         setIsExpanded(true);
-        setActiveFocusType(type);
+        setActiveFocusType(type as any);
         setGlobalForceExpand(true); // Override any previous collapse
     };
 
@@ -564,6 +653,8 @@ export function UnifiedHierarchyRoot({
                         <CountTicker count={subItemCounts.notes} icon={FileText} color="bg-emerald-500/10 text-emerald-600" />
                         <CountTicker count={subItemCounts.images} icon={ImageIcon} color="bg-orange-500/10 text-orange-600" />
                         <CountTicker count={subItemCounts.resources} icon={LinkIcon} color="bg-purple-500/10 text-purple-600" />
+                        <CountTicker count={subItemCounts.attachments} icon={FileText} color="bg-rose-500/10 text-rose-600" />
+                        <CountTicker count={subItemCounts.voiceNotes} icon={Mic} color="bg-amber-500/10 text-amber-600" />
                     </div>
                 )}
 
@@ -581,6 +672,27 @@ export function UnifiedHierarchyRoot({
                         className="overflow-hidden"
                     >
                         <div className="border border-border/40 rounded-2xl overflow-hidden bg-card/30 pb-6 space-y-2">
+                            <DrawerHierarchicalTable 
+                                items={task?.attachments || []} type="files" depth={0} canManage={canManage} user={user}
+                                onUpdate={(val) => onUpdateTask({ attachments: val })}
+                                onDelete={(id) => onUpdateTask({ attachments: (task?.attachments || []).filter(s => s.id !== id) })}
+                                shouldFocusQuickAdd={activeFocusType === 'attachments' || activeFocusType === 'files'}
+                                onFocusHandled={() => setActiveFocusType(null)}
+                                isAIEnhancing={isEnhancing}
+                                forceExpand={globalForceExpand}
+                                onUpload={onUpload}
+                            />
+                            
+                            <DrawerHierarchicalTable 
+                                items={task?.voiceNotes || []} type="voiceNotes" depth={0} canManage={canManage} user={user}
+                                onUpdate={(val) => onUpdateTask({ voiceNotes: val })}
+                                onDelete={(id) => onUpdateTask({ voiceNotes: (task?.voiceNotes || []).filter(s => s.id !== id) })}
+                                shouldFocusQuickAdd={activeFocusType === 'voiceNotes'}
+                                onFocusHandled={() => setActiveFocusType(null)}
+                                isAIEnhancing={isEnhancing}
+                                forceExpand={globalForceExpand}
+                            />
+
                             <DrawerHierarchicalTable 
                                 items={task?.nestedDescriptions || []} type="notes" depth={0} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ nestedDescriptions: val })}

@@ -320,12 +320,11 @@ export const TaskCard = ({
             )}
         </div>
 
-        {task.audioBase64 && task.audioMimeType && task.audioDuration !== undefined && (
+        {(task.voiceNotes && task.voiceNotes.length > 0) && (
           <div className="mt-2" onClick={(e) => e.stopPropagation()}>
             <InlineAudioPlayer 
-              audioBase64={task.audioBase64}
-              audioMimeType={task.audioMimeType}
-              audioDuration={task.audioDuration}
+              url={task.voiceNotes[0].url}
+              audioDuration={task.voiceNotes[0].duration || 0}
               className="scale-90 origin-left"
             />
           </div>

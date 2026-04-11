@@ -7,8 +7,13 @@ import {
 } from "framer-motion";
 import { 
   Plus, Calendar, X, Check, Layers, Trash2, Sparkles, Wand2, Link as LinkIcon, Minus, AtSign, ImageIcon,
-  Mic, StopCircle, Pause, Play, Volume2, MicOff, MoreHorizontal, FileText, ChevronRight, ChevronDown, ListTodo, MessageSquare
+  Mic, StopCircle, Pause, Play, Volume2, MicOff, MoreHorizontal, FileText, ChevronRight, ChevronDown, ListTodo, MessageSquare, Upload
 } from "lucide-react";
+import { getStorage, ref, uploadBytes, getDownloadURL, uploadBytesResumable } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { useUpload } from "@/hooks/useUploadProgress";
+import { Progress } from "@/components/ui/progress";
+import { FilePreviewModal } from "./FilePreviewModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +65,7 @@ interface TypedTaskCreatorProps {
   setIsBulkMode: (val: boolean) => void;
   bulkInput: string;
   setBulkInput: (val: string) => void;
+  handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
@@ -155,7 +161,8 @@ export function TypedTaskCreator({
   isBulkMode,
   setIsBulkMode,
   bulkInput,
-  setBulkInput
+  setBulkInput,
+  handleFileUpload
 }: TypedTaskCreatorProps) {
   const [showTopFadeTitle, setShowTopFadeTitle] = useState(false);
   const [showBottomFadeTitle, setShowBottomFadeTitle] = useState(false);
@@ -171,14 +178,16 @@ export function TypedTaskCreator({
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const onUpdateTaskRef = useRef(onUpdateTask);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Keep ref up to date to avoid closure issues
   useEffect(() => {
     onUpdateTaskRef.current = onUpdateTask;
   }, [onUpdateTask]);
 
+  const { uploads, setUpload, removeUpload } = useUpload();
+  const { user, userData } = useAuth();
   const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition();
-  const { user } = useAuth();
 
   // Recording Logic
   useEffect(() => {
@@ -214,20 +223,48 @@ export function TypedTaskCreator({
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
         const finalDuration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
         
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          const base64data = reader.result as string;
-          onUpdateTaskRef.current("new", {
-            audioBase64: base64data,
-            audioMimeType: 'audio/webm;codecs=opus',
-            audioDuration: finalDuration
-          });
-        };
+        const uploadId = Date.now().toString();
+        const orgId = userData?.orgId || userData?.ownedOrgId || 'unknown';
+        const path = `organizations/${orgId}/tasks/new/voiceNotes/${uploadId}_recording.webm`;
+        const storageRef = ref(storage, path);
+        
+        setUpload(uploadId, { id: uploadId, name: 'Voice Note', type: 'audio/webm;codecs=opus', size: audioBlob.size, progress: 0, status: 'uploading' });
+        const uploadTask = uploadBytesResumable(storageRef, audioBlob);
+
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+              const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUpload(uploadId, { progress: p });
+          },
+          (error) => {
+              console.error(error);
+              toast.error("Failed to save voice note");
+              setUpload(uploadId, { status: 'error' });
+              setTimeout(() => removeUpload(uploadId), 3000);
+          },
+          async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              const newVoiceNote: any = {
+                  id: uploadId,
+                  name: `Voice Note ${format(new Date(), 'MMM d, HH:mm')}`,
+                  url,
+                  type: 'audio/webm;codecs=opus',
+                  size: audioBlob.size,
+                  createdAt: new Date(),
+                  duration: finalDuration
+              };
+              
+              onUpdateTaskRef.current("new", { 
+                  voiceNotes: [...(editingNewTask?.voiceNotes || []), newVoiceNote] 
+              });
+              setUpload(uploadId, { progress: 100, status: 'done' });
+              setTimeout(() => removeUpload(uploadId), 1000);
+          }
+        );
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -416,12 +453,12 @@ export function TypedTaskCreator({
                 size="sm"
                 className={cn(
                     "h-8 px-3 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none",
-                    ((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || !!editingNewTask?.audioBase64)
+                    ((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || (editingNewTask?.voiceNotes && editingNewTask.voiceNotes.length > 0))
                     ? "bg-primary text-primary-foreground border-primary" 
                     : "bg-secondary/50 text-muted-foreground border-transparent opacity-50 cursor-not-allowed"
                 )}
                 onClick={() => handleEnhanceTask(transcript)}
-                disabled={isEnhancing || !((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || !!editingNewTask?.audioBase64)}
+                disabled={isEnhancing || !((editingNewTask?.title?.length || 0) > 5 || (editingNewTask?.description?.length || 0) > 10 || (editingNewTask?.voiceNotes && editingNewTask.voiceNotes.length > 0))}
               >
                 {isEnhancing ? <Wand2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
                 {isEnhancing ? "Enhancing..." : "AI Enhance"}
@@ -438,7 +475,7 @@ export function TypedTaskCreator({
               <Button 
                 variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive"
                 onClick={() => {
-                    onUpdateTask("new", { title: "", description: "", subtasks: [], resources: [], audioBase64: undefined });
+                    onUpdateTask("new", { title: "", description: "", subtasks: [], resources: [], voiceNotes: [], attachments: [], images: [] });
                     setBulkInput("");
                 }}
                 title="Clear"
@@ -447,27 +484,6 @@ export function TypedTaskCreator({
               </Button>
           </div>
         </div>
-
-        {editingNewTask?.audioBase64 && (
-          <div className="mb-8 p-4 bg-secondary/20 rounded-2xl border border-border/50 relative group/audio">
-            <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                    <Volume2 size={12} className="text-primary" /> Voice Brief
-                </label>
-                <Button 
-                    variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover/audio:opacity-100 transition-opacity"
-                    onClick={() => onUpdateTask("new", { audioBase64: undefined, audioDuration: undefined, audioMimeType: undefined })}
-                >
-                    <X size={12} />
-                </Button>
-            </div>
-            <InlineAudioPlayer 
-              audioBase64={editingNewTask.audioBase64}
-              audioMimeType={editingNewTask.audioMimeType || 'audio/webm;codecs=opus'}
-              audioDuration={editingNewTask.audioDuration || 0}
-            />
-          </div>
-        )}
 
         {isBulkMode ? (
             <div className="space-y-4 mb-8">
@@ -677,12 +693,14 @@ export function TypedTaskCreator({
         </div>
         <div className="mb-8">
            <UnifiedHierarchyRoot 
-                task={editingNewTask}
-                onUpdateTask={(updates) => onUpdateTask("new", updates)}
-                canManage={canManage}
-                user={user}
-                isEnhancing={isEnhancing}
+               task={editingNewTask}
+               onUpdateTask={(upd) => onUpdateTask("new", upd)}
+               canManage={canManage}
+               user={userData}
+               isEnhancing={isEnhancing}
+               onUpload={handleFileUpload}
            />
+
         </div>
 
         {(editingNewTask as any)?.id && (editingNewTask as any)?.id !== 'new' && (
@@ -732,7 +750,8 @@ export function TypedTaskCreator({
                          ) : (
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={pauseRecording}><Pause size={16} /></Button>
                          )}
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { stopRecording(); resetTranscript(); onUpdateTask("new", { audioBase64: undefined }); }}><Trash2 size={16} /></Button>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { stopRecording(); resetTranscript(); }}><Trash2 size={16} /></Button>
+
                          <Button size="icon" className="h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-lg" onClick={stopRecording}><Check size={16} /></Button>
                     </div>
                 </motion.div>

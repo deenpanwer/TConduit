@@ -15,7 +15,11 @@ import {
   Type,
   Maximize2,
   ListTodo,
-  Minus
+  Minus,
+  FileText,
+  Mic,
+  FileVideo,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -41,6 +45,8 @@ import { useTasks, Task, Priority, Subtask, Resource } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { triggerBigConfetti, triggerSmallConfetti } from '@/lib/confetti';
+import { FilePreviewModal } from './FilePreviewModal';
+import { useUpload } from '../../hooks/useUploadProgress';
 
 // --- Types & Interfaces ---
 
@@ -348,7 +354,7 @@ const CountTicker = ({ count, icon: Icon, color }: { count: number, icon: any, c
 
 interface HierarchicalTableProps {
     items: any[];
-    type: 'subtasks' | 'resources' | 'descriptions' | 'images';
+    type: 'subtasks' | 'resources' | 'descriptions' | 'images' | 'attachments' | 'voiceNotes';
     depth: number;
     onUpdate: (updatedItems: any[]) => void;
     onDelete: (id: string) => void;
@@ -365,9 +371,33 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
     const [isSuggestingAI, setIsSuggestingAI] = useState(false);
+    const [previewFile, setPreviewFile] = useState<any>(null);
     const quickAddInputRef = useRef<HTMLInputElement>(null);
+    const hiddenFileInputRef = useRef<HTMLInputElement>(null);
+    const { uploads, setUpload, removeUpload } = useUpload();
 
-    // ... (rest of the component)
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const uploadId = Math.random().toString();
+        setUpload(uploadId, { id: uploadId, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' });
+
+        // Simulate upload
+        setTimeout(() => {
+            const newAttachment = {
+                id: Math.random().toString(),
+                name: file.name,
+                url: URL.createObjectURL(file), // Placeholder for actual URL
+                type: file.type,
+                size: file.size,
+                createdAt: new Date()
+            };
+            onUpdate([...items, newAttachment]);
+            removeUpload(uploadId);
+            toast.success('File uploaded!');
+        }, 2000);
+    };
 
     const handleSuggestAI = async () => {
         if (!onAISuggest) return;
@@ -405,11 +435,19 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
         resources: { label: 'Resources', icon: LinkIcon, color: 'purple', bg: 'bg-purple-500/5', text: 'text-purple-800 dark:text-purple-200', border: 'border-purple-500/20' },
         descriptions: { label: 'Notes', icon: Type, color: 'emerald', bg: 'bg-emerald-500/5', text: 'text-emerald-800 dark:text-emerald-200', border: 'border-emerald-500/20' },
         images: { label: 'Images', icon: ImageIcon, color: 'orange', bg: 'bg-orange-500/5', text: 'text-orange-800 dark:text-orange-200', border: 'border-orange-500/20' },
-    }[type];
+        attachments: { label: 'Files', icon: FileText, color: 'rose', bg: 'bg-rose-500/5', text: 'text-rose-800 dark:text-rose-200', border: 'border-rose-500/20' },
+        voiceNotes: { label: 'Voice Notes', icon: Mic, color: 'amber', bg: 'bg-amber-500/5', text: 'text-amber-800 dark:text-amber-200', border: 'border-amber-500/20' },
+    }[type as 'subtasks' | 'resources' | 'descriptions' | 'images' | 'attachments' | 'voiceNotes'];
 
     // Lighter background based on depth
     const backgroundStyle = { 
-        backgroundColor: `hsla(${type === 'subtasks' ? 221 : type === 'resources' ? 281 : type === 'descriptions' ? 142 : 24}, 80%, ${95 - (depth * 2)}%, ${0.05 + (depth * 0.02)})` 
+        backgroundColor: `hsla(${
+            type === 'subtasks' ? 221 : 
+            type === 'resources' ? 281 : 
+            type === 'descriptions' ? 142 : 
+            type === 'images' ? 24 :
+            type === 'attachments' ? 350 : 40 // voiceNotes hue
+        }, 80%, ${95 - (depth * 2)}%, ${0.05 + (depth * 0.02)})` 
     };
 
     const handleUpdateItem = (id: string, updates: any) => {
@@ -470,6 +508,16 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                             )}
                                             
                                             {type === 'images' && <ImagePreview url={item.url} title={item.title} />}
+                                            {type === 'attachments' && (
+                                                <div className="flex items-center gap-2 cursor-pointer hover:bg-black/5 rounded p-1" onClick={() => setPreviewFile(item)}>
+                                                    <FileText size={14} className="text-rose-500" />
+                                                    <span className="text-xs font-bold truncate">{item.name}</span>
+                                                    <span className="text-[10px] opacity-40 uppercase">{(item.size / 1024).toFixed(0)} KB</span>
+                                                    <a href={item.url} download target="_blank" className="p-1 hover:bg-black/10 rounded-sm" onClick={(e) => e.stopPropagation()}>
+                                                        <Download size={12} />
+                                                    </a>
+                                                </div>
+                                            )}
 
                                             <div className='flex-1 flex flex-col justify-center'>
                                                 {type === 'descriptions' ? (
@@ -482,18 +530,16 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                                         startInEditMode={item.id === itemToAutoEdit}
                                                         onDidEndEditing={onItemEditDone}
                                                     />
-                                                ) : (
-                                                    <>
-                                                        <GridCell 
-                                                            isEditable 
-                                                            value={item.title} 
-                                                            onChange={(v) => handleUpdateItem(item.id, { title: v })} 
-                                                            placeholder='Title'
-                                                            className={cn('font-bold', type === 'subtasks' && item.completed && 'line-through text-muted-foreground')}
-                                                            startInEditMode={item.id === itemToAutoEdit}
-                                                            onDidEndEditing={onItemEditDone}
-                                                        />
-                                                    </>
+                                                ) : type === 'attachments' ? null : (
+                                                    <GridCell 
+                                                        isEditable 
+                                                        value={item.title} 
+                                                        onChange={(v) => handleUpdateItem(item.id, { title: v })} 
+                                                        placeholder='Title'
+                                                        className={cn('font-bold', type === 'subtasks' && item.completed && 'line-through text-muted-foreground')}
+                                                        startInEditMode={item.id === itemToAutoEdit}
+                                                        onDidEndEditing={onItemEditDone}
+                                                    />
                                                 )}
                                             </div>
                                             
@@ -673,26 +719,53 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                 <div className='flex-1 flex flex-col justify-center px-3'>
                                     <div className="flex items-center gap-3">
                                         <Plus size={14} className='text-muted-foreground/30' />
-                                        <input 
-                                            ref={quickAddInputRef}
-                                            placeholder={`+ Add ${type.slice(0, -1)}`} 
-                                            value={quickAddValue}
-                                            onBlur={() => onFocusHandled?.()}
-                                            onChange={(e) => setQuickAddValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && quickAddValue.trim()) {
-                                                    const title = quickAddValue.trim();
-                                                    const newItem = type === 'descriptions' 
-                                                        ? { id: Math.random().toString(), text: title, createdAt: new Date() }
-                                                        : type === 'subtasks'
-                                                        ? { id: Math.random().toString(), title, description: '', completed: false }
-                                                        : { id: Math.random().toString(), title, completed: false, url: '', createdAt: new Date() };
-                                                    onUpdate([...items, newItem]);
-                                                    setQuickAddValue('');
-                                                }
-                                            }}
-                                            className='bg-transparent w-full text-xs font-medium outline-none placeholder:text-muted-foreground/30 placeholder:italic'
-                                        />
+                                        
+                                        {type === 'attachments' ? (
+                                            <>
+                                                <input 
+                                                    type="file" 
+                                                    ref={hiddenFileInputRef} 
+                                                    onChange={handleFileUpload} 
+                                                    className="hidden"
+                                                />
+                                                <button 
+                                                    onClick={() => hiddenFileInputRef.current?.click()}
+                                                    className="text-xs font-medium text-rose-600 hover:text-rose-700 transition-colors"
+                                                >
+                                                    + Upload File
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <input 
+                                                ref={quickAddInputRef}
+                                                placeholder={`+ Add ${config.label.slice(0, -1)}`} 
+                                                value={quickAddValue}
+                                                onBlur={() => onFocusHandled?.()}
+                                                onChange={(e) => setQuickAddValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && quickAddValue.trim()) {
+                                                        const title = quickAddValue.trim();
+                                                        let newItem: any = { id: Math.random().toString() };
+
+                                                        if (type === 'descriptions') newItem.text = title;
+                                                        else if (type === 'subtasks') {
+                                                            newItem.title = title;
+                                                            newItem.description = '';
+                                                            newItem.completed = false;
+                                                        } else {
+                                                            newItem.title = title;
+                                                            newItem.url = '';
+                                                            newItem.type = 'text/plain';
+                                                            newItem.createdAt = new Date();
+                                                        }
+
+                                                        onUpdate([...items, newItem]);
+                                                        setQuickAddValue('');
+                                                    }
+                                                }}
+                                                className='bg-transparent w-full text-xs font-medium outline-none placeholder:text-muted-foreground/30 placeholder:italic'
+                                            />
+                                        )}
                                     </div>
                                     <AnimatePresence>
                                         {quickAddValue.length > 0 && (
@@ -706,12 +779,32 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
+                                    
+                                    {/* Uploading indicator */}
+                                    <AnimatePresence>
+                                        {Object.values(uploads).map(u => (
+                                            <motion.div 
+                                                key={u.id}
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                className="text-[10px] text-rose-500 font-bold animate-pulse pl-7"
+                                            >
+                                                Uploading {u.name}...
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
                                 </div>
                             </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+            <FilePreviewModal 
+                file={previewFile} 
+                isOpen={!!previewFile} 
+                onClose={() => setPreviewFile(null)} 
+            />
         </div>
     );
 };
@@ -740,7 +833,7 @@ const TaskRowDesktop = ({
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
-    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | null>(null);
+    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | 'attachments' | 'voiceNotes' | null>(null);
 
     const canEnhance = (localTask.title?.length || 0) > 20 || (localTask.description?.length || 0) > 20;
 
@@ -750,6 +843,8 @@ const TaskRowDesktop = ({
             resources: (localTask.resources || []).length,
             notes: (localTask.nestedDescriptions || []).length,
             images: (localTask.images || []).length,
+            attachments: (localTask.attachments || []).length,
+            voiceNotes: (localTask.voiceNotes || []).length,
         };
     }, [localTask]);
 
@@ -763,7 +858,7 @@ const TaskRowDesktop = ({
         }
     }, [isEnhancing]);
 
-    const handleItemAdd = (type: 'nestedDescriptions' | 'images' | 'resources' | 'subtasks') => {
+    const handleItemAdd = (type: 'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | 'attachments' | 'voiceNotes') => {
         setIsExpanded(true);
         setActiveTypeToFocus(type);
     }
@@ -968,6 +1063,16 @@ const TaskRowDesktop = ({
                                 <span className="flex-1">Add Image</span>
                                 <CountTicker count={(localTask.images || []).length} icon={ImageIcon} color="bg-orange-500/10 text-orange-600" />
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleItemAdd('attachments')} className='gap-2'>
+                                <Plus size={14} className='text-rose-500' />
+                                <span className="flex-1">Add File</span>
+                                <CountTicker count={(localTask.attachments || []).length} icon={FileText} color="bg-rose-500/10 text-rose-600" />
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleItemAdd('voiceNotes')} className='gap-2'>
+                                <Plus size={14} className='text-amber-500' />
+                                <span className="flex-1">Add Voice</span>
+                                <CountTicker count={(localTask.voiceNotes || []).length} icon={Mic} color="bg-amber-500/10 text-amber-600" />
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleItemAdd('resources')} className='gap-2'>
                                 <Plus size={14} className='text-purple-500' />
                                 <span className="flex-1">Add Resource</span>
@@ -1001,6 +1106,34 @@ const TaskRowDesktop = ({
                                     itemToAutoEdit={itemToAutoEdit}
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'nestedDescriptions'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                />
+                            )}
+                            {((localTask.attachments?.length || 0) > 0 || activeTypeToFocus === 'attachments') && (
+                                <HierarchicalTable 
+                                    items={localTask.attachments || []} 
+                                    type='attachments' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ attachments: newItems })}
+                                    onDelete={(id) => onUpdate({ attachments: localTask.attachments?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'attachments'}
+                                    onFocusHandled={() => setActiveTypeToFocus(null)}
+                                />
+                            )}
+                            {((localTask.voiceNotes?.length || 0) > 0 || activeTypeToFocus === 'voiceNotes') && (
+                                <HierarchicalTable 
+                                    items={localTask.voiceNotes || []} 
+                                    type='voiceNotes' 
+                                    depth={0} 
+                                    onUpdate={(newItems) => onUpdate({ voiceNotes: newItems })}
+                                    onDelete={(id) => onUpdate({ voiceNotes: localTask.voiceNotes?.filter(i => i.id !== id) })}
+                                    isParentExpanded={isExpanded}
+                                    itemToAutoEdit={itemToAutoEdit}
+                                    onItemEditDone={() => setItemToAutoEdit(null)}
+                                    shouldFocusQuickAdd={activeTypeToFocus === 'voiceNotes'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
                                 />
                             )}
@@ -1061,7 +1194,7 @@ const TaskRowDesktop = ({
 /**
  * Recursive list for mobile view hierarchy.
  */
-const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, shouldFocusQuickAdd, onFocusHandled, onAISuggest, isLoading }: { 
+const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, shouldFocusQuickAdd, onFocusHandled, onAISuggest, isLoading, itemToAutoEdit, onItemEditDone }: { 
     items: any[], 
     type: 'subtasks' | 'resources' | 'descriptions' | 'images',
     onUpdate: (updated: any[]) => void,
@@ -1070,7 +1203,9 @@ const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, sh
     shouldFocusQuickAdd?: boolean,
     onFocusHandled?: () => void,
     onAISuggest?: () => Promise<void>,
-    isLoading?: boolean
+    isLoading?: boolean,
+    itemToAutoEdit?: string | null,
+    onItemEditDone?: () => void
 }) => {
     const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1090,17 +1225,26 @@ const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, sh
         }
     };
 
+    // When the parent container expands, focus the quick add input for low-latency entry.
     useEffect(() => {
         if (shouldFocusQuickAdd || isLoading) {
             setIsCollapsed(false);
             if (shouldFocusQuickAdd) {
+                // Timeout allows animation to finish before focusing.
                 const timer = setTimeout(() => {
                     quickAddInputRef.current?.focus();
-                }, 150);
+                }, 200);
                 return () => clearTimeout(timer);
             }
         }
     }, [shouldFocusQuickAdd, isLoading]);
+
+    // If this table has the item that needs to be auto-edited, make sure this table is expanded.
+    useEffect(() => {
+        if (itemToAutoEdit && items.some(item => item.id === itemToAutoEdit)) {
+            setIsCollapsed(false);
+        }
+    }, [itemToAutoEdit, items]);
 
     const config = {
         subtasks: { icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-500/5', label: 'Subtasks' },
@@ -1220,10 +1364,10 @@ const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth = 0, sh
                                     <AnimatePresence>
                                         {expandedIds[item.id] && (
                                             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="px-3 pb-3">
-                                                {(item.descriptions || []).length > 0 && <MobileHierarchicalList items={item.descriptions} type="descriptions" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { descriptions: val })} onDelete={(id) => handleUpdateItem(item.id, { descriptions: item.descriptions.filter((i: any) => i.id !== id) })} />}
-                                                {(item.images || []).length > 0 && <MobileHierarchicalList items={item.images} type="images" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { images: val })} onDelete={(id) => handleUpdateItem(item.id, { images: item.images.filter((i: any) => i.id !== id) })} />}
-                                                {(item.resources || []).length > 0 && <MobileHierarchicalList items={item.resources} type="resources" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { resources: val })} onDelete={(id) => handleUpdateItem(id, { resources: item.resources.filter((i: any) => i.id !== id) })} />}
-                                                {(item.subtasks || []).length > 0 && <MobileHierarchicalList items={item.subtasks} type="subtasks" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { subtasks: val })} onDelete={(id) => handleUpdateItem(item.id, { subtasks: item.subtasks.filter((i: any) => i.id !== id) })} />}
+                                                {(item.descriptions || []).length > 0 && <MobileHierarchicalList items={item.descriptions} type="descriptions" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { descriptions: val })} onDelete={(id) => handleUpdateItem(item.id, { descriptions: item.descriptions.filter((i: any) => i.id !== id) })} itemToAutoEdit={itemToAutoEdit} onItemEditDone={onItemEditDone} />}
+                                                {(item.images || []).length > 0 && <MobileHierarchicalList items={item.images} type="images" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { images: val })} onDelete={(id) => handleUpdateItem(item.id, { images: item.images.filter((i: any) => i.id !== id) })} itemToAutoEdit={itemToAutoEdit} onItemEditDone={onItemEditDone} />}
+                                                {(item.resources || []).length > 0 && <MobileHierarchicalList items={item.resources} type="resources" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { resources: val })} onDelete={(id) => handleUpdateItem(id, { resources: item.resources.filter((i: any) => i.id !== id) })} itemToAutoEdit={itemToAutoEdit} onItemEditDone={onItemEditDone} />}
+                                                {(item.subtasks || []).length > 0 && <MobileHierarchicalList items={item.subtasks} type="subtasks" depth={depth + 1} onUpdate={(val) => handleUpdateItem(item.id, { subtasks: val })} onDelete={(id) => handleUpdateItem(item.id, { subtasks: item.subtasks.filter((i: any) => i.id !== id) })} itemToAutoEdit={itemToAutoEdit} onItemEditDone={onItemEditDone} />}
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
@@ -1330,9 +1474,12 @@ const TaskRowMobile = ({
         subtasks: false, 
         resources: false,
         nestedDescriptions: false,
-        images: false
+        images: false,
+        attachments: false,
+        voiceNotes: false
     });
-    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'subtasks' | 'resources' | 'nestedDescriptions' | 'images' | null>(null);
+    const [activeTypeToFocus, setActiveTypeToFocus] = useState<'subtasks' | 'resources' | 'nestedDescriptions' | 'images' | 'attachments' | 'voiceNotes' | null>(null);
+    const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
     
     // Create drag controls to link the handle to the drag gesture
     const dragControls = useDragControls();
@@ -1343,7 +1490,7 @@ const TaskRowMobile = ({
 
     useEffect(() => {
         if (isEnhancing) {
-            setExpandedBranches({ subtasks: true, resources: false, nestedDescriptions: false, images: false });
+            setExpandedBranches({ subtasks: true, resources: false, nestedDescriptions: false, images: false, attachments: false, voiceNotes: false });
             setActiveTypeToFocus('subtasks');
         }
     }, [isEnhancing]);
@@ -1413,7 +1560,7 @@ const TaskRowMobile = ({
                 <button 
                     onClick={() => {
                         if (isAnyBranchExpanded) {
-                            setExpandedBranches({ subtasks: false, resources: false, nestedDescriptions: false, images: false });
+                            setExpandedBranches({ subtasks: false, resources: false, nestedDescriptions: false, images: false, attachments: false, voiceNotes: false });
                             setActiveTypeToFocus(null);
                         } else {
                             // Open subtasks by default, and others only if they have data
@@ -1421,7 +1568,9 @@ const TaskRowMobile = ({
                                 subtasks: true, 
                                 resources: (localTask.resources || []).length > 0, 
                                 nestedDescriptions: (localTask.nestedDescriptions || []).length > 0, 
-                                images: (localTask.images || []).length > 0 
+                                images: (localTask.images || []).length > 0,
+                                attachments: (localTask.attachments || []).length > 0,
+                                voiceNotes: (localTask.voiceNotes || []).length > 0
                             });
                             setActiveTypeToFocus('subtasks');
                         }

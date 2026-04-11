@@ -50,6 +50,18 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
   const { employees, owner } = useTeam();
 
   const now = new Date();
+  
+  // FIX: Add a helper function to safely format dates
+  const safeFormatDistanceToNow = (date: any) => {
+    if (!date) return null;
+    // Handle both Firebase Timestamps and JS Dates/strings
+    const d = date.toDate ? date.toDate() : new Date(date);
+    // Check if the date is valid before formatting
+    if (isNaN(d.getTime())) {
+      return null;
+    }
+    return formatDistanceToNow(d, { addSuffix: true });
+  };
 
   // Combine employees and owner for a complete personnel list
   const personnel = useMemo(() => {
@@ -150,9 +162,12 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
     return tasks
       .flatMap(t => (t.history || []).map(h => ({ ...h, taskTitle: t.title, taskId: t.id })))
       .sort((a, b) => {
+        // FIX: Safely handle potential invalid dates in sort
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
+        const timeA = !isNaN(dateA.getTime()) ? dateA.getTime() : 0;
+        const timeB = !isNaN(dateB.getTime()) ? dateB.getTime() : 0;
+        return timeB - timeA;
       })
       .slice(0, 15);
   }, [tasks]);
@@ -320,6 +335,8 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
               <div className="p-6 space-y-6">
                 {teamPulse.map((event, i) => {
                   const actor = personnel.find(p => p.id === event.userId);
+                  // FIX: Use the safe formatter and conditionally render
+                  const timeAgo = safeFormatDistanceToNow(event.createdAt);
                   return (
                     <motion.div 
                       key={i} 
@@ -336,7 +353,7 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
                       <div className="flex-1 min-w-0 pb-2">
                         <div className="flex items-baseline justify-between mb-1">
                           <span className="text-xs font-black uppercase tracking-tight text-foreground/90">{actor?.name || "System"}</span>
-                          <span className="text-[9px] font-bold text-muted-foreground/60">{formatDistanceToNow(event.createdAt?.toDate ? event.createdAt.toDate() : new Date(event.createdAt), { addSuffix: true })}</span>
+                          {timeAgo && <span className="text-[9px] font-bold text-muted-foreground/60">{timeAgo}</span>}
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {getActionDescription(event)} <span className="text-foreground font-bold group-hover/item:text-primary transition-colors cursor-pointer" onClick={() => onTaskClick?.(event.taskId)}>"{event.taskTitle}"</span>

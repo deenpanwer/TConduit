@@ -51,8 +51,11 @@ import { UnifiedHierarchyRoot } from "@/components/tasks/HierarchicalUI";
 import { InlineAudioPlayer } from "@/components/tasks/InlineAudioPlayer";
 import { triggerBigConfetti, triggerSmallConfetti } from "@/lib/confetti";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Wand2, Layers, FileText, Eraser, LayoutDashboard } from "lucide-react";
+import { Sparkles, Wand2, Layers, FileText, Eraser, LayoutDashboard, Upload } from "lucide-react";
 import { TasksDashboardContent } from "@/components/tasks/TasksDashboardContent";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
+import { useUpload } from "@/hooks/useUploadProgress";
 const MAX_TEXTAREA_HEIGHT_TITLE = 150;
 const MAX_TEXTAREA_HEIGHT_DESCRIPTION = 300;
 const MAX_TEXTAREA_HEIGHT_SUBTASK = 80;
@@ -63,6 +66,7 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function TasksPageContent() {
   const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
+  const { setUpload, removeUpload } = useUpload();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -137,6 +141,73 @@ function TasksPageContent() {
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
     : true;
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const isPremium = userData?.isPremium || userData?.orgIsPremium || false;
+      const MAX_SIZE = isPremium ? 250 * 1024 * 1024 : 10 * 1024 * 1024;
+      
+      if (file.size > MAX_SIZE) {
+          toast.error(`File exceeds ${isPremium ? '250MB' : '10MB'} limit.`);
+          if (!isPremium) toast.info("Upgrade to Premium for 250MB file support.");
+          return;
+      }
+
+      const uploadId = Date.now().toString();
+      const orgId = userData?.orgId || userData?.ownedOrgId || 'unknown';
+      const path = `organizations/${orgId}/tasks/${taskId}/attachments/${uploadId}_${file.name}`;
+      const storageRef = ref(storage, path);
+      
+      setUpload(uploadId, { id: uploadId, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' });
+      
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+            const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUpload(uploadId, { progress: p });
+        },
+        (error) => { 
+            console.error(error);
+            toast.error("Upload failed");
+            setUpload(uploadId, { status: 'error' });
+            setTimeout(() => removeUpload(uploadId), 3000);
+        },
+        async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            const newAttachment: any = {
+                id: uploadId,
+                name: file.name,
+                url,
+                type: file.type,
+                size: file.size,
+                createdAt: new Date()
+            };
+            
+            if (taskId === 'new' && activeDraftIndex !== null) {
+                setDrafts(prev => {
+                    const next = [...prev];
+                    next[activeDraftIndex] = {
+                        ...next[activeDraftIndex],
+                        attachments: [...(next[activeDraftIndex].attachments || []), newAttachment]
+                    };
+                    return next;
+                });
+            } else {
+                const currentTask = tasks.find(t => t.id === taskId);
+                if (currentTask) {
+                    updateTask(taskId, { 
+                        attachments: [...(currentTask.attachments || []), newAttachment] 
+                    });
+                }
+            }
+            setUpload(uploadId, { progress: 100, status: 'done' });
+            setTimeout(() => removeUpload(uploadId), 1000);
+        }
+      );
+  }, [userData, activeDraftIndex, tasks, updateTask, setUpload, removeUpload]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -342,9 +413,10 @@ function TasksPageContent() {
 
   const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
     // Check if we already have an empty draft
-    const emptyDraftIndex = drafts.findIndex(d => !d.title && !d.description && !d.audioBase64);
-    
+    const emptyDraftIndex = drafts.findIndex(d => !d.title && !d.description && (!d.voiceNotes || d.voiceNotes.length === 0));
+
     if (emptyDraftIndex !== -1) {
+
         setActiveDraftIndex(emptyDraftIndex);
         if (initialStatus || initialDate) {
             setDrafts(prev => {
@@ -403,25 +475,23 @@ function TasksPageContent() {
       const title = editingNewTask.title || "New Task";
       const status = editingNewTask.status || "todo";
       const newId = await addTask(
-        title, 
-        status, 
-        editingNewTask.description, 
-        editingNewTask.priority, 
-        editingNewTask.assignees, 
-        editingNewTask.audioBase64 ? {
-            base64: editingNewTask.audioBase64,
-            mimeType: editingNewTask.audioMimeType || 'audio/webm;codecs=opus',
-            duration: editingNewTask.audioDuration || 0
-        } : undefined,
+        title,
+        status,
+        editingNewTask.description,
+        editingNewTask.priority,
+        editingNewTask.assignees,
         editingNewTask.leaderPoints || 20,
         editingNewTask.deadlineHours,
         editingNewTask.subtasks || [],
         editingNewTask.resources || [],
+        editingNewTask.attachments || [],
+        editingNewTask.voiceNotes || [],
         editingNewTask.nestedDescriptions || [],
         editingNewTask.images || []
       );
+
       if (newId) {
-        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, ...rest } = editingNewTask;
+        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, attachments: att, voiceNotes: vn, nestedDescriptions: nd, images: img, ...rest } = editingNewTask;
         if (Object.keys(rest).length > 0) {
             await updateTask(newId, rest);
         }
@@ -555,7 +625,7 @@ function TasksPageContent() {
                                             >
                                                 <p className="text-xs font-bold truncate">{draft.title || "Untitled Draft"}</p>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    <p className="text-[9px] text-muted-foreground uppercase">{draft.audioBase64 ? 'Voice' : 'Type'}</p>
+                                                    <p className="text-[9px] text-muted-foreground uppercase">{(draft.voiceNotes && draft.voiceNotes.length > 0) ? 'Voice' : 'Type'}</p>
                                                     {draft.status && (
                                                         <Badge variant="outline" className="text-[8px] py-0 px-1 border-border/50 uppercase">{draft.status}</Badge>
                                                     )}
@@ -1036,28 +1106,15 @@ function TasksPageContent() {
                         </div>
                      </div>
 
-                     {selectedTask.audioBase64 && selectedTask.audioMimeType && selectedTask.audioDuration !== undefined && (
-                        <div className="mb-8">
-                           <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-2">
-                              Voice Brief
-                           </label>
-                           <InlineAudioPlayer 
-                             audioBase64={selectedTask.audioBase64}
-                             audioMimeType={selectedTask.audioMimeType}
-                             audioDuration={selectedTask.audioDuration}
-                           />
-                        </div>
-                     )}
-
                      <div className="mb-8">
-                        <UnifiedHierarchyRoot 
-                           task={selectedTask}
-                           onUpdateTask={(updates) => handleUpdateTaskLocal(selectedTaskId!, updates)}
-                           canManage={canManageTasks}
-                           user={user}
-                        />
+                       <UnifiedHierarchyRoot 
+                          task={selectedTask}
+                          onUpdateTask={(updates) => handleUpdateTaskLocal(selectedTaskId!, updates)}
+                          canManage={canManageTasks}
+                          user={user}
+                          onUpload={(e) => handleFileUpload(e, selectedTaskId!)}
+                       />
                      </div>
-
                      <div className="mt-12 pt-8 border-t border-border/30">
                         <label className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground/50 tracking-widest mb-4">
                            Collaboration
@@ -1156,11 +1213,9 @@ function TasksPageContent() {
                           localTask.flagged !== originalTask.flagged ||
                           JSON.stringify(localTask.assignees) !== JSON.stringify(originalTask.assignees) ||
                           JSON.stringify(localTask.subtasks) !== JSON.stringify(originalTask.subtasks) ||
-                          JSON.stringify(localTask.resources) !== JSON.stringify(originalTask.resources) || // Added resources check
-                          localTask.audioBase64 !== originalTask.audioBase64 ||
-                          localTask.audioMimeType !== originalTask.audioMimeType ||
-                          localTask.audioDuration !== originalTask.audioDuration;
-
+                          JSON.stringify(localTask.resources) !== JSON.stringify(originalTask.resources) ||
+                          JSON.stringify(localTask.attachments) !== JSON.stringify(originalTask.attachments) ||
+                          JSON.stringify(localTask.voiceNotes) !== JSON.stringify(originalTask.voiceNotes);
                        if (hasChanged) {
                           const { history, updatedAt, createdAt, id, ...updates } = localTask;
                           handleUpdateTaskLocal(selectedTaskId!, updates, 'manual_save');
@@ -1229,15 +1284,15 @@ function TasksPageContent() {
                 onSave={handleSaveNewTask}
                 onCancel={() => {
                     const hasContent = !!(
-                        editingNewTask?.title || 
-                        editingNewTask?.description || 
-                        editingNewTask?.audioBase64 ||
+                        editingNewTask?.title ||
+                        editingNewTask?.description ||
+                        (editingNewTask?.voiceNotes && editingNewTask.voiceNotes.length > 0) ||
+                        (editingNewTask?.attachments && editingNewTask.attachments.length > 0) ||
                         (editingNewTask?.subtasks && editingNewTask.subtasks.length > 0) ||
                         (editingNewTask?.resources && editingNewTask.resources.length > 0) ||
                         (editingNewTask?.images && editingNewTask.images.length > 0) ||
                         (editingNewTask?.nestedDescriptions && editingNewTask.nestedDescriptions.length > 0)
                     );
-
                     if (editingNewTask && hasContent) {
                         toast.info("Task draft saved.", {
                             description: "You can recover it from the Drafts menu."
@@ -1263,7 +1318,9 @@ function TasksPageContent() {
                 setIsBulkMode={setIsBulkMode}
                 bulkInput={bulkInput}
                 setBulkInput={setBulkInput}
-            />
+                handleFileUpload={(e) => handleFileUpload(e, "new")}
+                />
+
         )}
     </>
   );

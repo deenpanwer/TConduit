@@ -1,17 +1,19 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { Play, Pause } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface InlineAudioPlayerProps {
-  audioBase64: string;
-  audioMimeType: string;
+  url?: string;
+  audioBase64?: string;
+  audioMimeType?: string;
   audioDuration: number; // in seconds
   className?: string;
   buttonClassName?: string;
 }
 
 export function InlineAudioPlayer({
+  url,
   audioBase64,
   audioMimeType,
   audioDuration,
@@ -23,9 +25,15 @@ export function InlineAudioPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Clean the base64 string
-  const base64Data = audioBase64.includes('base64,') ? audioBase64.split('base64,')[1] : audioBase64;
-  const audioSrc = `data:${audioMimeType};base64,${base64Data}`;
+  // Clean the base64 string if provided, otherwise use URL
+  const audioSrc = useMemo(() => {
+    if (url) return url;
+    if (audioBase64) {
+        const base64Data = audioBase64.includes('base64,') ? audioBase64.split('base64,')[1] : audioBase64;
+        return `data:${audioMimeType || 'audio/webm'};base64,${base64Data}`;
+    }
+    return '';
+  }, [url, audioBase64, audioMimeType]);
 
   useEffect(() => {
     const audio = new Audio(audioSrc);

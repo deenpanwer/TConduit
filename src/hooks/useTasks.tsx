@@ -35,6 +35,16 @@ import { getISOWeek, getYear } from "date-fns";
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "todo" | "in_progress" | "review" | "done";
 
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  type: string; // MIME type
+  size: number; // bytes
+  duration?: number; // optional duration for media files
+  createdAt: any;
+}
+
 export interface Subtask {
   id: string;
   title: string;
@@ -104,15 +114,14 @@ export interface Task {
   tags: string[];
   subtasks: Subtask[];
   resources?: Resource[];
+  attachments?: Attachment[];
+  voiceNotes?: Attachment[];
   nestedDescriptions?: NestedDescription[];
   images?: NestedImage[];
   comments: Comment[];
   history: HistoryEntry[];
   flagged?: boolean;
   isDeleted?: boolean;
-  audioBase64?: string; // TESTING ONLY: Direct Base64 audio
-  audioMimeType?: string; // e.g. 'audio/webm;codecs=opus'
-  audioDuration?: number; // Duration in seconds
   leaderPoints?: number; // Total points for this task
   deadlineHours?: number; // Estimated hours to complete
   flaggedPointsAwarded?: number; // Points given for final completion
@@ -157,11 +166,12 @@ interface TasksContextType {
     description?: string, 
     priority?: Priority, 
     assignees?: string[], 
-    audioData?: { base64: string; mimeType: string; duration: number }, 
     leaderPoints?: number, 
     deadlineHours?: number,
     subtasks?: Subtask[],
     resources?: Resource[],
+    attachments?: Attachment[],
+    voiceNotes?: Attachment[],
     nestedDescriptions?: NestedDescription[],
     images?: NestedImage[]
   ) => Promise<string | null>;
@@ -284,11 +294,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       description: string = "", 
       priority: Priority = "medium", 
       assignees: string[] = [],
-      audioData?: { base64: string; mimeType: string; duration: number },
       leaderPoints: number = 0,
       deadlineHours: number = 0,
       subtasks: Subtask[] = [],
       resources: Resource[] = [],
+      attachments: Attachment[] = [],
+      voiceNotes: Attachment[] = [],
       nestedDescriptions: NestedDescription[] = [],
       images: NestedImage[] = []
     ): Promise<string | null> => {
@@ -311,6 +322,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignees,
         subtasks,
         resources,
+        attachments,
+        voiceNotes,
         nestedDescriptions,
         images,
         comments: [],
@@ -324,19 +337,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 id: Date.now().toString(),
                 userId: user.uid,
                 action: 'created',
-                details: { title, status, description, priority, assignees, hasAudio: !!audioData, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length },
+                details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length },
                 createdAt: new Date(),
             }
         ],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-
-      if (audioData) {
-        newTask.audioBase64 = audioData.base64;
-        newTask.audioMimeType = audioData.mimeType;
-        newTask.audioDuration = audioData.duration;
-      }
 
       try {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");

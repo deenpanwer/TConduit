@@ -6,6 +6,7 @@ import {
   persistentLocalCache, 
   persistentMultipleTabManager 
 } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // TODO: Replace with your actual config from the Trac Dairy app
 const firebaseConfig = {
@@ -21,6 +22,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
 // Initialize Firestore with persistent local cache
 const db = initializeFirestore(app, {
@@ -29,4 +31,4 @@ const db = initializeFirestore(app, {
   })
 });
 
-export { auth, db };
+export { auth, db, storage };
