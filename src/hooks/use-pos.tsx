@@ -103,6 +103,7 @@ export interface PosTable {
 export interface PosTicket {
   id: string;
   tableId: string | null;
+  customerId?: string | null;
   items: SaleItem[];
   status: 'active' | 'billed' | 'paid';
   createdAt: string;
@@ -150,6 +151,7 @@ export interface PosContextType {
   deleteProduct: (id: string) => Promise<void>;
   uploadProductImage: (productId: string, fileOrBase64: File | string, onProgress?: (p: number) => void) => Promise<string>;
   addCustomer: (data: { name: string; phoneNumber?: string; email?: string }) => Promise<string | null>;
+  linkCustomerToTicket: (ticketId: string, customerId: string) => Promise<void>;
   addItemToSale: (productId: string, quantity: number) => void;
   removeItemFromSale: (itemId: string) => void;
   updateItemQuantity: (itemId: string, quantity: number) => void;
@@ -166,6 +168,9 @@ export interface PosContextType {
   saveTicket: () => Promise<void>; 
   loadTicket: (ticketId: string) => Promise<void>;
   setConfig: (data: Partial<PosConfig>) => Promise<void>;
+
+  // New function to fetch entity for invoice/bill preview
+  getEntityForInvoice: (id: string) => Promise<{ data: SaleTransaction | PosTicket | null, type: 'sale' | 'ticket' | 'notFound' }>;
 }
 
 const defaultPosConfig: PosConfig = {
@@ -211,6 +216,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!orgId) return;
+
     const configRef = doc(db, 'organizations', orgId, 'pos_config', 'default');
     const unsubConfig = onSnapshot(configRef, (snap) => {
       if (snap.exists()) setConfigState(snap.data() as PosConfig);
@@ -240,9 +246,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
       setActiveTickets(snap.docs.map(d => ({ id: d.id, ...d.data() } as PosTicket)));
     });
 
-    return () => {
-      unsubConfig(); unsubProducts(); unsubTables(); unsubSales(); unsubTickets();
-    };
+    return () => { unsubConfig(); unsubProducts(); unsubTables(); unsubSales(); unsubTickets(); };
   }, [orgId]);
 
   useEffect(() => { setLoading(prev => ({ ...prev, customers: crmLoading })); }, [crmLoading]);
@@ -372,7 +376,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     const updateData: any = { ...data };
     if (data.status) {
         if (data.status === 'free') updateData.lastStatusChange = null;
-        else if (table?.status === 'free') updateData.lastStatusChange = now;
+        else if (table?.status === 'free' || !table?.lastStatusChange) updateData.lastStatusChange = now; // Set timer on transition FROM free or if no timer exists
     }
     const newHistory = [...(table?.history || []), { action: 'UPDATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now, metadata: data }];
     updateData.history = newHistory.slice(-20);
@@ -395,7 +399,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     let history = existingTicket.exists() ? [...(existingTicket.data().history || [])] : [{ action: 'CREATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now }];
     history.push({ action: 'SAVED_ORDER', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now, metadata: { itemCount: currentSale.items.length } });
     await setDoc(ticketRef, { id: ticketId, tableId: currentSale.tableId, items: currentSale.items, status: 'active', updatedAt: now, createdBy: existingTicket.exists() ? existingTicket.data().createdBy : { uid: user.uid, name: userData?.name || user.displayName || 'Staff' }, history: history.slice(-20) });
-    await updateTable(currentSale.tableId, { status: 'eating', currentTicketId: ticketId });
+    await updateTable(currentSale.tableId, { status: 'eating', currentTicketId: ticketId }); // Ensure status is eating when saving ticket
     clearCurrentSale();
   };
 
@@ -406,6 +410,24 @@ export function PosProvider({ children }: { children: ReactNode }) {
         const ticket = snap.data() as PosTicket;
         setCurrentSale(p => ({ ...p, items: ticket.items, tableId: ticket.tableId }));
         recalculate(ticket.items);
+        await updateDoc(doc(db, 'organizations', orgId, 'pos_active_tickets', ticketId), {
+            history: [...(ticket.history || []), { action: 'LOADED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: new Date().toISOString() }].slice(-20)
+        });
+    }
+  };
+  
+  const linkCustomerToTicket = async (ticketId: string, customerId: string) => {
+    if (!orgId || !user) return;
+    const now = new Date().toISOString();
+    const ticketRef = doc(db, 'organizations', orgId, 'pos_active_tickets', ticketId);
+    const ticketSnap = await getDoc(ticketRef);
+    if (ticketSnap.exists()) {
+      const ticket = ticketSnap.data();
+      const newHistory = [...(ticket.history || []), { action: 'LINKED_CUSTOMER', userId: user.uid, userName: userData?.name || 'Staff', timestamp: now, metadata: { customerId } }];
+      await updateDoc(ticketRef, { 
+        customerId: customerId,
+        history: newHistory.slice(-20)
+      });
     }
   };
 
@@ -413,9 +435,32 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   const setConfig = async (data: Partial<PosConfig>) => { if (orgId && user) await updateDoc(doc(db, 'organizations', orgId, 'pos_config', 'default'), { ...data, updatedAt: new Date().toISOString(), updatedBy: { uid: user.uid, name: userData?.name || user.displayName || 'Staff' } }); };
 
+  // --- New function to fetch entity for invoice/bill preview ---
+  const getEntityForInvoice = useCallback(async (id: string): Promise<{ data: SaleTransaction | PosTicket | null, type: 'sale' | 'ticket' | 'notFound' }> => {
+    if (!orgId) return { data: null, type: 'notFound' };
+    
+    try {
+      const saleRef = doc(db, 'organizations', orgId, 'pos_sales', id);
+      const saleSnap = await getDoc(saleRef);
+      if (saleSnap.exists()) {
+        return { data: saleSnap.data() as SaleTransaction, type: 'sale' };
+      }
+    } catch (error) { /* Ignore not found error and try tickets */ }
+
+    try {
+      const ticketRef = doc(db, 'organizations', orgId, 'pos_active_tickets', id);
+      const ticketSnap = await getDoc(ticketRef);
+      if (ticketSnap.exists()) {
+        return { data: ticketSnap.data() as PosTicket, type: 'ticket' };
+      }
+    } catch (error) { /* Ignore not found error */ }
+
+    return { data: null, type: 'notFound' };
+  }, [orgId]);
+
   const value = useMemo(() => ({
-    products, customers: crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, addProduct, updateProduct, deleteProduct, uploadProductImage, addCustomer, addItemToSale, removeItemFromSale, updateItemQuantity, updateItemPrice, updateItemDiscount, applyDiscount, selectCustomer, clearCurrentSale, completeSale, addTable, updateTable, deleteTable, selectTable, saveTicket, loadTicket, setConfig,
-  }), [products, crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading]);
+    products, customers: crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, addProduct, updateProduct, deleteProduct, uploadProductImage, addCustomer, linkCustomerToTicket, addItemToSale, removeItemFromSale, updateItemQuantity, updateItemPrice, updateItemDiscount, applyDiscount, selectCustomer, clearCurrentSale, completeSale, addTable, updateTable, deleteTable, selectTable, saveTicket, loadTicket, setConfig, getEntityForInvoice,
+  }), [products, crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, recalculate, getEntityForInvoice]);
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

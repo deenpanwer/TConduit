@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { usePos, PosTable, SaleItem } from '@/hooks/use-pos';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ import {
     Edit3,
     ShoppingCart,
     ChevronDown,
-    Printer
+    Printer,
+    AlertCircle
 } from 'lucide-react';
 import {
   Dialog,
@@ -38,7 +40,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 /**
@@ -122,7 +123,7 @@ const OrderBubble = ({ items }: { items: SaleItem[] }) => {
 
 export default function FloorsPage() {
   const router = useRouter();
-  const { tables, config, loading, activeTickets, addTable, updateTable, deleteTable, selectTable, loadTicket } = usePos();
+  const { tables, config, loading, activeTickets, addTable, updateTable, deleteTable, selectTable, loadTicket, getEntityForInvoice } = usePos();
   const [activeFloor, setActiveFloor] = useState(config.floors[0] || 'Main Floor');
   
   const [editingTable, setEditingTable] = useState<PosTable | null>(null);
@@ -146,7 +147,7 @@ export default function FloorsPage() {
         await loadTicket(table.currentTicketId);
         selectTable(table.id);
         router.push(`/pos/checkout`);
-    } else {
+    } else { // Fallback for eating/bill status without a loaded ticket
         selectTable(table.id);
         router.push(`/pos/checkout`);
     }
@@ -315,7 +316,7 @@ export default function FloorsPage() {
                             onClick={() => handleTableClick(table)}
                         >
                             <CardContent className="p-0 flex flex-col h-full">
-                                <OrderBubble items={items} />
+                                {items.length > 0 && <OrderBubble items={items} />}
                                 
                                 {/* Top Bar */}
                                 <div className="bg-white/50 dark:bg-black/20 p-4 flex justify-between items-center border-b border-inherit relative">
@@ -340,7 +341,7 @@ export default function FloorsPage() {
                                     </div>
                                 </div>
 
-                                {/* Middle Area */}
+                                {/* Middle State Area */}
                                 <div className="flex-grow flex flex-col items-center justify-center gap-3 p-4">
                                     {table.status === 'free' && <CheckCircle2 className="h-12 w-12 opacity-20" />}
                                     {table.status === 'eating' && <Utensils className="h-12 w-12 animate-pulse" />}
@@ -354,10 +355,10 @@ export default function FloorsPage() {
                                             className="h-7 text-[9px] font-black uppercase tracking-widest rounded-full px-4 gap-2 shadow-md animate-in slide-in-from-bottom-2 duration-500"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleTableClick(table);
+                                                handleTableClick(table); // Go to checkout to start order
                                             }}
                                         >
-                                            <Plus className="h-3 w-3" /> Punch Order
+                                            <Play className="h-3 w-3" /> Punch Order
                                         </Button>
                                     )}
                                 </div>
@@ -392,15 +393,21 @@ export default function FloorsPage() {
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     if (table.status === 'bill') {
-                                                        // If already in bill mode, take them to checkout/invoice
-                                                        handleTableClick(table);
+                                                        // If already in bill mode, check for items and navigate
+                                                        const ticket = activeTickets.find(t => t.id === table.currentTicketId);
+                                                        if (ticket && ticket.items.length > 0) {
+                                                            router.push(`/pos/invoice/${ticket.id}?context=ticket`); // Navigate to invoice for preview
+                                                        } else {
+                                                            selectTable(table.id); // Select table in checkout
+                                                            router.push('/pos/checkout'); // Go to checkout to start order
+                                                        }
                                                     } else {
                                                         handleUpdateStatus(e, table.id, 'bill');
                                                     }
                                                 }}
                                             >
                                                 <Receipt className="h-4 w-4" />
-                                                {table.status === 'bill' ? 'Checkout' : 'Bill'}
+                                                {table.status === 'bill' ? 'View Bill' : 'Bill'}
                                             </Button>
                                         </>
                                     )}
