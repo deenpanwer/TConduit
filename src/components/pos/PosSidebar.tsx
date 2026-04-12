@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ShoppingCart, ChevronsLeft, ChevronsRight, 
   Keyboard, Archive, Users, BarChart, Settings, History,
   Moon, Sun, Briefcase, ChevronDown, X,
-  ListTodo
+  ListTodo, Utensils
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
+import { usePos } from "@/hooks/use-pos";
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 
@@ -84,6 +85,7 @@ export function PosSidebar({
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
+  const { config } = usePos();
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
@@ -300,6 +302,9 @@ export function PosSidebar({
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
             <div className="space-y-1">
               <NavItem icon={ShoppingCart} label="Checkout" href="/pos/checkout" active={pathname === "/pos/checkout"} />
+              {currentModule.id === 'pos' && (config.isRestaurantMode) && (
+                <NavItem icon={Utensils} label="Table Map" href="/pos/floors" active={pathname === "/pos/floors"} />
+              )}
               <NavItem icon={LayoutDashboard} label="Dashboard" href="/pos/dashboard" active={pathname === "/pos/dashboard"} />
               <NavItem icon={Archive} label="Stock/Inventory" href="/pos/inventory" active={pathname === "/pos/inventory"} />
               <NavItem icon={Users} label="Customers" href="/pos/customers" active={pathname === "/pos/customers"} />

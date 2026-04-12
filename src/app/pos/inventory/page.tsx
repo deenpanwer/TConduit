@@ -130,9 +130,25 @@ export default function InventoryPage() {
                         </DialogHeader>
                         <AddItemForm 
                             onSubmit={async (data) => { 
-                                await addProduct(data); 
-                                setIsDialogOpen(false); 
-                                toast.success("Product added to catalog");
+                                try {
+                                    // 1. Create product first and return the ID
+                                    const productId = await addProduct({
+                                        name: data.name,
+                                        sku: data.sku,
+                                        basePrice: data.basePrice,
+                                        costPrice: data.costPrice,
+                                        stockQuantity: data.stockQuantity,
+                                        taxRate: data.taxRate,
+                                        imageUrl: data.imageUrl || '' // Start with URL if provided
+                                    });
+
+                                    setIsDialogOpen(false); 
+                                    toast.success("Product created in catalog");
+                                    return productId; // Crucial: return ID for AddItemForm image upload
+                                } catch (e) {
+                                    toast.error("Failed to create product");
+                                    throw e;
+                                }
                             }} 
                         />
                     </DialogContent>

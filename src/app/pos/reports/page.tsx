@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { usePos, SaleTransaction, Product, Customer } from '@/hooks/use-pos';
+import { usePos, SaleTransaction, Product } from '@/hooks/use-pos';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -18,7 +18,9 @@ import {
     Calendar,
     FileText,
     PieChart as PieChartIcon,
-    ArrowRight
+    ArrowRight,
+    Clock,
+    Utensils
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useRouter } from 'next/navigation';
@@ -67,10 +69,13 @@ export default function ReportsPage() {
     });
 
     return Object.entries(customerSpend)
-        .map(([id, spend]) => ({
-            name: customers.find(c => c.id === id)?.name || 'Unknown',
-            spend
-        }))
+        .map(([id, spend]) => {
+            const customer = customers.find(c => c.id === id);
+            return {
+                name: customer ? (customer.name || customer.data?.name || 'Customer') : 'Unknown',
+                spend
+            };
+        })
         .sort((a, b) => b.spend - a.spend)
         .slice(0, 5);
   }, [salesHistory, customers]);
@@ -111,6 +116,9 @@ export default function ReportsPage() {
                     <TabsTrigger value="financials" className="data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase tracking-widest text-[10px] px-6 py-2.5 rounded-lg transition-all">Financials</TabsTrigger>
                     <TabsTrigger value="inventory" className="data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase tracking-widest text-[10px] px-6 py-2.5 rounded-lg transition-all">Inventory Insights</TabsTrigger>
                     <TabsTrigger value="customers" className="data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase tracking-widest text-[10px] px-6 py-2.5 rounded-lg transition-all">Customer CRM</TabsTrigger>
+                    {usePos().config.isRestaurantMode && (
+                        <TabsTrigger value="restaurant" className="data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase tracking-widest text-[10px] px-6 py-2.5 rounded-lg transition-all">Restaurant</TabsTrigger>
+                    )}
                 </TabsList>
             </div>
 
@@ -307,6 +315,68 @@ export default function ReportsPage() {
                             <ArrowRight className="h-4 w-4" />
                         </Button>
                     </Card>
+                </div>
+            </TabsContent>
+
+            <TabsContent value="restaurant" className="animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {(() => {
+                        const tableSales = salesHistory.filter(s => !!s.tableId);
+                        const tableHoldingTimes = tableSales
+                            .filter(s => !!(s as any).tableStartTime)
+                            .map(s => {
+                                const start = new Date((s as any).tableStartTime).getTime();
+                                const end = new Date(s.createdAt).getTime();
+                                return (end - start) / 60000; // in minutes
+                            });
+                        
+                        const avgTime = tableHoldingTimes.length > 0 
+                            ? tableHoldingTimes.reduce((a, b) => a + b, 0) / tableHoldingTimes.length 
+                            : 0;
+
+                        return (
+                            <>
+                                <Card className="border-0 shadow-sm bg-slate-900 text-white">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80 flex items-center gap-2">
+                                            <Clock className="h-3 w-3" />
+                                            Avg. Table Stay
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-4xl font-black tracking-tighter">{avgTime.toFixed(1)}m</p>
+                                        <p className="text-[9px] font-bold opacity-60 uppercase mt-1">Average time customers occupy tables</p>
+                                    </CardContent>
+                                </Card>
+                                
+                                <Card className="border-0 shadow-sm bg-blue-600 text-white">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80 flex items-center gap-2">
+                                            <Utensils className="h-3 w-3" />
+                                            Table Orders
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-4xl font-black tracking-tighter">{tableSales.length}</p>
+                                        <p className="text-[9px] font-bold opacity-60 uppercase mt-1">Transactions from table service</p>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-0 shadow-sm bg-emerald-600 text-white">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80 flex items-center gap-2">
+                                            <DollarSign className="h-3 w-3" />
+                                            Table Revenue
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-4xl font-black tracking-tighter">${tableSales.reduce((a, b) => a + b.grandTotal, 0).toFixed(2)}</p>
+                                        <p className="text-[9px] font-bold opacity-60 uppercase mt-1">Total revenue from hospitality side</p>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        );
+                    })()}
                 </div>
             </TabsContent>
         </Tabs>

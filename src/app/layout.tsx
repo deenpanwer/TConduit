@@ -62,22 +62,22 @@ export default function RootLayout({
             <AuthProvider>
               <TeamProvider>
                 <TasksProvider>
-                <PosProvider> {/* <-- Wrap with PosProvider */} 
                  <CRMProvider>
-                  <TooltipProvider>
-                    <ThemeProvider
-                      attribute="class"
-                      defaultTheme="system"
-                      enableSystem
-                      disableTransitionOnChange
-                    >
-                      {children}
-                      <Toaster />
-                      <Analytics />
-                    </ThemeProvider>
-                  </TooltipProvider>
+                  <PosProvider>
+                    <TooltipProvider>
+                      <ThemeProvider
+                        attribute="class"
+                        defaultTheme="system"
+                        enableSystem
+                        disableTransitionOnChange
+                      >
+                        {children}
+                        <Toaster />
+                        <Analytics />
+                      </ThemeProvider>
+                    </TooltipProvider>
+                  </PosProvider>
                  </CRMProvider>
-                 </PosProvider>
                 </TasksProvider>
               </TeamProvider>
             </AuthProvider>

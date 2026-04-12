@@ -7,9 +7,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Plus, Search, ShoppingCart, Tag, History, Percent, Receipt, ExternalLink, Calendar } from 'lucide-react';
+import { Trash2, Plus, Search, ShoppingCart, Tag, History, Percent, Receipt, ExternalLink, Calendar, Utensils, Save } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -71,6 +72,7 @@ export default function CheckoutPage() {
     currentSale,
     customers,
     salesHistory,
+    tables,
     loading,
     addItemToSale,
     removeItemFromSale,
@@ -78,6 +80,8 @@ export default function CheckoutPage() {
     updateItemPrice,
     updateItemDiscount,
     completeSale,
+    saveTicket,
+    loadTicket,
   } = usePos();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,17 +153,24 @@ export default function CheckoutPage() {
         return;
     }
 
-    if (amountPaid < currentSale.grandTotal) {
-        // Option: allow partial payments if needed, but for now let's just complete
-        // Or show a warning.
-    }
-
     const cashierName = userData?.displayName || userData?.name || 'System Admin';
     const sale = await completeSale('Cash', 'Paid', amountPaid, cashierName);
     if (sale) {
       router.push(`/pos/invoice/${sale.id}`);
     }
   };
+
+  const handleSaveToTable = async () => {
+    try {
+        await saveTicket();
+        toast.success("Order saved to table!");
+        router.push('/pos/floors');
+    } catch (e) {
+        toast.error("Failed to save order");
+    }
+  };
+
+  const activeTable = tables.find(t => t.id === currentSale.tableId);
 
   const handleItemSelection = (item: SaleItem) => {
     setSelectedItemId(item.id);
@@ -178,6 +189,37 @@ export default function CheckoutPage() {
       {/* Left Column: Invoice and Numpad */}
       <div className="w-[38%] flex flex-col p-3 gap-3 border-r border-border h-full">
         <Card className="shadow-none flex-grow flex flex-col overflow-hidden border-border bg-card">
+          <CardHeader className="p-3 border-b bg-muted/20">
+            <div className="flex justify-between items-center">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Order for</span>
+                    <span className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
+                        {activeTable ? (
+                            <>
+                                <Utensils className="h-4 w-4 text-primary" />
+                                Table #{activeTable.number}
+                            </>
+                        ) : (
+                            <>
+                                <ShoppingCart className="h-4 w-4 text-primary" />
+                                Walk-in
+                            </>
+                        )}
+                    </span>
+                </div>
+                {activeTable && (
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 text-[10px] font-black uppercase tracking-widest gap-2 bg-primary/10 border-primary/20 hover:bg-primary/20"
+                        onClick={handleSaveToTable}
+                    >
+                        <Save className="h-3 w-3" />
+                        Save to Table
+                    </Button>
+                )}
+            </div>
+          </CardHeader>
           <CardContent className="flex-grow p-0 flex flex-col overflow-hidden">
             <div className="grid grid-cols-5 gap-2 font-bold px-4 py-2 bg-muted/50 border-b text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="col-span-2">Item</span>
