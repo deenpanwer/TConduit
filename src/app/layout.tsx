@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { Poppins, Montserrat, Playfair_Display, Permanent_Marker } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from '@/components/theme-provider';
 import { PHProvider } from './providers';
 import { AuthProvider } from '@/hooks/use-auth';
@@ -12,6 +13,7 @@ import { TasksProvider } from '@/hooks/useTasks';
 import { CRMProvider } from '@/hooks/use-crm';
 import { PosProvider } from '@/hooks/use-pos';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { UploadProvider } from '@/hooks/useUploadProgress';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -61,24 +63,27 @@ export default function RootLayout({
           <PHProvider>
             <AuthProvider>
               <TeamProvider>
-                <TasksProvider>
-                 <CRMProvider>
-                  <PosProvider>
-                    <TooltipProvider>
-                      <ThemeProvider
-                        attribute="class"
-                        defaultTheme="system"
-                        enableSystem
-                        disableTransitionOnChange
-                      >
-                        {children}
-                        <Toaster />
-                        <Analytics />
-                      </ThemeProvider>
-                    </TooltipProvider>
-                  </PosProvider>
-                 </CRMProvider>
-                </TasksProvider>
+                <UploadProvider>
+                  <TasksProvider>
+                   <CRMProvider>
+                    <PosProvider>
+                      <TooltipProvider>
+                        <ThemeProvider
+                          attribute="class"
+                          defaultTheme="system"
+                          enableSystem
+                          disableTransitionOnChange
+                        >
+                          {children}
+                          <Toaster />
+                          <SonnerToaster position="bottom-right" expand={false} richColors />
+                          <Analytics />
+                        </ThemeProvider>
+                      </TooltipProvider>
+                    </PosProvider>
+                   </CRMProvider>
+                  </TasksProvider>
+                </UploadProvider>
               </TeamProvider>
             </AuthProvider>
           </PHProvider>

@@ -25,7 +25,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
       const targetOrgId = userData?.ownedOrgId || userData?.orgId;
       if (targetOrgId && isOpen) {
         const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
-        if (orgDoc.exists()) setOrgData(orgDoc.data());
+        if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
       }
     }
     fetchOrgDetails();

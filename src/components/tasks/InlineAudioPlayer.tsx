@@ -23,7 +23,13 @@ export function InlineAudioPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(audioDuration);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Update internal duration state if prop changes
+  useEffect(() => {
+    if (audioDuration > 0) setDuration(audioDuration);
+  }, [audioDuration]);
 
   // Clean the base64 string if provided, otherwise use URL
   const audioSrc = useMemo(() => {
@@ -36,10 +42,17 @@ export function InlineAudioPlayer({
   }, [url, audioBase64, audioMimeType]);
 
   useEffect(() => {
+    if (!audioSrc) return;
     const audio = new Audio(audioSrc);
     audioRef.current = audio;
 
-    const handleLoadedMetadata = () => setIsLoaded(true);
+    const handleLoadedMetadata = () => {
+        setIsLoaded(true);
+        // If duration is 0 or not provided, try to get it from the audio object
+        if (duration === 0 && audio.duration && isFinite(audio.duration)) {
+            setDuration(audio.duration);
+        }
+    };
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
@@ -83,18 +96,18 @@ export function InlineAudioPlayer({
     if (audio && isLoaded) {
       const rect = e.currentTarget.getBoundingClientRect();
       const pos = (e.clientX - rect.left) / rect.width;
-      audio.currentTime = pos * audioDuration;
+      audio.currentTime = pos * duration;
     }
   };
 
   const formatTime = (seconds: number) => {
-    if (!seconds || !isFinite(seconds)) return "0:00";
+    if (seconds === undefined || seconds === null || !isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0;
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <div className={cn(
@@ -114,7 +127,7 @@ export function InlineAudioPlayer({
       <div className="flex-1 flex flex-col gap-1.5 min-w-0">
         <div className="flex items-center justify-end">
            <span className="text-[10px] font-mono font-bold text-muted-foreground whitespace-nowrap">
-              {formatTime(currentTime)} / {formatTime(audioDuration)}
+              {formatTime(currentTime)} / {formatTime(duration)}
            </span>
         </div>
 

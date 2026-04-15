@@ -46,7 +46,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { triggerBigConfetti, triggerSmallConfetti } from '@/lib/confetti';
 import { FilePreviewModal } from './FilePreviewModal';
-import { useUpload } from '../../hooks/useUploadProgress';
+import { useUpload, ActiveUpload } from '../../hooks/useUploadProgress';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StopCircle, Pause, Play } from 'lucide-react';
+import { InlineAudioPlayer } from './InlineAudioPlayer';
 
 // --- Types & Interfaces ---
 
@@ -54,6 +59,9 @@ interface ListViewProps {
   tasks: Task[]; // Array of tasks from the database.
   onTaskClick: (taskId: string) => void; // Function to handle opening the task details drawer.
   personnel: any[]; // Array of personnel/users for assignment.
+  onUpdateTask?: (id: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => void;
+  onDeleteTask?: (id: string) => void;
+  onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void;
 }
 
 // --- Helper Components ---
@@ -356,6 +364,7 @@ interface HierarchicalTableProps {
     items: any[];
     type: 'subtasks' | 'resources' | 'descriptions' | 'images' | 'attachments' | 'voiceNotes';
     depth: number;
+    taskId: string;
     onUpdate: (updatedItems: any[]) => void;
     onDelete: (id: string) => void;
     isParentExpanded: boolean;
@@ -365,38 +374,109 @@ interface HierarchicalTableProps {
     onFocusHandled?: () => void;
     onAISuggest?: () => Promise<void>;
     isLoading?: boolean;
+    onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void;
 }
 
-const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExpanded, itemToAutoEdit, onItemEditDone, shouldFocusQuickAdd, onFocusHandled, onAISuggest, isLoading }: HierarchicalTableProps) => {
+const HierarchicalTable = ({ 
+    items, type, depth, taskId, onUpdate, onDelete, isParentExpanded, 
+    itemToAutoEdit, onItemEditDone, shouldFocusQuickAdd, onFocusHandled, 
+    onAISuggest, isLoading, onUploadFile 
+}: HierarchicalTableProps) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
     const [isSuggestingAI, setIsSuggestingAI] = useState(false);
     const [previewFile, setPreviewFile] = useState<any>(null);
     const quickAddInputRef = useRef<HTMLInputElement>(null);
     const hiddenFileInputRef = useRef<HTMLInputElement>(null);
-    const { uploads, setUpload, removeUpload } = useUpload();
+    const { uploads } = useUpload();
+
+    // Recording State
+    const [isRecording, setIsRecording] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const [currentRecordingTime, setCurrentRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const recordingStartTimeRef = useRef<number>(0);
+    const shouldSaveRecordingRef = useRef<boolean>(true); // Ref to track if we should save on stop
+    const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition();
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const startRecording = async () => {
+        resetTranscript();
+        setIsRecording(true);
+        setIsPaused(false);
+        setCurrentRecordingTime(0);
+        recordingStartTimeRef.current = Date.now();
+        audioChunksRef.current = [];
+        shouldSaveRecordingRef.current = true; // Default to saving
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            mediaRecorderRef.current = recorder;
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                // Only save/upload if the user didn't hit 'Cancel'
+                if (shouldSaveRecordingRef.current && audioChunksRef.current.length > 0) {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+                    const finalDuration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
+                    
+                    const file = new File([audioBlob], `VoiceNote_${format(new Date(), 'HHmm')}.webm`, { type: 'audio/webm' });
+                    // Attach duration metadata so handleFileUpload can persist it
+                    (file as any).duration = finalDuration;
+                    
+                    const mockEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                    onUploadFile?.(mockEvent, taskId);
+                }
+                
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            recorder.start();
+            if (browserSupportsSpeechRecognition) SpeechRecognition.startListening({ continuous: true });
+
+            recordingTimerRef.current = setInterval(() => {
+                setCurrentRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (err) {
+            console.error("Failed to start recording", err);
+            toast.error("Could not access microphone");
+            setIsRecording(false);
+        }
+    };
+
+    const stopRecording = (shouldSave: boolean = true) => {
+        shouldSaveRecordingRef.current = shouldSave;
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+        if (browserSupportsSpeechRecognition) SpeechRecognition.stopListening();
+        setIsRecording(false);
+        setIsPaused(false);
+    };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const uploadId = Math.random().toString();
-        setUpload(uploadId, { id: uploadId, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' });
+        // Validation Handshake
+        const MAX_SIZE = 10 * 1024 * 1024; // Simple check for List View before parent handles it
+        if (file.size > MAX_SIZE) {
+            toast.error("File exceeds 10MB limit.");
+            return;
+        }
 
-        // Simulate upload
-        setTimeout(() => {
-            const newAttachment = {
-                id: Math.random().toString(),
-                name: file.name,
-                url: URL.createObjectURL(file), // Placeholder for actual URL
-                type: file.type,
-                size: file.size,
-                createdAt: new Date()
-            };
-            onUpdate([...items, newAttachment]);
-            removeUpload(uploadId);
-            toast.success('File uploaded!');
-        }, 2000);
+        onUploadFile?.(e, taskId);
     };
 
     const handleSuggestAI = async () => {
@@ -518,6 +598,15 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                                     </a>
                                                 </div>
                                             )}
+                                            {type === 'voiceNotes' && (
+                                                <div className="flex-1 max-w-sm">
+                                                    <InlineAudioPlayer 
+                                                        url={item.url} 
+                                                        audioDuration={item.duration || 0} 
+                                                        className="h-8 bg-transparent border-none p-0"
+                                                    />
+                                                </div>
+                                            )}
 
                                             <div className='flex-1 flex flex-col justify-center'>
                                                 {type === 'descriptions' ? (
@@ -530,7 +619,7 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                                         startInEditMode={item.id === itemToAutoEdit}
                                                         onDidEndEditing={onItemEditDone}
                                                     />
-                                                ) : type === 'attachments' ? null : (
+                                                ) : (type === 'attachments' || type === 'voiceNotes') ? null : (
                                                     <GridCell 
                                                         isEditable 
                                                         value={item.title} 
@@ -707,7 +796,11 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                 </div>
                             )}
 
-                            {/* Quick Add Row for this table */}
+                            {/* 
+                                Quick Add / Upload / Recording Row 
+                                This row dynamically changes based on the 'type' (files, voice, subtasks) 
+                                and current activity (recording, uploading).
+                            */}
                             <div className='flex h-12 items-center border-b border-border/40 hover:bg-black/5 transition-colors'>
                                 <div className='w-10 shrink-0 flex items-center justify-center'>
                                     {type === 'subtasks' && onAISuggest && (
@@ -716,81 +809,151 @@ const HierarchicalTable = ({ items, type, depth, onUpdate, onDelete, isParentExp
                                         </button>
                                     )}
                                 </div>
-                                <div className='flex-1 flex flex-col justify-center px-3'>
-                                    <div className="flex items-center gap-3">
-                                        <Plus size={14} className='text-muted-foreground/30' />
-                                        
-                                        {type === 'attachments' ? (
-                                            <>
-                                                <input 
-                                                    type="file" 
-                                                    ref={hiddenFileInputRef} 
-                                                    onChange={handleFileUpload} 
-                                                    className="hidden"
-                                                />
-                                                <button 
-                                                    onClick={() => hiddenFileInputRef.current?.click()}
-                                                    className="text-xs font-medium text-rose-600 hover:text-rose-700 transition-colors"
-                                                >
-                                                    + Upload File
-                                                </button>
-                                            </>
+                                <div className='flex-1 flex flex-col justify-center px-3 overflow-hidden'>
+                                    <div className="flex items-center gap-3 w-full">
+                                        {/* State 1: Active Uploading (Replaces buttons to prevent multiple uploads) */}
+                                        {Object.values(uploads).some(u => 
+                                            u.taskId === taskId && u.status === 'uploading' && (
+                                                (type === 'attachments' && !u.type.startsWith('audio/')) || 
+                                                (type === 'voiceNotes' && u.type.startsWith('audio/')) ||
+                                                (type === 'images' && u.type.startsWith('image/'))
+                                            )
+                                        ) ? (
+                                            <div className="flex items-center gap-3 w-full animate-pulse px-2">
+                                                <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-primary/60 truncate">
+                                                    {type === 'voiceNotes' ? 'Processing Audio...' : 'Uploading File...'}
+                                                </span>
+                                            </div>
                                         ) : (
-                                            <input 
-                                                ref={quickAddInputRef}
-                                                placeholder={`+ Add ${config.label.slice(0, -1)}`} 
-                                                value={quickAddValue}
-                                                onBlur={() => onFocusHandled?.()}
-                                                onChange={(e) => setQuickAddValue(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && quickAddValue.trim()) {
-                                                        const title = quickAddValue.trim();
-                                                        let newItem: any = { id: Math.random().toString() };
+                                            /* State 2: Active Voice Recording (Horizontal UI) */
+                                            type === 'voiceNotes' && isRecording ? (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    className="flex items-center w-full gap-3 bg-red-500/5 rounded-lg px-2 py-1"
+                                                >
+                                                    <div className="flex items-center gap-2 text-red-500 shrink-0">
+                                                        <Mic size={14} className="animate-pulse" />
+                                                        <span className="text-[10px] font-mono font-bold w-10">{formatDuration(currentRecordingTime)}</span>
+                                                    </div>
+                                                    
+                                                    {/* Animated Visualizer */}
+                                                    <div className="flex-1 flex gap-0.5 items-center justify-center h-4 overflow-hidden">
+                                                        {[...Array(12)].map((_, i) => (
+                                                            <motion.div 
+                                                                key={i}
+                                                                animate={{ height: isPaused ? 2 : Math.random() * 12 + 2 }}
+                                                                transition={{ repeat: Infinity, duration: 0.2, repeatType: "reverse" }}
+                                                                className="w-0.5 bg-red-500/30 rounded-full"
+                                                            />
+                                                        ))}
+                                                    </div>
 
-                                                        if (type === 'descriptions') newItem.text = title;
-                                                        else if (type === 'subtasks') {
-                                                            newItem.title = title;
-                                                            newItem.description = '';
-                                                            newItem.completed = false;
-                                                        } else {
-                                                            newItem.title = title;
-                                                            newItem.url = '';
-                                                            newItem.type = 'text/plain';
-                                                            newItem.createdAt = new Date();
-                                                        }
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        {/* SAVE BUTTON */}
+                                                        <Button 
+                                                            size="icon" variant="ghost" className="h-7 w-7 rounded-full text-red-500 hover:bg-red-500/10" 
+                                                            onClick={() => stopRecording(true)} title="Save Recording"
+                                                        >
+                                                            <Check size={14} />
+                                                        </Button>
+                                                        {/* CANCEL BUTTON - Discards buffer */}
+                                                        <Button 
+                                                            size="icon" variant="ghost" className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10" 
+                                                            onClick={() => { stopRecording(false); resetTranscript(); }} title="Cancel (Discard)"
+                                                        >
+                                                            <X size={14} />
+                                                        </Button>
+                                                    </div>
+                                                </motion.div>
+                                            ) : (
+                                                /* State 3: Normal Action Buttons / Input */
+                                                <div className="flex items-center gap-3 w-full">
+                                                    <Plus size={14} className='text-muted-foreground/30 shrink-0' />
+                                                    
+                                                    {type === 'attachments' ? (
+                                                        <>
+                                                            <input 
+                                                                type="file" ref={hiddenFileInputRef} 
+                                                                onChange={handleFileUpload} className="hidden" 
+                                                            />
+                                                            <button 
+                                                                onClick={() => hiddenFileInputRef.current?.click()}
+                                                                className="text-xs font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 transition-colors"
+                                                            >
+                                                                + Upload File
+                                                                <span className="ml-1 opacity-40 font-bold lowercase tracking-normal">
+                                                                    (Max {personnel.find(p => p.id === 'me')?.isPremium ? '250MB' : '10MB'})
+                                                                </span>
+                                                            </button>
+                                                        </>
+                                                    ) : type === 'voiceNotes' ? (
+                                                        <button 
+                                                            onClick={startRecording}
+                                                            className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-[10px] font-black uppercase tracking-widest transition-all"
+                                                        >
+                                                            <Mic size={12} /> Record Voice Note
+                                                        </button>
+                                                    ) : (
+                                                        <input 
+                                                            ref={quickAddInputRef}
+                                                            placeholder={`+ Add ${config.label.slice(0, -1)}`} 
+                                                            value={quickAddValue}
+                                                            onBlur={() => onFocusHandled?.()}
+                                                            onChange={(e) => setQuickAddValue(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && quickAddValue.trim()) {
+                                                                    const title = quickAddValue.trim();
+                                                                    let newItem: any = { id: Math.random().toString() };
 
-                                                        onUpdate([...items, newItem]);
-                                                        setQuickAddValue('');
-                                                    }
-                                                }}
-                                                className='bg-transparent w-full text-xs font-medium outline-none placeholder:text-muted-foreground/30 placeholder:italic'
-                                            />
+                                                                    if (type === 'descriptions') newItem.text = title;
+                                                                    else if (type === 'subtasks') {
+                                                                        newItem.title = title;
+                                                                        newItem.description = '';
+                                                                        newItem.completed = false;
+                                                                    } else {
+                                                                        newItem.title = title;
+                                                                        newItem.url = '';
+                                                                        newItem.type = 'text/plain';
+                                                                        newItem.createdAt = new Date();
+                                                                    }
+
+                                                                    onUpdate([...items, newItem]);
+                                                                    setQuickAddValue('');
+                                                                }
+                                                            }}
+                                                            className='bg-transparent w-full text-xs font-medium outline-none placeholder:text-muted-foreground/30 placeholder:italic'
+                                                        />
+                                                    )}
+                                                </div>
+                                            )
                                         )}
                                     </div>
-                                    <AnimatePresence>
-                                        {quickAddValue.length > 0 && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: -5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -5 }}
-                                                className="text-[8px] text-primary/60 font-black uppercase tracking-widest pointer-events-none pl-7"
-                                            >
-                                                Press Enter to add
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
                                     
-                                    {/* Uploading indicator */}
+                                    {/* 
+                                        Floating Progress Indicators 
+                                        Visible even when the quick-add row is in "Normal" state
+                                    */}
                                     <AnimatePresence>
-                                        {Object.values(uploads).map(u => (
+                                        {Object.values(uploads).filter(u => 
+                                            u.taskId === taskId && (
+                                                (type === 'attachments' && !u.type.startsWith('audio/')) || 
+                                                (type === 'voiceNotes' && u.type.startsWith('audio/'))
+                                            )
+                                        ).map(u => (
                                             <motion.div 
                                                 key={u.id}
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                className="text-[10px] text-rose-500 font-bold animate-pulse pl-7"
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="flex flex-col gap-1 mt-1 bg-primary/5 rounded px-2 py-1"
                                             >
-                                                Uploading {u.name}...
+                                                <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-tighter text-primary/60">
+                                                    <span className="truncate max-w-[150px]">{u.name}</span>
+                                                    <span>{Math.round(u.progress)}%</span>
+                                                </div>
+                                                <Progress value={u.progress} className="h-0.5" />
                                             </motion.div>
                                         ))}
                                     </AnimatePresence>
@@ -820,7 +983,8 @@ const TaskRowDesktop = ({
     onTaskClick, 
     personnel,
     handleEnhanceTask,
-    isEnhancing
+    isEnhancing,
+    onUploadFile
 }: { 
     task: Task, // The original task data.
     localTask: Task, // The task data including local, unsaved changes.
@@ -829,7 +993,8 @@ const TaskRowDesktop = ({
     onTaskClick: (taskId: string) => void, // Passes the full task ID.
     personnel: any[], // List of all users.
     handleEnhanceTask: (id: string) => void, // Callback to trigger AI enhancement.
-    isEnhancing: boolean // Flag indicating if this specific task is being enhanced.
+    isEnhancing: boolean, // Flag indicating if this specific task is being enhanced.
+    onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void;
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
@@ -1052,7 +1217,6 @@ const TaskRowDesktop = ({
                             <DropdownMenuItem onClick={() => onTaskClick(task.id)}><ExternalLink size={14} className='mr-2'/> Open Drawer</DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuLabel className='text-[10px] uppercase tracking-widest text-muted-foreground'>Quick Add</DropdownMenuLabel>
-                            {/* (now do this that adding anything from the right side dropdown add that and its ready to start typing) */}
                             <DropdownMenuItem onClick={() => handleItemAdd('nestedDescriptions')} className='gap-2'>
                                 <Plus size={14} className='text-emerald-500' />
                                 <span className="flex-1">Add Note</span>
@@ -1100,6 +1264,7 @@ const TaskRowDesktop = ({
                                     items={localTask.nestedDescriptions || []} 
                                     type='descriptions' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ nestedDescriptions: newItems })}
                                     onDelete={(id) => onUpdate({ nestedDescriptions: localTask.nestedDescriptions?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1114,6 +1279,7 @@ const TaskRowDesktop = ({
                                     items={localTask.attachments || []} 
                                     type='attachments' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ attachments: newItems })}
                                     onDelete={(id) => onUpdate({ attachments: localTask.attachments?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1121,6 +1287,7 @@ const TaskRowDesktop = ({
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'attachments'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    onUploadFile={onUploadFile}
                                 />
                             )}
                             {((localTask.voiceNotes?.length || 0) > 0 || activeTypeToFocus === 'voiceNotes') && (
@@ -1128,6 +1295,7 @@ const TaskRowDesktop = ({
                                     items={localTask.voiceNotes || []} 
                                     type='voiceNotes' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ voiceNotes: newItems })}
                                     onDelete={(id) => onUpdate({ voiceNotes: localTask.voiceNotes?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1135,6 +1303,7 @@ const TaskRowDesktop = ({
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'voiceNotes'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    onUploadFile={onUploadFile}
                                 />
                             )}
                             {((localTask.images?.length || 0) > 0 || activeTypeToFocus === 'images') && (
@@ -1142,6 +1311,7 @@ const TaskRowDesktop = ({
                                     items={localTask.images || []} 
                                     type='images' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ images: newItems })}
                                     onDelete={(id) => onUpdate({ images: localTask.images?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1156,6 +1326,7 @@ const TaskRowDesktop = ({
                                     items={localTask.resources || []} 
                                     type='resources' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ resources: newItems })}
                                     onDelete={(id) => onUpdate({ resources: localTask.resources?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1170,6 +1341,7 @@ const TaskRowDesktop = ({
                                     items={localTask.subtasks || []} 
                                     type='subtasks' 
                                     depth={0} 
+                                    taskId={task.id}
                                     onUpdate={(newItems) => onUpdate({ subtasks: newItems })}
                                     onDelete={(id) => onUpdate({ subtasks: localTask.subtasks?.filter(i => i.id !== id) })}
                                     isParentExpanded={isExpanded}
@@ -1674,7 +1846,7 @@ const TaskRowMobile = ({
  * The main component for the List View.
  * It orchestrates the entire grid, including headers, toolbar, and task rows.
  */
-export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
+export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDeleteTask, onUploadFile }: ListViewProps) {
   const isMobile = useIsMobile();
   const { bulkUpdateTasks, addTask, deleteTask } = useTasks();
 
@@ -1847,7 +2019,7 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                               task={orderedTasks.find(t => t.id === task.id)!}
                               localTask={task}
                               onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
-                              onDelete={deleteTask}
+                              onDelete={onDeleteTask || deleteTask}
                               onTaskClick={onTaskClick}
                               handleEnhanceTask={handleEnhanceWithAI}
                               isEnhancing={isEnhancing === task.id}
@@ -1890,7 +2062,7 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                                       task={orderedTasks.find(t => t.id === task.id)!}
                                       localTask={task}
                                       onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
-                                      onDelete={deleteTask}
+                                      onDelete={onDeleteTask || deleteTask}
                                       onTaskClick={onTaskClick}
                                       handleEnhanceTask={handleEnhanceWithAI}
                                       isEnhancing={isEnhancing === task.id}
@@ -1959,11 +2131,12 @@ export function ListView({ tasks, onTaskClick, personnel }: ListViewProps) {
                           task={orderedTasks.find(t => t.id === task.id)!}
                           localTask={task}
                           onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
-                          onDelete={deleteTask}
+                          onDelete={onDeleteTask || deleteTask}
                           onTaskClick={onTaskClick}
                           personnel={personnel}
                           handleEnhanceTask={handleEnhanceWithAI}
                           isEnhancing={isEnhancing === task.id}
+                          onUploadFile={onUploadFile}
                       />
                   ))}
 

@@ -64,14 +64,14 @@ export function RecentEvidence({ screenshots = [] }: RecentEvidenceProps) {
                 className="relative flex-none w-64 aspect-video rounded-2xl overflow-hidden bg-muted group border border-border/50 snap-start shadow-sm"
               >
                 <img
-                  src={img.url || img.activity?.cloudinaryUrl}
+                  src={img.redactedUrl || img.url || img.activity?.cloudinaryUrl}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   alt="Recent activity"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
-                    onClick={() => setSelectedImage(img.url || img.activity?.cloudinaryUrl)}
+                    onClick={() => setSelectedImage(img.redactedUrl || img.url || img.activity?.cloudinaryUrl)}
                     className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-all active:scale-90"
                   >
                     <ZoomIn size={20} />

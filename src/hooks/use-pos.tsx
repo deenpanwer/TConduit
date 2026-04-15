@@ -95,6 +95,7 @@ export interface PosTable {
   status: 'free' | 'eating' | 'bill';
   currentTicketId: string | null;
   lastStatusChange?: string | null; 
+  imageUrl?: string; // New: Image for the table
   createdAt: string;
   createdBy: { uid: string; name: string; };
   history: HistoryEntry[];
@@ -119,6 +120,7 @@ export interface PosConfig {
   defaultTaxRate: number;
   isRestaurantMode: boolean; 
   floors: string[]; 
+  showProductImagesOnInvoice: boolean; // New: Setting for invoice images
   updatedAt?: string;
   updatedBy?: { uid: string; name: string; };
 }
@@ -161,9 +163,11 @@ export interface PosContextType {
   selectCustomer: (id: string | null) => void;
   clearCurrentSale: () => void;
   completeSale: (method: string, status: 'Paid' | 'Pending', paid: number, cashier?: string) => Promise<SaleTransaction | null>;
-  addTable: (data: Omit<PosTable, 'id' | 'status' | 'currentTicketId' | 'createdAt' | 'createdBy' | 'history'>) => Promise<void>;
+  addTable: (data: Omit<PosTable, 'id' | 'status' | 'currentTicketId' | 'createdAt' | 'createdBy' | 'history' | 'imageUrl'>) => Promise<void>;
   updateTable: (id: string, data: Partial<PosTable>) => Promise<void>;
   deleteTable: (id: string) => Promise<void>;
+  uploadTableImage: (tableId: string, file: File, onProgress?: (p: number) => void) => Promise<string>; // New: Upload table image
+  getTTSForTable: (table: PosTable) => string; // New: TTS text generator
   selectTable: (id: string | null) => void;
   saveTicket: () => Promise<void>; 
   loadTicket: (ticketId: string) => Promise<void>;
@@ -180,14 +184,15 @@ const defaultPosConfig: PosConfig = {
   defaultTaxRate: 0,
   isRestaurantMode: false,
   floors: ['Main Floor'],
+  showProductImagesOnInvoice: false,
 };
 
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
 export function PosProvider({ children }: { children: ReactNode }) {
-  const { userData, user } = useAuth();
+  const { userData, user } = useAuth(); // Using orgId from useAuth
+  const orgId = useMemo(() => (userData as any)?.orgId, [userData]);
   const { leads: crmLeads, addEntity: addCrmEntity, loading: crmLoading } = useCRM();
-  const orgId = userData?.ownedOrgId || userData?.orgId;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [salesHistory, setSalesHistory] = useState<SaleTransaction[]>([]);
@@ -219,8 +224,12 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
     const configRef = doc(db, 'organizations', orgId, 'pos_config', 'default');
     const unsubConfig = onSnapshot(configRef, (snap) => {
-      if (snap.exists()) setConfigState(snap.data() as PosConfig);
-      else setDoc(configRef, defaultPosConfig);
+      if (snap.exists()) {
+        // Merge with default to avoid missing properties on older configs
+        setConfigState({ ...defaultPosConfig, ...snap.data() } as PosConfig);
+      } else {
+        setDoc(configRef, defaultPosConfig);
+      }
     });
 
     const productsRef = collection(db, 'organizations', orgId, 'pos_products');
@@ -353,6 +362,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     if (currentSale.tableId) {
       const tableData = tables.find(t => t.id === currentSale.tableId);
       const newHistory = [...(tableData?.history || []), { action: 'COMPLETED_SALE', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now, metadata: { saleId } }];
+      // When sale is complete, clear the table, its ticket, and its timer
       batch.update(doc(db, 'organizations', orgId, 'pos_tables', currentSale.tableId), { status: 'free', currentTicketId: null, lastStatusChange: null, history: newHistory.slice(-20) });
       if (tableData?.currentTicketId) batch.delete(doc(db, 'organizations', orgId, 'pos_active_tickets', tableData.currentTicketId));
     }
@@ -363,10 +373,10 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   // --- Restaurant ---
 
-  const addTable = async (data: Omit<PosTable, 'id' | 'status' | 'currentTicketId' | 'createdAt' | 'createdBy' | 'history'>) => {
+  const addTable = async (data: Omit<PosTable, 'id' | 'status' | 'currentTicketId' | 'createdAt' | 'createdBy' | 'history' | 'imageUrl'>) => {
     if (!orgId || !user) return;
     const now = new Date().toISOString();
-    await addDoc(collection(db, 'organizations', orgId, 'pos_tables'), { ...data, status: 'free', currentTicketId: null, createdAt: now, createdBy: { uid: user.uid, name: userData?.name || user.displayName || 'Staff' }, history: [{ action: 'CREATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now }] });
+    await addDoc(collection(db, 'organizations', orgId, 'pos_tables'), { ...data, status: 'free', currentTicketId: null, imageUrl: null, createdAt: now, createdBy: { uid: user.uid, name: userData?.name || user.displayName || 'Staff' }, history: [{ action: 'CREATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now }] });
   };
 
   const updateTable = async (id: string, data: Partial<PosTable>) => {
@@ -374,16 +384,67 @@ export function PosProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     const table = tables.find(t => t.id === id);
     const updateData: any = { ...data };
+    
+    // BUG FIX & LOGIC IMPROVEMENT: Handle timer state transitions.
     if (data.status) {
-        if (data.status === 'free') updateData.lastStatusChange = null;
-        else if (table?.status === 'free' || !table?.lastStatusChange) updateData.lastStatusChange = now; // Set timer on transition FROM free or if no timer exists
+        // If status is changing TO 'free', always kill the timer.
+        if (data.status === 'free') {
+            updateData.lastStatusChange = null;
+        } 
+        // If status is changing FROM 'free' to something else, start the timer.
+        else if (table?.status === 'free') {
+            updateData.lastStatusChange = now;
+        }
     }
+
     const newHistory = [...(table?.history || []), { action: 'UPDATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now, metadata: data }];
     updateData.history = newHistory.slice(-20);
     await updateDoc(doc(db, 'organizations', orgId, 'pos_tables', id), updateData);
   };
 
   const deleteTable = async (id: string) => { if (orgId) await deleteDoc(doc(db, 'organizations', orgId, 'pos_tables', id)); };
+
+  // New: Upload an image for a table
+  const uploadTableImage = async (tableId: string, file: File, onProgress?: (p: number) => void) => {
+    if (!orgId) throw new Error("Organization ID is required");
+    const storagePath = `organizations/${orgId}/pos/tables/${tableId}/image`;
+    const storageRef = ref(storage, storagePath);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    return new Promise<string>((resolve, reject) => {
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          if (onProgress) onProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        }, 
+        (error) => {
+          console.error("Upload failed:", error);
+          reject(error);
+        }, 
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          await updateTable(tableId, { imageUrl: url });
+          resolve(url);
+        }
+      );
+    });
+  };
+
+  // New: Generate TTS text based on table status and orgId
+  const getTTSForTable = (table: PosTable): string => {
+    const isPak = orgId === 'pakistan'; // Check if orgId is 'pakistan'
+    const statusText = {
+      free: { en: 'is free', hi: 'khaali hai' },
+      eating: { en: 'is currently seated', hi: 'par graahak baithe hain' },
+      bill: { en: 'is ready for the bill', hi: 'bil ke liye taiyaar hai' }
+    };
+    
+    if (isPak) {
+      return `Mez number ${table.number} ${statusText[table.status].hi}. Is par ${table.capacity} logon ke baithane ki kshamata hai.`;
+    }
+    return `Table number ${table.number} ${statusText[table.status].en}. It has a capacity of ${table.capacity} guests.`;
+  };
+
+
   const selectTable = (tableId: string | null) => {
     setCurrentSale(p => ({ ...p, tableId }));
     if (!tableId) clearCurrentSale();
@@ -395,10 +456,25 @@ export function PosProvider({ children }: { children: ReactNode }) {
     const table = tables.find(t => t.id === currentSale.tableId);
     const ticketId = table?.currentTicketId || Math.random().toString(36).substr(2, 9);
     const ticketRef = doc(db, 'organizations', orgId, 'pos_active_tickets', ticketId);
-    const existingTicket = await getDoc(ticketRef);
-    let history = existingTicket.exists() ? [...(existingTicket.data().history || [])] : [{ action: 'CREATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now }];
+    const existingTicketSnap = await getDoc(ticketRef);
+    const existingTicket = existingTicketSnap.exists() ? existingTicketSnap.data() : null;
+
+    let history = existingTicket?.history || [{ action: 'CREATED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now }];
     history.push({ action: 'SAVED_ORDER', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: now, metadata: { itemCount: currentSale.items.length } });
-    await setDoc(ticketRef, { id: ticketId, tableId: currentSale.tableId, items: currentSale.items, status: 'active', updatedAt: now, createdBy: existingTicket.exists() ? existingTicket.data().createdBy : { uid: user.uid, name: userData?.name || user.displayName || 'Staff' }, history: history.slice(-20) });
+    
+    const ticketData: PosTicket = {
+      id: ticketId,
+      tableId: currentSale.tableId,
+      items: currentSale.items,
+      status: 'active',
+      updatedAt: now,
+      createdAt: existingTicket?.createdAt || now,
+      customerId: currentSale.customerId || existingTicket?.customerId || null,
+      createdBy: existingTicket?.createdBy || { uid: user.uid, name: userData?.name || user.displayName || 'Staff' },
+      history: history.slice(-20),
+    };
+
+    await setDoc(ticketRef, ticketData);
     await updateTable(currentSale.tableId, { status: 'eating', currentTicketId: ticketId }); // Ensure status is eating when saving ticket
     clearCurrentSale();
   };
@@ -408,7 +484,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     const snap = await getDoc(doc(db, 'organizations', orgId, 'pos_active_tickets', ticketId));
     if (snap.exists()) {
         const ticket = snap.data() as PosTicket;
-        setCurrentSale(p => ({ ...p, items: ticket.items, tableId: ticket.tableId }));
+        setCurrentSale(p => ({ ...p, items: ticket.items, tableId: ticket.tableId, customerId: ticket.customerId ?? null }));
         recalculate(ticket.items);
         await updateDoc(doc(db, 'organizations', orgId, 'pos_active_tickets', ticketId), {
             history: [...(ticket.history || []), { action: 'LOADED', userId: user.uid, userName: userData?.name || user.displayName || 'Staff', timestamp: new Date().toISOString() }].slice(-20)
@@ -439,28 +515,37 @@ export function PosProvider({ children }: { children: ReactNode }) {
   const getEntityForInvoice = useCallback(async (id: string): Promise<{ data: SaleTransaction | PosTicket | null, type: 'sale' | 'ticket' | 'notFound' }> => {
     if (!orgId) return { data: null, type: 'notFound' };
     
+    // First, try to fetch as a finalized sale
     try {
       const saleRef = doc(db, 'organizations', orgId, 'pos_sales', id);
       const saleSnap = await getDoc(saleRef);
       if (saleSnap.exists()) {
         return { data: saleSnap.data() as SaleTransaction, type: 'sale' };
       }
-    } catch (error) { /* Ignore not found error and try tickets */ }
+    } catch (error) { /* Ignore and proceed to check for tickets */ }
 
+    // If not a sale, try to fetch as an active ticket
     try {
       const ticketRef = doc(db, 'organizations', orgId, 'pos_active_tickets', id);
       const ticketSnap = await getDoc(ticketRef);
       if (ticketSnap.exists()) {
         return { data: ticketSnap.data() as PosTicket, type: 'ticket' };
       }
-    } catch (error) { /* Ignore not found error */ }
+    } catch (error) { /* Ignore if not found */ }
 
     return { data: null, type: 'notFound' };
   }, [orgId]);
 
   const value = useMemo(() => ({
-    products, customers: crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, addProduct, updateProduct, deleteProduct, uploadProductImage, addCustomer, linkCustomerToTicket, addItemToSale, removeItemFromSale, updateItemQuantity, updateItemPrice, updateItemDiscount, applyDiscount, selectCustomer, clearCurrentSale, completeSale, addTable, updateTable, deleteTable, selectTable, saveTicket, loadTicket, setConfig, getEntityForInvoice,
-  }), [products, crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, recalculate, getEntityForInvoice]);
+    products, customers: crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, 
+    addProduct, updateProduct, deleteProduct, uploadProductImage, 
+    addCustomer, linkCustomerToTicket, 
+    addItemToSale, removeItemFromSale, updateItemQuantity, updateItemPrice, updateItemDiscount, applyDiscount, 
+    selectCustomer, clearCurrentSale, completeSale, 
+    addTable, updateTable, deleteTable, uploadTableImage, getTTSForTable,
+    selectTable, saveTicket, loadTicket, 
+    setConfig, getEntityForInvoice,
+  }), [products, crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, orgId, recalculate, getEntityForInvoice]);
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

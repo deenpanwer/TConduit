@@ -186,7 +186,7 @@ export default function SettingsPage() {
         const targetOrgId = userData?.ownedOrgId || userData?.orgId;
         const orgDoc = await getDoc(doc(db, 'organizations', targetOrgId));
         if (orgDoc.exists()) {
-            const orgData = orgDoc.data();
+            const orgData = { id: orgDoc.id, ...orgDoc.data() };
             setOrgData(orgData);
             if(orgData.settings){
                 setSettings(prev => ({...prev, ...orgData.settings, timeZone: orgData.settings.timeZone || prev.timeZone}));

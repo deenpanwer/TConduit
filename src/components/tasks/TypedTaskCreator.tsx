@@ -189,6 +189,28 @@ export function TypedTaskCreator({
   const { user, userData } = useAuth();
   const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition();
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const isPremium = userData?.isPremium || userData?.orgIsPremium || false;
+    const MAX_SIZE = isPremium ? 250 * 1024 * 1024 : 10 * 1024 * 1024;
+    
+    if (file.size > MAX_SIZE) {
+        toast.error(`File exceeds ${isPremium ? '250MB' : '10MB'} limit.`, {
+            description: !isPremium ? "Upgrade to Premium for 250MB file support." : "Please select a smaller file.",
+            duration: 5000,
+        });
+        // Clear input
+        if (event.target) event.target.value = '';
+        return;
+    }
+
+    handleFileUpload(event);
+    // Clear input so the same file can be uploaded again if needed
+    if (event.target) event.target.value = '';
+  };
+
   // Recording Logic
   useEffect(() => {
     return () => {
@@ -698,9 +720,8 @@ export function TypedTaskCreator({
                canManage={canManage}
                user={userData}
                isEnhancing={isEnhancing}
-               onUpload={handleFileUpload}
+               onUpload={handleFileChange}
            />
-
         </div>
 
         {(editingNewTask as any)?.id && (editingNewTask as any)?.id !== 'new' && (

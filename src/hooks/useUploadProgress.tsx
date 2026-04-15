@@ -1,7 +1,10 @@
+'use client';
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface ActiveUpload {
     id: string;
+    taskId?: string; // Optional taskId to filter progress by task
     name: string;
     type: string;
     size: number;

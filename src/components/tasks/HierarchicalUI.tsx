@@ -65,6 +65,7 @@ interface DrawerHierarchicalTableProps {
     items: any[];
     type: 'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes' | 'files';
     depth: number;
+    taskId?: string;
     onUpdate: (updatedItems: any[]) => void;
     onDelete: (id: string) => void;
     canManage: boolean;
@@ -80,6 +81,7 @@ export const DrawerHierarchicalTable = ({
     items, 
     type, 
     depth, 
+    taskId,
     onUpdate, 
     onDelete, 
     canManage, 
@@ -195,6 +197,7 @@ export const DrawerHierarchicalTable = ({
                                 <DrawerHierarchyItem 
                                     key={item.id || idx}
                                     item={item}
+                                    taskId={taskId}
                                     type={type === 'files' ? 'attachments' : type}
                                     depth={depth}
                                     canManage={canManage}
@@ -212,15 +215,25 @@ export const DrawerHierarchicalTable = ({
 
                             {/* Active Uploads for this section */}
                             {Object.values(uploads).filter(u => (type === 'files' && !u.type.startsWith('audio/')) || (type === 'voiceNotes' && u.type.startsWith('audio/'))).map((upload: ActiveUpload) => (
-                                <div key={upload.id} className="flex items-center gap-3 px-4 py-2 bg-primary/5 border-t border-border/5 animate-pulse">
-                                    <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-bold truncate">{upload.name}</p>
-                                        <Progress value={upload.progress} className="h-0.5 mt-1" />
+                                <div key={upload.id} className="flex flex-col gap-2 px-4 py-3 bg-primary/5 border-t border-border/5 animate-pulse">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <p className="text-[11px] font-bold truncate">{upload.name}</p>
+                                                <span className="text-[8px] font-black uppercase opacity-60">
+                                                    {upload.progress < 100 ? `Uploading ${Math.round(upload.progress)}%` : 'Processing...'}
+                                                </span>
+                                            </div>
+                                            <Progress value={upload.progress} className="h-1 bg-primary/20" />
+                                        </div>
                                     </div>
-                                    <span className="text-[8px] font-black uppercase opacity-40">
-                                        {upload.progress === 100 || upload.status === 'done' ? 'Upload Complete' : 'Uploading...'}
-                                    </span>
+                                    <div className="flex gap-2">
+                                        <Skeleton className="h-3 w-16 rounded opacity-50" />
+                                        <Skeleton className="h-3 w-12 rounded opacity-50" />
+                                    </div>
                                 </div>
                             ))}
 
@@ -303,6 +316,7 @@ export const DrawerHierarchicalTable = ({
 
 interface DrawerHierarchyItemProps {
     item: any;
+    taskId?: string;
     type: 'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes';
     onUpdate: (updates: any) => void;
     onDelete: () => void;
@@ -312,7 +326,7 @@ interface DrawerHierarchyItemProps {
     isAIEnhancing?: boolean;
 }
 
-export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, canManage, user, isAIEnhancing, forceExpand }: DrawerHierarchyItemProps & { forceExpand?: boolean }) {
+export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, depth, canManage, user, isAIEnhancing, forceExpand }: DrawerHierarchyItemProps & { forceExpand?: boolean }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [previewFile, setPreviewFile] = useState<any>(null);
     const [activeFocusType, setActiveFocusType] = useState<'subtasks' | 'notes' | 'resources' | 'images' | 'attachments' | 'voiceNotes' | null>(null);
@@ -532,7 +546,7 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                             />
 
                             <DrawerHierarchicalTable 
-                                items={item.images || []} type="images" depth={depth + 1} canManage={canManage} user={user}
+                                items={item.images || []} type="images" depth={depth + 1} taskId={taskId} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdate({ images: val })}
                                 onDelete={(id) => onUpdate({ images: item.images.filter((s: any) => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'images'}
@@ -542,7 +556,7 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                             />
 
                             <DrawerHierarchicalTable 
-                                items={item.resources || []} type="resources" depth={depth + 1} canManage={canManage} user={user}
+                                items={item.resources || []} type="resources" depth={depth + 1} taskId={taskId} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdate({ resources: val })}
                                 onDelete={(id) => onUpdate({ resources: item.resources.filter((s: any) => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'resources'}
@@ -552,7 +566,7 @@ export function DrawerHierarchyItem({ item, type, onUpdate, onDelete, depth, can
                             />
 
                             <DrawerHierarchicalTable 
-                                items={item.subtasks || []} type="subtasks" depth={depth + 1} canManage={canManage} user={user}
+                                items={item.subtasks || []} type="subtasks" depth={depth + 1} taskId={taskId} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdate({ subtasks: val })}
                                 onDelete={(id) => onUpdate({ subtasks: item.subtasks.filter((s: any) => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'subtasks'}
@@ -673,7 +687,7 @@ export function UnifiedHierarchyRoot({
                     >
                         <div className="border border-border/40 rounded-2xl overflow-hidden bg-card/30 pb-6 space-y-2">
                             <DrawerHierarchicalTable 
-                                items={task?.attachments || []} type="files" depth={0} canManage={canManage} user={user}
+                                items={task?.attachments || []} type="files" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ attachments: val })}
                                 onDelete={(id) => onUpdateTask({ attachments: (task?.attachments || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'attachments' || activeFocusType === 'files'}
@@ -684,7 +698,7 @@ export function UnifiedHierarchyRoot({
                             />
                             
                             <DrawerHierarchicalTable 
-                                items={task?.voiceNotes || []} type="voiceNotes" depth={0} canManage={canManage} user={user}
+                                items={task?.voiceNotes || []} type="voiceNotes" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ voiceNotes: val })}
                                 onDelete={(id) => onUpdateTask({ voiceNotes: (task?.voiceNotes || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'voiceNotes'}
@@ -694,7 +708,7 @@ export function UnifiedHierarchyRoot({
                             />
 
                             <DrawerHierarchicalTable 
-                                items={task?.nestedDescriptions || []} type="notes" depth={0} canManage={canManage} user={user}
+                                items={task?.nestedDescriptions || []} type="notes" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ nestedDescriptions: val })}
                                 onDelete={(id) => onUpdateTask({ nestedDescriptions: (task?.nestedDescriptions || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'notes'}
@@ -704,7 +718,7 @@ export function UnifiedHierarchyRoot({
                             />
 
                             <DrawerHierarchicalTable 
-                                items={task?.images || []} type="images" depth={0} canManage={canManage} user={user}
+                                items={task?.images || []} type="images" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ images: val })}
                                 onDelete={(id) => onUpdateTask({ images: (task?.images || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'images'}
@@ -714,7 +728,7 @@ export function UnifiedHierarchyRoot({
                             />
 
                             <DrawerHierarchicalTable 
-                                items={task?.resources || []} type="resources" depth={0} canManage={canManage} user={user}
+                                items={task?.resources || []} type="resources" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ resources: val })}
                                 onDelete={(id) => onUpdateTask({ resources: (task?.resources || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'resources'}
@@ -724,7 +738,7 @@ export function UnifiedHierarchyRoot({
                             />
 
                             <DrawerHierarchicalTable 
-                                items={task?.subtasks || []} type="subtasks" depth={0} canManage={canManage} user={user}
+                                items={task?.subtasks || []} type="subtasks" depth={0} taskId={task?.id} canManage={canManage} user={user}
                                 onUpdate={(val) => onUpdateTask({ subtasks: val })}
                                 onDelete={(id) => onUpdateTask({ subtasks: (task?.subtasks || []).filter(s => s.id !== id) })}
                                 shouldFocusQuickAdd={activeFocusType === 'subtasks'}

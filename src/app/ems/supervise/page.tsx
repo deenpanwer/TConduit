@@ -425,7 +425,7 @@ export default function SupervisePage() {
 
     try {
       const collageBase64 = await generateCollageBase64(
-        screenshotsArray.map(s => s.url || s.imageUrl || s.activity?.cloudinaryUrl).filter(Boolean)
+        screenshotsArray.map(s => s.redactedUrl || s.url || s.imageUrl || s.activity?.cloudinaryUrl).filter(Boolean)
       );
       const response = await fetch('/api/employee/supervise', {
         method: 'POST',
@@ -618,7 +618,7 @@ export default function SupervisePage() {
                   <div className="flex-1 w-full h-full overflow-hidden cursor-move">
                     <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
                       <img
-                        src={selectedScreenshot.url || selectedScreenshot.imageUrl || selectedScreenshot.activity?.cloudinaryUrl}
+                        src={selectedScreenshot.redactedUrl || selectedScreenshot.url || selectedScreenshot.imageUrl || selectedScreenshot.activity?.cloudinaryUrl}
                         className="max-w-full max-h-full object-contain"
                         alt="Enlarged"
                         onDragStart={(e) => e.preventDefault()}

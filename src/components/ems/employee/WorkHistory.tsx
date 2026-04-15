@@ -108,14 +108,14 @@ const ClusterItem = memo(({ entry, idx, onZoom }: { entry: any, idx: number, onZ
                   entry.images.map((img: any, i: number) => (
                       <div key={img.id || i} className="relative aspect-video rounded-2xl overflow-hidden bg-muted group/img border border-border/50 shadow-sm">
                           <img 
-                              src={img.url || img.imageUrl || img.activity?.cloudinaryUrl} 
+                              src={img.redactedUrl || img.url || img.imageUrl || img.activity?.cloudinaryUrl} 
                               className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110" 
                               alt="Work screenshot" 
                               loading="lazy"
                           />
                           <div className="absolute inset-0 bg-primary/40 opacity-0 group-hover/img:opacity-100 transition-all duration-300 flex items-center justify-center">
                               <button 
-                                  onClick={() => onZoom(img.url || img.imageUrl || img.activity?.cloudinaryUrl)}
+                                  onClick={() => onZoom(img.redactedUrl || img.url || img.imageUrl || img.activity?.cloudinaryUrl)}
                                   className="size-10 bg-white rounded-xl text-primary flex items-center justify-center shadow-xl hover:scale-110 active:scale-90 transition-all"
                               >
                                   <ZoomIn size={18} />

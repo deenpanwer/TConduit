@@ -104,7 +104,7 @@ function TasksPageContent() {
     const targetOrgId = userData?.ownedOrgId || userData?.orgId;
     if (targetOrgId) {
       const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
-      if (orgDoc.exists()) setOrgData(orgDoc.data());
+      if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
     }
   };
 
@@ -156,57 +156,78 @@ function TasksPageContent() {
       }
 
       const uploadId = Date.now().toString();
+      const isAudio = file.type.startsWith('audio/');
+      const subfolder = isAudio ? 'voiceNotes' : 'attachments';
       const orgId = userData?.orgId || userData?.ownedOrgId || 'unknown';
-      const path = `organizations/${orgId}/tasks/${taskId}/attachments/${uploadId}_${file.name}`;
+      const path = `organizations/${orgId}/tasks/${taskId}/${subfolder}/${uploadId}_${file.name}`;
       const storageRef = ref(storage, path);
       
-      setUpload(uploadId, { id: uploadId, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' });
+      setUpload(uploadId, { id: uploadId, taskId, name: file.name, type: file.type, size: file.size, progress: 0, status: 'uploading' });
       
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const promise = new Promise((resolve, reject) => {
+          const uploadTask = uploadBytesResumable(storageRef, file);
 
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-            const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUpload(uploadId, { progress: p });
-        },
-        (error) => { 
-            console.error(error);
-            toast.error("Upload failed");
-            setUpload(uploadId, { status: 'error' });
-            setTimeout(() => removeUpload(uploadId), 3000);
-        },
-        async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            const newAttachment: any = {
-                id: uploadId,
-                name: file.name,
-                url,
-                type: file.type,
-                size: file.size,
-                createdAt: new Date()
-            };
-            
-            if (taskId === 'new' && activeDraftIndex !== null) {
-                setDrafts(prev => {
-                    const next = [...prev];
-                    next[activeDraftIndex] = {
-                        ...next[activeDraftIndex],
-                        attachments: [...(next[activeDraftIndex].attachments || []), newAttachment]
-                    };
-                    return next;
-                });
-            } else {
-                const currentTask = tasks.find(t => t.id === taskId);
-                if (currentTask) {
-                    updateTask(taskId, { 
-                        attachments: [...(currentTask.attachments || []), newAttachment] 
-                    });
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+                const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUpload(uploadId, { progress: p });
+            },
+            (error) => { 
+                console.error(error);
+                setUpload(uploadId, { status: 'error' });
+                setTimeout(() => removeUpload(uploadId), 3000);
+                reject(error);
+            },
+            async () => {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                const newFile: any = {
+                    id: uploadId,
+                    name: file.name,
+                    url,
+                    type: file.type,
+                    size: file.size,
+                    createdAt: new Date()
+                };
+                
+                // For voice notes, we might want to store duration if available
+                if (isAudio) {
+                    // Read duration if it was attached to the file object (from recording UI)
+                    newFile.duration = (file as any).duration || 0; 
                 }
+
+                if (taskId === 'new' && activeDraftIndex !== null) {
+                    setDrafts(prev => {
+                        const next = [...prev];
+                        const field = isAudio ? 'voiceNotes' : 'attachments';
+                        next[activeDraftIndex] = {
+                            ...next[activeDraftIndex],
+                            [field]: [...(next[activeDraftIndex][field] || []), newFile]
+                        };
+                        return next;
+                    });
+                } else {
+                    const currentTask = tasks.find(t => t.id === taskId);
+                    if (currentTask) {
+                        const field = isAudio ? 'voiceNotes' : 'attachments';
+                        updateTask(taskId, { 
+                            [field]: [...(currentTask[field] || []), newFile] 
+                        });
+                    }
+                }
+                setUpload(uploadId, { progress: 100, status: 'done' });
+                setTimeout(() => removeUpload(uploadId), 1000);
+                resolve(url);
             }
-            setUpload(uploadId, { progress: 100, status: 'done' });
-            setTimeout(() => removeUpload(uploadId), 1000);
-        }
-      );
+          );
+      });
+
+      toast.promise(promise, {
+          loading: `Uploading ${file.name}...`,
+          success: `Uploaded ${file.name}`,
+          error: `Failed to upload ${file.name}`,
+      });
+
+      return promise;
   }, [userData, activeDraftIndex, tasks, updateTask, setUpload, removeUpload]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -726,6 +747,9 @@ function TasksPageContent() {
                     tasks={filteredTasks}
                     onTaskClick={setSelectedTaskId}
                     personnel={personnel}
+                    onUpdateTask={handleUpdateTaskLocal}
+                    onDeleteTask={handleDeleteTaskLocal}
+                    onUploadFile={handleFileUpload}
                 />
             )}
         </div>

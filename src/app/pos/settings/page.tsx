@@ -22,7 +22,8 @@ import {
     Circle,
     ShieldCheck,
     Users,
-    Trash2
+    Trash2,
+    FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
@@ -48,10 +49,9 @@ export default function SettingsPage() {
     return JSON.stringify(localConfig) !== JSON.stringify(config);
   }, [localConfig, config]);
 
-  const handleSave = async (updatedConfig?: PosConfig) => {
+  const handleSave = async () => {
     try {
-        const toSave = updatedConfig || localConfig;
-        await setConfig(toSave);
+        await setConfig(localConfig);
         toast.success("Settings synced to cloud!");
     } catch (e) {
         toast.error("Failed to save settings");
@@ -61,7 +61,6 @@ export default function SettingsPage() {
   const toggleRestaurantMode = async (enabled: boolean) => {
     const newConfig = { ...localConfig, isRestaurantMode: enabled };
     setLocalConfig(newConfig);
-    await handleSave(newConfig);
   };
 
   const addFloor = () => {
@@ -120,7 +119,7 @@ export default function SettingsPage() {
                     </div>
                 )}
                 <Button 
-                    onClick={() => handleSave()} 
+                    onClick={handleSave} 
                     disabled={!isDirty}
                     className={cn(
                         "font-black uppercase tracking-widest text-xs h-14 px-10 gap-2 shadow-xl transition-all",
@@ -205,11 +204,7 @@ export default function SettingsPage() {
                                     id="restaurant-mode"
                                     key={`restaurant-mode-${localConfig.isRestaurantMode}`}
                                     checked={localConfig.isRestaurantMode}
-                                    onCheckedChange={(enabled) => {
-                                        const newConfig = { ...localConfig, isRestaurantMode: enabled };
-                                        setLocalConfig(newConfig);
-                                        toggleRestaurantMode(enabled);
-                                    }}
+                                    onCheckedChange={toggleRestaurantMode}
                                     className="data-[state=checked]:bg-white data-[state=unchecked]:bg-slate-200"
                                 />
                             </div>
@@ -327,9 +322,7 @@ export default function SettingsPage() {
                                                 variant="outline" 
                                                 className="w-full font-black uppercase tracking-widest text-[10px] h-12 border-dashed gap-2"
                                                 onClick={() => {
-                                                    const nextNum = floorTables.length > 0 
-                                                        ? (Math.max(...floorTables.map(t => parseInt(t.number) || 0)) + 1).toString() 
-                                                        : "1";
+                                                    const nextNum = (floorTables.length + 1).toString();
                                                     addTable({ number: nextNum, capacity: 4, floor: activeFloorConfig || 'Main Floor' });
                                                 }}
                                             >
@@ -362,6 +355,29 @@ export default function SettingsPage() {
                                         className="font-black text-2xl bg-muted/20 border-border h-16 pl-10 rounded-xl" 
                                     />
                                 </div>
+                            </div>
+                        </div>
+                    </Card>
+                </section>
+
+                {/* 5. Invoice Customization */}
+                <section className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <h2 className="text-sm font-black uppercase tracking-widest">Invoice Customization</h2>
+                    </div>
+                    <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 p-8">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                <div>
+                                    <Label className="font-bold">Show Product Images</Label>
+                                    <p className="text-xs text-muted-foreground mt-1">If enabled, product images will be shown on the invoice.</p>
+                                </div>
+                                <Switch 
+                                    checked={localConfig.showProductImagesOnInvoice || false}
+                                    onCheckedChange={(checked) => setLocalConfig({...localConfig, showProductImagesOnInvoice: checked})}
+                                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-slate-200"
+                                />
                             </div>
                         </div>
                     </Card>
