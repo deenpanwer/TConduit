@@ -375,12 +375,13 @@ interface HierarchicalTableProps {
     onAISuggest?: () => Promise<void>;
     isLoading?: boolean;
     onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void;
+    personnel: any[];
 }
 
 const HierarchicalTable = ({ 
     items, type, depth, taskId, onUpdate, onDelete, isParentExpanded, 
     itemToAutoEdit, onItemEditDone, shouldFocusQuickAdd, onFocusHandled, 
-    onAISuggest, isLoading, onUploadFile 
+    onAISuggest, isLoading, onUploadFile, personnel
 }: HierarchicalTableProps) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
@@ -569,7 +570,7 @@ const HierarchicalTable = ({
                         <div className='flex flex-col'>
                             {items.map((item, idx) => (
                                 <div key={item.id} className='flex flex-col border-b border-border/40 group/item'>
-                                    <div className='flex h-10 items-center hover:bg-black/5 dark:hover:bg-white/5 transition-colors'>
+                                    <div className='flex min-h-[40px] py-1 items-center hover:bg-black/5 dark:hover:bg-white/5 transition-colors'>
                                         {/* Actions/Expand */}
                                         <div className='w-10 shrink-0 flex items-center justify-center'>
                                             {(item.subtasks?.length > 0 || item.resources?.length > 0 || item.images?.length > 0 || item.descriptions?.length > 0) && (
@@ -589,46 +590,80 @@ const HierarchicalTable = ({
                                             
                                             {type === 'images' && <ImagePreview url={item.url} title={item.title} />}
                                             {type === 'attachments' && (
-                                                <div className="flex items-center gap-2 cursor-pointer hover:bg-black/5 rounded p-1" onClick={() => setPreviewFile(item)}>
-                                                    <FileText size={14} className="text-rose-500" />
-                                                    <span className="text-xs font-bold truncate">{item.name}</span>
-                                                    <span className="text-[10px] opacity-40 uppercase">{(item.size / 1024).toFixed(0)} KB</span>
-                                                    <a href={item.url} download target="_blank" className="p-1 hover:bg-black/10 rounded-sm" onClick={(e) => e.stopPropagation()}>
-                                                        <Download size={12} />
-                                                    </a>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2 cursor-pointer hover:bg-black/5 rounded p-1" onClick={() => setPreviewFile(item)}>
+                                                        <FileText size={14} className="text-rose-500" />
+                                                        <span className="text-xs font-bold truncate">{item.name}</span>
+                                                        <span className="text-[10px] opacity-40 uppercase">{(item.size / 1024).toFixed(0)} KB</span>
+                                                        <a href={item.url} download target="_blank" className="p-1 hover:bg-black/10 rounded-sm" onClick={(e) => e.stopPropagation()}>
+                                                            <Download size={12} />
+                                                        </a>
+                                                    </div>
+                                                    {item.createdAt && (
+                                                        <div className="px-1 opacity-40 group-hover/item:opacity-70 transition-opacity">
+                                                            <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                                                                {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                             {type === 'voiceNotes' && (
-                                                <div className="flex-1 max-w-sm">
+                                                <div className="flex-1 max-w-sm flex flex-col gap-0.5">
                                                     <InlineAudioPlayer 
                                                         url={item.url} 
                                                         audioDuration={item.duration || 0} 
                                                         className="h-8 bg-transparent border-none p-0"
                                                     />
+                                                    {item.createdAt && (
+                                                        <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
+                                                            <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                                                                {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
                                             <div className='flex-1 flex flex-col justify-center'>
                                                 {type === 'descriptions' ? (
-                                                    <GridCell 
-                                                        isEditable 
-                                                        multiline
-                                                        value={item.text} 
-                                                        onChange={(v) => handleUpdateItem(item.id, { text: v })} 
-                                                        placeholder='Add description...'
-                                                        startInEditMode={item.id === itemToAutoEdit}
-                                                        onDidEndEditing={onItemEditDone}
-                                                    />
+                                                    <>
+                                                        <GridCell 
+                                                            isEditable 
+                                                            multiline
+                                                            value={item.text} 
+                                                            onChange={(v) => handleUpdateItem(item.id, { text: v })} 
+                                                            placeholder='Add description...'
+                                                            startInEditMode={item.id === itemToAutoEdit}
+                                                            onDidEndEditing={onItemEditDone}
+                                                        />
+                                                        {item.createdAt && (
+                                                            <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
+                                                                <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                                                                    {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 ) : (type === 'attachments' || type === 'voiceNotes') ? null : (
-                                                    <GridCell 
-                                                        isEditable 
-                                                        value={item.title} 
-                                                        onChange={(v) => handleUpdateItem(item.id, { title: v })} 
-                                                        placeholder='Title'
-                                                        className={cn('font-bold', type === 'subtasks' && item.completed && 'line-through text-muted-foreground')}
-                                                        startInEditMode={item.id === itemToAutoEdit}
-                                                        onDidEndEditing={onItemEditDone}
-                                                    />
+                                                    <>
+                                                        <GridCell 
+                                                            isEditable 
+                                                            value={item.title} 
+                                                            onChange={(v) => handleUpdateItem(item.id, { title: v })} 
+                                                            placeholder='Title'
+                                                            className={cn('font-bold', type === 'subtasks' && item.completed && 'line-through text-muted-foreground')}
+                                                            startInEditMode={item.id === itemToAutoEdit}
+                                                            onDidEndEditing={onItemEditDone}
+                                                        />
+                                                        {item.createdAt && (
+                                                            <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
+                                                                <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                                                                    {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                             
@@ -706,6 +741,7 @@ const HierarchicalTable = ({
                                                             items={item.descriptions || []} 
                                                             type='descriptions' 
                                                             depth={depth + 1} 
+                                                            taskId={item.id}
                                                             onUpdate={(newItems) => handleUpdateItem(item.id, { descriptions: newItems })}
                                                             onDelete={(subId) => handleUpdateItem(item.id, { descriptions: item.descriptions.filter((s: any) => s.id !== subId) })}
                                                             isParentExpanded={expandedIds[item.id]}
@@ -713,6 +749,7 @@ const HierarchicalTable = ({
                                                             onItemEditDone={onItemEditDone}
                                                             shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'descriptions'}
                                                             onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                            personnel={personnel}
                                                         />
                                                     )}
                                                     {((item.images || []).length > 0 || itemActiveTypeToFocus[item.id] === 'images') && (
@@ -720,6 +757,7 @@ const HierarchicalTable = ({
                                                             items={item.images || []} 
                                                             type='images' 
                                                             depth={depth + 1} 
+                                                            taskId={item.id}
                                                             onUpdate={(newItems) => handleUpdateItem(item.id, { images: newItems })}
                                                             onDelete={(subId) => handleUpdateItem(item.id, { images: item.images.filter((s: any) => s.id !== subId) })}
                                                             isParentExpanded={expandedIds[item.id]}
@@ -727,6 +765,7 @@ const HierarchicalTable = ({
                                                             onItemEditDone={onItemEditDone}
                                                             shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'images'}
                                                             onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                            personnel={personnel}
                                                         />
                                                     )}
                                                     {((item.resources || []).length > 0 || itemActiveTypeToFocus[item.id] === 'resources') && (
@@ -734,6 +773,7 @@ const HierarchicalTable = ({
                                                             items={item.resources || []} 
                                                             type='resources' 
                                                             depth={depth + 1} 
+                                                            taskId={item.id}
                                                             onUpdate={(newItems) => handleUpdateItem(item.id, { resources: newItems })}
                                                             onDelete={(subId) => handleUpdateItem(item.id, { resources: item.resources.filter((s: any) => s.id !== subId) })}
                                                             isParentExpanded={expandedIds[item.id]}
@@ -741,6 +781,7 @@ const HierarchicalTable = ({
                                                             onItemEditDone={onItemEditDone}
                                                             shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'resources'}
                                                             onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                            personnel={personnel}
                                                         />
                                                     )}
                                                     {((item.subtasks || []).length > 0 || itemActiveTypeToFocus[item.id] === 'subtasks') && (
@@ -748,6 +789,7 @@ const HierarchicalTable = ({
                                                             items={item.subtasks || []} 
                                                             type='subtasks' 
                                                             depth={depth + 1} 
+                                                            taskId={item.id}
                                                             onUpdate={(newItems) => handleUpdateItem(item.id, { subtasks: newItems })}
                                                             onDelete={(subId) => handleUpdateItem(item.id, { subtasks: item.subtasks.filter((s: any) => s.id !== subId) })}
                                                             isParentExpanded={expandedIds[item.id]}
@@ -755,6 +797,7 @@ const HierarchicalTable = ({
                                                             onItemEditDone={onItemEditDone}
                                                             shouldFocusQuickAdd={itemActiveTypeToFocus[item.id] === 'subtasks'}
                                                             onFocusHandled={() => setItemActiveTypeToFocus(prev => ({ ...prev, [item.id]: null }))}
+                                                            personnel={personnel}
                                                         />
                                                     )}
                                                 </div>
@@ -905,7 +948,10 @@ const HierarchicalTable = ({
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' && quickAddValue.trim()) {
                                                                     const title = quickAddValue.trim();
-                                                                    let newItem: any = { id: Math.random().toString() };
+                                                                    let newItem: any = { 
+                                                                        id: Math.random().toString(),
+                                                                        createdAt: new Date()
+                                                                    };
 
                                                                     if (type === 'descriptions') newItem.text = title;
                                                                     else if (type === 'subtasks') {
@@ -916,7 +962,6 @@ const HierarchicalTable = ({
                                                                         newItem.title = title;
                                                                         newItem.url = '';
                                                                         newItem.type = 'text/plain';
-                                                                        newItem.createdAt = new Date();
                                                                     }
 
                                                                     onUpdate([...items, newItem]);
@@ -1272,6 +1317,7 @@ const TaskRowDesktop = ({
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'nestedDescriptions'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    personnel={personnel}
                                 />
                             )}
                             {((localTask.attachments?.length || 0) > 0 || activeTypeToFocus === 'attachments') && (
@@ -1288,6 +1334,7 @@ const TaskRowDesktop = ({
                                     shouldFocusQuickAdd={activeTypeToFocus === 'attachments'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
                                     onUploadFile={onUploadFile}
+                                    personnel={personnel}
                                 />
                             )}
                             {((localTask.voiceNotes?.length || 0) > 0 || activeTypeToFocus === 'voiceNotes') && (
@@ -1304,6 +1351,7 @@ const TaskRowDesktop = ({
                                     shouldFocusQuickAdd={activeTypeToFocus === 'voiceNotes'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
                                     onUploadFile={onUploadFile}
+                                    personnel={personnel}
                                 />
                             )}
                             {((localTask.images?.length || 0) > 0 || activeTypeToFocus === 'images') && (
@@ -1319,6 +1367,7 @@ const TaskRowDesktop = ({
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'images'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    personnel={personnel}
                                 />
                             )}
                             {((localTask.resources?.length || 0) > 0 || activeTypeToFocus === 'resources') && (
@@ -1334,6 +1383,7 @@ const TaskRowDesktop = ({
                                     onItemEditDone={() => setItemToAutoEdit(null)}
                                     shouldFocusQuickAdd={activeTypeToFocus === 'resources'}
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
+                                    personnel={personnel}
                                 />
                             )}
                             {((localTask.subtasks?.length || 0) > 0 || activeTypeToFocus === 'subtasks' || isEnhancing) && (
@@ -1351,6 +1401,7 @@ const TaskRowDesktop = ({
                                     onFocusHandled={() => setActiveTypeToFocus(null)}
                                     onAISuggest={handleSuggestSubtask}
                                     isLoading={isEnhancing}
+                                    personnel={personnel}
                                 />
                             )}
                         </div>

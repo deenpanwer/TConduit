@@ -177,6 +177,7 @@ export function TypedTaskCreator({
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const shouldSaveRecordingRef = useRef<boolean>(true);
   const onUpdateTaskRef = useRef(onUpdateTask);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -234,6 +235,7 @@ export function TypedTaskCreator({
     setCurrentRecordingTime(0);
     recordingStartTimeRef.current = Date.now();
     audioChunksRef.current = [];
+    shouldSaveRecordingRef.current = true; // Default to saving
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -246,47 +248,49 @@ export function TypedTaskCreator({
       };
 
       recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-        const finalDuration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
-        
-        const uploadId = Date.now().toString();
-        const orgId = userData?.orgId || userData?.ownedOrgId || 'unknown';
-        const path = `organizations/${orgId}/tasks/new/voiceNotes/${uploadId}_recording.webm`;
-        const storageRef = ref(storage, path);
-        
-        setUpload(uploadId, { id: uploadId, name: 'Voice Note', type: 'audio/webm;codecs=opus', size: audioBlob.size, progress: 0, status: 'uploading' });
-        const uploadTask = uploadBytesResumable(storageRef, audioBlob);
+        // Only save/upload if the user didn't hit 'Cancel'
+        if (shouldSaveRecordingRef.current && audioChunksRef.current.length > 0) {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+            const finalDuration = Math.round((Date.now() - recordingStartTimeRef.current) / 1000);
+            
+            const uploadId = Date.now().toString();
+            const orgId = userData?.orgId || userData?.ownedOrgId || 'unknown';
+            const path = `organizations/${orgId}/tasks/new/voiceNotes/${uploadId}_recording.webm`;
+            const storageRef = ref(storage, path);
+            
+            setUpload(uploadId, { id: uploadId, name: 'Voice Note', type: 'audio/webm;codecs=opus', size: audioBlob.size, progress: 0, status: 'uploading' });
+            const uploadTask = uploadBytesResumable(storageRef, audioBlob);
 
-        uploadTask.on('state_changed', 
-          (snapshot) => {
-              const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUpload(uploadId, { progress: p });
-          },
-          (error) => {
-              console.error(error);
-              toast.error("Failed to save voice note");
-              setUpload(uploadId, { status: 'error' });
-              setTimeout(() => removeUpload(uploadId), 3000);
-          },
-          async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              const newVoiceNote: any = {
-                  id: uploadId,
-                  name: `Voice Note ${format(new Date(), 'MMM d, HH:mm')}`,
-                  url,
-                  type: 'audio/webm;codecs=opus',
-                  size: audioBlob.size,
-                  createdAt: new Date(),
-                  duration: finalDuration
-              };
-              
-              onUpdateTaskRef.current("new", { 
-                  voiceNotes: [...(editingNewTask?.voiceNotes || []), newVoiceNote] 
-              });
-              setUpload(uploadId, { progress: 100, status: 'done' });
-              setTimeout(() => removeUpload(uploadId), 1000);
-          }
-        );
+            uploadTask.on('state_changed', 
+                (snapshot) => {
+                    const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUpload(uploadId, { progress: p });
+                },
+                (error) => {
+                    console.error(error);
+                    toast.error("Failed to save voice note");
+                    setUpload(uploadId, { status: 'error' });
+                    setTimeout(() => removeUpload(uploadId), 3000);
+                },
+                async () => {
+                                  const url = await getDownloadURL(uploadTask.snapshot.ref);
+                                  const newVoiceNote: any = {
+                                      id: uploadId,
+                                      name: `Voice Recording`,
+                                      url,
+                                      type: 'audio/webm;codecs=opus',
+                                      size: audioBlob.size,
+                                      createdAt: new Date(),
+                                      duration: finalDuration
+                                  };                    
+                    onUpdateTaskRef.current("new", { 
+                        voiceNotes: [...(editingNewTask?.voiceNotes || []), newVoiceNote] 
+                    });
+                    setUpload(uploadId, { progress: 100, status: 'done' });
+                    setTimeout(() => removeUpload(uploadId), 1000);
+                }
+            );
+        }
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -312,7 +316,8 @@ export function TypedTaskCreator({
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = (shouldSave: boolean = true) => {
+    shouldSaveRecordingRef.current = shouldSave;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -721,6 +726,15 @@ export function TypedTaskCreator({
                user={userData}
                isEnhancing={isEnhancing}
                onUpload={handleFileChange}
+               recordingState={{
+                  isRecording,
+                  isPaused,
+                  currentRecordingTime,
+                  stopRecording,
+                  pauseRecording,
+                  resumeRecording,
+                  formatDuration
+               }}
            />
         </div>
 
@@ -771,9 +785,9 @@ export function TypedTaskCreator({
                          ) : (
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={pauseRecording}><Pause size={16} /></Button>
                          )}
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { stopRecording(); resetTranscript(); }}><Trash2 size={16} /></Button>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { stopRecording(false); resetTranscript(); }}><Trash2 size={16} /></Button>
 
-                         <Button size="icon" className="h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-lg" onClick={stopRecording}><Check size={16} /></Button>
+                         <Button size="icon" className="h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-lg" onClick={() => stopRecording(true)}><Check size={16} /></Button>
                     </div>
                 </motion.div>
             ) : (
@@ -805,7 +819,7 @@ export function TypedTaskCreator({
                             "h-12 w-12 rounded-full flex items-center justify-center transition-all shadow-lg",
                             isRecording ? "bg-red-500 text-white shadow-red-500/20" : "bg-secondary/30 hover:bg-primary hover:text-primary-foreground"
                         )}
-                        onClick={isRecording ? stopRecording : startRecording}
+                        onClick={isRecording ? () => stopRecording(true) : startRecording}
                     >
                         <Mic size={24} className={cn(isRecording && "animate-pulse")} />
                     </motion.button>

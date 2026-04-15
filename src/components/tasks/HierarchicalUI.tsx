@@ -6,11 +6,13 @@ import {
 } from "framer-motion";
 import { 
   Plus, X, Check, Trash2, Link as LinkIcon, ImageIcon,
-  MoreHorizontal, FileText, ChevronRight, ListTodo, Mic, FileVideo
+  MoreHorizontal, FileText, ChevronRight, ListTodo, Mic, FileVideo,
+  Pause, Play
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import { Task, Attachment } from "@/hooks/useTasks";
 import { AutoResizingTextarea } from "./BoardView";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +21,7 @@ import { FilePreviewModal } from "./FilePreviewModal";
 import { useUpload, ActiveUpload } from "@/hooks/useUploadProgress";
 import { Progress } from "@/components/ui/progress";
 import { Download } from "lucide-react";
+import { InlineAudioPlayer } from "./InlineAudioPlayer";
 
 export const CountTicker = ({ count, icon: Icon, color }: { count: number, icon: any, color: string }) => {
     if (count === 0) return null;
@@ -75,6 +78,15 @@ interface DrawerHierarchicalTableProps {
     onFocusHandled?: () => void;
     forceExpand?: boolean;
     onUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    recordingState?: {
+        isRecording: boolean;
+        isPaused: boolean;
+        currentRecordingTime: number;
+        stopRecording: (save?: boolean) => void;
+        pauseRecording: () => void;
+        resumeRecording: () => void;
+        formatDuration: (s: number) => string;
+    };
 }
 
 export const DrawerHierarchicalTable = ({ 
@@ -90,7 +102,8 @@ export const DrawerHierarchicalTable = ({
     shouldFocusQuickAdd,
     onFocusHandled,
     forceExpand,
-    onUpload
+    onUpload,
+    recordingState
 }: DrawerHierarchicalTableProps) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
@@ -135,6 +148,13 @@ export const DrawerHierarchicalTable = ({
         }
     }, [items.length]);
 
+    // Priority 4: Auto-expand voice notes when recording
+    useEffect(() => {
+        if (type === 'voiceNotes' && recordingState?.isRecording) {
+            setIsCollapsed(false);
+        }
+    }, [recordingState?.isRecording, type]);
+
     // A table is visible if it has items, is being AI enhanced, or is in "adding mode"
     const shouldBeVisible = items.length > 0 || isAIEnhancing || shouldFocusQuickAdd || isAdding;
     if (!shouldBeVisible) return null;
@@ -149,7 +169,7 @@ export const DrawerHierarchicalTable = ({
 
         const timestamp = Date.now();
         const newItem = type === 'notes' ? { id: `note-${timestamp}`, text: val, createdAt: new Date() } :
-                       type === 'subtasks' ? { id: `st-${timestamp}`, title: val, completed: false } :
+                       type === 'subtasks' ? { id: `st-${timestamp}`, title: val, completed: false, createdAt: new Date() } :
                        { id: `${type === 'images' ? 'img' : 'res'}-${timestamp}`, title: val, url: '', createdAt: new Date() };
         
         onUpdate([...items, newItem]);
@@ -260,6 +280,50 @@ export const DrawerHierarchicalTable = ({
                                         className="hidden" 
                                     />
                                 </div>
+                            ) : type === 'voiceNotes' && recordingState?.isRecording ? (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex items-center gap-3 px-4 py-2 border-t border-border/5 bg-primary/5"
+                                >
+                                    <div className="flex items-center gap-2 text-red-500 animate-pulse shrink-0">
+                                        <Mic size={14} />
+                                        <span className="text-[10px] font-mono font-bold tabular-nums">
+                                            {recordingState.formatDuration(recordingState.currentRecordingTime)}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex-1 h-6 flex items-center justify-center overflow-hidden">
+                                        <div className="flex gap-0.5 items-center">
+                                            {[...Array(15)].map((_, i) => (
+                                                <motion.div 
+                                                    key={i}
+                                                    animate={{ height: recordingState.isPaused ? 2 : Math.random() * 12 + 2 }}
+                                                    transition={{ repeat: Infinity, duration: 0.2, repeatType: "reverse" }}
+                                                    className="w-0.5 bg-primary/40 rounded-full"
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        {recordingState.isPaused ? (
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-primary p-0" onClick={recordingState.resumeRecording}>
+                                                <Play size={12} />
+                                            </Button>
+                                        ) : (
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-primary p-0" onClick={recordingState.pauseRecording}>
+                                                <Pause size={12} />
+                                            </Button>
+                                        )}
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive p-0" onClick={() => recordingState.stopRecording(false)}>
+                                            <Trash2 size={12} />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-emerald-600 p-0" onClick={() => recordingState.stopRecording(true)}>
+                                            <Check size={12} />
+                                        </Button>
+                                    </div>
+                                </motion.div>
                             ) : (
                                 <div className={cn(
                                     "flex items-center gap-3 px-4 py-3 border-t border-border/5 transition-colors group/quick-add",
@@ -270,7 +334,7 @@ export const DrawerHierarchicalTable = ({
                                         ref={quickAddInputRef}
                                         className="bg-transparent border-none p-0 text-[11px] font-bold outline-none flex-1 placeholder:italic placeholder:text-muted-foreground/20"
                                         placeholder={
-                                            type === 'voiceNotes' ? "Voice input active..." : 
+                                            type === 'voiceNotes' ? (recordingState?.isRecording ? "Recording..." : "Voice input ready - use Mic at bottom") : 
                                             `+ Add ${config.label.slice(0, -1)}...`
                                         }
                                         value={type === 'voiceNotes' ? "" : quickAddValue}
@@ -295,7 +359,7 @@ export const DrawerHierarchicalTable = ({
                                             }
                                         }}
                                     />
-                                    {(isAdding || quickAddValue) && (
+                                    {(isAdding || quickAddValue) && type !== 'voiceNotes' && (
                                         <motion.div 
                                             initial={{ opacity: 0, x: 10 }}
                                             animate={{ opacity: 1, x: 0 }}
@@ -379,6 +443,18 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
         return <FileText size={14} className="opacity-40" />;
     };
 
+    const renderTimestamp = () => {
+        if (!item.createdAt) return null;
+        const date = item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt);
+        return (
+            <div className="mt-1 flex items-center gap-1.5 opacity-40 group-hover/row:opacity-70 transition-opacity">
+                <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                    {format(date, "MMM d, h:mm a")}
+                </span>
+            </div>
+        );
+    };
+
     return (
         <div className="group/item flex flex-col w-full border-b border-border/5 last:border-none transition-all duration-200">
             <div className={cn(
@@ -425,28 +501,43 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
                     onClick={() => (type === 'images' || type === 'attachments' || type === 'voiceNotes') && setPreviewFile(item)}
                 >
                     {type === 'notes' ? (
-                        <AutoResizingTextarea 
-                            value={item.text}
-                            onChange={(e) => onUpdate({ text: e.target.value })}
-                            className="text-[12px] bg-transparent border-none p-0 focus:ring-0 placeholder:text-muted-foreground/30 w-full min-h-[1.5rem] leading-relaxed scrollbar-hide font-medium"
-                            placeholder="Type note details..."
-                            maxHeight={1000} 
-                        />
+                        <div className="space-y-0.5">
+                            <AutoResizingTextarea 
+                                value={item.text}
+                                onChange={(e) => onUpdate({ text: e.target.value })}
+                                className="text-[12px] bg-transparent border-none p-0 focus:ring-0 placeholder:text-muted-foreground/30 w-full min-h-[1.5rem] leading-relaxed scrollbar-hide font-medium"
+                                placeholder="Type note details..."
+                                maxHeight={1000} 
+                            />
+                            {renderTimestamp()}
+                        </div>
                     ) : type === 'attachments' ? (
-                        <div className="flex items-center justify-between group/file pr-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                                {getFileIcon(item.type, item.name)}
-                                <span className="text-[12px] font-bold truncate">{item.name}</span>
-                                <span className="text-[9px] opacity-30 font-black uppercase">{(item.size / 1024).toFixed(0)} KB</span>
+                        <div className="space-y-0.5">
+                            <div className="flex items-center justify-between group/file pr-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    {getFileIcon(item.type, item.name)}
+                                    <span className="text-[12px] font-bold truncate">{item.name}</span>
+                                    <span className="text-[9px] opacity-30 font-black uppercase">{(item.size / 1024).toFixed(0)} KB</span>
+                                </div>
+                                <Button 
+                                    variant="ghost" size="icon" 
+                                    className="h-6 w-6 opacity-0 group-hover/file:opacity-100 transition-opacity"
+                                    asChild
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <a href={item.url} download target="_blank"><Download size={12} /></a>
+                                </Button>
                             </div>
-                            <Button 
-                                variant="ghost" size="icon" 
-                                className="h-6 w-6 opacity-0 group-hover/file:opacity-100 transition-opacity"
-                                asChild
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <a href={item.url} download target="_blank"><Download size={12} /></a>
-                            </Button>
+                            {renderTimestamp()}
+                        </div>
+                    ) : type === 'voiceNotes' ? (
+                        <div className="flex flex-col gap-1 pr-4">
+                             <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-foreground/80">{item.name || 'Voice Note'}</span>
+                                <span className="text-[9px] opacity-40 font-mono">{item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : ''}</span>
+                             </div>
+                             <InlineAudioPlayer url={item.url} />
+                             {renderTimestamp()}
                         </div>
                     ) : (
                         <div className="space-y-1">
@@ -485,6 +576,7 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
                                     />
                                 </motion.div>
                             )}
+                            {renderTimestamp()}
                         </div>
                     )}
                 </div>
@@ -593,14 +685,24 @@ export function UnifiedHierarchyRoot({
     canManage, 
     user,
     isEnhancing,
-    onUpload
+    onUpload,
+    recordingState
 }: { 
     task: Partial<Task> | null, 
     onUpdateTask: (updates: Partial<Task>) => void,
     canManage: boolean,
     user: any,
     isEnhancing?: boolean,
-    onUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void
+    onUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void,
+    recordingState?: {
+        isRecording: boolean;
+        isPaused: boolean;
+        currentRecordingTime: number;
+        stopRecording: (save?: boolean) => void;
+        pauseRecording: () => void;
+        resumeRecording: () => void;
+        formatDuration: (s: number) => string;
+    };
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [globalForceExpand, setGlobalForceExpand] = useState<boolean | undefined>(undefined);
@@ -645,13 +747,13 @@ export function UnifiedHierarchyRoot({
         setIsExpanded(nextState);
     };
 
-    // Auto-expand if AI is enhancing
+    // Auto-expand if AI is enhancing or recording
     useEffect(() => {
-        if (isEnhancing) {
+        if (isEnhancing || recordingState?.isRecording) {
             setIsExpanded(true);
             setGlobalForceExpand(true);
         }
-    }, [isEnhancing]);
+    }, [isEnhancing, recordingState?.isRecording]);
 
     return (
         <div className="space-y-4">
@@ -695,6 +797,7 @@ export function UnifiedHierarchyRoot({
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
                                 onUpload={onUpload}
+                                recordingState={recordingState}
                             />
                             
                             <DrawerHierarchicalTable 
@@ -705,6 +808,7 @@ export function UnifiedHierarchyRoot({
                                 onFocusHandled={() => setActiveFocusType(null)}
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
+                                recordingState={recordingState}
                             />
 
                             <DrawerHierarchicalTable 
@@ -715,6 +819,7 @@ export function UnifiedHierarchyRoot({
                                 onFocusHandled={() => setActiveFocusType(null)}
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
+                                recordingState={recordingState}
                             />
 
                             <DrawerHierarchicalTable 
@@ -725,6 +830,7 @@ export function UnifiedHierarchyRoot({
                                 onFocusHandled={() => setActiveFocusType(null)}
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
+                                recordingState={recordingState}
                             />
 
                             <DrawerHierarchicalTable 
@@ -735,6 +841,7 @@ export function UnifiedHierarchyRoot({
                                 onFocusHandled={() => setActiveFocusType(null)}
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
+                                recordingState={recordingState}
                             />
 
                             <DrawerHierarchicalTable 
@@ -745,6 +852,7 @@ export function UnifiedHierarchyRoot({
                                 onFocusHandled={() => setActiveFocusType(null)}
                                 isAIEnhancing={isEnhancing}
                                 forceExpand={globalForceExpand}
+                                recordingState={recordingState}
                             />
 
                             {!hasContent && !isEnhancing && (
