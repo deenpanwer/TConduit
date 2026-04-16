@@ -42,7 +42,7 @@ const formSchema = z.object({
 });
 
 interface AddItemFormProps {
-  onSubmit: (data: z.infer<typeof formSchema>) => Promise<void>;
+  onSubmit: (data: z.infer<typeof formSchema>) => Promise<string | void>;
 }
 
 export function AddItemForm({ onSubmit }: AddItemFormProps) {

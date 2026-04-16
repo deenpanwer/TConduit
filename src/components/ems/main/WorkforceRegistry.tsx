@@ -41,16 +41,18 @@ export const WorkforceRegistry = ({
 
   const getShiftStatus = (employee: any) => {
     const now = new Date();
-    const todayStr = format(now, "yyyy-MM-dd");
+    // Use the first shift of the day from dailyShifts if available (provided by useTeam)
+    const actualShift = employee.dailyShifts?.[0] || employee.workShifts?.[0];
     const isOnline = isEmployeeOnline(employee);
 
     const scheduledStartTimeStr = employee.trackingSettings?.shiftDefaults?.startTime;
     const scheduledEndTimeStr = employee.trackingSettings?.shiftDefaults?.endTime;
     const hasSchedule = scheduledStartTimeStr && scheduledEndTimeStr;
 
-    const actualShift = employee.workShifts?.find((s: any) => s.id.startsWith(todayStr));
     const actualStartTime = actualShift ? parseShiftDate(actualShift.startTime) : null;
     const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
+
+    const todayStr = actualShift ? format(actualStartTime!, "yyyy-MM-dd") : format(now, "yyyy-MM-dd");
 
     const scheduledStartTime = hasSchedule ? parse(`${todayStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
     const scheduledEndTime = hasSchedule ? parse(`${todayStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;

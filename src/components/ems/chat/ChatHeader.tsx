@@ -11,9 +11,10 @@ interface Employee {
 
 interface ChatHeaderProps {
   selectedEmployee: Employee | null;
+  chatId?: string | null;
 }
 
-export function ChatHeader({ selectedEmployee }: ChatHeaderProps) {
+export function ChatHeader({ selectedEmployee, chatId }: ChatHeaderProps) {
   if (!selectedEmployee) {
     return (
       <div className="flex items-center gap-4 p-5 border-b border-border/40 bg-card/50 backdrop-blur-md">

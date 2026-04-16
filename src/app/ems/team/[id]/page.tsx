@@ -125,60 +125,25 @@ export default function EmployeeDetailPage() {
   }, [showMemberAccessModal, employee]);
 
   useEffect(() => {
-    if (!id) return;
-    // Full loading only on employee change
-    setLoading(true);
+    if (!id || !liveEmployee) return;
+
+    setWorkShifts(liveEmployee.workShifts || []);
+    setTimeEntries(liveEmployee.timeEntries || []);
     
-    // 1. Profile Document
-    const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
-      if (snapshot.exists()) {
-        setEmployeeDoc(snapshot.data());
-        // We set loading false here because profile is the core identity
-        setLoading(false); 
-      } else {
-        setLoading(false); 
-      }
-    }, () => setLoading(false));
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const dayScreenshots = (liveEmployee.screenshots || []).filter((s: any) => s.timestamp.startsWith(dateStr));
+    setScreenshots(dayScreenshots);
+    
+    setLoading(false);
+  }, [id, liveEmployee, selectedDate]);
 
-    return () => unsubProfile();
-  }, [id]);
-
+  // Remove the old Firestore listeners
+  /*
   useEffect(() => {
     if (!id) return;
-
-    // We do NOT call setLoading(true) here for date/limit changes
-    // This allows the UI to stay interactive while the new snapshot arrives.
-
-    // 2. Shift History (Limited for Ledger preview)
-    const shiftsRef = collection(db, "users", id as string, "workShifts");
-    const shiftsQuery = query(shiftsRef, orderBy("startTime", "desc"), limit(shiftsLimit));
-    const unsubShifts = onSnapshot(shiftsQuery, (snapshot) => {
-      setWorkShifts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // 3. Time Entries (Paginated Engagement Log)
-    const timeRef = collection(db, "users", id as string, "timeEntries");
-    const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(historyLimit));
-    const unsubTime = onSnapshot(timeQuery, (snapshot) => {
-      setTimeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // 4. Visual Evidence (Snapshot per day)
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    
-    const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
-    const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
-    
-    const unsubScreenshots = onSnapshot(screenQuery, (snapshot) => {
-        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    }); 
-
-    return () => {
-      unsubShifts();
-      unsubTime();
-      unsubScreenshots();
-    };
+    ...
   }, [id, historyLimit, shiftsLimit, selectedDate]);
+  */
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -468,6 +433,7 @@ export default function EmployeeDetailPage() {
                   timeEntries={timeEntries} 
                   screenshots={screenshots} 
                   onLoadMore={handleLoadMore}
+                  hasMore={false}
                 />
               </motion.div>
             </>

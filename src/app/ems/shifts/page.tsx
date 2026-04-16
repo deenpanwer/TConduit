@@ -1347,7 +1347,7 @@ const GlobalDefaultsModal = ({ isOpen, onClose, employees, onSave }: { isOpen: b
                 </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto">
               <div className="p-6 sm:p-8 space-y-4">
                 {filteredEmployees.map(emp => (
                   <GlobalEmployeeRow key={emp.id || emp.uid} employee={emp} onSave={onSave} />
@@ -1358,7 +1358,7 @@ const GlobalDefaultsModal = ({ isOpen, onClose, employees, onSave }: { isOpen: b
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="p-6 sm:p-8 border-t-2 bg-secondary/10 flex justify-end shrink-0">
                 <Button variant="outline" onClick={onClose} className="h-12 px-8 rounded-xl font-black uppercase border-2 border-border">Done</Button>

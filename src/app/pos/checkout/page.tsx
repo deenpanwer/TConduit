@@ -260,10 +260,10 @@ export default function CheckoutPage() {
                             {item.quantity}
                         </span>
                         <span className={cn("text-right text-xs font-medium", isSelected && activeMode === 'Rate' && "text-primary scale-110")}>
-                            ${item.unitPrice.toFixed(2)}
+                            ${Number(item.unitPrice || 0).toFixed(2)}
                         </span>
                         <div className="flex items-center justify-end gap-1">
-                            <span className="font-bold text-right text-xs">${(item.quantity * item.unitPrice * (1 - item.discount / 100)).toFixed(2)}</span>
+                            <span className="font-bold text-right text-xs">${(Number(item.quantity || 0) * Number(item.unitPrice || 0) * (1 - (Number(item.discount) || 0) / 100)).toFixed(2)}</span>
                             <Button 
                                 size="icon" 
                                 variant="ghost" 
@@ -505,7 +505,7 @@ export default function CheckoutPage() {
                         <p className="text-[9px] font-bold text-muted-foreground mt-0.5 tracking-tighter uppercase">{product.sku}</p>
                         <div className="mt-auto flex items-end justify-between pt-2">
                             <p className="text-sm font-black text-primary">
-                                ${product.discountedPrice ? product.discountedPrice.toFixed(2) : product.basePrice.toFixed(2)}
+                                ${product.discountedPrice ? product.discountedPrice.toFixed(2) : (product.basePrice || 0).toFixed(2)}
                             </p>
                             <span className="text-[8px] font-bold text-muted-foreground uppercase">{product.stockQuantity} STK</span>
                         </div>

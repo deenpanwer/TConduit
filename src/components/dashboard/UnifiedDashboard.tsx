@@ -11,12 +11,14 @@ import { CRMOverviewContent } from "@/components/crm/CRMOverviewContent";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { ExternalLink, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 import { TasksProvider } from "@/hooks/useTasks";
 import { TasksDashboardContent } from "@/components/tasks/TasksDashboardContent";
 
 export function UnifiedDashboard({ selectedModules }: { selectedModules: string[] }) {
   const { user, userData, loading } = useAuth();
+  const router = useRouter();
   const [activeModule, setActiveModule] = useState(selectedModules[0] || "ems");
   const [orgData, setOrgData] = useState<any>(null);
   const [orgLoading, setOrgLoading] = useState(true);
@@ -115,7 +117,11 @@ export function UnifiedDashboard({ selectedModules }: { selectedModules: string[
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => window.open(activeModuleData?.href, '_blank')}
+            onClick={() => {
+              if (activeModuleData?.href) {
+                router.push(activeModuleData.href);
+              }
+            }}
             className="rounded-xl font-black uppercase text-[10px] tracking-widest gap-2 h-9 border-2 border-primary/20 hover:border-primary/50 hover:bg-primary/5 transition-all group"
           >
             Open {activeModuleData?.title} Full Module

@@ -9,28 +9,15 @@ import {
   useCallback,
   ReactNode,
 } from "react";
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  serverTimestamp,
-  writeBatch,
-  increment as firestoreIncrement,
-  setDoc,
-  getDoc,
-} from "firebase/firestore";
+import { storage } from "@/lib/storage";
 import { useAuth } from "./use-auth";
 import { requestNotificationPermission, sendBrowserNotification, subscribeUserToPush } from "@/lib/notifications";
 import { toast } from "sonner";
 import { getISOWeek, getYear } from "date-fns";
 
 // --- 1. Types & Constants ---
+const TASKS_COLLECTION = "tasks";
+const POINTS_LEDGER_COLLECTION = "points_ledger";
 
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "todo" | "in_progress" | "review" | "done";
@@ -127,6 +114,7 @@ export interface Task {
   flaggedPointsAwarded?: number; // Points given for final completion
   createdAt: any;
   updatedAt: any;
+  orgId?: string;
 }
 
 // --- 2. State Management (Reducer) ---
@@ -212,35 +200,38 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     const weekNumber = getISOWeek(now);
     const weekKey = `week_${weekNumber}`;
 
-    const userPointsRef = doc(db, "users", userId, "points_ledger", year, "weeks", weekKey);
+    const ledgerKey = `${POINTS_LEDGER_COLLECTION}:${userId}:${year}:weeks:${weekKey}`;
+    const currentData = storage.getItem<any>(POINTS_LEDGER_COLLECTION, ledgerKey) || {
+      id: ledgerKey,
+      totalPoints: 0,
+      history: []
+    };
 
-    try {
-        await setDoc(userPointsRef, {
-            totalPoints: firestoreIncrement(points),
-            updatedAt: serverTimestamp(),
-            history: [{
-                id: Date.now().toString(),
-                taskId,
-                taskTitle,
-                details,
-                points,
-                type,
-                timestamp: new Date()
-            }, ...( (await getDoc(userPointsRef)).data()?.history || [] ).slice(0, 49)] // Keep last 50 entries
-        }, { merge: true });
-        
-        if (points > 0) {
-            toast.success(`Awarded ${points.toFixed(1)} points!`);
-        } else {
-            toast.info(`Deducted ${Math.abs(points).toFixed(1)} points.`);
-        }
-    } catch (error) {
-        console.error("Error awarding points:", error);
+    const updatedData = {
+      ...currentData,
+      totalPoints: (currentData.totalPoints || 0) + points,
+      updatedAt: new Date().toISOString(),
+      history: [{
+          id: Date.now().toString(),
+          taskId,
+          taskTitle,
+          details,
+          points,
+          type,
+          timestamp: new Date().toISOString()
+      }, ...(currentData.history || []).slice(0, 49)]
+    };
+
+    storage.saveItem(POINTS_LEDGER_COLLECTION, updatedData);
+    
+    if (points > 0) {
+        toast.success(`Awarded ${points.toFixed(1)} points!`);
+    } else {
+        toast.info(`Deducted ${Math.abs(points).toFixed(1)} points.`);
     }
   }, []);
 
   useEffect(() => {
-    // Request permission for notifications when the app loads.
     requestNotificationPermission().then(permission => {
         if (permission === 'granted' && user?.uid) {
             subscribeUserToPush(user.uid);
@@ -255,34 +246,11 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(true);
-    const tasksCollection = collection(db, "organizations", orgId, "tasks");
-    // Filter out deleted tasks from the real-time stream
-    const q = query(tasksCollection, where("isDeleted", "==", false));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          const rawData = change.doc.data();
-          const data = { 
-              ...rawData,
-              id: change.doc.id,
-          } as Task;
-
-          if (change.type === "added" || change.type === "modified") {
-            dispatch({ type: "ADD_OR_UPDATE_TASK", task: data });
-          }
-          if (change.type === "removed") {
-            dispatch({ type: "DELETE_TASK", taskId: change.doc.id });
-          }
-        });
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching tasks:", error);
-        setLoading(false);
-      }
-    );
+    const unsubscribe = storage.onSnapshot<Task>(TASKS_COLLECTION, (allTasks) => {
+      const orgTasks = allTasks.filter(t => t.orgId === orgId && !t.isDeleted);
+      dispatch({ type: "SET_TASKS", tasks: orgTasks });
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, [orgId, authLoading]);
@@ -303,18 +271,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       nestedDescriptions: NestedDescription[] = [],
       images: NestedImage[] = []
     ): Promise<string | null> => {
-      console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
-      
-      if (!orgId || !user) {
-        console.error("useTasks: Missing orgId or user");
-        return null;
-      }
-      if (!canManageTasks) {
-        console.error("useTasks: User does not have permission to manage tasks");
-        return null;
-      }
+      if (!orgId || !user) return null;
+      if (!canManageTasks) return null;
 
-      const newTask: any = {
+      const taskId = Math.random().toString(36).substring(7);
+      const newTask: Task = {
+        id: taskId,
+        orgId,
         title,
         description,
         status,
@@ -338,41 +301,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 userId: user.uid,
                 action: 'created',
                 details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length },
-                createdAt: new Date(),
+                createdAt: new Date().toISOString(),
             }
         ],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      try {
-        const tasksCollection = collection(db, "organizations", orgId, "tasks");
-        const docRef = await addDoc(tasksCollection, newTask);
-        console.log("useTasks: Task created successfully", docRef.id);
-
-        // Notify assignees (if any) about the new task
-        if (assignees.length > 0) {
-          assignees.forEach(assigneeId => {
-            if (assigneeId !== user.uid) {
-              fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId: assigneeId,
-                  title: `New Task Assigned`,
-                  body: `You've been assigned to: "${title}"`,
-                  data: { taskId: docRef.id }
-                })
-              });
-            }
-          });
-        }
-
-        return docRef.id;
-      } catch (error) {
-        console.error("Error adding task: ", error);
-        return null;
-      }
+      storage.saveItem(TASKS_COLLECTION, newTask);
+      return taskId;
     },
     [orgId, user, canManageTasks]
   );
@@ -381,28 +318,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     async (taskId: string, updates: Partial<Task>, actionName: string = 'updated', skipHistory: boolean = false) => {
       if (!orgId || !user) return;
 
-      const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
       const currentTask = tasks.find(t => t.id === taskId);
       if (!currentTask) return;
 
       let history = currentTask.history || [];
       const cleanUpdates = { ...updates };
 
-      // Helper to deeply clean objects of undefined values
-      const deepClean = (obj: any): any => {
-        if (Array.isArray(obj)) {
-          return obj.map(v => deepClean(v));
-        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
-          return Object.entries(obj).reduce((acc, [key, value]) => {
-            acc[key] = deepClean(value);
-            return acc;
-          }, {} as any);
-        }
-        return obj === undefined ? null : obj;
-      };
-      // --- Point Awarding Logic ---
       if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
-        // 1. Subtask Toggled
         if (updates.subtasks && JSON.stringify(updates.subtasks) !== JSON.stringify(currentTask.subtasks)) {
             const oldSubs = currentTask.subtasks || [];
             const newSubs = [...updates.subtasks];
@@ -411,28 +333,24 @@ export function TasksProvider({ children }: { children: ReactNode }) {
             newSubs.forEach((sub, idx) => {
                 const oldSub = oldSubs.find(s => s.id === sub.id);
                 if (oldSub) {
-                    // Subtask marked as COMPLETED
                     if (!oldSub.completed && sub.completed) {
                         sub.pointsAwarded = pointsPerSub;
                         sub.completedBy = user.uid;
                         awardPointsToUser(user.uid, pointsPerSub, taskId, currentTask.title, `Completed subtask: ${sub.title}`, 'subtask');
                     }
-                    // Subtask UNCHECKED
                     else if (oldSub.completed && !sub.completed) {
                         const earner = oldSub.completedBy || user.uid;
                         const deduction = oldSub.pointsAwarded || pointsPerSub;
                         awardPointsToUser(earner, -deduction, taskId, currentTask.title, `Unchecked subtask: ${sub.title}`, 'subtask');
                         sub.pointsAwarded = 0;
                         sub.completedBy = null;
-                        }
-                        }
-                        });
-                        cleanUpdates.subtasks = newSubs;
-                        }
-        // 2. Full Task Completion (Flagged)
+                    }
+                }
+            });
+            cleanUpdates.subtasks = newSubs;
+        }
         if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
             if (updates.flagged === true) {
-                // Award remaining points
                 const awardedSoFar = (currentTask.subtasks || []).reduce((acc, s) => acc + (s.pointsAwarded || 0), 0);
                 const remainingPoints = Math.max(0, currentTask.leaderPoints - awardedSoFar);
                 if (remainingPoints > 0) {
@@ -440,7 +358,6 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                     (cleanUpdates as any).flaggedPointsAwarded = remainingPoints;
                 }
             } else if (updates.flagged === false) {
-                // Deduct whatever was awarded for final completion
                 const deduction = currentTask.flaggedPointsAwarded || 0;
                 if (deduction > 0) {
                     awardPointsToUser(user.uid, -deduction, taskId, currentTask.title, `Unmarked task as complete`, 'full_completion');
@@ -450,59 +367,32 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // RUTHLESS LOGGING: Only log if moving to "done", if it's a manual save, or a comment
       const isMovingToDone = updates.status === 'done';
       const isManualSave = actionName === 'manual_save';
       const isComment = actionName === 'comment_added';
       const isDeletion = actionName === 'deleted';
-
-      const finalUpdates = deepClean(cleanUpdates);
 
       if (!skipHistory && (isMovingToDone || isManualSave || isComment || isDeletion)) {
         const historyEntry = {
             id: Date.now().toString(),
             userId: user.uid,
             action: actionName,
-            details: finalUpdates,
-            createdAt: new Date(),
+            details: updates,
+            createdAt: new Date().toISOString(),
         };
         history = [...history, historyEntry];
       }
 
       const taskToUpdate = {
-        ...finalUpdates,
-        updatedAt: serverTimestamp(),
-        history: deepClean(history)
+        ...currentTask,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+        history
       };
 
-      try {
-        await updateDoc(taskDocRef, taskToUpdate);
-        // If task is completed, notify the assignees or others
-        if (finalUpdates.status === 'done') {
-            const notificationTitle = `Task Completed`;
-            const notificationBody = `"${currentTask.title}" has been marked as complete.`;
-            toast.success(notificationBody);
-            
-            // Send push notifications to all other assignees and the owner
-            const notifyList = new Set([...(currentTask.assignees || [])]);
-            
-            notifyList.forEach(uId => {
-                if (uId !== user.uid) {
-                    fetch('/api/notifications/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: uId,
-                            title: notificationTitle,
-                            body: notificationBody,
-                            data: { taskId }
-                        })
-                    });
-                }
-            });
-        }
-      } catch (error) {
-        console.error("Error updating task: ", error);
+      storage.saveItem(TASKS_COLLECTION, taskToUpdate);
+      if (updates.status === 'done') {
+          toast.success(`"${currentTask.title}" has been marked as complete.`);
       }
     },
     [orgId, user, tasks, awardPointsToUser]
@@ -518,7 +408,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         id: Date.now().toString(),
         userId: user.uid,
         text,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       };
 
       const updates = {
@@ -527,32 +417,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       await updateTask(taskId, updates, 'comment_added');
       toast.success(`Comment added to "${currentTask.title}"`);
-      
-      // Send push notification to all assignees (except current user)
-      const notifyList = new Set(currentTask.assignees || []);
-      notifyList.forEach(uId => {
-        if (uId !== user.uid) {
-            fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: uId,
-                    title: `New comment on "${currentTask.title}"`,
-                    body: text,
-                    data: { taskId }
-                })
-            });
-        }
-      });
     },
     [orgId, user, tasks, updateTask]
   );
 
-
   const deleteTask = useCallback(
     async (taskId: string) => {
       if (!orgId || !canManageTasks) return;
-      // Soft delete: keep the doc, but mark it hidden
       await updateTask(taskId, { isDeleted: true }, 'deleted');
     },
     [orgId, canManageTasks, updateTask]
@@ -562,44 +433,26 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     async (updates: Record<string, Partial<Task>>, actionName: string = 'bulk_updated') => {
       if (!orgId || !user) return;
       
-      const batch = writeBatch(db);
-      const now = serverTimestamp();
-
       Object.entries(updates).forEach(([taskId, taskUpdates]) => {
-        const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
         const currentTask = tasks.find(t => t.id === taskId);
-        
         if (currentTask) {
           const historyEntry = {
             id: Date.now().toString() + Math.random().toString(36).substring(7),
             userId: user.uid,
             action: actionName,
             details: taskUpdates,
-            createdAt: new Date(),
+            createdAt: new Date().toISOString(),
           };
 
-          const finalUpdates = Object.entries(taskUpdates).reduce((acc, [key, value]) => {
-            if (value !== undefined) {
-              acc[key] = value;
-            }
-            return acc;
-          }, {} as any);
-
-          batch.update(taskDocRef, {
-            ...finalUpdates,
-            updatedAt: now,
+          storage.saveItem(TASKS_COLLECTION, {
+            ...currentTask,
+            ...taskUpdates,
+            updatedAt: new Date().toISOString(),
             history: [...(currentTask.history || []), historyEntry]
           });
         }
       });
-
-      try {
-        await batch.commit();
-        toast.success(`Successfully saved ${Object.keys(updates).length} tasks`);
-      } catch (error) {
-        console.error("Error bulk updating tasks:", error);
-        toast.error("Failed to save some changes");
-      }
+      toast.success(`Successfully saved ${Object.keys(updates).length} tasks`);
     },
     [orgId, user, tasks]
   );

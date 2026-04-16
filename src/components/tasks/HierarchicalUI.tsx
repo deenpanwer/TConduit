@@ -536,7 +536,7 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
                                 <span className="text-[11px] font-bold text-foreground/80">{item.name || 'Voice Note'}</span>
                                 <span className="text-[9px] opacity-40 font-mono">{item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : ''}</span>
                              </div>
-                             <InlineAudioPlayer url={item.url} />
+                             <InlineAudioPlayer url={item.url} audioDuration={item.duration || 0} />
                              {renderTimestamp()}
                         </div>
                     ) : (

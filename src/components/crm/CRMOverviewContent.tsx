@@ -97,21 +97,21 @@ export function CRMOverviewContent() {
   const previousLeads = filterByDate(leads, fourteenDaysAgo, sevenDaysAgo).length;
   const leadsTrend = calculateTrend(currentLeads, previousLeads);
 
-  const activeDeals = deals.filter(d => !['won', 'lost'].includes(d.data.status));
-  const moneyOnTable = activeDeals.reduce((sum, d) => sum + (Number(d.data.annualRevenue) || 0), 0);
+  const activeDeals = deals.filter(d => d.data && !['won', 'lost'].includes(d.data.status || ''));
+  const moneyOnTable = activeDeals.reduce((sum, d) => sum + (Number(d.data?.annualRevenue) || 0), 0);
   
-  const currentDealsVal = filterByDate(activeDeals, sevenDaysAgo).reduce((sum, d) => sum + (Number(d.data.annualRevenue) || 0), 0);
-  const previousDealsVal = filterByDate(activeDeals, fourteenDaysAgo, sevenDaysAgo).reduce((sum, d) => sum + (Number(d.data.annualRevenue) || 0), 0);
+  const currentDealsVal = filterByDate(activeDeals, sevenDaysAgo).reduce((sum, d) => sum + (Number(d.data?.annualRevenue) || 0), 0);
+  const previousDealsVal = filterByDate(activeDeals, fourteenDaysAgo, sevenDaysAgo).reduce((sum, d) => sum + (Number(d.data?.annualRevenue) || 0), 0);
   const moneyTrend = calculateTrend(currentDealsVal, previousDealsVal);
 
   const currentActiveDeals = activeDeals.length;
   const previousActiveDeals = deals.filter(d => {
     const date = new Date(d.createdAt);
-    return date <= sevenDaysAgo && !['won', 'lost'].includes(d.data.status);
+    return date <= sevenDaysAgo && d.data && !['won', 'lost'].includes(d.data.status || '');
   }).length;
   const dealsTrend = currentActiveDeals >= previousActiveDeals ? "Growing" : "Steady";
 
-  const allHistory = entities.flatMap(e => e.history.map(h => ({ ...h, entityName: e.name })));
+  const allHistory = entities.flatMap(e => (e.history || []).map(h => ({ ...h, entityName: e.name })));
   const currentActions = filterByDate(allHistory, oneDayAgo).length;
   const previousActions = filterByDate(allHistory, twoDaysAgo, oneDayAgo).length;
   const pulseTrend = currentActions >= previousActions ? "Busy" : "Quiet";
@@ -250,7 +250,7 @@ export function CRMOverviewContent() {
                 </p>
                 <div className="space-y-5">
                   {(config.modules.leads.fields.find(f => f.key === 'status')?.options || []).map((status) => {
-                    const count = leads.filter(l => l.data.status === status.value).length;
+                    const count = leads.filter(l => l.data?.status === status.value).length;
                     const percentage = leads.length > 0 ? (count / leads.length) * 100 : 0;
                     return (
                       <div key={status.value} className="space-y-1.5">
@@ -318,11 +318,11 @@ export function CRMOverviewContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate">{lead.name}</p>
                       <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
-                        {lead.data.company || "Individual"}
+                        {lead.data?.company || "Individual"}
                       </p>
                     </div>
                     <Badge variant="outline" className="text-[8px] font-black uppercase">
-                      {lead.data.status || 'New'}
+                      {lead.data?.status || 'New'}
                     </Badge>
                   </motion.div>
                 ))

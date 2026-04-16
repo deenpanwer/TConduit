@@ -14,6 +14,8 @@ import { CRMProvider } from '@/hooks/use-crm';
 import { PosProvider } from '@/hooks/use-pos';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { UploadProvider } from '@/hooks/useUploadProgress';
+import { MockDataSeeder } from '@/components/MockDataSeeder';
+import { DataManager } from '@/components/DataManager';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -75,6 +77,8 @@ export default function RootLayout({
                           disableTransitionOnChange
                         >
                           {children}
+                          <DataManager />
+                          <MockDataSeeder />
                           <Toaster />
                           <SonnerToaster position="bottom-right" expand={false} richColors />
                           <Analytics />

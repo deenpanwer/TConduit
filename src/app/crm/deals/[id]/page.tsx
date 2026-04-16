@@ -15,6 +15,7 @@ import {
   Calendar as CalendarIcon, DollarSign, Building2,
   ExternalLink, Globe, MapPin, FileText
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

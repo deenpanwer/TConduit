@@ -29,7 +29,6 @@ export const triggerSmallConfetti = (x?: number, y?: number) => {
         spread: 70,
         origin: x && y ? { x: x / window.innerWidth, y: y / window.innerHeight } : { y: 0.6 },
         colors: ['#3b82f6', '#1DB954', '#ffffff'],
-        scale: 0.7,
         gravity: 1.2,
         ticks: 100
     });

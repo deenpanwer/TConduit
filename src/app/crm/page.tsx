@@ -28,7 +28,7 @@ import { CRMOverviewContent } from "@/components/crm/CRMOverviewContent";
 export default function CRMPage() {
   const { user } = useAuth();
   const { entities, leads } = useCRM();
-  const allHistory = entities.flatMap(e => e.history.map(h => ({ ...h, entityName: e.name })));
+  const allHistory = entities.flatMap(e => (e.history || []).map(h => ({ ...h, entityName: e.name })));
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentLeads = leads.filter(l => new Date(l.createdAt) >= sevenDaysAgo).length;

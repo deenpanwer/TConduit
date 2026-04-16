@@ -434,19 +434,19 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
                       <h4 className="text-xs font-black truncate uppercase tracking-tight group-hover:text-primary transition-colors">{task.title}</h4>
                       <div className="flex items-center gap-2 mt-3">
                         <div className="flex -space-x-2">
-                          {task.assignees.slice(0, 3).map((uid, i) => (
+                          {(task.assignees || []).slice(0, 3).map((uid, i) => (
                             <Avatar key={i} className="size-6 border-2 border-background shadow-sm ring-1 ring-border/20">
                               <AvatarImage src={getUserAvatar(personnel.find(e => e.id === uid))} />
                               <AvatarFallback className="text-[8px] font-black">U</AvatarFallback>
                             </Avatar>
                           ))}
-                          {task.assignees.length > 3 && (
+                          {(task.assignees?.length || 0) > 3 && (
                             <div className="size-6 rounded-full bg-secondary border-2 border-background flex items-center justify-center text-[8px] font-black z-10">
-                              +{task.assignees.length - 3}
+                              +{(task.assignees?.length || 0) - 3}
                             </div>
                           )}
                         </div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{task.assignees.length} Involved</span>
+                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{(task.assignees?.length || 0)} Involved</span>
                       </div>
                     </div>
                   </CardContent>

@@ -22,7 +22,8 @@ import {
   Trash2,
   Link as LinkIcon,
   Check,
-  User
+  User,
+  Plus
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

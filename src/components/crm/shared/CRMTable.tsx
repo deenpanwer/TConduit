@@ -442,10 +442,9 @@ export function CRMTable({
     <TooltipProvider>
       <div className="space-y-0">
         <div className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto custom-scrollbar relative">
-          <table className="w-full text-left text-sm min-w-full border-collapse">
-            <thead>
-              <tr className="h-12 bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
-                <th className="w-24 p-0 border-r border-border/50 sticky left-0 z-30 bg-slate-100 dark:bg-slate-800">
+          <table className="w-full text-left text-sm min-w-full border-collapse"><thead>
+              <tr className="h-12 bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                <th className="w-24 p-0 border-r border-border/50 sticky left-0 z-30 bg-slate-100 dark:bg-slate-900">
                   <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
                   <div className="flex items-center justify-center h-full pl-3">
                     <input
@@ -455,7 +454,7 @@ export function CRMTable({
                       onChange={(e) => onSelectAll(e.target.checked ? entities.map(l => l.id) : [])}
                     />
                   </div>
-                </th>                {displayFields.map((field) => (
+                </th>{displayFields.map((field) => (
                   <th key={field.id} className="p-0 border-r border-border/50 relative group/th h-12 min-w-[150px]">
                     <div className="flex items-center justify-between px-4 h-full">
                       {renamingFieldId === field.id ? (
@@ -472,7 +471,7 @@ export function CRMTable({
                       ) : (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <span className="font-black uppercase tracking-[0.1em] text-[10px] text-muted-foreground cursor-help hover:text-foreground transition-colors whitespace-nowrap">
+                                <span className="font-black uppercase tracking-[0.1em] text-[10px] text-slate-600 dark:text-slate-400 cursor-help hover:text-foreground transition-colors whitespace-nowrap">
                                     {field.label}
                                 </span>
                             </TooltipTrigger>

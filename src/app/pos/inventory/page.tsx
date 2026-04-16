@@ -73,8 +73,8 @@ export default function InventoryPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Delete this product permanently?")) {
-        const success = await deleteProduct(id);
-        if (success) toast.success("Product deleted");
+        await deleteProduct(id);
+        toast.success("Product deleted");
     }
   };
 

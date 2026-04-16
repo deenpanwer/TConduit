@@ -20,13 +20,14 @@ interface NoteModalProps {
   note: CRMEntity | null;
   leads?: CRMEntity[];
   organizations?: CRMEntity[];
+  contacts?: CRMEntity[];
   onSubmit?: (data: any) => void;
   initialStage?: string;
   initialData?: Record<string, any>;
   onClose?: () => void;
 }
 
-export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads = [], organizations = [], onSubmit, initialStage, initialData, onClose }: NoteModalProps) {
+export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads = [], organizations = [], contacts = [], onSubmit, initialStage, initialData, onClose }: NoteModalProps) {
   const { addEntity, updateEntity, config, updateConfig } = useCRMNotes();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [currentMode, setCurrentMode] = useState(initialMode);

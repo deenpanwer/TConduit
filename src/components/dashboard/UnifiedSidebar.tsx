@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { 
   ChevronsRight, ChevronsLeft, Moon, Sun,
@@ -88,6 +89,7 @@ export function UnifiedSidebar({
 }: UnifiedSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { userData } = useAuth();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [tempSelected, setTempSelected] = useState<string[]>(selectedModules);
@@ -275,7 +277,7 @@ export function UnifiedSidebar({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(module.href, '_blank');
+                              router.push(module.href);
                             }}
                             className="absolute right-4 p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary hover:bg-primary/10 rounded-xl bg-card shadow-sm border"
                           >
@@ -322,7 +324,7 @@ export function UnifiedSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => window.open("/ems/settings", "_blank")}
+                    onClick={() => router.push("/ems/settings")}
                     className={cn(
                       "w-full flex items-center gap-3 bg-secondary/30 p-3 rounded-2xl hover:bg-secondary/50 transition-all group border-2 border-transparent hover:border-border active:scale-95",
                       (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"

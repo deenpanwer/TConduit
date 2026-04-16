@@ -77,11 +77,11 @@ async function generateCollageBase64(urls: string[]): Promise<string> {
 }
 
 const ScanningSkeleton = () => (
-  <div className="relative w-full h-12 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2.5s_infinite]" />
+  <div className="relative w-full h-12 bg-foreground/5 backdrop-blur-md rounded-xl border border-foreground/10 overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/5 to-transparent -translate-x-full animate-[shimmer_2.5s_infinite]" />
     <div className="p-3 space-y-2">
-      <div className="h-1.5 w-3/4 bg-white/10 rounded-full" />
-      <div className="h-1.5 w-1/2 bg-white/10 rounded-full" />
+      <div className="h-1.5 w-3/4 bg-foreground/10 rounded-full" />
+      <div className="h-1.5 w-1/2 bg-foreground/10 rounded-full" />
     </div>
     <style jsx>{`
       @keyframes shimmer {
@@ -150,7 +150,8 @@ function SuperviseFeedItem({
   onOpenTeam,
   onOpenChat,
   onSetLoaded,
-  onEnlarge
+  onEnlarge,
+  onRetry
 }: any) {
   const [activeIdx, setActiveIdx] = useState(0);
   
@@ -245,9 +246,19 @@ function SuperviseFeedItem({
             {isLoadingIntent && <div className="absolute inset-0 z-10"><ScanningSkeleton /></div>}
             <div className={cn("transition-all duration-500", isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100")}>
               {currentError ? (
-                <p className="text-[10px] text-red-400 truncate">{currentError}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-red-400 truncate flex-1">{currentError}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={onRetry}
+                    className="h-6 px-2 text-[8px] font-black uppercase tracking-widest bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg shrink-0"
+                  >
+                    Retry
+                  </Button>
+                </div>
               ) : (
-                <p className="text-[10px] text-white/80">
+                <p className="text-[10px] text-foreground/80">
                   {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected today." : "No history available.") : "")}
                 </p>
               )}
@@ -344,7 +355,17 @@ function SuperviseFeedItem({
                 {isLoadingIntent && <div className="absolute inset-0 z-10"><ScanningSkeleton /></div>}
                 <div className={cn("transition-all duration-500", isLoadingIntent ? "opacity-20 blur-sm translate-y-2" : "opacity-100 blur-0 translate-y-0")}>
                   {currentError ? (
-                    <p className="text-[12px] text-red-400 font-bold bg-red-500/10 p-3 rounded-2xl border border-red-500/20">{currentError}</p>
+                    <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20 flex flex-col gap-3">
+                      <p className="text-[12px] text-red-400 font-bold">{currentError}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={onRetry}
+                        className="w-fit h-8 px-4 text-[10px] font-black uppercase tracking-widest bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 rounded-xl"
+                      >
+                        Retry Generation
+                      </Button>
+                    </div>
                   ) : (
                     <p className="text-[14px] font-medium text-white/90 leading-snug">
                       {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected." : "No history available.") : "")}
@@ -408,16 +429,17 @@ export default function SupervisePage() {
     }
   }, [userData]);
 
-  const fetchEmployeeIntent = useCallback(async (empId: string, empName: string, screenshotsArray: any[]) => {
+  const fetchEmployeeIntent = useCallback(async (empId: string, empName: string, screenshotsArray: any[], force = false) => {
     if (!screenshotsArray || screenshotsArray.length === 0) return;
     const latestScreenshot = screenshotsArray[0];
     const screenshotUrl = latestScreenshot?.url || latestScreenshot?.imageUrl || latestScreenshot?.activity?.cloudinaryUrl;
     const { aiIntentLoading: currentLoading } = aiStateRef.current;
 
-    if (!screenshotUrl || lastFetchedUrlRef.current[empId] !== screenshotUrl) {
+    if (!screenshotUrl || (!force && lastFetchedUrlRef.current[empId] !== screenshotUrl)) {
       setInferredIntents((prev) => { const next = { ...prev }; delete next[empId]; return next; });
     }
-    if (currentLoading[empId] || lastFetchedUrlRef.current[empId] === screenshotUrl) return;
+    if (currentLoading[empId]) return;
+    if (!force && lastFetchedUrlRef.current[empId] === screenshotUrl) return;
 
     lastFetchedUrlRef.current[empId] = screenshotUrl;
     setAiIntentLoading((prev) => ({ ...prev, [empId]: true }));
@@ -440,6 +462,7 @@ export default function SupervisePage() {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setInferredIntents((prev) => ({ ...prev, [empId]: data.inferredIntent }));
+      setAiIntentErrors((prev) => ({ ...prev, [empId]: '' }));
     } catch (error: any) {
       setAiIntentErrors((prev) => ({ ...prev, [empId]: error.message }));
       setInferredIntents((prev) => ({ ...prev, [empId]: "Failed to infer intent." }));
@@ -552,12 +575,13 @@ export default function SupervisePage() {
                   onOpenChat={() => router.push(`/ems/chat?id=${emp.id}`)}
                   onSetLoaded={(url: string) => setLoadedImages(prev => ({ ...prev, [url]: true }))}
                   onEnlarge={(s: any) => setSelectedScreenshot({ ...s, employeeName: emp.name })}
+                  onRetry={() => fetchEmployeeIntent(emp.id, emp.name, latestScreenshots[emp.id] || [], true)}
                 />
               ))
             )}
           </div>
 
-          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4 md:p-8 custom-scrollbar h-full overflow-y-auto">
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4 md:p-8 custom-scrollbar h-full overflow-y-auto items-stretch auto-rows-min">
             {monitoredPersonnel.length === 0 ? (
               <div className="col-span-full h-full flex items-center justify-center">No personnel found</div>
             ) : superviseLoading ? (
@@ -579,6 +603,7 @@ export default function SupervisePage() {
                   onOpenChat={() => router.push(`/ems/chat?id=${emp.id}`)}
                   onSetLoaded={(url: string) => setLoadedImages(prev => ({ ...prev, [url]: true }))}
                   onEnlarge={(s: any) => setSelectedScreenshot({ ...s, employeeName: emp.name })}
+                  onRetry={() => fetchEmployeeIntent(emp.id, emp.name, latestScreenshots[emp.id] || [], true)}
                 />
               ))
             )}

@@ -82,7 +82,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             totalSeconds += shiftTotalSeconds;
 
             // Metrics aggregation for Selected Date
-            if (shift.id.startsWith(dateStr)) {
+            if (shift.startTime.startsWith(dateStr)) {
                 totalDaySeconds += shiftTotalSeconds;
                 
                 const metrics = shift.liveMetrics || shift.metrics || {};
