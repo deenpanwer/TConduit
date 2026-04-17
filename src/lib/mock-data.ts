@@ -15,13 +15,16 @@ const COLLECTIONS = {
   ORGANIZATIONS: "organizations",
   SCREENSHOTS: "screenshots",
   TIME_ENTRIES: "time_entries",
+  INVOICES: "invoices",
+  NOTES: "notes",
+  CALL_LOGS: "call_logs",
 };
 
 /**
  * seedMockData: Generates high-fidelity dummy data for all modules.
  * Anchored around 2026-04-16 to match user context.
  */
-export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm: 30, pos: 25, shifts: 100 }) {
+export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm: 30, pos: 25, shifts: 100, invoices: 20, notes: 50, callLogs: 30 }) {
   if (typeof window === "undefined") return;
 
   // Only seed if empty or forced
@@ -42,7 +45,7 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
         id: mainOrgId,
         name: "TConduit Industries",
         industry: "Technology & Infrastructure",
-        logoUrl: "/gemini.svg",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg",
         orgName: "TConduit Industries",
         subscriptionExpiry: new Date('2027-04-16').toISOString(),
     }
@@ -59,8 +62,8 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
       name: index === 0 ? "Project Owner" : faker.person.fullName(),
       email: index === 0 ? "deen@gmail.com" : faker.internet.email(),
       role: index === 0 ? "owner" : faker.helpers.arrayElement(["manager", "employee"]),
-      avatar: faker.image.avatar(),
-      photoUrl: faker.image.avatar(),
+      avatar: index === 0 ? "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg" : faker.image.avatar(),
+      photoUrl: index === 0 ? "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg" : faker.image.avatar(),
       status: isOnline ? "online" : "offline",
       orgId: mainOrgId,
       ownedOrgId: index === 0 ? mainOrgId : null,
@@ -104,137 +107,135 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   const timeEntries: any[] = [];
   const screenshots: any[] = [];
   
-  users.forEach(user => {
-    // Generate shifts for 30 days including April 16, 2026
-    for (let i = 0; i < 30; i++) {
-        const day = new Date('2026-04-16T12:00:00Z');
-        day.setDate(day.getDate() - i);
-        const dateStr = day.toISOString().split('T')[0];
-        
-        const isToday = dateStr === mockTodayDateStr;
-        const shiftsInDay = isToday ? 1 : faker.number.int({ min: 1, max: 2 });
+  // Generate a pool of dates for the last 30 days
+  const shiftDates = Array.from({ length: 30 }).map((_, i) => {
+    const d = new Date('2026-04-16T12:00:00Z');
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  });
 
-        for (let s = 0; s < shiftsInDay; s++) {
-            // For today, align with 09:00 AM scheduled start
-            let startHour = 8 + (s * 4);
-            let startMinute = faker.number.int(59);
-            
-            if (isToday && s === 0) {
-                // Variations: Early (8:45), On-Time (9:00), Late (9:15)
-                const variance = faker.helpers.arrayElement([-15, 0, 0, 10, 20]);
-                startHour = 9;
-                startMinute = variance >= 0 ? variance : 60 + variance;
-                if (variance < 0) startHour = 8;
-            }
+  Array.from({ length: counts.shifts }).forEach((_, index) => {
+    const user = faker.helpers.arrayElement(users);
+    const dateStr = faker.helpers.arrayElement(shiftDates);
+    const isToday = dateStr === mockTodayDateStr;
+    
+    // Ensure at least some active shifts for today if requested
+    const shiftIndexInDay = index % 2; 
 
-            const durationHours = faker.number.float({ min: 4, max: 8, fractionDigits: 1 });
-            const totalSeconds = Math.floor(durationHours * 3600);
+    // For today, align with 09:00 AM scheduled start
+    let startHour = 8 + (shiftIndexInDay * 4);
+    let startMinute = faker.number.int(59);
+    
+    if (isToday && shiftIndexInDay === 0) {
+        const variance = faker.helpers.arrayElement([-15, 0, 0, 10, 20]);
+        startHour = 9;
+        startMinute = variance >= 0 ? variance : 60 + variance;
+        if (variance < 0) startHour = 8;
+    }
 
-            const shiftId = `${dateStr}_${user.id}_${s}`;
-            const isOnline = user.heartbeat.isCurrentlyRunning;
-            const status = (isToday && s === 0 && isOnline) ? 'active' : 'completed';
-            
-            const startTimeStr = `${dateStr}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
-            const endTimeStr = `${dateStr}T${String(Math.floor(startHour + durationHours)).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
+    const durationHours = faker.number.float({ min: 4, max: 8, fractionDigits: 1 });
+    const totalSeconds = Math.floor(durationHours * 3600);
 
-            const liveBreakdown: Record<string, any> = {};
-            const apps = ['VS Code', 'Chrome', 'Slack', 'Terminal', 'Figma', 'Notion', 'Discord'];
-            apps.forEach(app => {
-                const appSecs = faker.number.int({ min: 500, max: Math.floor(totalSeconds / 3) });
-                liveBreakdown[app] = {
-                    totalSeconds: appSecs,
-                    activeSeconds: Math.floor(appSecs * 0.85),
-                    focusScore: faker.number.int({ min: 70, max: 100 }),
-                    productivityScore: faker.number.int({ min: 70, max: 100 }),
-                };
-            });
+    const shiftId = `shift_${index}_${user.id}`;
+    const isOnline = user.heartbeat.isCurrentlyRunning && isToday;
+    const status = (isToday && isOnline) ? 'active' : 'completed';
+    
+    const startTimeStr = `${dateStr}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
+    const endTimeStr = `${dateStr}T${String(Math.floor(startHour + durationHours)).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
 
-            const hourlyPulse: Record<string, any> = {};
-            // Generate varied pulse for the entire duration of the shift plus 1 hour buffer
-            for (let h = 0; h < 24; h++) {
-                if (h >= startHour && h <= Math.floor(startHour + durationHours)) {
-                    // Randomize intensity: 0=Low/Break, 1=Normal, 2=Peak
-                    const intensity = faker.number.int({ min: 0, max: 2 });
-                    const multipliers = [0.2, 1, 1.8]; // Low, Normal, Peak
-                    const mult = multipliers[intensity];
+    const liveBreakdown: Record<string, any> = {};
+    const apps = ['VS Code', 'Chrome', 'Slack', 'Terminal', 'Figma', 'Notion', 'Discord'];
+    apps.forEach(app => {
+        const appSecs = faker.number.int({ min: 500, max: Math.floor(totalSeconds / 3) });
+        liveBreakdown[app] = {
+            totalSeconds: appSecs,
+            activeSeconds: Math.floor(appSecs * 0.85),
+            focusScore: faker.number.int({ min: 70, max: 100 }),
+            productivityScore: faker.number.int({ min: 70, max: 100 }),
+        };
+    });
 
-                    hourlyPulse[h.toString()] = {
-                        metrics: {
-                            seconds: 3600,
-                            keystrokes: Math.floor(faker.number.int({ min: 2000, max: 6000 }) * mult),
-                            mouseClicks: Math.floor(faker.number.int({ min: 400, max: 1200 }) * mult),
-                            mouseDistance: Math.floor(faker.number.int({ min: 3000, max: 15000 }) * mult),
-                        }
-                    };
+    const hourlyPulse: Record<string, any> = {};
+    for (let h = 0; h < 24; h++) {
+        if (h >= startHour && h <= Math.floor(startHour + durationHours)) {
+            const intensity = faker.number.int({ min: 0, max: 2 });
+            const multipliers = [0.2, 1, 1.8];
+            const mult = multipliers[intensity];
+
+            hourlyPulse[h.toString()] = {
+                metrics: {
+                    seconds: 3600,
+                    keystrokes: Math.floor(faker.number.int({ min: 2000, max: 6000 }) * mult),
+                    mouseClicks: Math.floor(faker.number.int({ min: 400, max: 1200 }) * mult),
+                    mouseDistance: Math.floor(faker.number.int({ min: 3000, max: 15000 }) * mult),
                 }
-            }
-
-            const shift = {
-                id: shiftId,
-                userId: user.id,
-                orgId: mainOrgId,
-                startTime: startTimeStr,
-                endTime: status === 'active' ? null : endTimeStr,
-                status,
-                totalSeconds,
-                liveMetrics: {
-                    totalSeconds,
-                    keystrokes: faker.number.int({ min: 10000, max: 40000 }),
-                    mouseClicks: faker.number.int({ min: 2000, max: 8000 }),
-                    mouseDistance: faker.number.int({ min: 20000, max: 80000 }),
-                    idleSeconds: Math.floor(totalSeconds * 0.05),
-                    activeSeconds: Math.floor(totalSeconds * 0.95),
-                },
-                liveBreakdown,
-                hourlyPulse,
-                cognitiveReport: {
-                    velocity: faker.number.int({ min: 80, max: 100 }),
-                    focusScore: faker.number.int({ min: 80, max: 100 }),
-                    productivityScore: faker.number.int({ min: 80, max: 100 }),
-                    aiBrief: faker.lorem.sentence(),
-                },
-                focusScore: faker.number.int({ min: 80, max: 100 }),
-                productivityScore: faker.number.int({ min: 80, max: 100 }),
-                velocity: faker.number.int({ min: 80, max: 100 }),
-                aiBrief: faker.lorem.sentence(),
             };
-            shifts.push(shift);
-
-            // Time Entries
-            if (s === 0) {
-              for (let t = 0; t < 3; t++) {
-                  timeEntries.push({
-                      id: faker.string.uuid(),
-                      userId: user.id,
-                      orgId: mainOrgId,
-                      startTime: `${dateStr}T${String(startHour + t).padStart(2, '0')}:00:00.000Z`,
-                      endTime: `${dateStr}T${String(startHour + t + 1).padStart(2, '0')}:00:00.000Z`,
-                      duration: 3600,
-                      projectName: faker.company.buzzPhrase(),
-                      description: faker.hacker.phrase(),
-                  });
-              }
-            }
-
-            // Screenshots (5-10 per shift)
-            const sCount = faker.number.int({ min: 5, max: 10 });
-            for (let j = 0; j < sCount; j++) {
-                const sTimestamp = `${dateStr}T${String(startHour + Math.floor(j/2)).padStart(2, '0')}:${String((j%2)*30 + faker.number.int(20)).padStart(2, '0')}:00.000Z`;
-                screenshots.push({
-                    id: faker.string.uuid(),
-                    userId: user.id,
-                    orgId: mainOrgId,
-                    url: faker.image.urlLoremFlickr({ category: 'business', width: 640, height: 360 }),
-                    timestamp: sTimestamp,
-                    isBlurred: false,
-                    activity: {
-                        windowTitle: faker.hacker.phrase(),
-                        appName: faker.helpers.arrayElement(['VS Code', 'Chrome', 'Slack', 'Figma', 'Terminal']),
-                        processName: faker.system.fileName(),
-                    }
-                });
-            }
         }
+    }
+
+    const shift = {
+        id: shiftId,
+        userId: user.id,
+        orgId: mainOrgId,
+        startTime: startTimeStr,
+        endTime: status === 'active' ? null : endTimeStr,
+        status,
+        totalSeconds,
+        liveMetrics: {
+            totalSeconds,
+            keystrokes: faker.number.int({ min: 10000, max: 40000 }),
+            mouseClicks: faker.number.int({ min: 2000, max: 8000 }),
+            mouseDistance: faker.number.int({ min: 20000, max: 80000 }),
+            idleSeconds: Math.floor(totalSeconds * 0.05),
+            activeSeconds: Math.floor(totalSeconds * 0.95),
+        },
+        liveBreakdown,
+        hourlyPulse,
+        cognitiveReport: {
+            velocity: faker.number.int({ min: 80, max: 100 }),
+            focusScore: faker.number.int({ min: 80, max: 100 }),
+            productivityScore: faker.number.int({ min: 80, max: 100 }),
+            aiBrief: faker.lorem.sentence(),
+        },
+        focusScore: faker.number.int({ min: 80, max: 100 }),
+        productivityScore: faker.number.int({ min: 80, max: 100 }),
+        velocity: faker.number.int({ min: 80, max: 100 }),
+        aiBrief: faker.lorem.sentence(),
+    };
+    shifts.push(shift);
+
+    // Time Entries (1-3 per shift)
+    const tCount = faker.number.int({ min: 1, max: 3 });
+    for (let t = 0; t < tCount; t++) {
+        timeEntries.push({
+            id: faker.string.uuid(),
+            userId: user.id,
+            orgId: mainOrgId,
+            startTime: `${dateStr}T${String(startHour + t).padStart(2, '0')}:00:00.000Z`,
+            endTime: `${dateStr}T${String(startHour + t + 1).padStart(2, '0')}:00:00.000Z`,
+            duration: 3600,
+            projectName: faker.company.buzzPhrase(),
+            description: faker.hacker.phrase(),
+        });
+    }
+
+    // Screenshots (2-4 per shift)
+    const sCount = faker.number.int({ min: 2, max: 4 });
+    for (let j = 0; j < sCount; j++) {
+        const sTimestamp = `${dateStr}T${String(startHour + Math.floor(j/2)).padStart(2, '0')}:${String((j%2)*30 + faker.number.int(20)).padStart(2, '0')}:00.000Z`;
+        screenshots.push({
+            id: faker.string.uuid(),
+            userId: user.id,
+            orgId: mainOrgId,
+            url: faker.image.urlLoremFlickr({ category: 'business', width: 640, height: 360 }),
+            timestamp: sTimestamp,
+            isBlurred: false,
+            activity: {
+                windowTitle: faker.hacker.phrase(),
+                appName: faker.helpers.arrayElement(['VS Code', 'Chrome', 'Slack', 'Figma', 'Terminal']),
+                processName: faker.system.fileName(),
+            }
+        });
     }
   });
   storage.saveCollection(COLLECTIONS.SHIFTS, shifts);
@@ -246,10 +247,10 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
     id: faker.string.uuid(),
     title: faker.hacker.phrase(),
     description: faker.lorem.paragraph(),
-    status: faker.helpers.arrayElement(["todo", "in-progress", "completed"]),
-    priority: faker.helpers.arrayElement(["low", "medium", "high"]),
+    status: faker.helpers.arrayElement(["todo", "in-progress", "completed", "review", "blocked"]),
+    priority: faker.helpers.arrayElement(["low", "medium", "high", "urgent"]),
     assignees: [faker.helpers.arrayElement(users).id],
-    dueDate: faker.date.future().toISOString(),
+    dueDate: faker.date.between({ from: '2026-04-10', to: '2026-05-30' }).toISOString(),
     createdAt: mockTodayDateStr + "T10:00:00.000Z",
     orgId: mainOrgId,
     tags: [faker.hacker.adjective(), faker.hacker.noun()],
@@ -282,21 +283,25 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   storage.saveCollection(COLLECTIONS.TASKS, tasks);
 
   // 5. CRM Entities
-  const crmEntities = users.flatMap(user => {
+  const crmEntities = Array.from({ length: counts.crm }).flatMap(() => {
+    const user = faker.helpers.arrayElement(users);
     return ["lead", "deal", "contact", "organization"].map(type => {
         const data: Record<string, any> = {};
         if (type === 'lead') {
             data.firstName = faker.person.firstName();
             data.lastName = faker.person.lastName();
             data.company = faker.company.name();
-            data.status = 'new';
-            data.priority = 'high';
-            data.estimatedValue = 5000;
+            data.status = faker.helpers.arrayElement(['new', 'contacted', 'qualified']);
+            data.priority = faker.helpers.arrayElement(['low', 'medium', 'high']);
+            data.estimatedValue = faker.number.int({ min: 1000, max: 20000 });
         } else if (type === 'deal') {
             data.name = faker.commerce.productName();
             data.organization = faker.company.name();
-            data.status = 'negotiation';
-            data.annualRevenue = 25000;
+            data.status = faker.helpers.arrayElement(['qualification', 'demo', 'proposal', 'negotiation', 'ready', 'won', 'lost']);
+            data.annualRevenue = faker.number.int({ min: 10000, max: 100000 });
+            data.firstName = faker.person.firstName();
+            data.lastName = faker.person.lastName();
+            data.email = faker.internet.email();
         } else if (type === 'organization') {
             data.organizationName = faker.company.name();
             data.website = faker.internet.url();
@@ -339,5 +344,92 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   }));
   storage.saveCollection(COLLECTIONS.POS_PRODUCTS, products);
 
+  // 7. Invoices, 8. Notes, 9. Call Logs - All merged into CRM_ENTITIES
+  const invoices = Array.from({ length: counts.invoices }).map(() => {
+    const org = faker.helpers.arrayElement(crmEntities.filter(e => e.type === 'organization'));
+    return {
+      id: faker.string.uuid(),
+      name: `Invoice for ${org.name}`,
+      type: 'invoice',
+      orgId: mainOrgId,
+      data: {
+        invoiceNumber: `INV-${faker.string.numeric(5)}`,
+        clientName: org.name,
+        clientId: org.id,
+        amount: parseFloat(faker.commerce.price({ min: 100, max: 5000 })),
+        status: faker.helpers.arrayElement(['paid', 'pending', 'overdue', 'sent', 'draft']),
+        issueDate: faker.date.past().toISOString(),
+        dueDate: faker.date.future().toISOString(),
+        currency: '$',
+        items: Array.from({ length: faker.number.int({ min: 1, max: 5 }) }).map(() => ({
+            description: faker.commerce.productName(),
+            quantity: faker.number.int({ min: 1, max: 10 }),
+            unitPrice: parseFloat(faker.commerce.price({ min: 10, max: 1000 })),
+        })),
+      },
+      history: [],
+      isDeleted: false,
+      createdAt: faker.date.recent().toISOString(),
+      updatedAt: faker.date.recent().toISOString(),
+      lastEditedBy: faker.helpers.arrayElement(users).id
+    };
+  });
+
+  const notes = Array.from({ length: counts.notes }).map(() => {
+    const entity = faker.helpers.arrayElement(crmEntities);
+    return {
+      id: faker.string.uuid(),
+      name: faker.lorem.words(3),
+      type: 'note',
+      orgId: mainOrgId,
+      data: {
+        name: faker.lorem.words(3),
+        content: faker.lorem.sentences(3),
+        relatedTo: entity.name,
+        relatedToId: entity.id,
+        relatedToType: entity.type,
+      },
+      history: [],
+      isDeleted: false,
+      createdAt: faker.date.recent().toISOString(),
+      updatedAt: faker.date.recent().toISOString(),
+      lastEditedBy: faker.helpers.arrayElement(users).id
+    };
+  });
+
+  const callLogs = Array.from({ length: counts.callLogs }).map(() => {
+    const contact = faker.helpers.arrayElement(crmEntities.filter(e => e.type === 'contact'));
+    return {
+      id: faker.string.uuid(),
+      name: faker.lorem.sentence(),
+      type: 'call',
+      orgId: mainOrgId,
+      data: {
+        summary: faker.lorem.sentence(),
+        type: faker.helpers.arrayElement(['Incoming', 'Outgoing']),
+        from: faker.phone.number(),
+        to: contact.name,
+        duration: faker.number.int({ min: 30, max: 3600 }),
+        status: faker.helpers.arrayElement(['completed', 'missed', 'voicemail', 'busy']),
+        timestamp: faker.date.recent().toISOString(),
+        relatedTo: contact.name,
+        relatedToId: contact.id,
+        relatedToType: 'contact',
+        recordingUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      },
+      history: [],
+      isDeleted: false,
+      createdAt: faker.date.recent().toISOString(),
+      updatedAt: faker.date.recent().toISOString(),
+      lastEditedBy: faker.helpers.arrayElement(users).id
+    };
+  });
+
+  // Combine all CRM related entities into one collection
+  const allCrmEntities = [...crmEntities, ...invoices, ...notes, ...callLogs];
+  storage.saveCollection(COLLECTIONS.CRM_ENTITIES, allCrmEntities);
+
   console.log("Mock data seeded successfully and anchored to April 16, 2026.");
 }
+
+

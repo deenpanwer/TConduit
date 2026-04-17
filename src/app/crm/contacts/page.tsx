@@ -117,7 +117,7 @@ function ContactsPageContent() {
   }
 
   return (
-    <div className="p-6 space-y-6 flex flex-col h-full min-h-screen relative max-w-[1600px] mx-auto">
+    <div className="p-6 space-y-6 flex flex-col h-full min-h-screen relative max-w-full mx-auto">
       <ContactModal 
         isOpen={showContactModal} 
         onOpenChange={setShowContactModal} 

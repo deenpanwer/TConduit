@@ -263,7 +263,13 @@ export function DashboardSidebar({
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
                   <div className="flex items-center gap-3">
-                    <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
+                    <div className="size-8 rounded-lg overflow-hidden shrink-0">
+                      <img 
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg" 
+                        alt="Logo" 
+                        className="size-full object-cover transition-transform group-hover:scale-105" 
+                      />
+                    </div>
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">TRAC AI</span>

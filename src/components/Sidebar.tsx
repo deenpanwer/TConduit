@@ -83,7 +83,13 @@ export function Sidebar({
           <div className="flex items-center justify-between mb-8 overflow-hidden whitespace-nowrap pt-8 lg:pt-0">
             {(!isCollapsed || isMobileSidebarOpen) && <Link href="/" className="font-bold text-2xl tracking-tighter">Trac AI</Link>}
             <Link href="/">
-              <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert" />
+              <div className="size-8 rounded-lg overflow-hidden shrink-0">
+                <img 
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg" 
+                  alt="Logo" 
+                  className="size-full object-cover" 
+                />
+              </div>
             </Link>
           </div>
 
@@ -240,9 +246,9 @@ export function Sidebar({
                   <Skeleton className="w-full h-full rounded-full" />
                 ) : (
                   <img 
-                    src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userEmail || 'anonymous'}`}
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg"
                     alt="User Avatar"
-                    className="w-full h-full"
+                    className="w-full h-full object-cover"
                   />
                 )}
               </div>

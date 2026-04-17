@@ -50,7 +50,7 @@ export function CRMOverviewContent() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-8 space-y-8 max-w-full mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
             <div className="h-10 w-48 bg-secondary/50 rounded-lg animate-pulse" />
@@ -163,7 +163,7 @@ export function CRMOverviewContent() {
   const recentNotes = [...notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 4);
 
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 space-y-8 max-w-full mx-auto">
       <DealModal 
         isOpen={isDealModalOpen}
         onOpenChange={setIsDealModalOpen}

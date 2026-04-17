@@ -213,7 +213,7 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
   }
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-8 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-8 p-4 md:p-8 max-w-full mx-auto w-full">
       
       {/* 1. KPI Pulse Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

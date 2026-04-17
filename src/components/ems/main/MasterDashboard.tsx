@@ -179,7 +179,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-12 pb-24 animate-pulse">
+      <div className="max-w-full mx-auto space-y-12 pb-24 animate-pulse">
         <Shimmer className="h-96 w-full rounded-[3rem]" />
         <Shimmer className="h-48 w-full rounded-[2.5rem]" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -191,7 +191,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-12 pb-24">
+    <div className="max-w-full mx-auto space-y-12 pb-24">
       {/* HUB 1: Cockpit */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
         <OwnerCockpit 

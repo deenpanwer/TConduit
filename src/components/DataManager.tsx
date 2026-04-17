@@ -16,11 +16,14 @@ export function DataManager() {
     tasks: 40, 
     crm: 30, 
     pos: 25, 
-    shifts: 60 
+    shifts: 60,
+    invoices: 20,
+    notes: 50,
+    callLogs: 30
   });
 
   const handleSeed = () => {
-    seedMockData(true);
+    seedMockData(true, counts);
     toast.success("All data regenerated");
   };
 
@@ -59,6 +62,18 @@ export function DataManager() {
             <div>
                 <Label>Shifts</Label>
                 <Input type="number" value={counts.shifts} onChange={(e) => setCounts({...counts, shifts: parseInt(e.target.value)})} />
+            </div>
+            <div>
+                <Label>Invoices</Label>
+                <Input type="number" value={counts.invoices} onChange={(e) => setCounts({...counts, invoices: parseInt(e.target.value)})} />
+            </div>
+            <div>
+                <Label>Notes</Label>
+                <Input type="number" value={counts.notes} onChange={(e) => setCounts({...counts, notes: parseInt(e.target.value)})} />
+            </div>
+            <div>
+                <Label>Call Logs</Label>
+                <Input type="number" value={counts.callLogs} onChange={(e) => setCounts({...counts, callLogs: parseInt(e.target.value)})} />
             </div>
           </div>
           <div className="flex flex-col gap-2">
