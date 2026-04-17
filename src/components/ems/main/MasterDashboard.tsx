@@ -198,7 +198,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             orgName={ownerData?.orgName || orgData?.orgName || orgData?.name || "Your Organization"} 
             ownerData={ownerData} 
             stats={stats}
-            logoUrl={orgData?.logoUrl}
+            logoUrl="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg"
         />
       </motion.div>
 
