@@ -306,7 +306,8 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       });
 
       storage.saveCollection('scheduled_shifts', updatedAllShifts);
-
+      
+      setRemoteShifts(updatedAllShifts.filter(s => s.orgId === orgId && s.date >= startDateStr && s.date <= endDateStr));
       setLocalShifts([]);
       setHistory([]);
 
