@@ -15,6 +15,18 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
   const { selectedDate } = useTeam();
   const dateStr = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
+  const parseShiftDate = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (ts.toDate) return ts.toDate();
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      return parsed;
+    }
+    return null;
+  };
+
   const { chartData, totals } = useMemo(() => {
     // 1. Initialize 24-hour buckets
     const hourlyBuckets: Record<string, { time: string; keystrokes: number; clicks: number; distance: number }> = {};
@@ -36,7 +48,8 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
     // 2. Aggregate data from the selected date's workShifts
     workShifts.forEach((shift) => {
       // Ensure we only process shifts for the selected date
-      if (!shift.id.startsWith(dateStr)) return;
+      const sStart = parseShiftDate(shift.startTime);
+      if (!sStart || format(sStart, "yyyy-MM-dd") !== dateStr) return;
 
       if (shift.hourlyPulse) {
         Object.entries(shift.hourlyPulse).forEach(([hour, data]: [string, any]) => {

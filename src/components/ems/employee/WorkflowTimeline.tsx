@@ -63,6 +63,18 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
     return `${(seconds / 3600).toFixed(1)}h`;
   };
 
+  const parseShiftDate = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (ts.toDate) return ts.toDate();
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      return parsed;
+    }
+    return null;
+  };
+
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
 
   // Filter shifts for selected day and normalize hourly data
@@ -71,7 +83,8 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
     hours.forEach(h => buckets[h] = []);
 
     workShifts.forEach(shift => {
-      if (!shift.id.startsWith(dateStr)) return;
+      const sStart = parseShiftDate(shift.startTime);
+      if (!sStart || format(sStart, "yyyy-MM-dd") !== dateStr) return;
       if (!shift.hourlyPulse) return;
 
       Object.entries(shift.hourlyPulse).forEach(([hour, data]: [string, any]) => {
