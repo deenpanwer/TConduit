@@ -102,13 +102,28 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
    * ADD ENTITY: Wrapper around the global addEntity.
    * Automatically passes the correct 'type' for this module.
    */
-  const addEntity = async (payload: { name?: string, summary?: string, data: Record<string, any> }) => {
-    // BUG FIX: Convert plural module type (e.g., "leads") to singular entity type (e.g., "lead")
+  const addEntity = async (payload: any) => {
     const singularType = type.slice(0, -1) as CRMEntity['type'];
-    // Standardize 'name' vs 'summary' based on type
-    const finalData = { ...payload.data };
-    if (payload.name) finalData.name = payload.name;
-    if (payload.summary) finalData.summary = payload.summary;
+    
+    // Support both formats:
+    // 1. { name: '...', data: { ... } }
+    // 2. { firstName: '...', lastName: '...', ... } (flat)
+    let finalData: Record<string, any> = {};
+    let finalName = payload.name;
+    let finalSummary = payload.summary;
+
+    if (payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+      // Nested format
+      finalData = { ...payload.data };
+    } else {
+      // Flat format
+      finalData = { ...payload };
+      // Remove name/summary if they were pulled out to top level in the past,
+      // but keep them in data if they are the primary identifiers.
+    }
+
+    if (finalName) finalData.name = finalName;
+    if (finalSummary) finalData.summary = finalSummary;
     
     return globalAddEntity(singularType, finalData);
   };

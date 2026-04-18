@@ -932,9 +932,9 @@ function TasksPageContent() {
                    <>
                      <div className="flex items-center gap-3 mb-6">
                         <DropdownMenu>
-                           <DropdownMenuTrigger asChild disabled={!canManageTasks}>
+                           <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50" disabled={!canManageTasks}>
-                                 <div className={cn("w-2 h-2 rounded-full", PRIORITIES[selectedTask.priority || 'medium'].color)} />
+                                 <div className={cn("w-2 h-2 rounded-full", (PRIORITIES[selectedTask.priority as Priority] || PRIORITIES.medium).color)} />
                                  {selectedTask.priority || 'Medium'} Priority
                               </Button>
                            </DropdownMenuTrigger>

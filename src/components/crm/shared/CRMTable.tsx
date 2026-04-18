@@ -101,14 +101,13 @@ const TableCellEditor = ({
   }, [field.type]);
 
   const handleConfirm = () => {
-    if (temp !== value) onSave(temp);
-    else onCancel();
+    onSave(temp);
   };
 
   if (field.type === 'date') {
       return (
         <div className="absolute inset-0 z-50 flex items-center bg-background ring-2 ring-blue-500 shadow-xl overflow-hidden h-full">
-            <Popover open={true} onOpenChange={(open) => !open && onCancel()}>
+            <Popover open={true} onOpenChange={(open) => !open && handleConfirm()}>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" className="w-full h-full justify-start text-[10px] font-black uppercase tracking-widest px-4">
                         {temp ? format(new Date(temp), "PPP") : "Select date"}
@@ -137,7 +136,7 @@ const TableCellEditor = ({
       const range = temp ? JSON.parse(temp) : { from: undefined, to: undefined };
       return (
           <div className="absolute inset-0 z-50 flex items-center bg-background ring-2 ring-blue-500 shadow-xl overflow-hidden h-full">
-              <Popover open={true} onOpenChange={(open) => !open && onCancel()}>
+              <Popover open={true} onOpenChange={(open) => !open && handleConfirm()}>
                   <PopoverTrigger asChild>
                       <Button variant="ghost" className="w-full h-full justify-start text-[10px] font-black uppercase tracking-widest px-4 truncate">
                           {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : "Select range"}
@@ -175,6 +174,7 @@ const TableCellEditor = ({
                 className="w-full bg-transparent border-none outline-none focus:ring-0 text-xs font-black uppercase tracking-widest px-4 h-full cursor-pointer appearance-none"
                 value={temp}
                 onChange={(e) => setTemp(e.target.value)}
+                onBlur={handleConfirm}
                 autoFocus
             >
                 <option value="">Select...</option>
@@ -189,6 +189,7 @@ const TableCellEditor = ({
             className="flex-1 h-full py-2 px-4 text-xs font-bold border-none focus-visible:ring-0 bg-transparent rounded-none resize-none overflow-hidden"
             value={temp}
             onChange={(e) => setTemp(e.target.value)}
+            onBlur={handleConfirm}
             onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -211,6 +212,7 @@ const TableCellEditor = ({
                 if (field.type === "phone" && val !== "" && !/^\d*$/.test(val)) return;
                 setTemp(val);
             }}
+            onBlur={handleConfirm}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleConfirm();
               if (e.key === "Escape") onCancel();
@@ -223,10 +225,10 @@ const TableCellEditor = ({
         </div>
       )}
       <div className="flex items-center h-full border-l border-border/50 bg-secondary/10 px-1 gap-0.5">
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:bg-green-500/10" onClick={handleConfirm}>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:bg-green-500/10" onMouseDown={(e) => { e.preventDefault(); handleConfirm(); }}>
           <Check size={16} />
         </Button>
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-500/10" onClick={onCancel}>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-500/10" onMouseDown={(e) => { e.preventDefault(); onCancel(); }}>
           <X size={16} />
         </Button>
       </div>
@@ -324,10 +326,21 @@ export function CRMTable({
     const row = tempRows.find(r => r.id === id);
     if (!row) return;
     
-    const { firstName, lastName, name, company, organization } = row.data;
-    if (!firstName && !lastName && !name && !company && !organization) {
-        toast.error("Please fill in at least one identifying field (Name/Company/Organization)");
+    // Extract common identifying fields across all modules
+    const { firstName, lastName, name, company, organization, organizationName, clientName, summary, invoiceNumber } = row.data;
+    const hasData = Object.values(row.data).some(v => v !== undefined && v !== '');
+    
+    if (!hasData) {
+        toast.error("Please fill in some data before saving.");
         return;
+    }
+
+    // Check for at least one primary identifier
+    const hasIdentifier = firstName || lastName || name || company || organization || organizationName || clientName || summary || invoiceNumber;
+    
+    if (!hasIdentifier) {
+        // If no primary identifier, use a generic name but proceed
+        row.data.name = row.data.name || "Unnamed Item";
     }
 
     setTempRows(prev => prev.map(r => r.id === id ? { ...r, isSaving: true } : r));

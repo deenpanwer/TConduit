@@ -443,10 +443,9 @@ export function TypedTaskCreator({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50">
-                  <div className={cn("w-2 h-2 rounded-full", PRIORITIES[editingNewTask?.priority || 'medium'].color)} />
-                  {editingNewTask?.priority || 'Medium'} Priority
-                </Button>
-              </DropdownMenuTrigger>
+                 <div className={cn("w-2 h-2 rounded-full", (PRIORITIES[(editingNewTask?.priority as Priority)] || PRIORITIES.medium).color)} />
+                 {editingNewTask?.priority || 'Medium'} Priority
+                </Button>              </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {Object.entries(PRIORITIES).map(([key, val]) => (
                   <DropdownMenuItem key={key} onClick={() => onUpdateTask("new", { priority: key as Priority })}>

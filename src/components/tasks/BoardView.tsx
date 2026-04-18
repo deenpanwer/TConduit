@@ -260,9 +260,19 @@ export const TaskCard = ({
       )}
 
       {task.coverImage && (
-         <div className="relative w-full h-24 rounded-t-xl overflow-hidden mb-3">
-            <img src={task.coverImage} alt="Task Cover" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+         <div className="relative w-full h-28 rounded-t-xl overflow-hidden">
+            <img 
+              src={task.coverImage} 
+              alt="Task Cover" 
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-black/10" />
+            
+            {task.priority === 'critical' && (
+              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-red-500 text-[8px] font-black text-white uppercase tracking-widest shadow-lg">
+                Urgent
+              </div>
+            )}
          </div>
       )}
 
@@ -270,7 +280,7 @@ export const TaskCard = ({
         <div className="flex items-center justify-between mb-2">
           {isEditing ? (
             <div className="flex items-center flex-1">
-              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", PRIORITIES[task.priority || 'medium'].color)} />
+              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", (PRIORITIES[task.priority as Priority] || PRIORITIES.medium).color)} />
               <Input
                 ref={inputRef}
                 value={editTitle}
@@ -285,7 +295,7 @@ export const TaskCard = ({
             </div>
           ) : (
             <div className="flex items-center flex-1">
-              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", PRIORITIES[task.priority || 'medium'].color)} />
+              <div className={cn("w-1.5 h-1.5 rounded-full ring-2 ring-offset-1 ring-offset-card mr-2 shrink-0", (PRIORITIES[task.priority as Priority] || PRIORITIES.medium).color)} />
               <h3 
                 className="font-semibold text-sm text-foreground leading-snug pr-6 break-words"
                 onDoubleClick={(e) => {
@@ -536,16 +546,15 @@ const Column = ({
                 key={task.id} 
                 style={{ opacity: draggedTaskId === task.id ? 0.3 : 1 }}
               >
-                <TaskCard 
-                  task={task} 
-                  onClick={onTaskClick} 
+                <TaskCard
+                  task={task}
+                  onClick={onTaskClick}
                   onDelete={onDeleteTask}
                   onQuickEdit={onQuickEdit}
                   canManage={canManage}
                   personnel={personnel}
                   onDragStartManual={onDragStartManual}
-                />
-              </div>
+                />              </div>
             ))}
           </AnimatePresence>
           

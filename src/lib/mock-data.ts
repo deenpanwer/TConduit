@@ -250,8 +250,15 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
     id: faker.string.uuid(),
     title: faker.hacker.phrase(),
     description: faker.lorem.paragraph(),
-    status: faker.helpers.arrayElement(["todo", "in-progress", "completed", "review", "blocked"]),
-    priority: faker.helpers.arrayElement(["low", "medium", "high", "urgent"]),
+    status: faker.helpers.arrayElement(["todo", "in_progress", "review", "done"]),
+    priority: faker.helpers.arrayElement(["low", "medium", "high", "critical"]),
+    coverImage: Math.random() > 0.2 ? `https://images.unsplash.com/photo-${faker.helpers.arrayElement([
+        '1497366216548-37526070297c', // Office
+        '1497366811353-6870744d04b2', // Modern space
+        '1497215728101-856f4ea42174', // Desktop
+        '1460925895917-afdab827c52f', // Analytics
+        '1504384308090-c894fdcc538d', // Tech
+    ])}?auto=format&fit=crop&w=600&q=80` : undefined,
     assignees: [faker.helpers.arrayElement(users).id],
     dueDate: faker.date.between({ from: '2026-04-10', to: '2026-05-30' }).toISOString(),
     createdAt: mockTodayDateStr + "T10:00:00.000Z",
