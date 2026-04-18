@@ -169,7 +169,7 @@ export default function InventoryPage() {
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Value</p>
                 <p className="text-2xl font-black text-green-600">
-                    ${products.reduce((acc, p) => acc + (p.stockQuantity * p.costPrice), 0).toFixed(2)}
+                    ${products.reduce((acc, p) => acc + ((p.stockQuantity || 0) * (p.costPrice || 0)), 0).toFixed(2)}
                 </p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
@@ -247,7 +247,7 @@ export default function InventoryPage() {
                                 
                                 <div className="mt-auto pt-3 flex items-end justify-between">
                                     <div className="flex flex-col">
-                                        <p className="text-xs font-black text-primary leading-none">${product.basePrice.toFixed(2)}</p>
+                                        <p className="text-xs font-black text-primary leading-none">${(product.basePrice || 0).toFixed(2)}</p>
                                     </div>
                                     <div className={cn(
                                         "text-[9px] font-black px-1.5 py-0.5 rounded",
@@ -293,8 +293,8 @@ export default function InventoryPage() {
                                             {product.category || 'Uncategorized'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right font-bold text-xs text-muted-foreground">${product.costPrice.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right font-black text-xs text-primary">${product.basePrice.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-bold text-xs text-muted-foreground">${(product.costPrice || 0).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-black text-xs text-primary">${(product.basePrice || 0).toFixed(2)}</TableCell>
                                     <TableCell className="text-center">
                                         <div className={cn(
                                             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase",

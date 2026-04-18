@@ -101,7 +101,7 @@ export function PosDashboardContent() {
   const overviewStats = [
     {
       title: "Total Revenue",
-      value: `$${stats?.totalRevenue.toFixed(2) || '0.00'}`,
+      value: `$${(stats?.totalRevenue || 0).toFixed(2)}`,
       description: "Lifetime earnings",
       icon: DollarSign,
       color: "text-blue-600",
@@ -109,7 +109,7 @@ export function PosDashboardContent() {
     },
     {
       title: "Today's Sales",
-      value: `$${stats?.todayRevenue.toFixed(2) || '0.00'}`,
+      value: `$${(stats?.todayRevenue || 0).toFixed(2)}`,
       description: "Current day performance",
       icon: ShoppingCart,
       color: "text-green-600",
@@ -117,7 +117,7 @@ export function PosDashboardContent() {
     },
     {
         title: "Net Profit",
-        value: `$${stats?.totalProfit.toFixed(2) || '0.00'}`,
+        value: `$${(stats?.totalProfit || 0).toFixed(2)}`,
         description: "Revenue minus costs",
         icon: TrendingUp,
         color: "text-purple-600",
@@ -304,7 +304,7 @@ export function PosDashboardContent() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-black tracking-tighter text-foreground">${sale.grandTotal.toFixed(2)}</span>
+                                    <span className="text-sm font-black tracking-tighter text-foreground">${(sale.grandTotal || 0).toFixed(2)}</span>
                                     <span className="text-[8px] font-black uppercase text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded leading-none mt-1">Paid</span>
                                 </div>
                             </div>

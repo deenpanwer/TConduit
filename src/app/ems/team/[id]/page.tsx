@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
+import { storage } from "@/lib/storage";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck, Menu } from "lucide-react";
@@ -251,13 +250,17 @@ export default function EmployeeDetailPage() {
     const role = formData.get("role") as string;
 
     try {
-      await updateDoc(doc(db, "users", id as string), {
-        name: name,
-        role: role,
-        updatedAt: new Date(),
-      });
-      toast({ title: "Employee Updated", description: `${name}'s profile has been updated.` });
-      setShowEditEmployeeModal(false);
+      const user = storage.getItem<any>("users", id as string);
+      if (user) {
+        storage.saveItem("users", {
+            ...user,
+            name: name,
+            role: role,
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Employee Updated", description: `${name}'s profile has been updated.` });
+        setShowEditEmployeeModal(false);
+      }
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     } finally {
@@ -269,14 +272,18 @@ export default function EmployeeDetailPage() {
     if (!id || !employee) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", id as string), {
-        active: false,
-        deactivatedAt: new Date(),
-        updatedAt: new Date(),
-      });
-      toast({ title: "Employee Deactivated", description: `${employee.name} has been deactivated.` });
-      setShowDeactivateEmployeeModal(false);
-      router.push("/ems"); // Redirect to dashboard after deactivating
+      const user = storage.getItem<any>("users", id as string);
+      if (user) {
+        storage.saveItem("users", {
+            ...user,
+            active: false,
+            deactivatedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Employee Deactivated", description: `${employee.name} has been deactivated.` });
+        setShowDeactivateEmployeeModal(false);
+        router.push("/ems"); // Redirect to dashboard after deactivating
+      }
     } catch (error: any) {
       toast({ title: "Deactivation Failed", description: error.message, variant: "destructive" });
     } finally {
@@ -288,16 +295,21 @@ export default function EmployeeDetailPage() {
     e.preventDefault();
     if (!id || !employee) return;
     setLoading(true);
+    
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const role = formData.get("memberRole") as string;
 
     try {
-      await updateDoc(doc(db, "users", id as string), {
-        role: role,
-        updatedAt: new Date(),
-      });
-      toast({ title: "Member Role Updated", description: `${employee.name}'s role has been changed to ${role}.` });
-      setShowMemberAccessModal(false);
+      const user = storage.getItem<any>("users", id as string);
+      if (user) {
+        storage.saveItem("users", {
+            ...user,
+            role: role,
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Member Role Updated", description: `${employee.name}'s role has been changed to ${role}.` });
+        setShowMemberAccessModal(false);
+      }
     } catch (error: any) {
       toast({ title: "Role Update Failed", description: error.message, variant: "destructive" });
     } finally {

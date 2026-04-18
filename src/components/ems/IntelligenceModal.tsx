@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { storage } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -67,13 +66,11 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
       if (!userId || !isOpen) return;
       setLoading(true);
       try {
-        const userDoc = await getDoc(doc(db, "users", userId));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          // Support both new 'prime/noise' keys and legacy 'work/distraction' keys
+        const user = storage.getItem<any>("users", userId);
+        if (user) {
           setSettings({
-            primeApps: data.trackingSettings?.primeApps || data.trackingSettings?.workApps || [],
-            noiseApps: data.trackingSettings?.noiseApps || data.trackingSettings?.distractionApps || []
+            primeApps: user.trackingSettings?.primeApps || user.trackingSettings?.workApps || [],
+            noiseApps: user.trackingSettings?.noiseApps || user.trackingSettings?.distractionApps || []
           });
         }
       } catch (err) {
@@ -89,15 +86,19 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
     if (!userId) return;
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, "users", userId), {
-        trackingSettings: {
-          primeApps: settings.primeApps,
-          noiseApps: settings.noiseApps,
-        },
-        updatedAt: serverTimestamp()
-      });
-      toast({ title: "Intelligence Updated", description: `Rules for ${userName} have been updated.` });
-      onOpenChange(false);
+      const user = storage.getItem<any>("users", userId);
+      if (user) {
+        storage.saveItem("users", {
+            ...user,
+            trackingSettings: {
+                primeApps: settings.primeApps,
+                noiseApps: settings.noiseApps,
+            },
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Intelligence Updated", description: `Rules for ${userName} have been updated.` });
+        onOpenChange(false);
+      }
     } catch (err: any) {
       console.error("Update Failed:", err);
       toast({ title: "Update Failed", description: err.message, variant: "destructive" });

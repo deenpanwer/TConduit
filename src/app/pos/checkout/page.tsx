@@ -286,7 +286,7 @@ export default function CheckoutPage() {
             <div className="px-4 py-3 bg-muted/30 border-t border-border space-y-1">
                 <div className="flex justify-between items-center">
                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Total</span>
-                    <span className="text-2xl font-black text-primary tracking-tighter">${currentSale.grandTotal.toFixed(2)}</span>
+                    <span className="text-2xl font-black text-primary tracking-tighter">${(currentSale.grandTotal || 0).toFixed(2)}</span>
                 </div>
             </div>
           </CardContent>
@@ -300,9 +300,9 @@ export default function CheckoutPage() {
                             <span className="flex items-center gap-1"><Plus className="h-3 w-3" /> Payment</span>
                             <span className={cn(
                                 "px-1.5 py-0.5 rounded text-[8px]",
-                                amountPaid >= currentSale.grandTotal ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                amountPaid >= (currentSale.grandTotal || 0) ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                             )}>
-                                {amountPaid >= currentSale.grandTotal ? "FULL PAYMENT" : `SHORT: $${(currentSale.grandTotal - amountPaid).toFixed(2)}`}
+                                {amountPaid >= (currentSale.grandTotal || 0) ? "FULL PAYMENT" : `SHORT: $${((currentSale.grandTotal || 0) - amountPaid).toFixed(2)}`}
                             </span>
                         </div>
                     ) : (
@@ -353,7 +353,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between items-center px-2 py-1.5 bg-secondary/30 rounded border border-border">
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Change to return</span>
                     <span className="text-lg font-black text-orange-600">
-                        ${Math.max(0, amountPaid - currentSale.grandTotal).toFixed(2)}
+                        ${Math.max(0, amountPaid - (currentSale.grandTotal || 0)).toFixed(2)}
                     </span>
                 </div>
             )}
@@ -426,7 +426,7 @@ export default function CheckoutPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-black tracking-tighter text-foreground">${sale.grandTotal.toFixed(2)}</p>
+                              <p className="text-lg font-black tracking-tighter text-foreground">${(sale.grandTotal || 0).toFixed(2)}</p>
                               <span className="text-[9px] font-black uppercase text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">
                                 {sale.paymentStatus}
                               </span>
