@@ -9,8 +9,10 @@ import { format, parse, isValid } from "date-fns";
 
 export const WorkforceRegistry = ({
   employees = [],
+  selectedDate = new Date(),
 }: {
   employees?: any[];
+  selectedDate?: Date;
 }) => {
   const [visibleCount, setVisibleCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -40,11 +42,16 @@ export const WorkforceRegistry = ({
   };
 
   const getShiftStatus = (employee: any) => {
-    const now = new Date();
-    // Use the first shift of the day from dailyShifts if available (provided by useTeam)
-    const actualShift = employee.dailyShifts?.[0] || employee.workShifts?.[0];
-    const isOnline = isEmployeeOnline(employee);
+    const refDate = selectedDate || new Date();
+    const dateStr = format(refDate, "yyyy-MM-dd");
+    
+    // Find the shift matching the selected date
+    const actualShift = (employee.dailyShifts || employee.workShifts || []).find((s: any) => {
+        const sStart = parseShiftDate(s.startTime);
+        return sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+    });
 
+    const isOnline = isEmployeeOnline(employee);
     const scheduledStartTimeStr = employee.trackingSettings?.shiftDefaults?.startTime;
     const scheduledEndTimeStr = employee.trackingSettings?.shiftDefaults?.endTime;
     const hasSchedule = scheduledStartTimeStr && scheduledEndTimeStr;
@@ -52,10 +59,8 @@ export const WorkforceRegistry = ({
     const actualStartTime = actualShift ? parseShiftDate(actualShift.startTime) : null;
     const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
 
-    const todayStr = actualShift ? format(actualStartTime!, "yyyy-MM-dd") : format(now, "yyyy-MM-dd");
-
-    const scheduledStartTime = hasSchedule ? parse(`${todayStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
-    const scheduledEndTime = hasSchedule ? parse(`${todayStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+    const scheduledStartTime = hasSchedule ? parse(`${dateStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+    const scheduledEndTime = hasSchedule ? parse(`${dateStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
 
     const formatDuration = (ms: number) => {
       if (ms < 0) ms = 0;
@@ -67,14 +72,10 @@ export const WorkforceRegistry = ({
       return `${minutes}m`;
     };
     
-    // This part of the function determines the textual status for display,
-    // while the `isOnline` boolean (the source of truth) controls the green/grey dot.
-
-    if (isOnline) {
-      if (!actualStartTime) {
-        return { details: "Awaiting first data...", actualStartTime: null, isOnline };
-      }
-      if (scheduledEndTime && isValid(scheduledEndTime) && now > scheduledEndTime) {
+    if (isOnline && actualStartTime) {
+      const now = new Date();
+      // Only show overtime if viewing today and currently online
+      if (scheduledEndTime && isValid(scheduledEndTime) && now > scheduledEndTime && format(now, "yyyy-MM-dd") === dateStr) {
         const overtimeMs = now.getTime() - scheduledEndTime.getTime();
         return { details: `Overtime: ${formatDuration(overtimeMs)}`, actualStartTime, isOnline };
       }
@@ -82,19 +83,20 @@ export const WorkforceRegistry = ({
         if (actualStartTime > scheduledStartTime) {
           const latenessMs = actualStartTime.getTime() - scheduledStartTime.getTime();
           return { details: `Started ${formatDuration(latenessMs)} late`, actualStartTime, isOnline };
-        } else if (actualStartTime.getTime() < scheduledStartTime.getTime() - 60000) { // More than 1 minute early
+        } else if (actualStartTime.getTime() < scheduledStartTime.getTime() - 60000) {
           const earlyMs = scheduledStartTime.getTime() - actualStartTime.getTime();
           return { details: `Started ${formatDuration(earlyMs)} early`, actualStartTime, isOnline };
         }
       }
-      return { details: "Not a single minute late", actualStartTime, isOnline };
+      return { details: "On track", actualStartTime, isOnline };
     }
 
-    // Fallback for an offline status based on our authoritative `isOnline` check
-    if (actualEndTime) {
-      if (scheduledEndTime && isValid(scheduledEndTime) && actualEndTime > scheduledEndTime) {
-        const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
-        return { details: `Worked ${formatDuration(overtimeMs)} of overtime.`, actualStartTime, isOnline };
+    if (actualEndTime && isValid(actualEndTime)) {
+      if (scheduledEndTime && isValid(scheduledEndTime) && actualEndTime.getTime() > scheduledEndTime.getTime()) {
+         const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
+         if (overtimeMs > 60000) {
+           return { details: `Overtime: ${formatDuration(overtimeMs)}`, actualStartTime, isOnline };
+         }
       }
       return { details: `Shift ended at ${format(actualEndTime, 'hh:mm a')}`, actualStartTime, isOnline };
     }
@@ -163,11 +165,9 @@ export const WorkforceRegistry = ({
                   onClick={() => router.push(`/ems/team/${emp.id}`)}
                   className="group relative bg-white dark:bg-[#111113] border border-gray-100 dark:border-white/5 rounded-[2rem] p-4 md:p-6 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all duration-500 overflow-hidden"
                 >
-                  {/* Hover Glow Effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
 
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                    {/* Identity Cluster */}
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="relative shrink-0">
                         <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -197,7 +197,6 @@ export const WorkforceRegistry = ({
                       </div>
                     </div>
 
-                    {/* Status & Timings Cluster */}
                     <div className="flex flex-1 items-center gap-8 px-2 md:px-0">
                         <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                             <div className="flex items-center gap-2 text-[9px] font-black text-emerald-500 uppercase tracking-widest">
@@ -237,7 +236,6 @@ export const WorkforceRegistry = ({
                         </div>
                     </div>
 
-                    {/* Action Cluster */}
                     <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-border/50">
                       <div className="flex items-center">
                         <div className="flex space-x-0.5 items-end h-4 mr-3">

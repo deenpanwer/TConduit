@@ -36,6 +36,18 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
 
   const dateStr = React.useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
+  const parseShiftDate = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (ts.toDate) return ts.toDate();
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      return parsed;
+    }
+    return null;
+  };
+
   // --- SINGLE-PASS DATA ENGINE ---
   // SCHEMA COMPATIBILITY NOTICE:
   // This engine processes both Legacy and Modern workShift JSON structures.
@@ -82,7 +94,10 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             totalSeconds += shiftTotalSeconds;
 
             // Metrics aggregation for Selected Date
-            if (shift.startTime.startsWith(dateStr)) {
+            const sStart = parseShiftDate(shift.startTime);
+            const isSelectedDay = sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+
+            if (isSelectedDay) {
                 totalDaySeconds += shiftTotalSeconds;
                 
                 const metrics = shift.liveMetrics || shift.metrics || {};
@@ -253,7 +268,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
 
       {/* HUB 7: Ledger */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
-        <ForceRegistry employees={employees} />
+        <ForceRegistry employees={employees} selectedDate={selectedDate} />
       </motion.div>
     </div>
   );

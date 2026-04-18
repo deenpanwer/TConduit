@@ -71,6 +71,7 @@ interface InvoiceData {
   paymentInfo: string;
   notes: string;
   signature?: string; // Signature data/text
+  branding?: string; // Root level branding
   relatedToId?: string;
   relatedToType?: 'lead' | 'deal';
 }

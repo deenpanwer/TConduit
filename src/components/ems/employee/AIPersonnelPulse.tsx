@@ -90,16 +90,19 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
   
   const relevantShifts = useMemo(() => {
     if (!workShifts) return [];
-    return workShifts.filter(s => s.id.startsWith(dateStr));
+    return workShifts.filter(s => {
+        const sStart = s.startTime?.toDate ? s.startTime.toDate() : new Date(s.startTime);
+        return format(sStart, "yyyy-MM-dd") === dateStr;
+    });
   }, [workShifts, dateStr]);
 
   const fetchAnalysis = async () => {
-    if (!employee || relevantShifts.length === 0) return;
+    if (!employee) return;
     
     setLoading(true);
     setAnalysis(null);
 
-    // 1. Filter non-blurred screenshots that actually HAVE a URL to prevent metadata mismatch
+    // Filter screenshots - still useful even without shifts
     const validScreenshots = (screenshots || [])
       .filter(s => !s.isBlurred && (s.url || s.activity?.cloudinaryUrl))
       .slice(0, 16);
@@ -107,7 +110,6 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
     const urls = validScreenshots.map(s => s.url || s.activity?.cloudinaryUrl || "");
 
     try {
-      // 2. Generate Collage on client side (using object-contain logic)
       const collageBase64 = await generateTemporalCollage(urls);
 
       const payload = {
@@ -153,10 +155,10 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
   };
 
   useEffect(() => {
-    if (employee && relevantShifts.length > 0) {
+    if (employee) {
       fetchAnalysis();
     }
-  }, [employee?.id, relevantShifts.length, dateStr]);
+  }, [employee?.id, dateStr]);
 
   if (loading) {
     return (

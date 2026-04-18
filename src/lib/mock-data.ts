@@ -1,6 +1,7 @@
 "use client";
 
 import { faker } from "@faker-js/faker";
+import { format } from "date-fns";
 import { storage } from "./storage";
 
 // Collections
@@ -33,7 +34,8 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   console.log("Seeding high-fidelity mock data anchored to April 2026...");
 
   const mainOrgId = 'mock-org-123';
-  const mockTodayDateStr = "2026-04-16";
+  const now = new Date();
+  const mockTodayDateStr = format(now, "yyyy-MM-dd");
   
   // Future date to prevent heartbeat from going stale in mock environment
   const futureHeartbeat = new Date('2026-12-31T23:59:59Z').toISOString();
@@ -47,7 +49,7 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
         industry: "Technology & Infrastructure",
         logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg/250px-J._Robert_Oppenheimer_at_the_Guest_Lodge%2C_Oak_Ridge%2C_in_1946_4.jpg",
         orgName: "TConduit Industries",
-        subscriptionExpiry: new Date('2027-04-16').toISOString(),
+        subscriptionExpiry: new Date('2027-12-31').toISOString(),
     }
   ];
   storage.saveCollection(COLLECTIONS.ORGANIZATIONS, orgs);
@@ -107,136 +109,137 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   const timeEntries: any[] = [];
   const screenshots: any[] = [];
   
-  // Generate a pool of dates for the last 30 days
+  // Generate data for every single day in the last 30 days for every user
   const shiftDates = Array.from({ length: 30 }).map((_, i) => {
-    const d = new Date('2026-04-16T12:00:00Z');
+    const d = new Date();
     d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return format(d, "yyyy-MM-dd");
   });
 
-  Array.from({ length: counts.shifts }).forEach((_, index) => {
-    const user = faker.helpers.arrayElement(users);
-    const dateStr = faker.helpers.arrayElement(shiftDates);
-    const isToday = dateStr === mockTodayDateStr;
-    
-    // Ensure at least some active shifts for today if requested
-    const shiftIndexInDay = index % 2; 
+  users.forEach((user, uIndex) => {
+    shiftDates.forEach((dateStr, dIndex) => {
+      const isToday = dateStr === mockTodayDateStr;
+      const isOnline = user.heartbeat.isCurrentlyRunning && isToday;
+      
+      // Randomly skip some days for some users to simulate absences (except for the owner)
+      if (uIndex > 0 && !isToday && Math.random() > 0.85) return;
 
-    // For today, align with 09:00 AM scheduled start
-    let startHour = 8 + (shiftIndexInDay * 4);
-    let startMinute = faker.number.int(59);
-    
-    if (isToday && shiftIndexInDay === 0) {
-        const variance = faker.helpers.arrayElement([-15, 0, 0, 10, 20]);
-        startHour = 9;
-        startMinute = variance >= 0 ? variance : 60 + variance;
-        if (variance < 0) startHour = 8;
-    }
+      // Start at 9:00 AM
+      let startHour = 9;
+      let startMinute = 0;
+      
+      if (isToday) {
+          // If online, they started at 9:00 AM sharp
+          startHour = 9;
+          startMinute = 0;
+      } else {
+          startHour = faker.helpers.arrayElement([8, 9, 10]);
+          startMinute = faker.number.int(59);
+      }
 
-    const durationHours = faker.number.float({ min: 4, max: 8, fractionDigits: 1 });
-    const totalSeconds = Math.floor(durationHours * 3600);
+      const durationHours = isOnline ? 
+        Math.max(0.5, (now.getHours() + now.getMinutes()/60) - startHour) : 
+        faker.number.float({ min: 6, max: 9, fractionDigits: 1 });
+      
+      const totalSeconds = Math.floor(durationHours * 3600);
 
-    const shiftId = `shift_${index}_${user.id}`;
-    const isOnline = user.heartbeat.isCurrentlyRunning && isToday;
-    const status = (isToday && isOnline) ? 'active' : 'completed';
-    
-    const startTimeStr = `${dateStr}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
-    const endTimeStr = `${dateStr}T${String(Math.floor(startHour + durationHours)).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
+      const shiftId = `shift_${uIndex}_${dIndex}_${user.id}`;
+      const status = isOnline ? 'active' : 'completed';
+      
+      const startTimeStr = `${dateStr}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
+      const endTimeStr = isOnline ? null : `${dateStr}T${String(Math.floor(startHour + durationHours)).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000Z`;
 
-    const liveBreakdown: Record<string, any> = {};
-    const apps = ['VS Code', 'Chrome', 'Slack', 'Terminal', 'Figma', 'Notion', 'Discord'];
-    apps.forEach(app => {
-        const appSecs = faker.number.int({ min: 500, max: Math.floor(totalSeconds / 3) });
-        liveBreakdown[app] = {
-            totalSeconds: appSecs,
-            activeSeconds: Math.floor(appSecs * 0.85),
-            focusScore: faker.number.int({ min: 70, max: 100 }),
-            productivityScore: faker.number.int({ min: 70, max: 100 }),
-        };
+      const liveBreakdown: Record<string, any> = {};
+      const apps = ['VS Code', 'Chrome', 'Slack', 'Terminal', 'Figma', 'Notion', 'Discord'];
+      apps.forEach(app => {
+          const appSecs = faker.number.int({ min: 500, max: Math.floor(totalSeconds / 3) });
+          liveBreakdown[app] = {
+              totalSeconds: appSecs,
+              activeSeconds: Math.floor(appSecs * 0.85),
+              focusScore: faker.number.int({ min: 70, max: 100 }),
+              productivityScore: faker.number.int({ min: 70, max: 100 }),
+          };
+      });
+
+      const hourlyPulse: Record<string, any> = {};
+      for (let h = 0; h < 24; h++) {
+          if (h >= startHour && h <= Math.floor(startHour + durationHours)) {
+              const intensity = faker.number.int({ min: 0, max: 2 });
+              const multipliers = [0.2, 1, 1.8];
+              const mult = multipliers[intensity];
+
+              hourlyPulse[h.toString()] = {
+                  metrics: {
+                      seconds: 3600,
+                      keystrokes: Math.floor(faker.number.int({ min: 2000, max: 6000 }) * mult),
+                      mouseClicks: Math.floor(faker.number.int({ min: 400, max: 1200 }) * mult),
+                      mouseDistance: Math.floor(faker.number.int({ min: 3000, max: 15000 }) * mult),
+                  }
+              };
+          }
+      }
+
+      const shift = {
+          id: shiftId,
+          userId: user.id,
+          orgId: mainOrgId,
+          startTime: startTimeStr,
+          endTime: status === 'active' ? null : endTimeStr,
+          status,
+          totalSeconds,
+          liveMetrics: {
+              totalSeconds,
+              keystrokes: faker.number.int({ min: 10000, max: 40000 }),
+              mouseClicks: faker.number.int({ min: 2000, max: 8000 }),
+              mouseDistance: faker.number.int({ min: 20000, max: 80000 }),
+              idleSeconds: Math.floor(totalSeconds * 0.05),
+              activeSeconds: Math.floor(totalSeconds * 0.95),
+          },
+          liveBreakdown,
+          hourlyPulse,
+          cognitiveReport: {
+              velocity: faker.number.int({ min: 80, max: 100 }),
+              focusScore: faker.number.int({ min: 80, max: 100 }),
+              productivityScore: faker.number.int({ min: 80, max: 100 }),
+              aiBrief: faker.lorem.sentence(),
+          },
+          focusScore: faker.number.int({ min: 80, max: 100 }),
+          productivityScore: faker.number.int({ min: 80, max: 100 }),
+          velocity: faker.number.int({ min: 80, max: 100 }),
+          aiBrief: faker.lorem.sentence(),
+      };
+      shifts.push(shift);
+
+      // Time Entries (1 per shift)
+      timeEntries.push({
+          id: faker.string.uuid(),
+          userId: user.id,
+          orgId: mainOrgId,
+          startTime: `${dateStr}T${String(startHour).padStart(2, '0')}:00:00.000Z`,
+          endTime: `${dateStr}T${String(startHour + 1).padStart(2, '0')}:00:00.000Z`,
+          duration: 3600,
+          projectName: faker.company.buzzPhrase(),
+          description: faker.hacker.phrase(),
+      });
+
+      // Screenshots (2 per shift)
+      for (let j = 0; j < 2; j++) {
+          const sTimestamp = `${dateStr}T${String(startHour + j).padStart(2, '0')}:${String(faker.number.int(59)).padStart(2, '0')}:00.000Z`;
+          screenshots.push({
+              id: faker.string.uuid(),
+              userId: user.id,
+              orgId: mainOrgId,
+              url: faker.image.urlLoremFlickr({ category: 'business', width: 640, height: 360 }),
+              timestamp: sTimestamp,
+              isBlurred: false,
+              activity: {
+                  windowTitle: faker.hacker.phrase(),
+                  appName: faker.helpers.arrayElement(['VS Code', 'Chrome', 'Slack', 'Figma', 'Terminal']),
+                  processName: faker.system.fileName(),
+              }
+          });
+      }
     });
-
-    const hourlyPulse: Record<string, any> = {};
-    for (let h = 0; h < 24; h++) {
-        if (h >= startHour && h <= Math.floor(startHour + durationHours)) {
-            const intensity = faker.number.int({ min: 0, max: 2 });
-            const multipliers = [0.2, 1, 1.8];
-            const mult = multipliers[intensity];
-
-            hourlyPulse[h.toString()] = {
-                metrics: {
-                    seconds: 3600,
-                    keystrokes: Math.floor(faker.number.int({ min: 2000, max: 6000 }) * mult),
-                    mouseClicks: Math.floor(faker.number.int({ min: 400, max: 1200 }) * mult),
-                    mouseDistance: Math.floor(faker.number.int({ min: 3000, max: 15000 }) * mult),
-                }
-            };
-        }
-    }
-
-    const shift = {
-        id: shiftId,
-        userId: user.id,
-        orgId: mainOrgId,
-        startTime: startTimeStr,
-        endTime: status === 'active' ? null : endTimeStr,
-        status,
-        totalSeconds,
-        liveMetrics: {
-            totalSeconds,
-            keystrokes: faker.number.int({ min: 10000, max: 40000 }),
-            mouseClicks: faker.number.int({ min: 2000, max: 8000 }),
-            mouseDistance: faker.number.int({ min: 20000, max: 80000 }),
-            idleSeconds: Math.floor(totalSeconds * 0.05),
-            activeSeconds: Math.floor(totalSeconds * 0.95),
-        },
-        liveBreakdown,
-        hourlyPulse,
-        cognitiveReport: {
-            velocity: faker.number.int({ min: 80, max: 100 }),
-            focusScore: faker.number.int({ min: 80, max: 100 }),
-            productivityScore: faker.number.int({ min: 80, max: 100 }),
-            aiBrief: faker.lorem.sentence(),
-        },
-        focusScore: faker.number.int({ min: 80, max: 100 }),
-        productivityScore: faker.number.int({ min: 80, max: 100 }),
-        velocity: faker.number.int({ min: 80, max: 100 }),
-        aiBrief: faker.lorem.sentence(),
-    };
-    shifts.push(shift);
-
-    // Time Entries (1-3 per shift)
-    const tCount = faker.number.int({ min: 1, max: 3 });
-    for (let t = 0; t < tCount; t++) {
-        timeEntries.push({
-            id: faker.string.uuid(),
-            userId: user.id,
-            orgId: mainOrgId,
-            startTime: `${dateStr}T${String(startHour + t).padStart(2, '0')}:00:00.000Z`,
-            endTime: `${dateStr}T${String(startHour + t + 1).padStart(2, '0')}:00:00.000Z`,
-            duration: 3600,
-            projectName: faker.company.buzzPhrase(),
-            description: faker.hacker.phrase(),
-        });
-    }
-
-    // Screenshots (2-4 per shift)
-    const sCount = faker.number.int({ min: 2, max: 4 });
-    for (let j = 0; j < sCount; j++) {
-        const sTimestamp = `${dateStr}T${String(startHour + Math.floor(j/2)).padStart(2, '0')}:${String((j%2)*30 + faker.number.int(20)).padStart(2, '0')}:00.000Z`;
-        screenshots.push({
-            id: faker.string.uuid(),
-            userId: user.id,
-            orgId: mainOrgId,
-            url: faker.image.urlLoremFlickr({ category: 'business', width: 640, height: 360 }),
-            timestamp: sTimestamp,
-            isBlurred: false,
-            activity: {
-                windowTitle: faker.hacker.phrase(),
-                appName: faker.helpers.arrayElement(['VS Code', 'Chrome', 'Slack', 'Figma', 'Terminal']),
-                processName: faker.system.fileName(),
-            }
-        });
-    }
   });
   storage.saveCollection(COLLECTIONS.SHIFTS, shifts);
   storage.saveCollection(COLLECTIONS.TIME_ENTRIES, timeEntries);

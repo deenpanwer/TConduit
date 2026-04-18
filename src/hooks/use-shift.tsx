@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { storage } from '@/lib/storage';
-import { format, startOfWeek, addDays, isAfter, isSameDay, startOfDay } from 'date-fns';
+import { format, startOfWeek, addDays, isAfter, isSameDay, startOfDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 export interface ScheduledShift {
@@ -41,6 +41,7 @@ export interface LeaveRequest {
   reviewedByName?: string | null;
   reviewedAt?: any;
   createdAt?: any;
+  updatedAt?: any;
 }
 export interface ShiftClaim {
   id: string;
@@ -64,7 +65,7 @@ export interface HistoryLog {
   timestamp: Date;
 }
 
-export function useShift(selectedDate: Date, orgId: string | undefined, user: any, employees: any[] = []) {
+export function useShift(selectedDate: Date, orgId: string | undefined, user: any, employees: any[] = [], weekStartsOn: 0 | 1 = 0) {
   const [remoteShifts, setRemoteShifts] = useState<ScheduledShift[]>([]);
   const [localShifts, setLocalShifts] = useState<ScheduledShift[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -75,7 +76,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   
-  const weekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+  const weekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn }), [selectedDate, weekStartsOn]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const startDateStr = format(weekStart, 'yyyy-MM-dd');
   const endDateStr = format(weekEnd, 'yyyy-MM-dd');
@@ -147,8 +148,11 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
       setRemoteShifts(orgShifts);
       setLocalShifts((prev) => {
         const hasUnsavedLocalChanges = prev.some((s) => s.id.startsWith('local_'));
-        if (!hasUnsavedLocalChanges || prev.length === 0) return orgShifts;
-        return prev;
+        if (!hasUnsavedLocalChanges) return orgShifts;
+        // Merge manual edits that aren't in remote yet
+        const drafts = prev.filter(s => s.id.startsWith('local_'));
+        const nonDrafts = orgShifts.filter(os => !drafts.some(d => d.date === os.date && d.userId === os.userId));
+        return [...drafts, ...nonDrafts];
       });
       setLoading(false);
     });
@@ -252,10 +256,6 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
   const deleteShift = useCallback(
     (id: string) => {
-      // If deleting a virtual shift, we effectively "block" it by adding a dummy cancelled shift or just removing it from view?
-      // Actually, if we delete a virtual shift, we should probably add a record that says this day is off.
-      // But for now, let's just allow deleting local/remote shifts.
-      
       const shift = localShifts.find((s) => s.id === id);
       setLocalShifts((prev) => prev.filter((s) => s.id !== id));
       if (shift) addHistory('Removed Shift', `Deleted shift for ${shift.userName} on ${shift.date}`);
@@ -318,7 +318,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     } finally {
       setIsPublishing(false);
     }
-  }, [orgId, user, localShifts, remoteShifts, startDateStr, endDateStr]);
+  }, [orgId, user, localShifts, startDateStr, endDateStr]);
   
   const discardChanges = useCallback(() => {
     setLocalShifts(remoteShifts);

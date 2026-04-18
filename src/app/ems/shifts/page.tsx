@@ -64,6 +64,15 @@ export default function ShiftsPage() {
     };
   }, [userData, user]);
 
+  // Consolidate settings (Owner doc vs Org doc)
+  const combinedSettings = useMemo(() => {
+    return orgData?.settings || owner?.settings || userData?.settings || {
+      offDays: ["Sun"],
+      defaultShiftSeconds: 32400,
+      startOfWeek: 'Sunday'
+    };
+  }, [orgData, owner, userData]);
+
   const { 
     shifts, 
     allLeaves,
@@ -85,16 +94,7 @@ export default function ShiftsPage() {
     denyClaim,
     approveLeave,
     denyLeave
-  } = useShift(currentDate, orgId, shiftUser, employees);
-
-  // Consolidate settings (Owner doc vs Org doc)
-  const combinedSettings = useMemo(() => {
-    return orgData?.settings || owner?.settings || userData?.settings || {
-      offDays: ["Sun"],
-      defaultShiftSeconds: 32400,
-      startOfWeek: 'Sunday'
-    };
-  }, [orgData, owner, userData]);
+  } = useShift(currentDate, orgId, shiftUser, employees, combinedSettings.startOfWeek === 'Monday' ? 1 : 0);
 
   // -- STATES --
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

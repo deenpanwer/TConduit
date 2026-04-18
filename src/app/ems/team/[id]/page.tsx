@@ -174,9 +174,10 @@ export default function EmployeeDetailPage() {
 
     shiftsToProcess.forEach((shift: any) => {
       const shiftStartTime = shift.startTime?.toDate ? shift.startTime.toDate() : new Date(shift.startTime);
-      if (shiftStartTime < officialStart && !shift.id.startsWith(dateStr)) return; 
+      const sDateStr = format(shiftStartTime, "yyyy-MM-dd");
+      if (shiftStartTime < officialStart && sDateStr !== dateStr) return; 
 
-      if (shift.id.startsWith(dateStr)) {
+      if (sDateStr === dateStr) {
         const shiftDuration = shift.liveMetrics?.totalSeconds || 0;
         todayTotalSeconds += shiftDuration;
         if (shift.status === 'active') activeShiftSeconds = shiftDuration;

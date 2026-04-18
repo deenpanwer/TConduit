@@ -19,11 +19,26 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
   const [analysis, setAnalysis] = useState<string | null>(null);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+  const parseShiftDate = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (ts.toDate) return ts.toDate();
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      return parsed;
+    }
+    return null;
+  };
   
   // Calculate a "fingerprint" of the data to know when to trigger re-analysis
   const dataFingerprint = useMemo(() => {
     const totalSeconds = employees.reduce((acc: number, emp) => {
-      const dayShifts = (emp.workShifts || []).filter((s: any) => s.id.startsWith(dateStr));
+      const dayShifts = (emp.workShifts || []).filter((s: any) => {
+        const sStart = parseShiftDate(s.startTime);
+        return sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+      });
       return acc + dayShifts.reduce((sAcc: number, s: any) => sAcc + (s.liveMetrics?.totalSeconds || 0), 0);
     }, 0);
     return `${dateStr}-${employees.length}-${totalSeconds}`;
@@ -34,7 +49,10 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
     
     // Prepare data: all shifts for all employees for the selected day
     const allShiftsData = employees.map(emp => {
-      const dayShifts = (emp.workShifts || []).filter((s: any) => s.id.startsWith(dateStr));
+      const dayShifts = (emp.workShifts || []).filter((s: any) => {
+        const sStart = parseShiftDate(s.startTime);
+        return sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+      });
       return {
         name: emp.name,
         shifts: dayShifts.map((s: any) => ({
@@ -103,7 +121,10 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
       </div>
     );
 
-    const hasAnyShifts = employees.some(emp => (emp.workShifts || []).some((s: any) => s.id.startsWith(dateStr)));
+    const hasAnyShifts = employees.some(emp => (emp.workShifts || []).some((s: any) => {
+        const sStart = parseShiftDate(s.startTime);
+        return sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+    }));
 
     if (!hasAnyShifts) {
       return (
@@ -127,7 +148,10 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
          <div className="space-y-4">
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest text-foreground">Organization Audit Ready</h3>
-              <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mt-1">Collected output from {employees.filter(e => (e.workShifts || []).some((s:any) => s.id.startsWith(dateStr))).length} active members</p>
+              <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mt-1">Collected output from {employees.filter(e => (e.workShifts || []).some((s:any) => {
+                  const sStart = parseShiftDate(s.startTime);
+                  return sStart && format(sStart, "yyyy-MM-dd") === dateStr;
+              })).length} active members</p>
             </div>
             <Button 
               onClick={fetchOrgAnalysis} 
