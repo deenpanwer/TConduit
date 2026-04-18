@@ -345,8 +345,11 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   storage.saveCollection(COLLECTIONS.POS_PRODUCTS, products);
 
   // 7. Invoices, 8. Notes, 9. Call Logs - All merged into CRM_ENTITIES
+  const ownerUser = users.find(u => u.role === 'owner') || users[0];
   const invoices = Array.from({ length: counts.invoices }).map(() => {
     const org = faker.helpers.arrayElement(crmEntities.filter(e => e.type === 'organization'));
+    const amount = parseFloat(faker.commerce.price({ min: 100, max: 5000 }));
+    
     return {
       id: faker.string.uuid(),
       name: `Invoice for ${org.name}`,
@@ -356,22 +359,39 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
         invoiceNumber: `INV-${faker.string.numeric(5)}`,
         clientName: org.name,
         clientId: org.id,
-        amount: parseFloat(faker.commerce.price({ min: 100, max: 5000 })),
-        status: faker.helpers.arrayElement(['paid', 'pending', 'overdue', 'sent', 'draft']),
+        amount,
+        status: faker.helpers.arrayElement(['paid', 'sent', 'overdue', 'draft']),
         issueDate: faker.date.past().toISOString(),
         dueDate: faker.date.future().toISOString(),
         currency: '$',
+        from: {
+          name: orgs[0].name,
+          email: ownerUser.email,
+          address: faker.location.streetAddress(),
+          phone: ownerUser.phone || faker.phone.number(),
+          branding: orgs[0].logoUrl,
+        },
+        to: {
+          name: org.name,
+          email: faker.internet.email(),
+          address: org.data?.street ? `${org.data.street}, ${org.data.city}` : faker.location.streetAddress(),
+          organization: org.name,
+        },
         items: Array.from({ length: faker.number.int({ min: 1, max: 5 }) }).map(() => ({
+            id: faker.string.uuid(),
             description: faker.commerce.productName(),
             quantity: faker.number.int({ min: 1, max: 10 }),
-            unitPrice: parseFloat(faker.commerce.price({ min: 10, max: 1000 })),
+            rate: parseFloat(faker.commerce.price({ min: 10, max: 500 })),
         })),
+        paymentInfo: 'Bank: TRAC Global Bank\nAccount: 1234567890\nSWIFT: TRACUS33',
+        notes: 'Thank you for your business!',
+        signature: ownerUser.name,
       },
       history: [],
       isDeleted: false,
       createdAt: faker.date.recent().toISOString(),
       updatedAt: faker.date.recent().toISOString(),
-      lastEditedBy: faker.helpers.arrayElement(users).id
+      lastEditedBy: ownerUser.id
     };
   });
 

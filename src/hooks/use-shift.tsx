@@ -1,18 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { db } from '@/lib/firebase';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  writeBatch,
-  serverTimestamp,
-  addDoc,
-  updateDoc,
-} from 'firebase/firestore';
+import { storage } from '@/lib/storage';
 import { format, startOfWeek, addDays, isAfter, isSameDay, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -149,63 +138,41 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     setLocalShifts([]);
     setLoading(true);
 
-    const shiftsRef = collection(db, 'organizations', orgId, 'scheduled_shifts');
-    const leavesRef = collection(db, 'organizations', orgId, 'leave_requests');
-    const claimsRef = collection(db, 'organizations', orgId, 'shift_claims');
-    const qShifts = query(
-      shiftsRef,
-      where('date', '>=', startDateStr),
-      where('date', '<=', endDateStr)
-    );
-
-    const qAllPendingLeaves = query(leavesRef, where('status', '==', 'pending'));
-    const qAllPendingClaims = query(claimsRef, where('status', '==', 'pending'));
-    const unsubShifts = onSnapshot(
-      qShifts,
-      (snapshot) => {
-        const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as ScheduledShift[];
-        setRemoteShifts(data);
-        setLocalShifts((prev) => {
-          const hasUnsavedLocalChanges = prev.some((s) => s.id.startsWith('local_'));
-          if (!hasUnsavedLocalChanges || prev.length === 0) return data;
-          return prev;
-        });
-        setLoading(false);
-      },
-      (error) => {
-        console.warn('Shifts Sync Error:', error.message);
-        setLoading(false);
-      }
-    );
-
-    const unsubAllPending = onSnapshot(qAllPendingLeaves, (snapshot) => {
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as LeaveRequest[];
-      setAllPendingLeaves(data);
+    const unsubShifts = storage.onSnapshot<ScheduledShift>('scheduled_shifts', (allShifts) => {
+      const orgShifts = allShifts.filter(s => 
+        s.orgId === orgId && 
+        s.date >= startDateStr && 
+        s.date <= endDateStr
+      );
+      setRemoteShifts(orgShifts);
+      setLocalShifts((prev) => {
+        const hasUnsavedLocalChanges = prev.some((s) => s.id.startsWith('local_'));
+        if (!hasUnsavedLocalChanges || prev.length === 0) return orgShifts;
+        return prev;
+      });
+      setLoading(false);
     });
-    const unsubAllPendingClaims = onSnapshot(qAllPendingClaims, (snapshot) => {
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as ShiftClaim[];
-      setAllPendingClaims(data);
+
+    const unsubLeaves = storage.onSnapshot<LeaveRequest>('leave_requests', (all) => {
+      const orgLeaves = all.filter(l => l.orgId === orgId);
+      setAllLeaves(orgLeaves);
+      setAllPendingLeaves(orgLeaves.filter(l => l.status === 'pending'));
+      
+      const relevantLeaves = orgLeaves.filter(
+        (l) => l.status === 'approved' && l.endDate >= startDateStr && l.startDate <= endDateStr
+      );
+      setLeaveRequests(relevantLeaves);
     });
-    const unsubLeaves = onSnapshot(
-      leavesRef,
-      (snapshot) => {
-        const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as LeaveRequest[];
-        setAllLeaves(data);
-        const relevantLeaves = data.filter(
-          (l) => l.status === 'approved' && l.endDate >= startDateStr && l.startDate <= endDateStr
-        );
-        setLeaveRequests(relevantLeaves);
-      },
-      (error) => {
-        console.warn('Leaves Sync Error:', error.message);
-      }
-    );
+
+    const unsubClaims = storage.onSnapshot<ShiftClaim>('shift_claims', (all) => {
+      const orgClaims = all.filter(c => c.orgId === orgId);
+      setAllPendingClaims(orgClaims.filter(c => c.status === 'pending'));
+    });
 
     return () => {
       unsubShifts();
-      unsubAllPending();
-      unsubAllPendingClaims();
       unsubLeaves();
+      unsubClaims();
     };
   }, [orgId, startDateStr, endDateStr, user?.role, user?.uid]);
   
@@ -222,7 +189,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         provenance: [
           {
             by: user?.name || user?.displayName || 'Manager',
-            at: new Date(),
+            at: new Date().toISOString(),
             action: 'Drafted Shift',
           },
         ],
@@ -248,7 +215,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
           provenance: [
             {
               by: user?.name || user?.displayName || 'Manager',
-              at: new Date(),
+              at: new Date().toISOString(),
               action: 'Overrode Recurring Shift',
             },
           ],
@@ -262,7 +229,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
           if (s.id === id) {
             const newProvenance = {
               by: user?.name || user?.displayName || 'Manager',
-              at: new Date(),
+              at: new Date().toISOString(),
               action: `Updated: ${Object.keys(updates).join(', ')}`,
             };
             return {
@@ -285,6 +252,10 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
 
   const deleteShift = useCallback(
     (id: string) => {
+      // If deleting a virtual shift, we effectively "block" it by adding a dummy cancelled shift or just removing it from view?
+      // Actually, if we delete a virtual shift, we should probably add a record that says this day is off.
+      // But for now, let's just allow deleting local/remote shifts.
+      
       const shift = localShifts.find((s) => s.id === id);
       setLocalShifts((prev) => prev.filter((s) => s.id !== id));
       if (shift) addHistory('Removed Shift', `Deleted shift for ${shift.userName} on ${shift.date}`);
@@ -297,39 +268,44 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     setIsPublishing(true);
 
     try {
-      const batch = writeBatch(db);
-      const shiftsRef = collection(db, 'organizations', orgId, 'scheduled_shifts');
+      const allShifts = storage.getCollection<ScheduledShift>('scheduled_shifts');
       
+      // 1. Remove remote shifts that are no longer in localShifts
       const localIds = localShifts.map((s) => s.id);
-      const toDelete = remoteShifts.filter((rs) => !localIds.includes(rs.id));
-      toDelete.forEach((rs) => {
-        batch.delete(doc(shiftsRef, rs.id));
+      let updatedAllShifts = allShifts.filter(rs => {
+        if (rs.orgId !== orgId) return true;
+        if (rs.date < startDateStr || rs.date > endDateStr) return true;
+        return localIds.includes(rs.id);
       });
 
+      // 2. Add/Update shifts from localShifts
       localShifts.forEach((ls) => {
         const isNew = ls.id.startsWith('local_');
-        const finalId = isNew ? doc(shiftsRef).id : ls.id;
-        const shiftDoc = doc(shiftsRef, finalId);
+        const finalId = isNew ? Math.random().toString(36).substring(7) : ls.id;
         
-        const data = {
+        const data: ScheduledShift = {
           ...ls,
           id: finalId,
           status: 'published',
           lastModifiedBy: user.uid || user.id,
           lastModifiedByName: user.name || user.displayName,
-          updatedAt: serverTimestamp(),
-          createdAt: isNew ? serverTimestamp() : ls.createdAt || serverTimestamp(),
-          // provenance: (ls.provenance || []).map((p) => ({ ...p, at: serverTimestamp() })),
-          // serverTimestamp() is not supported inside arrays. Use a static Date for the provenance array entries.
+          updatedAt: new Date().toISOString(),
+          createdAt: isNew ? new Date().toISOString() : ls.createdAt || new Date().toISOString(),
           provenance: (ls.provenance || []).map((p) => ({
             ...p,
-            at: p.at instanceof Date ? p.at : (p.at?.toDate ? p.at.toDate() : new Date())
+            at: typeof p.at === 'string' ? p.at : new Date().toISOString()
           })),
         };
-        batch.set(shiftDoc, data, { merge: true });
+
+        const existingIdx = updatedAllShifts.findIndex(s => s.id === finalId);
+        if (existingIdx !== -1) {
+          updatedAllShifts[existingIdx] = data;
+        } else {
+          updatedAllShifts.push(data);
+        }
       });
 
-      await batch.commit();
+      storage.saveCollection('scheduled_shifts', updatedAllShifts);
 
       setLocalShifts([]);
       setHistory([]);
@@ -341,7 +317,7 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     } finally {
       setIsPublishing(false);
     }
-  }, [orgId, user, localShifts, remoteShifts]);
+  }, [orgId, user, localShifts, remoteShifts, startDateStr, endDateStr]);
   
   const discardChanges = useCallback(() => {
     setLocalShifts(remoteShifts);
@@ -424,22 +400,20 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
     }
     
     try {
-        const leaveCollectionRef = collection(db, 'organizations', orgId, 'leave_requests');
-        
-        const newLeaveRequest: any = {
+        const newLeaveRequest: LeaveRequest = {
             ...leaveRequestData,
+            id: Math.random().toString(36).substring(7),
             orgId: orgId,
-            userId: user.uid,
+            userId: user.uid || user.id,
             userName: user.name || user.displayName || 'Unknown User',
             status: 'pending',
-            createdAt: serverTimestamp(),
+            createdAt: new Date().toISOString(),
             reviewedAt: null,
             reviewedBy: null,
             reviewedByName: null,
         };
 
-        await addDoc(leaveCollectionRef, newLeaveRequest);
-        
+        storage.saveItem('leave_requests', newLeaveRequest);
         toast.success("Leave request submitted successfully.");
     
       } catch (error) {
@@ -447,132 +421,168 @@ export function useShift(selectedDate: Date, orgId: string | undefined, user: an
         toast.error("Failed to submit leave request.");
     }
   }, [orgId, user]);
-    const updateEmployeeDefaults = useCallback(async (userId: string, startTime: string | null, endTime: string | null) => {
-      try {
-        const { deleteField } = await import('firebase/firestore');
-        await updateDoc(doc(db, 'users', userId), {
-          'trackingSettings.shiftDefaults': (startTime && endTime) ? { startTime, endTime } : deleteField()
-        });
+
+  const updateEmployeeDefaults = useCallback(async (userId: string, startTime: string | null, endTime: string | null) => {
+    try {
+      const allUsers = storage.getCollection<any>('users');
+      const userIdx = allUsers.findIndex(u => u.id === userId || u.uid === userId);
+      
+      if (userIdx !== -1) {
+        const updatedUser = { ...allUsers[userIdx] };
+        if (!updatedUser.trackingSettings) updatedUser.trackingSettings = {};
+        
+        if (startTime && endTime) {
+          updatedUser.trackingSettings.shiftDefaults = { startTime, endTime };
+        } else {
+          delete updatedUser.trackingSettings.shiftDefaults;
+        }
+        
+        allUsers[userIdx] = updatedUser;
+        storage.saveCollection('users', allUsers);
         toast.success(startTime ? "Default shift updated." : "Recurring shift removed.");
-      } catch (e) {
-        toast.error("Failed to update regular hours.");
+      } else {
+        toast.error("User not found.");
       }
-    }, []);
-    const approveClaim = useCallback(async (claim: ShiftClaim) => {
-      if (!orgId || !user) return;
-      try {
-        const batch = writeBatch(db);
-        // 1. Update the Shift document
-        const shiftRef = doc(db, 'organizations', orgId, 'scheduled_shifts', claim.shiftId);
-        batch.update(shiftRef, {
+    } catch (e) {
+      console.error("Error updating defaults:", e);
+      toast.error("Failed to update regular hours.");
+    }
+  }, []);
+
+  const approveClaim = useCallback(async (claim: ShiftClaim) => {
+    if (!orgId || !user) return;
+    try {
+      // 1. Update the Shift
+      const allShifts = storage.getCollection<ScheduledShift>('scheduled_shifts');
+      const shiftIdx = allShifts.findIndex(s => s.id === claim.shiftId);
+      if (shiftIdx !== -1) {
+        allShifts[shiftIdx] = {
+          ...allShifts[shiftIdx],
           userId: claim.userId,
           userName: claim.userName,
-          updatedAt: serverTimestamp(),
+          updatedAt: new Date().toISOString(),
           lastModifiedBy: user.uid || user.id,
           lastModifiedRole: user.role || 'manager'
-        });
-        // 2. Update the Claim document
-        const claimRef = doc(db, 'organizations', orgId, 'shift_claims', claim.id);
-        batch.update(claimRef, {
+        };
+        storage.saveCollection('scheduled_shifts', allShifts);
+      }
+
+      // 2. Update the Claims
+      const allClaims = storage.getCollection<ShiftClaim>('shift_claims');
+      allClaims.forEach(c => {
+        if (c.id === claim.id) {
+          c.status = 'approved';
+          c.reviewedBy = user.uid || user.id;
+          c.reviewedByName = user.name || user.displayName || 'Manager';
+          c.reviewedAt = new Date().toISOString();
+        } else if (c.shiftId === claim.shiftId && c.status === 'pending') {
+          c.status = 'denied';
+          c.reviewedBy = user.uid || user.id;
+          c.reviewedByName = user.name || user.displayName || 'Manager';
+          c.reviewedAt = new Date().toISOString();
+          (c as any).denialReason = 'Shift assigned to another employee';
+        }
+      });
+      storage.saveCollection('shift_claims', allClaims);
+
+      toast.success(`Shift claim for ${claim.userName} approved.`);
+    } catch (error) {
+      console.error("Error approving claim:", error);
+      toast.error("Failed to approve shift claim.");
+    }
+  }, [orgId, user]);
+
+  const denyClaim = useCallback(async (claim: ShiftClaim, reason?: string) => {
+    if (!orgId || !user) return;
+    try {
+      const allClaims = storage.getCollection<ShiftClaim>('shift_claims');
+      const idx = allClaims.findIndex(c => c.id === claim.id);
+      if (idx !== -1) {
+        allClaims[idx] = {
+          ...allClaims[idx],
+          status: 'denied',
+          reviewedBy: user.uid || user.id,
+          reviewedByName: user.name || user.displayName || 'Manager',
+          reviewedAt: new Date().toISOString(),
+          denialReason: reason || 'Declined by manager'
+        } as any;
+        storage.saveCollection('shift_claims', allClaims);
+      }
+      toast.success(`Shift claim for ${claim.userName} denied.`);
+    } catch (error) {
+      console.error("Error denying claim:", error);
+      toast.error("Failed to deny shift claim.");
+    }
+  }, [orgId, user]);
+
+  const approveLeave = useCallback(async (req: LeaveRequest) => {
+    if (!orgId || !user) return;
+    try {
+      const all = storage.getCollection<LeaveRequest>('leave_requests');
+      const idx = all.findIndex(l => l.id === req.id);
+      if (idx !== -1) {
+        all[idx] = {
+          ...all[idx],
           status: 'approved',
           reviewedBy: user.uid || user.id,
           reviewedByName: user.name || user.displayName || 'Manager',
-          reviewedAt: serverTimestamp()
-        });
-        // 3. Deny other pending claims for the same shift
-        const otherClaims = allPendingClaims.filter(c => c.shiftId === claim.shiftId && c.id !== claim.id);
-        otherClaims.forEach(oc => {
-          const ocRef = doc(db, 'organizations', orgId, 'shift_claims', oc.id);
-          batch.update(ocRef, {
-            status: 'denied',
-            reviewedBy: user.uid || user.id,
-            reviewedByName: user.name || user.displayName || 'Manager',
-            reviewedAt: serverTimestamp(),
-            denialReason: 'Shift assigned to another employee'
-          });
-        });
-        await batch.commit();
-        toast.success(`Shift claim for ${claim.userName} approved.`);
-      } catch (error) {
-        console.error("Error approving claim:", error);
-        toast.error("Failed to approve shift claim.");
+          reviewedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        storage.saveCollection('leave_requests', all);
       }
-    }, [orgId, user, allPendingClaims]);
-
-      const denyClaim = useCallback(async (claim: ShiftClaim, reason?: string) => {
-        if (!orgId || !user) return;
-        try {
-          const claimRef = doc(db, 'organizations', orgId, 'shift_claims', claim.id);
-          await updateDoc(claimRef, {
-            status: 'denied',
-            reviewedBy: user.uid || user.id,
-            reviewedByName: user.name || user.displayName || 'Manager',
-            reviewedAt: serverTimestamp(),
-            denialReason: reason || 'Declined by manager'
-          });
-          toast.success(`Shift claim for ${claim.userName} denied.`);
-        } catch (error) {
-          console.error("Error denying claim:", error);
-          toast.error("Failed to deny shift claim.");
-        }
-      }, [orgId, user]);
-      const approveLeave = useCallback(async (req: LeaveRequest) => {
-        if (!orgId || !user) return;
-        try {
-          const ref = doc(db, "organizations", orgId, "leave_requests", req.id);
-          await updateDoc(ref, {
-            status: 'approved',
-            reviewedBy: user.uid || user.id,
-            reviewedByName: user.name || user.displayName || 'Manager',
-            reviewedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-          toast.success(`Leave request for ${req.userName} approved.`);
-        } catch (e) {
-          console.error("Leave approval error:", e);
-          toast.error("Failed to approve leave.");
-        }
-      }, [orgId, user]);
-
-      const denyLeave = useCallback(async (req: LeaveRequest, denialReason: string) => {
-        if (!orgId || !user) return;
-        try {
-          const ref = doc(db, "organizations", orgId, "leave_requests", req.id);
-          await updateDoc(ref, {
-            status: 'denied',
-            denialReason: denialReason || 'Declined by manager',
-            reviewedBy: user.uid || user.id,
-            reviewedByName: user.name || user.displayName || 'Manager',
-            reviewedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-          toast.success(`Leave request for ${req.userName} denied.`);
-        } catch (e) {
-          console.error("Leave denial error:", e);
-          toast.error("Failed to deny leave.");
-        }
-      }, [orgId, user]);
-      return {
-        shifts: mergedShifts,
-        leaveRequests,
-        allLeaves,
-        allPendingLeaves,
-        allPendingClaims,
-        history,
-        loading,
-        isPublishing,
-        hasChanges: JSON.stringify(localShifts) !== JSON.stringify(remoteShifts),
-        addShift,
-        updateShift,
-        deleteShift,
-        publishChanges,
-        discardChanges,
-        smartFill,
-        submitLeaveRequest,
-        updateEmployeeDefaults,
-        approveClaim,
-        denyClaim,
-        approveLeave,
-        denyLeave
-      };
+      toast.success(`Leave request for ${req.userName} approved.`);
+    } catch (e) {
+      console.error("Leave approval error:", e);
+      toast.error("Failed to approve leave.");
     }
+  }, [orgId, user]);
+
+  const denyLeave = useCallback(async (req: LeaveRequest, denialReason: string) => {
+    if (!orgId || !user) return;
+    try {
+      const all = storage.getCollection<LeaveRequest>('leave_requests');
+      const idx = all.findIndex(l => l.id === req.id);
+      if (idx !== -1) {
+        all[idx] = {
+          ...all[idx],
+          status: 'denied',
+          denialReason: denialReason || 'Declined by manager',
+          reviewedBy: user.uid || user.id,
+          reviewedByName: user.name || user.displayName || 'Manager',
+          reviewedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        } as any;
+        storage.saveCollection('leave_requests', all);
+      }
+      toast.success(`Leave request for ${req.userName} denied.`);
+    } catch (e) {
+      console.error("Leave denial error:", e);
+      toast.error("Failed to deny leave.");
+    }
+  }, [orgId, user]);
+
+  return {
+    shifts: mergedShifts,
+    leaveRequests,
+    allLeaves,
+    allPendingLeaves,
+    allPendingClaims,
+    history,
+    loading,
+    isPublishing,
+    hasChanges: JSON.stringify(localShifts) !== JSON.stringify(remoteShifts),
+    addShift,
+    updateShift,
+    deleteShift,
+    publishChanges,
+    discardChanges,
+    smartFill,
+    submitLeaveRequest,
+    updateEmployeeDefaults,
+    approveClaim,
+    denyClaim,
+    approveLeave,
+    denyLeave
+  };
+}

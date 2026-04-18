@@ -172,8 +172,16 @@ export default function InvoiceBuilder() {
     if (invoiceId) {
       const existing = allInvoices.find(i => i.id === invoiceId);
       if (existing) {
-        setInvoice(existing.data as InvoiceData);
-        if (existing.data.branding) setBrandingLogo(existing.data.branding);
+        const existingData = existing.data as InvoiceData;
+        setInvoice(prev => ({
+          ...prev,
+          ...existingData,
+          from: { ...prev.from, ...(existingData.from || {}) },
+          to: { ...prev.to, ...(existingData.to || {}) },
+          items: existingData.items || prev.items
+        }));
+        if (existingData.branding) setBrandingLogo(existingData.branding);
+        if (existingData.from?.branding) setBrandingLogo(existingData.from.branding);
       }
     }
   }, [invoiceId, allInvoices]);
@@ -241,7 +249,7 @@ export default function InvoiceBuilder() {
       const invoicePayload = {
         ...invoice,
         amount: subtotal,
-        clientName: invoice.to.name || invoice.to.organization,
+        clientName: invoice.to?.name || invoice.to?.organization || 'Unknown Client',
         branding: brandingLogo,
       };
 
@@ -770,19 +778,17 @@ export default function InvoiceBuilder() {
                                 <div className='space-y-2'>
                                     <p className='text-[9px] font-black uppercase tracking-[0.3em] text-blue-600'>FROM</p>
                                     <div className='space-y-0.5'>
-                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.from.name || 'Company Name'}</p>
-                                        <p className='text-[10px] font-medium opacity-60 max-w-[200px] leading-tight'>{invoice.from.address || 'Business Address'}</p>
-                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.from.email}</p>
-                                        <p className='text-[10px] font-bold opacity-80'>{invoice.from.phone}</p>
-                                    </div>
+                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.from?.name || 'Company Name'}</p>
+                                        <p className='text-[10px] font-medium opacity-60 max-w-[200px] leading-tight'>{invoice.from?.address || 'Business Address'}</p>
+                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.from?.email}</p>
+                                        <p className='text-[10px] font-bold opacity-80'>{invoice.from?.phone}</p>                                    </div>
                                 </div>
                                 <div className='space-y-2 text-right'>
                                     <p className='text-[9px] font-black uppercase tracking-[0.3em] text-purple-600'>BILL TO</p>
                                     <div className='space-y-0.5'>
-                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.to.name || 'Client Name'}</p>
-                                        <p className='text-[10px] font-black uppercase text-blue-600'>{invoice.to.organization}</p>
-                                        <p className='text-[10px] font-medium opacity-60 ml-auto max-w-[200px] leading-tight'>{invoice.to.address || 'Billing Address'}</p>
-                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.to.email}</p>
+                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.to?.name || 'Client Name'}</p>
+                                        <p className='text-[10px] font-black uppercase text-blue-600'>{invoice.to?.organization}</p>
+                                        <p className='text-[10px] font-medium opacity-60 ml-auto max-w-[200px] leading-tight'>{invoice.to?.address || 'Billing Address'}</p>                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.to?.email}</p>
                                     </div>
                                 </div>
                             </div>
@@ -797,7 +803,7 @@ export default function InvoiceBuilder() {
                                 <p className='text-[9px] font-bold text-slate-400 uppercase'>Continued - Page {pageIdx + 1}</p>
                             </div>
                             <div className='text-right'>
-                                <p className='text-[10px] font-black uppercase text-slate-900 dark:text-white'>{invoice.from.name}</p>
+                                <p className='text-[10px] font-black uppercase text-slate-900 dark:text-white'>{invoice.from?.name}</p>
                             </div>
                         </div>
                     )}
