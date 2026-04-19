@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { rtdb } from "@/lib/firebase";
-import { ref, update, onValue, set } from "firebase/database";
+import { ref, update, onValue } from "firebase/database";
 import { 
   Smartphone, 
   Zap, 
@@ -49,6 +49,9 @@ export default function RemoteScannerPage() {
       if (!snapshot.exists()) {
         setStatus("error");
         setErrorMsg("Session terminated by PC.");
+        if (scannerRef.current) {
+          scannerRef.current.stop().catch(() => {});
+        }
       }
     });
 
@@ -62,7 +65,14 @@ export default function RemoteScannerPage() {
 
   const startScanner = async () => {
     try {
-      const html5QrCode = new Html5Qrcode("reader");
+      const html5QrCode = new Html5Qrcode("reader", { 
+         formatsToSupport: [ 
+           Html5QrcodeSupportedFormats.QR_CODE, 
+           Html5QrcodeSupportedFormats.EAN_13, 
+           Html5QrcodeSupportedFormats.CODE_128 
+         ],
+         verbose: false 
+      });
       scannerRef.current = html5QrCode;
       setScanning(true);
 
@@ -224,13 +234,18 @@ export default function RemoteScannerPage() {
         .animate-scan {
           animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
+        #reader {
+           border: none !important;
+        }
         #reader video {
-            width: 100% !important;
-            height: 100% !important;
+            width: 100vw !important;
+            height: 100vh !important;
             object-fit: cover !important;
         }
-        #reader__dashboard_section_csr button {
-            display: none !important;
+        #reader__dashboard_section_csr, 
+        #reader__status_span, 
+        #reader button { 
+           display: none !important; 
         }
       `}</style>
     </div>
