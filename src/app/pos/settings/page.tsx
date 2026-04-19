@@ -343,8 +343,8 @@ export default function SettingsPage() {
                         <h2 className="text-sm font-black uppercase tracking-widest">Financial Rules</h2>
                     </div>
                     <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 p-8">
-                        <div className="max-w-xs space-y-4">
-                            <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-primary">Sales Tax Rate (%)</Label>
                                 <div className="relative mt-2">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-xl text-muted-foreground">%</div>
@@ -353,6 +353,17 @@ export default function SettingsPage() {
                                         value={localConfig.defaultTaxRate}
                                         onChange={(e) => setLocalConfig({...localConfig, defaultTaxRate: Number(e.target.value)})}
                                         className="font-black text-2xl bg-muted/20 border-border h-16 pl-10 rounded-xl" 
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-primary">Store Currency</Label>
+                                <div className="relative mt-2">
+                                    <Input 
+                                        value={localConfig.currency || '$'}
+                                        onChange={(e) => setLocalConfig({...localConfig, currency: e.target.value})}
+                                        placeholder="e.g. $, PKR, £"
+                                        className="font-black text-2xl bg-muted/20 border-border h-16 rounded-xl" 
                                     />
                                 </div>
                             </div>

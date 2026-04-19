@@ -121,6 +121,7 @@ export interface PosConfig {
   isRestaurantMode: boolean; 
   floors: string[]; 
   showProductImagesOnInvoice: boolean; // New: Setting for invoice images
+  currency?: string;
   updatedAt?: string;
   updatedBy?: { uid: string; name: string; };
 }
@@ -150,6 +151,7 @@ export interface PosContextType {
   };
   addProduct: (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => Promise<string>;
   updateProduct: (id: string, data: Partial<Product>) => Promise<void>;
+  updateProductStock: (id: string, newStock: number) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   uploadProductImage: (productId: string, fileOrBase64: File | string, onProgress?: (p: number) => void) => Promise<string>;
   addCustomer: (data: { name: string; phoneNumber?: string; email?: string }) => Promise<string | null>;
@@ -185,13 +187,14 @@ const defaultPosConfig: PosConfig = {
   isRestaurantMode: false,
   floors: ['Main Floor'],
   showProductImagesOnInvoice: false,
+  currency: 'USD',
 };
 
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
 export function PosProvider({ children }: { children: ReactNode }) {
   const { userData, user } = useAuth(); // Using orgId from useAuth
-  const orgId = useMemo(() => (userData as any)?.orgId, [userData]);
+  const orgId = useMemo(() => (userData as any)?.orgId || (userData as any)?.ownedOrgId, [userData]);
   const { leads: crmLeads, addEntity: addCrmEntity, loading: crmLoading } = useCRM();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -291,6 +294,15 @@ export function PosProvider({ children }: { children: ReactNode }) {
   const updateProduct = async (id: string, data: Partial<Product>) => {
     if (!orgId || !user) return;
     await updateDoc(doc(db, 'organizations', orgId, 'pos_products', id), { ...data, updatedAt: new Date().toISOString(), updatedBy: { uid: user.uid, name: userData?.name || user.displayName || 'Staff' } });
+  };
+
+  const updateProductStock = async (id: string, newStock: number) => {
+    if (!orgId || !user) return;
+    await updateDoc(doc(db, 'organizations', orgId, 'pos_products', id), { 
+        stockQuantity: newStock,
+        updatedAt: new Date().toISOString(), 
+        updatedBy: { uid: user.uid, name: userData?.name || user.displayName || 'Staff' } 
+    });
   };
 
   const deleteProduct = async (id: string) => { if (orgId) await deleteDoc(doc(db, 'organizations', orgId, 'pos_products', id)); };
@@ -538,7 +550,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     products, customers: crmLeads, salesHistory, tables, activeTickets, config, currentSale, loading, 
-    addProduct, updateProduct, deleteProduct, uploadProductImage, 
+    addProduct, updateProduct, deleteProduct, uploadProductImage, updateProductStock,
     addCustomer, linkCustomerToTicket, 
     addItemToSale, removeItemFromSale, updateItemQuantity, updateItemPrice, updateItemDiscount, applyDiscount, 
     selectCustomer, clearCurrentSale, completeSale, 

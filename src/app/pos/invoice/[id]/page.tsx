@@ -42,6 +42,30 @@ export default function InvoicePage() {
     if (invoiceId) fetchEntity();
   }, [invoiceId, getEntityForInvoice]);
 
+  const isProForma = entityData?.type === 'ticket';
+  const isSale = entityData?.type === 'sale';
+  const showImagesOnBill = config?.showProductImagesOnInvoice;
+
+  const data = entityData?.data;
+  const type = entityData?.type;
+
+  const customerId = (data as SaleTransaction)?.customerId || (data as PosTicket)?.customerId;
+  const customer = customerId ? customers.find(c => c.id === customerId) : null;
+
+  const saleItems = data?.items || [];
+  const subtotal = useMemo(() => saleItems.reduce((sum, item) => sum + (item.lineItemTotal || 0), 0), [saleItems]);
+  const discountAmount = useMemo(() => saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice * (item.discount || 0) / 100), 0), [saleItems]);
+  const taxRate = useMemo(() => (config?.defaultTaxRate || 0) / 100, [config?.defaultTaxRate]);
+  const taxableAmount = useMemo(() => subtotal - discountAmount, [subtotal, discountAmount]);
+  const taxAmount = useMemo(() => taxableAmount * taxRate, [taxableAmount, taxRate]);
+  const grandTotal = useMemo(() => taxableAmount + taxAmount, [taxableAmount, taxAmount]);
+  
+  const saleCreatedAt = data?.createdAt;
+  const saleId = data?.id;
+  const cashierName = isSale ? (data as SaleTransaction)?.cashierName : data?.createdBy?.name;
+  const tableId = (data as PosTicket)?.tableId || (isSale ? (data as SaleTransaction)?.tableId : null);
+  const table = tableId ? tables.find(t => t.id === tableId) : null;
+
   // Loading state while fetching the invoice data
   if (!entityData) {
     return (
@@ -54,8 +78,6 @@ export default function InvoicePage() {
     );
   }
 
-  const { data, type } = entityData;
-
   // Handle case where no data is found for the given ID
   if (!data || type === 'notFound') {
     return (
@@ -67,27 +89,6 @@ export default function InvoicePage() {
       </div>
     );
   }
-
-  const isProForma = type === 'ticket';
-  const isSale = type === 'sale';
-  const showImagesOnBill = config.showProductImagesOnInvoice;
-
-  const customerId = (data as SaleTransaction)?.customerId || (data as PosTicket)?.customerId;
-  const customer = customerId ? customers.find(c => c.id === customerId) : null;
-
-  const saleItems = data.items || [];
-  const subtotal = useMemo(() => saleItems.reduce((sum, item) => sum + item.lineItemTotal, 0), [saleItems]);
-  const discountAmount = useMemo(() => saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice * (item.discount || 0) / 100), 0), [saleItems]);
-  const taxRate = useMemo(() => (config.defaultTaxRate || 0) / 100, [config.defaultTaxRate]);
-  const taxableAmount = useMemo(() => subtotal - discountAmount, [subtotal, discountAmount]);
-  const taxAmount = useMemo(() => taxableAmount * taxRate, [taxableAmount, taxRate]);
-  const grandTotal = useMemo(() => taxableAmount + taxAmount, [taxableAmount, taxAmount]);
-  
-  const saleCreatedAt = data.createdAt;
-  const saleId = data.id;
-  const cashierName = isSale ? (data as SaleTransaction).cashierName : data.createdBy?.name;
-  const tableId = (data as PosTicket).tableId || (isSale ? (data as SaleTransaction).tableId : null);
-  const table = tableId ? tables.find(t => t.id === tableId) : null;
 
   const handlePrint = () => {
     // A more robust print method

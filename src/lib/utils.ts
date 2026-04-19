@@ -1,9 +1,27 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { isValid } from "date-fns"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { isValid } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
+}
+
+export function formatCurrency(amount: number, currency = "USD"): string {
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
+
+  if (formatted.endsWith(".00")) {
+    return formatted.slice(0, -3);
+  }
+
+  return formatted;
+}
+
+export function formatNumber(amount: number): string {
+  return new Intl.NumberFormat("en-US").format(amount);
 }
 
 export function getUserAvatar(user: any) {

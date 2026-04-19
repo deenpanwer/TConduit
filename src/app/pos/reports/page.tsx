@@ -22,15 +22,16 @@ import {
     Clock,
     Utensils
 } from 'lucide-react';
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { salesHistory, products, customers, loading } = usePos();
+  const { salesHistory, products, customers, loading, config } = usePos();
 
   // --- Financial Analytics ---
   const financials = useMemo(() => {
@@ -55,7 +56,7 @@ export default function ReportsPage() {
   const inventoryValuation = useMemo(() => {
     return products.reduce((acc, p) => ({
         retail: acc.retail + (p.basePrice * p.stockQuantity),
-        cost: acc.retail + (p.costPrice * p.stockQuantity)
+        cost: acc.cost + (p.costPrice * p.stockQuantity)
     }), { retail: 0, cost: 0 });
   }, [products]);
 
@@ -90,6 +91,13 @@ export default function ReportsPage() {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [products]);
 
+  const handlePremiumNudge = () => {
+    toast.info("Unlock Enterprise Analytics", {
+        description: "Exporting detailed PDF reports is a Strategic Tier feature.",
+        action: { label: "Upgrade Now", onClick: () => router.push('/pricing') }
+    });
+  };
+
   return (
     <div className="p-6 lg:p-8 bg-slate-50/50 dark:bg-slate-950 min-h-screen text-foreground">
         {/* Header */}
@@ -103,7 +111,10 @@ export default function ReportsPage() {
                     <Calendar className="h-4 w-4" />
                     Last 30 Days
                 </Button>
-                <Button className="text-[10px] font-black uppercase tracking-widest h-10 gap-2 shadow-lg">
+                <Button 
+                    className="text-[10px] font-black uppercase tracking-widest h-10 gap-2 shadow-lg opacity-60"
+                    onClick={handlePremiumNudge}
+                >
                     <FileText className="h-4 w-4" />
                     Export PDF
                 </Button>
@@ -130,7 +141,7 @@ export default function ReportsPage() {
                             <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80">Gross Revenue</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-black tracking-tighter">${financials.totalRevenue.toFixed(2)}</p>
+                            <p className="text-3xl font-black tracking-tighter">{formatCurrency(financials.totalRevenue, config?.currency)}</p>
                             <div className="flex items-center gap-1 mt-2 text-[10px] font-bold">
                                 <ArrowUpRight className="h-3 w-3" /> 12.5% vs last month
                             </div>
@@ -141,7 +152,7 @@ export default function ReportsPage() {
                             <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80">Net Profit</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-black tracking-tighter">${financials.grossProfit.toFixed(2)}</p>
+                            <p className="text-3xl font-black tracking-tighter">{formatCurrency(financials.grossProfit, config?.currency)}</p>
                             <div className="flex items-center gap-1 mt-2 text-[10px] font-bold">
                                 <TrendingUp className="h-3 w-3" /> Healthy Margin
                             </div>
@@ -163,7 +174,7 @@ export default function ReportsPage() {
                             <CardTitle className="text-[10px] font-black uppercase tracking-widest opacity-80">Tax Liability</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-black tracking-tighter">${financials.totalTax.toFixed(2)}</p>
+                            <p className="text-3xl font-black tracking-tighter">{formatCurrency(financials.totalTax, config?.currency)}</p>
                             <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-black/60">
                                 Estimated Q1 Tax
                             </div>
@@ -224,7 +235,7 @@ export default function ReportsPage() {
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip />
+                                    <Tooltip formatter={(value: number) => formatCurrency(value, config?.currency)} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -244,7 +255,7 @@ export default function ReportsPage() {
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#88888820" />
                                     <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
                                     <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'black'}} width={100} />
-                                    <Tooltip cursor={{fill: '#88888810'}} />
+                                    <Tooltip cursor={{fill: '#88888810'}} formatter={(value: number) => [formatNumber(value), 'Stock']} />
                                     <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
@@ -258,16 +269,16 @@ export default function ReportsPage() {
                         <CardContent className="space-y-12 py-10">
                             <div className="text-center">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Asset Value (Retail)</p>
-                                <p className="text-5xl font-black text-primary tracking-tighter">${inventoryValuation.retail.toFixed(2)}</p>
+                                <p className="text-5xl font-black text-primary tracking-tighter">{formatCurrency(inventoryValuation.retail, config?.currency)}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-6 rounded-2xl bg-muted/30 border border-border">
                                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total Cost Base</p>
-                                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">${inventoryValuation.cost.toFixed(2)}</p>
+                                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(inventoryValuation.cost, config?.currency)}</p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-muted/30 border border-border text-center">
                                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Potential Net Profit</p>
-                                    <p className="text-xl font-black text-green-600">${(inventoryValuation.retail - inventoryValuation.cost).toFixed(2)}</p>
+                                    <p className="text-xl font-black text-green-600">{formatCurrency(inventoryValuation.retail - inventoryValuation.cost, config?.currency)}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -293,7 +304,7 @@ export default function ReportsPage() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-black text-lg text-primary tracking-tighter">${cust.spend.toFixed(2)}</p>
+                                            <p className="font-black text-lg text-primary tracking-tighter">{formatCurrency(cust.spend, config?.currency)}</p>
                                             <p className="text-[9px] font-black uppercase text-muted-foreground">Lifetime Value</p>
                                         </div>
                                     </div>
@@ -307,7 +318,7 @@ export default function ReportsPage() {
                             <Users className="h-10 w-10 text-primary" />
                         </div>
                         <div>
-                            <p className="text-4xl font-black tracking-tighter text-primary">{customers.length}</p>
+                            <p className="text-4xl font-black tracking-tighter text-primary">{formatNumber(customers.length)}</p>
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1">Total CRM Database</p>
                         </div>
                         <Button variant="outline" className="w-full font-black uppercase tracking-widest text-[10px] h-12 gap-2" onClick={() => router.push('/pos/customers')}>
@@ -370,7 +381,7 @@ export default function ReportsPage() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <p className="text-4xl font-black tracking-tighter">${tableSales.reduce((a, b) => a + b.grandTotal, 0).toFixed(2)}</p>
+                                        <p className="text-4xl font-black tracking-tighter">{formatCurrency(tableSales.reduce((a, b) => a + b.grandTotal, 0), config?.currency)}</p>
                                         <p className="text-[9px] font-bold opacity-60 uppercase mt-1">Total revenue from hospitality side</p>
                                     </CardContent>
                                 </Card>

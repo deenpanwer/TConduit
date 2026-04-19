@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
   // 1. Only protect the dashboard root and its sub-pages
   // We explicitly EXCLUDE login and signup from protection
   const isAuthPage = pathname.includes('/login') || pathname.includes('/signup') || pathname.includes('/forgot-password') || pathname.startsWith('/api/employee/analyze');  
-  const isProtectedPage = pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname === '/dashboard';
+  const isScannerPage = pathname.includes('/pos/remote-scan');
+  const isProtectedPage = (pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname === '/dashboard') && !isScannerPage;
 
   if (isProtectedPage && !isAuthPage) {
     if (!session || !session.value) {

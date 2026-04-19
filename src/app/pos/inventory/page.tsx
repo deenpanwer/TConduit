@@ -35,15 +35,28 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function InventoryPage() {
-  const { products, loading, addProduct, deleteProduct } = usePos();
+  const { products, loading, addProduct, updateProduct, deleteProduct, config } = usePos();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortBy] = useState<keyof Product | 'lowStock'>('name');
+
+  // Open dialog for editing
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsDialogOpen(true);
+  };
+
+  // Reset editing state when dialog closes
+  const onOpenChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) setEditingProduct(null);
+  };
 
   // --- Filtering & Sorting ---
   const filteredAndSortedProducts = useMemo(() => {
@@ -73,10 +86,17 @@ export default function InventoryPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Delete this product permanently?")) {
-        const success = await deleteProduct(id);
-        if (success) toast.success("Product deleted");
+        await deleteProduct(id);
+        toast.success("Product deleted");
     }
   };
+
+  const inventoryStats = useMemo(() => ({
+      totalItems: products.length,
+      lowStockCount: products.filter(p => p.stockQuantity < 10).length,
+      totalValue: products.reduce((acc, p) => acc + (p.stockQuantity * p.costPrice), 0),
+      categoryCount: new Set(products.map(p => p.category)).size
+  }), [products]);
 
   return (
     <div className="p-6 lg:p-8 bg-slate-50/50 dark:bg-slate-950 min-h-screen text-foreground">
@@ -117,7 +137,7 @@ export default function InventoryPage() {
                     </Button>
                 </div>
 
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog open={isDialogOpen} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
                         <Button className="font-black uppercase tracking-widest text-[10px] h-11 gap-2 shadow-lg">
                             <PlusCircle className="h-4 w-4" />
@@ -126,27 +146,44 @@ export default function InventoryPage() {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
-                            <DialogTitle className="text-xl font-black uppercase tracking-tighter">New Product</DialogTitle>
+                            <DialogTitle className="text-xl font-black uppercase tracking-tighter">
+                                {editingProduct ? 'Edit Product' : 'New Product'}
+                            </DialogTitle>
                         </DialogHeader>
                         <AddItemForm 
+                            product={editingProduct || undefined}
                             onSubmit={async (data) => { 
                                 try {
-                                    // 1. Create product first and return the ID
-                                    const productId = await addProduct({
-                                        name: data.name,
-                                        sku: data.sku,
-                                        basePrice: data.basePrice,
-                                        costPrice: data.costPrice,
-                                        stockQuantity: data.stockQuantity,
-                                        taxRate: data.taxRate,
-                                        imageUrl: data.imageUrl || '' // Start with URL if provided
-                                    });
+                                    if (editingProduct) {
+                                        await updateProduct(editingProduct.id, {
+                                            name: data.name,
+                                            sku: data.sku,
+                                            basePrice: data.basePrice,
+                                            costPrice: data.costPrice,
+                                            stockQuantity: data.stockQuantity,
+                                            taxRate: data.taxRate,
+                                            imageUrl: data.imageUrl || editingProduct.imageUrl
+                                        });
+                                        toast.success("Product updated");
+                                        setIsDialogOpen(false);
+                                        return editingProduct.id;
+                                    } else {
+                                        const productId = await addProduct({
+                                            name: data.name,
+                                            sku: data.sku,
+                                            basePrice: data.basePrice,
+                                            costPrice: data.costPrice,
+                                            stockQuantity: data.stockQuantity,
+                                            taxRate: data.taxRate,
+                                            imageUrl: data.imageUrl || '' 
+                                        });
 
-                                    setIsDialogOpen(false); 
-                                    toast.success("Product created in catalog");
-                                    return productId; // Crucial: return ID for AddItemForm image upload
+                                        setIsDialogOpen(false); 
+                                        toast.success("Product created");
+                                        return productId; 
+                                    }
                                 } catch (e) {
-                                    toast.error("Failed to create product");
+                                    toast.error("Operation failed");
                                     throw e;
                                 }
                             }} 
@@ -160,21 +197,21 @@ export default function InventoryPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Items</p>
-                <p className="text-2xl font-black">{products.length}</p>
+                <p className="text-2xl font-black">{formatNumber(inventoryStats.totalItems)}</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Low Stock</p>
-                <p className="text-2xl font-black text-red-500">{products.filter(p => p.stockQuantity < 10).length}</p>
+                <p className="text-2xl font-black text-red-500">{formatNumber(inventoryStats.lowStockCount)}</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Value</p>
                 <p className="text-2xl font-black text-green-600">
-                    ${products.reduce((acc, p) => acc + (p.stockQuantity * p.costPrice), 0).toFixed(2)}
+                    {formatCurrency(inventoryStats.totalValue, config?.currency)}
                 </p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Categories</p>
-                <p className="text-2xl font-black text-blue-500">{new Set(products.map(p => p.category)).size}</p>
+                <p className="text-2xl font-black text-blue-500">{formatNumber(inventoryStats.categoryCount)}</p>
             </div>
         </div>
 
@@ -242,18 +279,32 @@ export default function InventoryPage() {
                                 />
                             </div>
                             <CardContent className="p-3 flex flex-col flex-grow">
-                                <h3 className="font-black text-[11px] truncate uppercase leading-tight group-hover:text-primary transition-colors">{product.name}</h3>
+                                <div className="flex justify-between items-start gap-2">
+                                    <h3 className="font-black text-[11px] truncate uppercase leading-tight group-hover:text-primary transition-colors flex-1">{product.name}</h3>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-3 w-3" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40 font-bold uppercase text-[10px] tracking-widest">
+                                            <DropdownMenuItem className="gap-2" onClick={() => handleEdit(product)}><Edit className="h-3.5 w-3.5" /> Edit Details</DropdownMenuItem>
+                                            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600" onClick={() => handleDelete(product.id)}>
+                                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
                                 <p className="text-[9px] font-bold text-muted-foreground mt-0.5 tracking-tighter">{product.sku}</p>
                                 
                                 <div className="mt-auto pt-3 flex items-end justify-between">
                                     <div className="flex flex-col">
-                                        <p className="text-xs font-black text-primary leading-none">${product.basePrice.toFixed(2)}</p>
+                                        <p className="text-sm font-black text-primary leading-none">{formatCurrency(product.basePrice, config?.currency)}</p>
+                                        <p className="text-[9px] text-muted-foreground font-bold mt-0.5">Cost: {formatCurrency(product.costPrice, config?.currency)}</p>
                                     </div>
                                     <div className={cn(
                                         "text-[9px] font-black px-1.5 py-0.5 rounded",
                                         product.stockQuantity < 10 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
                                     )}>
-                                        {product.stockQuantity}
+                                        {formatNumber(product.stockQuantity)}
                                     </div>
                                 </div>
                             </CardContent>
@@ -279,7 +330,7 @@ export default function InventoryPage() {
                                 <TableRow key={product.id} className="hover:bg-muted/20 transition-colors border-border group">
                                     <TableCell>
                                         <div className="h-10 w-10 rounded border border-border overflow-hidden bg-muted/10">
-                                            <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                                            <img src={product.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400'} alt={product.name} className="h-full w-full object-cover" />
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -293,15 +344,15 @@ export default function InventoryPage() {
                                             {product.category || 'Uncategorized'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right font-bold text-xs text-muted-foreground">${product.costPrice.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right font-black text-xs text-primary">${product.basePrice.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-bold text-xs text-muted-foreground">{formatCurrency(product.costPrice, config?.currency)}</TableCell>
+                                    <TableCell className="text-right font-black text-xs text-primary">{formatCurrency(product.basePrice, config?.currency)}</TableCell>
                                     <TableCell className="text-center">
                                         <div className={cn(
                                             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase",
                                             product.stockQuantity < 10 ? "bg-red-500/10 text-red-600 border border-red-500/20" : "bg-green-500/10 text-green-600 border border-green-500/20"
                                         )}>
                                             {product.stockQuantity < 10 && <AlertCircle className="h-3 w-3" />}
-                                            {product.stockQuantity}
+                                            {formatNumber(product.stockQuantity)}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -310,7 +361,7 @@ export default function InventoryPage() {
                                                 <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-40 font-bold uppercase text-[10px] tracking-widest">
-                                                <DropdownMenuItem className="gap-2"><Edit className="h-3.5 w-3.5" /> Edit Details</DropdownMenuItem>
+                                                <DropdownMenuItem className="gap-2" onClick={() => handleEdit(product)}><Edit className="h-3.5 w-3.5" /> Edit Details</DropdownMenuItem>
                                                 <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600" onClick={() => handleDelete(product.id)}>
                                                     <Trash2 className="h-3.5 w-3.5" /> Delete
                                                 </DropdownMenuItem>

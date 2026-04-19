@@ -28,12 +28,12 @@ import {
   BarChart,
   Bar
 } from 'recharts';
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
 export function PosDashboardContent() {
   const router = useRouter();
-  const { loading, salesHistory, products, customers, updateProductStock } = usePos();
+  const { loading, salesHistory, products, customers, updateProductStock, config } = usePos();
 
   // --- Calculations ---
   
@@ -91,8 +91,8 @@ export function PosDashboardContent() {
 
   const handleQuickRestock = async (productId: string) => {
     try {
-        const success = await updateProductStock(productId, 50); // Add 50 units
-        if (success) toast.success("Stock updated successfully");
+        await updateProductStock(productId, 50); // Add 50 units
+        toast.success("Stock updated successfully");
     } catch (e) {
         toast.error("Failed to update stock");
     }
@@ -101,7 +101,7 @@ export function PosDashboardContent() {
   const overviewStats = [
     {
       title: "Total Revenue",
-      value: `$${stats?.totalRevenue.toFixed(2) || '0.00'}`,
+      value: formatCurrency(stats?.totalRevenue || 0, config?.currency),
       description: "Lifetime earnings",
       icon: DollarSign,
       color: "text-blue-600",
@@ -109,7 +109,7 @@ export function PosDashboardContent() {
     },
     {
       title: "Today's Sales",
-      value: `$${stats?.todayRevenue.toFixed(2) || '0.00'}`,
+      value: formatCurrency(stats?.todayRevenue || 0, config?.currency),
       description: "Current day performance",
       icon: ShoppingCart,
       color: "text-green-600",
@@ -117,7 +117,7 @@ export function PosDashboardContent() {
     },
     {
         title: "Net Profit",
-        value: `$${stats?.totalProfit.toFixed(2) || '0.00'}`,
+        value: formatCurrency(stats?.totalProfit || 0, config?.currency),
         description: "Revenue minus costs",
         icon: TrendingUp,
         color: "text-purple-600",
@@ -125,7 +125,7 @@ export function PosDashboardContent() {
     },
     {
       title: "Low Stock Alerts",
-      value: stats?.lowStockCount || 0,
+      value: formatNumber(stats?.lowStockCount || 0),
       description: "Items needing refill",
       icon: AlertTriangle,
       color: "text-red-600",
@@ -197,7 +197,7 @@ export function PosDashboardContent() {
                 <Skeleton className="h-full w-full rounded-lg" />
             ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
                         <XAxis 
                             dataKey="name" 
@@ -210,11 +210,12 @@ export function PosDashboardContent() {
                             axisLine={false} 
                             tickLine={false} 
                             tick={{fontSize: 10, fontWeight: 'bold'}}
-                            tickFormatter={(value) => `$${value}`}
+                            tickFormatter={(value) => formatCurrency(value, config?.currency).replace('.00', '')}
                         />
                         <Tooltip 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                             labelStyle={{ fontWeight: 'black', textTransform: 'uppercase', fontSize: '10px' }}
+                            formatter={(value: number) => [formatCurrency(value, config?.currency), "Revenue"]}
                         />
                         <Line 
                             type="monotone" 
@@ -255,7 +256,7 @@ export function PosDashboardContent() {
                         <div key={product.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50 group hover:bg-muted/50 transition-colors">
                             <div className="flex flex-col">
                                 <span className="text-xs font-black uppercase tracking-tight truncate max-w-[120px]">{product.name}</span>
-                                <span className="text-[9px] font-bold text-red-500">{product.stockQuantity} remaining</span>
+                                <span className="text-[9px] font-bold text-red-500">{formatNumber(product.stockQuantity)} remaining</span>
                             </div>
                             <Button 
                                 size="sm" 
@@ -304,7 +305,7 @@ export function PosDashboardContent() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-black tracking-tighter text-foreground">${sale.grandTotal.toFixed(2)}</span>
+                                    <span className="text-sm font-black tracking-tighter text-foreground">{formatCurrency(sale.grandTotal, config?.currency)}</span>
                                     <span className="text-[8px] font-black uppercase text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded leading-none mt-1">Paid</span>
                                 </div>
                             </div>
@@ -327,16 +328,25 @@ export function PosDashboardContent() {
                     <Skeleton className="h-full w-full rounded-lg" />
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData.slice(-3)}>
+                        <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
                             <XAxis 
                                 dataKey="name" 
                                 axisLine={false} 
                                 tickLine={false} 
                                 tick={{fontSize: 10, fontWeight: 'bold'}} 
+                                dy={10}
+                            />
+                             <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{fontSize: 10, fontWeight: 'bold'}}
+                                tickFormatter={(value) => formatCurrency(value, config?.currency).replace('.00', '')}
                             />
                             <Tooltip 
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                                 cursor={{fill: '#88888810'}}
+                                formatter={(value: number) => [formatCurrency(value, config?.currency), "Revenue"]}
                             />
                             <Bar 
                                 dataKey="revenue" 

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useForm, useFormState } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import {
   FormMessage,
   FormDescription,
 } from "@/components/ui/form";
-import { usePos } from "@/hooks/use-pos";
+import { usePos, Product as ProductType } from "@/hooks/use-pos";
+import { useAuth } from "@/hooks/use-auth";
 import {
   ImagePlus,
   Loader2,
@@ -23,34 +24,72 @@ import {
   CheckCircle2,
   Link as LinkIcon,
   Upload,
+  Sparkles,
+  Dices,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { ImageBrowser } from "@/components/ui/ImageBrowser";
+import JsBarcode from "jsbarcode";
 
 const formSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   sku: z.string().min(1, "SKU is required"),
-  basePrice: z.coerce.number().min(0, "Base price must be a positive number"),
-  costPrice: z.coerce.number().min(0, "Cost price must be a positive number"),
+  basePrice: z.coerce.number().min(0, "Base price must be 0 or positive"),
+  costPrice: z.coerce.number().min(0, "Cost price must be 0 or positive"),
   stockQuantity: z.coerce
     .number()
     .int("Stock must be a whole number")
-    .min(0, "Stock must be a positive number"),
-  taxRate: z.coerce.number().min(0, "Tax rate must be a positive number"),
+    .min(0, "Stock must be 0 or positive"),
+  taxRate: z.coerce.number().min(0, "Tax rate cannot be negative"),
   imageUrl: z.string().optional().or(z.literal("")),
 });
 
 interface AddItemFormProps {
-  onSubmit: (data: z.infer<typeof formSchema>) => Promise<void>;
+  onSubmit: (data: z.infer<typeof formSchema>) => Promise<void | string>;
+  product?: ProductType;
 }
 
-export function AddItemForm({ onSubmit }: AddItemFormProps) {
-  const { uploadProductImage } = usePos();
+function BarcodeDisplay({ value }: { value: string }) {
+  const barcodeRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (barcodeRef.current && value) {
+      try {
+        JsBarcode(barcodeRef.current, value, {
+          format: "CODE128",
+          width: 1.2,
+          height: 30,
+          displayValue: false,
+          margin: 0,
+          background: "transparent",
+          lineColor: "currentColor",
+        });
+      } catch (e) {
+        // Handle invalid barcode chars
+      }
+    }
+  }, [value]);
+
+  if (!value) return null;
+
+  return (
+    <div className="flex flex-col items-center justify-center p-2 bg-secondary/20 rounded-lg border border-border/50 mt-1 animate-in fade-in zoom-in-95">
+      <svg ref={barcodeRef} className="text-foreground opacity-70" />
+      <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-1 opacity-50">{value}</span>
+    </div>
+  );
+}
+
+export function AddItemForm({ onSubmit, product }: AddItemFormProps) {
+  const { uploadProductImage, config } = usePos();
+  const { userData, user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageSource, setImageSource] = useState<"url" | "file">("file");
+  const [imageSource, setImageSource] = useState<"url" | "file" | "browse">("browse");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,38 +99,97 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
       basePrice: 0,
       costPrice: 0,
       stockQuantity: 0,
-      taxRate: 0,
+      taxRate: (config as any)?.defaultTaxRate || 0,
       imageUrl: "",
     },
   });
+
+  const currency = (config as any)?.currency || "$";
+
+  const { errors } = useFormState({ control: form.control });
+
+  useEffect(() => {
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length > 0) {
+      const firstError = errors[errorKeys[0] as keyof typeof errors];
+      if (firstError?.message) {
+        toast.error(firstError.message as string);
+      }
+    }
+  }, [errors]);
+
+  // Sync form with product prop when it changes (for editing)
+  useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name,
+        sku: product.sku,
+        basePrice: product.basePrice,
+        costPrice: product.costPrice,
+        stockQuantity: product.stockQuantity,
+        taxRate: product.taxRate,
+        imageUrl: product.imageUrl || "",
+      });
+      setImagePreview(product.imageUrl || null);
+      if (product.imageUrl?.startsWith("https://images.unsplash.com")) {
+        setImageSource("browse");
+      } else if (product.imageUrl) {
+        setImageSource("url");
+      } else {
+        setImageSource("file");
+      }
+    } else {
+      form.reset({
+        name: "",
+        sku: "",
+        basePrice: 0,
+        costPrice: 0,
+        stockQuantity: 0,
+        taxRate: config?.defaultTaxRate || 0,
+        imageUrl: "",
+      });
+      setImagePreview(null);
+      setImageSource("browse");
+    }
+  }, [product, form, config?.defaultTaxRate]);
+
+  const generateSku = () => {
+    const orgName = (userData as any)?.orgName || "TRAC";
+    const prefix = orgName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, 'X');
+    const random = Math.floor(100000 + Math.random() * 900000);
+    const newSku = `${prefix}-${random}`;
+    form.setValue("sku", newSku, { shouldValidate: true });
+    toast.success("SKU Generated");
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Local preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
-
-    // Store file temporarily in form state or handle upload on submit
-    // But the request says we should decide on an ID and use that for both.
-    // So we will upload AFTER addProduct returns an ID, or we generate one now.
   };
 
   const processSubmit = async (values: z.infer<typeof formSchema>) => {
+    const orgId = (userData as any)?.orgId || (userData as any)?.ownedOrgId;
+    if (!user || !orgId) {
+      toast.error("Authentication required to save products");
+      return;
+    }
+
     try {
-      // 1. Create product first to get ID
-      // The parent onSubmit must return the productId
-      const productId = await (onSubmit(values) as any);
+      // 1. Create/Update product first to get ID
+      const result = await onSubmit(values);
+      const productId = product?.id || (result as string);
 
       if (!productId) {
-        throw new Error("Product creation failed");
+        throw new Error("Product operation failed");
       }
 
-      // 2. If there's a file image preview, upload it
+      // 2. If there's a file image preview (newly selected), upload it
       if (
         imageSource === "file" &&
         imagePreview &&
@@ -99,7 +197,7 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
       ) {
         setIsUploading(true);
         try {
-          const url = await uploadProductImage(
+          await uploadProductImage(
             productId,
             imagePreview,
             (progress) => {
@@ -108,48 +206,24 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
           );
           toast.success("Image secured to storage");
         } catch (e) {
-          toast.error("Cloud storage upload failed, using preview link");
+          toast.error("Cloud storage upload failed");
           console.error(e);
         } finally {
           setIsUploading(false);
         }
       }
 
-      form.reset();
-      setImagePreview(null);
+      if (!product) {
+        form.reset();
+        setImagePreview(null);
+        setSearchTerm("");
+      }
       setUploadProgress(0);
     } catch (error) {
       console.error("Submit error", error);
-      toast.error("Failed to create product");
+      toast.error("Failed to save product");
     }
   };
-
-  const handleImageInput = useCallback(
-    async (productId: string) => {
-      if (!imagePreview) return;
-
-      setIsUploading(true);
-      try {
-        // If it's a data URL (base64) or a file was selected
-        // We handle upload via usePos which uses Firebase Storage
-        const url = await uploadProductImage(
-          productId,
-          imagePreview,
-          (progress) => {
-            setUploadProgress(progress);
-          },
-        );
-        toast.success("Image uploaded successfully");
-        return url;
-      } catch (e) {
-        toast.error("Image upload failed");
-        throw e;
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [imagePreview, uploadProductImage],
-  );
 
   return (
     <Form {...form}>
@@ -168,6 +242,10 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
                     placeholder="e.g., T-Shirt"
                     {...field}
                     className="h-11 font-bold"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setSearchTerm(e.target.value);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -182,13 +260,26 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
                 <FormLabel className="text-[10px] font-black uppercase tracking-widest">
                   SKU
                 </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g., TSHIRT-BLK-LG"
-                    {...field}
-                    className="h-11 font-bold"
-                  />
-                </FormControl>
+                <div className="flex flex-col gap-1">
+                  <div className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., TSHIRT-BLK-LG"
+                        {...field}
+                        className="h-11 font-bold pr-12"
+                      />
+                    </FormControl>
+                    <button
+                      type="button"
+                      onClick={generateSku}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-secondary rounded-lg transition-colors text-primary"
+                      title="Auto-generate SKU"
+                    >
+                      <Dices size={18} />
+                    </button>
+                  </div>
+                  <BarcodeDisplay value={field.value} />
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -202,13 +293,15 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-[10px] font-black uppercase tracking-widest">
-                  Sale Price ($)
+                  Sale Price ({currency})
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
                     placeholder="0.00"
                     {...field}
+                    min="0"
+                    step="0.01"
                     className="h-11 font-bold text-primary"
                   />
                 </FormControl>
@@ -222,13 +315,15 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-[10px] font-black uppercase tracking-widest">
-                  Cost Price ($)
+                  Cost Price ({currency})
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
                     placeholder="0.00"
                     {...field}
+                    min="0"
+                    step="0.01"
                     className="h-11 font-bold"
                   />
                 </FormControl>
@@ -245,13 +340,14 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-[10px] font-black uppercase tracking-widest">
-                  Initial Stock
+                  Current Stock
                 </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
                     placeholder="0"
                     {...field}
+                    min="0"
                     className="h-11 font-bold"
                   />
                 </FormControl>
@@ -272,6 +368,7 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
                     type="number"
                     placeholder="0"
                     {...field}
+                    min="0"
                     className="h-11 font-bold"
                   />
                 </FormControl>
@@ -287,6 +384,15 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
               Product Image
             </FormLabel>
             <div className="flex bg-muted rounded-lg p-1">
+              <Button
+                type="button"
+                variant={imageSource === "browse" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 text-[9px] font-black uppercase px-2"
+                onClick={() => setImageSource("browse")}
+              >
+                <Sparkles className="h-3 w-3 mr-1" /> Magic
+              </Button>
               <Button
                 type="button"
                 variant={imageSource === "file" ? "secondary" : "ghost"}
@@ -308,8 +414,21 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
             </div>
           </div>
 
-          {imageSource === "file" ? (
-            <div className="space-y-4">
+          {imageSource === "browse" && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <ImageBrowser 
+                query={searchTerm} 
+                onSelect={(url) => {
+                  setImagePreview(url);
+                  form.setValue("imageUrl", url);
+                }} 
+                selectedUrl={imagePreview}
+              />
+            </div>
+          )}
+
+          {imageSource === "file" && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div
                 className={cn(
                   "border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer hover:border-primary/50 hover:bg-primary/5",
@@ -354,12 +473,14 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
                 )}
               </div>
             </div>
-          ) : (
+          )}
+
+          {imageSource === "url" && (
             <FormField
               control={form.control}
               name="imageUrl"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <FormControl>
                     <div className="relative">
                       <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -411,7 +532,7 @@ export function AddItemForm({ onSubmit }: AddItemFormProps) {
           ) : (
             <Upload className="h-4 w-4" />
           )}
-          {isUploading ? "Securing Image..." : "Create Product"}
+          {isUploading ? (product ? "Saving Changes..." : "Securing Image...") : (product ? "Update Product" : "Create Product")}
         </Button>
       </form>
     </Form>

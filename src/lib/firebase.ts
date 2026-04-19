@@ -7,6 +7,7 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getDatabase } from "firebase/database";
 
 // TODO: Replace with your actual config from the Trac Dairy app
 const firebaseConfig = {
@@ -16,13 +17,15 @@ const firebaseConfig = {
   storageBucket: "trac-dairy.firebasestorage.app",
   messagingSenderId: "278674911210",
   appId: "1:278674911210:web:944919a021c402bd1a8c93",
-  measurementId: "G-0VED36Q4LK"
+  measurementId: "G-0VED36Q4LK",
+  databaseURL: "https://trac-dairy-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 
 // Initialize Firebase
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const storage = getStorage(app);
+const rtdb = getDatabase(app);
 
 // Initialize Firestore with persistent local cache
 const db = initializeFirestore(app, {
@@ -31,4 +34,4 @@ const db = initializeFirestore(app, {
   })
 });
 
-export { auth, db, storage };
+export { auth, db, storage, rtdb };

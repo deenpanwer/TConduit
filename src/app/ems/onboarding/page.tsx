@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Building2, ChevronRight, CheckCircle2, Loader2, 
-  Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil, User
+  Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil, User,
+  ShoppingCart, ListTodo, Users, LayoutDashboard
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, serverTimestamp, setDoc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
@@ -58,6 +59,13 @@ const DAYS = [
   { id: 0, label: "Sun" },
 ];
 
+const AVAILABLE_MODULES = [
+  { id: "ems", label: "Employee Productivity", path: "/ems", icon: LayoutDashboard, description: "Monitor performance & activity" },
+  { id: "pos", label: "POS", path: "/pos/dashboard", icon: ShoppingCart, description: "Sales & inventory management" },
+  { id: "tasks", label: "Tasks", path: "/tasks", icon: ListTodo, description: "Project & task management" },
+  { id: "crm", label: "CRM", path: "/crm", icon: Users, description: "Client & lead management" },
+];
+
 function OnboardingContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -89,7 +97,8 @@ function OnboardingContent() {
     inviteCode: "",
     shift: "8",
     workdays: [1, 2, 3, 4, 5],
-    timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC"
+    timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC",
+    modulePriorities: [] as string[]
   });
 
   // Handle Initial Redirects and Org Fetching
@@ -103,7 +112,16 @@ function OnboardingContent() {
 
         // Compatibility with Electron app field name 'employeeOnboardingV1Complete'
         if (data?.onboardingCompleted || data?.employeeOnboardingV1Complete) {
-          router.push(callbackUrl);
+          const topPriorityModuleId = data?.modulePriorities?.[0];
+          const topPriorityModule = AVAILABLE_MODULES.find(m => m.id === topPriorityModuleId);
+          const finalUrl = topPriorityModule?.path || callbackUrl;
+          
+          // Prevent infinite redirect loop
+          if (finalUrl === "/ems/onboarding") {
+            router.push("/ems");
+          } else {
+            router.push(finalUrl);
+          }
           return;
         }
 
@@ -207,6 +225,10 @@ function OnboardingContent() {
           timezone: timezone
       };
 
+      const topPriorityModuleId = formData.modulePriorities[0] || 'ems';
+      const topPriorityModule = AVAILABLE_MODULES.find(m => m.id === topPriorityModuleId);
+      const finalCallbackUrl = topPriorityModule?.path || callbackUrl;
+
       if (isOwner) {
         let finalOrgId = orgData?.id;
         if (!finalOrgId) {
@@ -228,7 +250,9 @@ function OnboardingContent() {
             subscriptionStatus: "trialing",
             partnerSlug: partnerSlug,
             createdAt: serverTimestamp(),
-            settings: orgSettings
+            settings: orgSettings,
+            selectedModules: formData.modulePriorities, // Boss instructions: rank modules
+            modulePriorities: formData.modulePriorities
           });
 
           // Attribution
@@ -258,7 +282,9 @@ function OnboardingContent() {
             whatsapp: formData.whatsapp,
             motivation: formData.motivation,
             onboardingCompleted: true,
-            settings: orgSettings, // Add settings to update
+            settings: orgSettings, 
+            selectedModules: formData.modulePriorities,
+            modulePriorities: formData.modulePriorities,
             updatedAt: serverTimestamp()
           });
         }
@@ -273,11 +299,11 @@ function OnboardingContent() {
           onboardingCompleted: true,
           whatsapp: formData.whatsapp,
           partnerSlug: partnerSlug,
-          settings: { // user settings can be more minimal
+          modulePriorities: formData.modulePriorities,
+          settings: { 
             defaultShiftSeconds: defaultShiftSeconds,
             offDays: offDays,
             timezone: timezone,
-            // User can override these, so we set them to org defaults initially
             timeFormat: orgSettings.timeFormat,
             dateFormat: orgSettings.dateFormat,
             startOfWeek: orgSettings.startOfWeek,
@@ -287,9 +313,10 @@ function OnboardingContent() {
       } else {
         // Employee Submit
         await updateDoc(doc(db, "users", user.uid), {
-          role: formData.role, // Save the specific selected role (e.g. Engineer)
+          role: formData.role, 
           onboardingCompleted: true,
           whatsapp: formData.whatsapp,
+          modulePriorities: formData.modulePriorities,
           settings: {
             defaultShiftSeconds: SHIFTS.find(s => s.id === formData.shift)?.seconds || 28800,
             offDays: offDays,
@@ -301,7 +328,7 @@ function OnboardingContent() {
 
       await refreshUserData();
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
-      router.push(callbackUrl);
+      router.push(finalCallbackUrl);
     } catch (error: any) {
       toast({ title: "Setup failed", description: error.message, variant: "destructive" });
     } finally {
@@ -371,18 +398,21 @@ function OnboardingContent() {
         <div className="bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 backdrop-blur-sm relative">
           <div className="flex items-center justify-between mb-10">
             <div className="flex gap-2">
-              {(isOwner ? [1, 2, 3, 4] : (userData?.orgId ? [1, 2] : [1, 2, 3])).map((i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-500",
-                    step === i ? "w-8 bg-primary" : "w-4 bg-secondary"
-                  )} 
-                />
-              ))}
+              {(isOwner ? [1, 2, 3, 4, 5] : (userData?.orgId ? [1, 2, 3] : [1, 2, 3, 4])).map((i) => {
+                const isActive = isOwner ? step === i : (userData?.orgId ? step === i + 1 : step === i);
+                return (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "h-1.5 rounded-full transition-all duration-500",
+                      isActive ? "w-8 bg-primary" : "w-4 bg-secondary"
+                    )} 
+                  />
+                );
+              })}
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Step {isOwner? step : step -1} of {isOwner ? 4 : (userData?.orgId ? 2 : 3)}
+              Step {isOwner ? step : (userData?.orgId ? step - 1 : step)} of {isOwner ? 5 : (userData?.orgId ? 3 : 4)}
             </span>
           </div>
 
@@ -783,9 +813,94 @@ function OnboardingContent() {
                     Back
                   </Button>
                   <Button 
-                    onClick={isOwner ? handleNext : handleSubmit} 
+                    onClick={handleNext} 
                     className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
                     disabled={loading}
+                  >
+                    {loading ? <Loader2 className="animate-spin" /> : "Continue"}
+                    {!loading && <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* MODULE RANKING: Step 4 (Both) */}
+            {step === 4 && (
+              <motion.div
+                key="moduleRanking"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-8"
+              >
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Prioritize Modules</h1>
+                  <p className="text-muted-foreground">Select modules in order of priority for your workspace.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    {AVAILABLE_MODULES.map((m) => {
+                      const priorityIndex = formData.modulePriorities.indexOf(m.id);
+                      const isSelected = priorityIndex !== -1;
+                      const Icon = m.icon;
+
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            const newPriorities = isSelected
+                              ? formData.modulePriorities.filter(id => id !== m.id)
+                              : [...formData.modulePriorities, m.id];
+                            setFormData({ ...formData, modulePriorities: newPriorities });
+                          }}
+                          className={cn(
+                            "flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left group",
+                            isSelected 
+                              ? "border-primary bg-primary/5 shadow-lg shadow-primary/5" 
+                              : "border-transparent bg-secondary/50 hover:bg-secondary"
+                          )}
+                        >
+                          <div className={cn(
+                            "size-12 rounded-xl flex items-center justify-center transition-all",
+                            isSelected ? "bg-primary text-white" : "bg-background text-muted-foreground group-hover:text-primary"
+                          )}>
+                            <Icon size={24} />
+                          </div>
+                          
+                          <div className="flex-1">
+                            <h3 className="text-sm font-black uppercase tracking-tight">{m.label}</h3>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase">{m.description}</p>
+                          </div>
+
+                          {isSelected && (
+                            <div className="size-8 rounded-full bg-primary flex items-center justify-center text-white font-black text-xs">
+                              {priorityIndex + 1}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {formData.modulePriorities.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 mt-4">
+                      <CheckCircle2 className="text-emerald-500 shrink-0" size={18} />
+                      <p className="text-[11px] text-emerald-600 font-bold uppercase leading-tight">
+                        You will be redirected to <span className="underline">{AVAILABLE_MODULES.find(m => m.id === formData.modulePriorities[0])?.label}</span> after setup.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleBack} className="h-14 px-8 rounded-2xl font-bold uppercase tracking-wide">
+                    Back
+                  </Button>
+                  <Button 
+                    disabled={formData.modulePriorities.length === 0 || loading} 
+                    onClick={isOwner ? handleNext : handleSubmit} 
+                    className="flex-1 h-14 rounded-2xl font-bold uppercase tracking-wide group"
                   >
                     {loading ? <Loader2 className="animate-spin" /> : (isOwner ? "Continue" : "Finish Setup")}
                     {!loading && isOwner && <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />}
@@ -794,8 +909,8 @@ function OnboardingContent() {
               </motion.div>
             )}
 
-            {/* BRANDING: Step 4 (Owner Only) */}
-            {isOwner && step === 4 && (
+            {/* BRANDING: Step 5 (Owner Only) */}
+            {isOwner && step === 5 && (
               <motion.div
                 key="step4"
                 initial={{ opacity: 0, x: 20 }}

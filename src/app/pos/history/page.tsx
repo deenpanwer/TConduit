@@ -29,12 +29,12 @@ import {
     TableRow 
 } from "@/components/ui/table";
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { salesHistory, customers, loading } = usePos();
+  const { salesHistory, customers, loading, config } = usePos();
   const [searchQuery, setSearchQuery] = useState('');
   
   // --- Filtering Logic ---
@@ -63,7 +63,10 @@ export default function HistoryPage() {
   }, [filteredHistory]);
 
   const handleExportCSV = () => {
-    toast.success("Transaction log exported to CSV");
+    toast.info("Premium Required: Upgrade to Export", {
+        description: "Unlock strategic intelligence features to grow your business.",
+        action: { label: "Upgrade", onClick: () => router.push('/pricing') }
+    });
   };
 
   return (
@@ -87,7 +90,7 @@ export default function HistoryPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" className="text-[10px] font-black uppercase tracking-widest h-11 gap-2 border-border bg-white dark:bg-slate-900" onClick={handleExportCSV}>
+                <Button variant="outline" className="text-[10px] font-black uppercase tracking-widest h-11 gap-2 border-border bg-white dark:bg-slate-900 opacity-60" onClick={handleExportCSV}>
                     <FileSpreadsheet className="h-4 w-4 text-green-600" />
                     Export
                 </Button>
@@ -98,19 +101,19 @@ export default function HistoryPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Total Volume</p>
-                <p className="text-2xl font-black tracking-tighter text-primary">${stats.totalRevenue.toFixed(2)}</p>
+                <p className="text-2xl font-black tracking-tighter text-primary">{formatCurrency(stats.totalRevenue, config?.currency)}</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Avg. Ticket</p>
-                <p className="text-2xl font-black tracking-tighter text-emerald-600">${stats.avgValue.toFixed(2)}</p>
+                <p className="text-2xl font-black tracking-tighter text-emerald-600">{formatCurrency(stats.avgValue, config?.currency)}</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Total Sales</p>
-                <p className="text-2xl font-black tracking-tighter">{stats.totalCount}</p>
+                <p className="text-2xl font-black tracking-tighter">{formatNumber(stats.totalCount)}</p>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-border shadow-sm">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Sales Today</p>
-                <p className="text-2xl font-black tracking-tighter text-blue-600">{stats.todayCount}</p>
+                <p className="text-2xl font-black tracking-tighter text-blue-600">{formatNumber(stats.todayCount)}</p>
             </div>
         </div>
 
@@ -191,7 +194,7 @@ export default function HistoryPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <p className="font-black text-sm tracking-tighter text-slate-900 dark:text-slate-100">
-                                            ${sale.grandTotal.toFixed(2)}
+                                            {formatCurrency(sale.grandTotal, config?.currency)}
                                         </p>
                                     </TableCell>
                                     <TableCell className="text-right">

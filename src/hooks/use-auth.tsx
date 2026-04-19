@@ -249,8 +249,9 @@ function AuthRedirectHandler({ user, userData, loading, pathname, router }: any)
     const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
     const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
     const isOnboardingPage = pathname?.includes("/onboarding");
+    const isScannerPage = pathname?.includes("/pos/remote-scan");
 
-    if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
+    if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage && !isScannerPage) {
       const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/ems");
       
       if (!user) {

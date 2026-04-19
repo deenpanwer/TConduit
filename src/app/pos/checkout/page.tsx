@@ -7,11 +7,17 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Plus, Search, ShoppingCart, Tag, History, Percent, Receipt, ExternalLink, Calendar, Utensils, Save } from 'lucide-react';
+import { 
+    Trash2, Plus, Search, ShoppingCart, Tag, History, Percent, Receipt, 
+    ExternalLink, Calendar, Utensils, Save, Smartphone, Zap 
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { RemoteScannerLink } from '@/components/pos/RemoteScannerLink';
+import { rtdb } from '@/lib/firebase';
+import { ref, onValue, set, remove } from 'firebase/database';
 import {
   Sheet,
   SheetContent,
@@ -90,6 +96,82 @@ export default function CheckoutPage() {
   const [activeMode, setActiveMode] = useState<'Qty' | 'Disc' | 'Rate'>('Qty');
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [isPayMode, setIsPayMode] = useState(false);
+  const [syncId, setSyncId] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  const orgId = (userData as any)?.orgId || (userData as any)?.ownedOrgId || "default";
+
+  // Persistent Background Sync Listener
+  useEffect(() => {
+    if (!syncId) {
+        // Generate once per session
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let newId = "";
+        for (let i = 0; i < 6; i++) {
+          newId += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setSyncId(newId);
+        return;
+    }
+
+    const bridgeRef = ref(rtdb, `sync_bridge/${orgId}/${syncId}`);
+    
+    // Initialize the path if it doesn't exist
+    set(bridgeRef, { 
+        status: "waiting", 
+        timestamp: Date.now()
+    });
+
+    const unsub = onValue(bridgeRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data?.status === "connected" && !isConnected) {
+        setIsConnected(true);
+        toast.success(`Remote Scanner Linked!`, {
+            icon: <Smartphone className="h-4 w-4 text-primary" />
+        });
+      }
+      
+      if (data?.sku) {
+        // A scan happened!
+        const product = products.find(p => p.sku === data.sku);
+        if (product) {
+          addItemToSale(product.id, 1);
+          toast.success(`Added: ${product.name}`, {
+              icon: <Zap className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+          });
+          // Consumed. Wipe SKU so it doesn't re-add
+          set(ref(rtdb, `sync_bridge/${orgId}/${syncId}/sku`), null);
+          // Update timestamp to reset inactivity timer
+          set(ref(rtdb, `sync_bridge/${orgId}/${syncId}/timestamp`), Date.now());
+        } else {
+          toast.error(`Unknown SKU: ${data.sku}`);
+          set(ref(rtdb, `sync_bridge/${orgId}/${syncId}/sku`), null);
+        }
+      }
+    });
+
+    // 10-Minute Inactivity Cleanup
+    const timeoutInterval = setInterval(() => {
+        const checkRef = ref(rtdb, `sync_bridge/${orgId}/${syncId}`);
+        // Read current state to check timestamp
+        onValue(checkRef, (snap) => {
+            const data = snap.val();
+            if (data?.timestamp && Date.now() - data.timestamp > 10 * 60 * 1000) {
+                // Inactive for 10 minutes - disconnect
+                remove(checkRef);
+                setIsConnected(false);
+                setSyncId(null); // Triggers re-gen on next run
+                toast.info("Remote scanner session timed out due to inactivity.");
+            }
+        }, { onlyOnce: true });
+    }, 60000); // Check every minute
+
+    return () => {
+      unsub();
+      clearInterval(timeoutInterval);
+      // We DON'T remove the bridge on unmount, so it stays active in background!
+    };
+  }, [syncId, orgId, products, addItemToSale]);
 
   useEffect(() => {
     if (currentSale.items.length > 0 && !selectedItemId) {
@@ -374,6 +456,16 @@ export default function CheckoutPage() {
       {/* Right Column: Product Search & Grid */}
       <div className="w-[62%] flex flex-col p-3 gap-3 bg-muted/20">
         <div className="flex items-center gap-2">
+          <RemoteScannerLink 
+            syncId={syncId} 
+            isConnected={isConnected} 
+            onRefresh={() => {
+                const bridgeRef = ref(rtdb, `sync_bridge/${orgId}/${syncId}`);
+                remove(bridgeRef);
+                setSyncId(null);
+                setIsConnected(false);
+            }}
+          />
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
