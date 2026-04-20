@@ -87,7 +87,7 @@ const PRICING_CONFIG: Record<string, PricingTier> = {
     proPrice: "7.99",
     teamsPrice: "15.99",
     competitorTotal: "2,000",
-    competitorTotalLocal: "£2,000",
+    competitorTotalLocal: `£${(2528 * 0.8).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
   },
   ZA: {
     currency: "ZAR",
@@ -95,7 +95,7 @@ const PRICING_CONFIG: Record<string, PricingTier> = {
     proPrice: "150",
     teamsPrice: "300",
     competitorTotal: "2,000",
-    competitorTotalLocal: "R4,000",
+    competitorTotalLocal: `R${(2528 * 19).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
   },
   PK: {
     currency: "PKR",
