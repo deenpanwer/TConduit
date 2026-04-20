@@ -6,13 +6,10 @@ import { rtdb } from "@/lib/firebase";
 import { ref, update, onValue } from "firebase/database";
 import { 
   Smartphone, 
-  Zap, 
   Loader2, 
   Camera, 
   CheckCircle2, 
-  AlertCircle,
-  Vibrate,
-  ArrowLeft
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,13 +23,13 @@ export default function RemoteScannerPage() {
   const [status, setStatus] = useState<"idle" | "connecting" | "active" | "error">("connecting");
   const [errorMsg, setErrorMsg] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isPausedRef = useRef(false);
 
   useEffect(() => {
     if (!orgId || !syncId) return;
 
     const bridgeRef = ref(rtdb, `sync_bridge/${orgId}/${syncId}`);
     
-    // Connect to the bridge
     update(bridgeRef, {
       status: "connected",
       deviceName: navigator.userAgent.split(')')[0].split('(')[1] || "Mobile Device",
@@ -44,7 +41,6 @@ export default function RemoteScannerPage() {
       setErrorMsg("Failed to connect to PC session.");
     });
 
-    // Handle session end from PC
     const unsub = onValue(bridgeRef, (snapshot) => {
       if (!snapshot.exists()) {
         setStatus("error");
@@ -67,24 +63,34 @@ export default function RemoteScannerPage() {
     try {
       const html5QrCode = new Html5Qrcode("reader", { 
          formatsToSupport: [ 
-           Html5QrcodeSupportedFormats.QR_CODE, 
-           Html5QrcodeSupportedFormats.EAN_13, 
-           Html5QrcodeSupportedFormats.CODE_128 
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.AZTEC,
+            Html5QrcodeSupportedFormats.DATA_MATRIX,
+            Html5QrcodeSupportedFormats.PDF_417,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.RSS_14,
+            Html5QrcodeSupportedFormats.RSS_EXPANDED
          ],
          verbose: false 
       });
       scannerRef.current = html5QrCode;
       setScanning(true);
 
-      const config = { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      };
-
       await html5QrCode.start(
         { facingMode: "environment" },
-        config,
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        },
         (decodedText) => {
           handleScan(decodedText);
         },
@@ -101,29 +107,34 @@ export default function RemoteScannerPage() {
   };
 
   const handleScan = (sku: string) => {
-    if (!sku || lastScanned === sku) return;
+    if (isPausedRef.current) return;
 
+    isPausedRef.current = true;
+    scannerRef.current?.pause(true);
     setLastScanned(sku);
     
-    // Trigger Haptic Feedback
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(100);
     }
 
-    // Update RTDB with the SKU
     const bridgeRef = ref(rtdb, `sync_bridge/${orgId}/${syncId}`);
     update(bridgeRef, {
       sku: sku,
       timestamp: Date.now()
     });
 
-    // Reset last scanned after 2 seconds to allow re-scanning same item
-    setTimeout(() => setLastScanned(null), 2000);
+    setTimeout(() => {
+      if (scannerRef.current) {
+        scannerRef.current.resume();
+        isPausedRef.current = false;
+        setLastScanned(null);
+      }
+    }, 2000);
   };
 
   if (status === "error") {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
+      <div className="h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
         <div className="h-20 w-20 rounded-3xl bg-red-500/20 flex items-center justify-center mb-6">
           <AlertCircle className="h-10 w-10 text-red-500" />
         </div>
@@ -141,9 +152,9 @@ export default function RemoteScannerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col text-white font-sans selection:bg-primary selection:text-white">
+    <div className="h-screen bg-black flex flex-col text-white font-sans overflow-hidden">
       {/* Header */}
-      <div className="p-6 flex items-center justify-between border-b border-white/10 bg-slate-950">
+      <div className="p-6 flex items-center justify-between border-b border-white/10 bg-slate-950 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
             <Smartphone className="h-6 w-6" />
@@ -153,11 +164,9 @@ export default function RemoteScannerPage() {
             <p className="text-[10px] font-bold text-primary tracking-widest uppercase mt-1">Sync ID: {syncId}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-green-500">Live Sync</span>
-          </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-green-500">Live Sync</span>
         </div>
       </div>
 
@@ -182,7 +191,7 @@ export default function RemoteScannerPage() {
           </div>
         )}
 
-        <div id="reader" className="w-full h-full object-cover" />
+        <div id="reader" className="absolute top-0 left-0 w-full h-full" />
 
         {scanning && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -192,15 +201,14 @@ export default function RemoteScannerPage() {
                     <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-xl" />
                     <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-xl" />
                     
-                    {/* Scanning Line Animation */}
-                    <div className="absolute left-0 right-0 h-[2px] bg-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.8)] animate-scan" style={{ top: '50%' }} />
+                    <div className="absolute left-0 right-0 h-[2px] bg-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.8)] animate-scan" />
                 </div>
             </div>
         )}
       </div>
 
       {/* Footer / Status */}
-      <div className="p-8 bg-slate-950 border-t border-white/10">
+      <div className="p-8 bg-slate-950 border-t border-white/10 flex-shrink-0">
         <div className="bg-slate-900/50 rounded-2xl p-4 border border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -228,18 +236,20 @@ export default function RemoteScannerPage() {
 
       <style jsx global>{`
         @keyframes scan {
-          0%, 100% { top: 10%; opacity: 0.2; }
-          50% { top: 90%; opacity: 1; }
+          0%, 100% { top: 10%; }
+          50% { top: 90%; }
         }
         .animate-scan {
           animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         #reader {
            border: none !important;
+           width: 100%;
+           height: 100%;
         }
         #reader video {
-            width: 100vw !important;
-            height: 100vh !important;
+            width: 100% !important;
+            height: 100% !important;
             object-fit: cover !important;
         }
         #reader__dashboard_section_csr, 

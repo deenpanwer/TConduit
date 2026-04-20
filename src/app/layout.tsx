@@ -1,4 +1,5 @@
 import type {Metadata} from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { Analytics } from "@vercel/analytics/react";
 import { Poppins, Montserrat, Playfair_Display, Permanent_Marker } from 'next/font/google';
@@ -87,6 +88,10 @@ export default function RootLayout({
               </TeamProvider>
             </AuthProvider>
           </PHProvider>
+          <Script id="lemonsqueezy-config" strategy="beforeInteractive">
+            {`window.lemonSqueezyAffiliateConfig = { store: "tracai" };`}
+          </Script>
+          <Script src="https://lmsqueezy.com/affiliate.js" strategy="afterInteractive" />
         </body>
     </html>
   );
