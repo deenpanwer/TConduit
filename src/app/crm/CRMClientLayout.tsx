@@ -1,18 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { CRMSidebar } from "./crm-sidebar"; // Ensure this matches your export name
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function CRMClientLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  const { loading, userData } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    // Only redirect if auth and userData are fully loaded
+    if (!loading && userData) {
+        const tourNotDone = userData.crmTourCompleted === false || userData.crmTourCompleted === undefined;
+        const isNotOnOnboardingPage = pathname !== "/crm/onboarding" && !pathname?.startsWith("/crm/onboarding");
+        
+        if (tourNotDone && isNotOnOnboardingPage) {
+            router.push("/crm/onboarding");
+        }
+    }
+  }, [loading, userData, pathname, router]);
+
+  // Show shimmer while loading auth or while redirecting to tour
+  const tourNotDone = userData?.crmTourCompleted === false || userData?.crmTourCompleted === undefined;
+  const isNotOnOnboardingPage = pathname !== "/crm/onboarding" && !pathname?.startsWith("/crm/onboarding");
+  const shouldRedirect = userData && tourNotDone && isNotOnOnboardingPage;
+
+  if (loading || shouldRedirect) {
     return (
       <div className="flex h-screen overflow-hidden bg-background">
         {/* Shimmer Sidebar Placeholder */}
@@ -44,6 +64,12 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     );
+  }
+
+  // --- FULL SCREEN ONBOARDING CHECK ---
+  // If we are on the onboarding page, do NOT show the sidebar or main header.
+  if (pathname?.startsWith("/crm/onboarding")) {
+    return <div className="h-screen w-full overflow-hidden">{children}</div>;
   }
 
   return (

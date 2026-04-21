@@ -36,7 +36,7 @@ export default function CRMPage() {
   return (
     <div className="min-h-screen bg-background/50">
       <header className="sticky top-0 z-30 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="w-full px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-black tracking-tighter uppercase font-poppins text-foreground">
               Business <span className="text-blue-500">Dashboard</span>

@@ -121,7 +121,7 @@ function OrganizationsPageContent() {
   }
 
   return (
-    <div className="p-6 space-y-6 relative max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 relative w-full">
       <OrgModal 
         isOpen={showOrgModal} 
         onOpenChange={setShowOrgModal} 

@@ -554,7 +554,7 @@ function TasksPageContent() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-14 px-6 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
+        <header className="h-14 px-4 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
                     <Menu size={20} />
@@ -703,7 +703,7 @@ function TasksPageContent() {
             </div>
         </header>
 
-        <div className="flex-1 overflow-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
+        <div className="flex-1 overflow-hidden p-4 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
             {!isSubscriptionActive ? (
                 <PaywallScreen 
                     orgData={orgData}

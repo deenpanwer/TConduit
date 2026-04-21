@@ -328,7 +328,12 @@ function OnboardingContent() {
 
       await refreshUserData();
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
-      router.push(finalCallbackUrl);
+      
+      const routingUrl = finalCallbackUrl.startsWith('/crm') 
+        ? `/crm/onboarding?callbackUrl=${finalCallbackUrl}` 
+        : finalCallbackUrl;
+        
+      router.push(routingUrl);
     } catch (error: any) {
       toast({ title: "Setup failed", description: error.message, variant: "destructive" });
     } finally {

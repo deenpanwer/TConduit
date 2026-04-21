@@ -774,7 +774,7 @@ export function BoardView({
   return (
     <div className="flex flex-col h-full w-full">
       <div 
-        className="flex h-full mx-auto w-full lg:max-w-[1920px] gap-4 sm:gap-6"
+        className="flex h-full w-full gap-4 sm:gap-6"
       >
         <LayoutGroup>
           {COLUMNS.map(column => (

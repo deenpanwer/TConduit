@@ -83,7 +83,7 @@ export const TimelineView = ({
   };
 
   return (
-    <div className="flex flex-col h-full gap-4 min-w-full lg:w-full lg:max-w-[1920px] mx-auto overflow-hidden">
+    <div className="flex flex-col h-full gap-4 min-w-full lg:w-full overflow-hidden">
       <div className="flex items-center justify-between px-2 shrink-0">
         <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-full border border-border/40">
           <Button 

@@ -89,7 +89,7 @@ function CallLogsPageContent() {
   }
 
   return (
-    <div className="p-6 space-y-6 flex flex-col h-full min-h-screen relative max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
       <CallModal 
         isOpen={showCallModal} 
         onOpenChange={setShowCallModal} 
