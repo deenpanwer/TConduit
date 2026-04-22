@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useCRMLeads } from "@/hooks/use-crm-leads";
@@ -298,12 +298,40 @@ function OnboardingContent() {
     if (!user || !userData) return;
     setFinishing(true);
     try {
+      // Helper to split names
+      const splitName = (fullName: string) => {
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+        const firstName = parts[0];
+        const lastName = parts.slice(1).join(" ");
+        return { firstName, lastName };
+      };
+
       // 1. Create real leads
       if (formData.client1 !== "Jane Cooper" && formData.client1.trim()) {
-        await addLead({ name: formData.client1, data: { status: 'new', source: 'onboarding', value: formData.dealValue } });
+        const { firstName, lastName } = splitName(formData.client1);
+        await addLead({ 
+          name: formData.client1, 
+          data: { 
+            firstName, 
+            lastName, 
+            status: 'new', 
+            source: 'onboarding', 
+            value: formData.dealValue 
+          } 
+        });
       }
       if (formData.client2.trim()) {
-        await addLead({ name: formData.client2, data: { status: 'new', source: 'onboarding' } });
+        const { firstName, lastName } = splitName(formData.client2);
+        await addLead({ 
+          name: formData.client2, 
+          data: { 
+            firstName, 
+            lastName, 
+            status: 'new', 
+            source: 'onboarding' 
+          } 
+        });
       }
 
       // 2. Mark tour as complete
@@ -343,8 +371,20 @@ function OnboardingContent() {
     );
   }
 
+  const Branding = () => (
+    <div className="flex items-center gap-3">
+      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
+        <Sparkles size={24} className="text-foreground fill-foreground" />
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl font-black uppercase tracking-tight text-foreground">trac ai</span>
+        <span className="text-3xl font-light uppercase tracking-tight text-foreground">crm</span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="h-screen w-screen bg-background flex flex-col md:flex-row overflow-hidden font-poppins relative">
+    <div className="h-screen w-screen bg-background flex flex-col md:flex-row overflow-hidden font-poppins relative text-foreground">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
         .font-dancing { font-family: 'Dancing Script', cursive; }
@@ -380,7 +420,7 @@ function OnboardingContent() {
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 md:p-12 lg:p-16 flex flex-col justify-center">
-          <div className="max-w-md mx-auto w-full py-12">
+          <div className="max-w-md mx-auto w-full py-12 text-foreground">
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
@@ -392,15 +432,7 @@ function OnboardingContent() {
               {step === 1 && (
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
-                        <Sparkles size={24} className="text-black fill-black" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black uppercase tracking-tight text-black">traci ai</span>
-                        <span className="text-3xl font-light uppercase tracking-tight text-black">crm</span>
-                      </div>
-                    </div>
+                    <Branding />
                     <h1 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">Next, add a few <span className="text-blue-600 italic">leads</span></h1>
                   </div>
                   <p className="text-base font-medium text-muted-foreground leading-relaxed italic opacity-80">
@@ -411,14 +443,14 @@ function OnboardingContent() {
                       placeholder="e.g. Jane Cooper" 
                       value={formData.client1} 
                       onChange={(e) => setFormData({...formData, client1: e.target.value})}
-                      className="h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                      className="h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 focus-visible:ring-2 focus-visible:ring-blue-500/20 text-foreground"
                     />
                     <Input 
                       placeholder="e.g. Guy Hawkins" 
                       value={formData.client2} 
                       onChange={(e) => setFormData({...formData, client2: e.target.value})}
                       className={cn(
-                        "h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 transition-all focus-visible:ring-2 focus-visible:ring-blue-500/20",
+                        "h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 transition-all focus-visible:ring-2 focus-visible:ring-blue-500/20 text-foreground",
                         !formData.client2.trim() && "ring-2 ring-blue-500/20"
                       )}
                     />
@@ -429,15 +461,7 @@ function OnboardingContent() {
               {step === 2 && (
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
-                        <Sparkles size={24} className="text-black fill-black" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black uppercase tracking-tight text-black">traci ai</span>
-                        <span className="text-3xl font-light uppercase tracking-tight text-black">crm</span>
-                      </div>
-                    </div>
+                    <Branding />
                     <h1 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">Select your <span className="text-blue-600 italic">columns</span></h1>
                   </div>
                   <p className="text-base font-medium text-muted-foreground leading-relaxed italic opacity-80">
@@ -476,15 +500,7 @@ function OnboardingContent() {
               {step === 3 && (
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
-                        <Sparkles size={24} className="text-black fill-black" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black uppercase tracking-tight text-black">traci ai</span>
-                        <span className="text-3xl font-light uppercase tracking-tight text-black">crm</span>
-                      </div>
-                    </div>
+                    <Branding />
                     <h1 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">Add a <span className="text-blue-600 italic">view layout</span></h1>
                   </div>
                   <p className="text-base font-medium text-muted-foreground leading-relaxed italic opacity-80">
@@ -501,7 +517,7 @@ function OnboardingContent() {
                       <div className="flex items-center gap-6 text-left">
                         <div className={cn("p-4 rounded-2xl", formData.viewType === 'list' ? "bg-blue-600 text-white shadow-xl" : "bg-card text-muted-foreground")}><LayoutDashboard size={32} /></div>
                         <div>
-                          <p className="text-sm font-black uppercase tracking-widest">Clean List</p>
+                          <p className="text-sm font-black uppercase tracking-widest text-foreground">Clean List</p>
                           <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 tracking-widest">Best for scanning details</p>
                         </div>
                       </div>
@@ -516,7 +532,7 @@ function OnboardingContent() {
                       <div className="flex items-center gap-6 text-left">
                         <div className={cn("p-4 rounded-2xl", formData.viewType === 'kanban' ? "bg-blue-600 text-white shadow-xl" : "bg-card text-muted-foreground")}><Users size={32} /></div>
                         <div>
-                          <p className="text-sm font-black uppercase tracking-widest">Visual Board</p>
+                          <p className="text-sm font-black uppercase tracking-widest text-foreground">Visual Board</p>
                           <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 tracking-widest">Best for tracking progress</p>
                         </div>
                       </div>
@@ -528,15 +544,7 @@ function OnboardingContent() {
               {step === 4 && (
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
-                        <Sparkles size={24} className="text-black fill-black" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black uppercase tracking-tight text-black">traci ai</span>
-                        <span className="text-3xl font-light uppercase tracking-tight text-black">crm</span>
-                      </div>
-                    </div>
+                    <Branding />
                     <h1 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">Got the <span className="text-blue-600 italic">sale!</span></h1>
                   </div>
                   <p className="text-base font-medium text-muted-foreground leading-relaxed italic opacity-80">
@@ -548,7 +556,7 @@ function OnboardingContent() {
                         placeholder="e.g. $5,000" 
                         value={formData.dealValue} 
                         onChange={(e) => setFormData({...formData, dealValue: e.target.value})}
-                        className="h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        className="h-16 bg-secondary/40 border-none rounded-2xl text-[13px] font-black uppercase tracking-widest px-8 focus-visible:ring-2 focus-visible:ring-blue-500/20 text-foreground"
                       />
                   </div>
                   <Button 
@@ -563,15 +571,7 @@ function OnboardingContent() {
               {step === 5 && (
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 bg-blue-500/10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/5">
-                        <Sparkles size={24} className="text-black fill-black" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black uppercase tracking-tight text-black">traci ai</span>
-                        <span className="text-3xl font-light uppercase tracking-tight text-black">crm</span>
-                      </div>
-                    </div>
+                    <Branding />
                     <h1 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">Get <span className="text-blue-600 italic">Paid.</span></h1>
                   </div>
                   <p className="text-base font-medium text-muted-foreground leading-relaxed italic opacity-80">
@@ -584,9 +584,11 @@ function OnboardingContent() {
                           <Input 
                             value={userName} 
                             readOnly
-                            className="h-20 bg-secondary/40 border-none rounded-2xl text-3xl font-dancing italic tracking-widest px-8 focus-visible:ring-0 shadow-inner text-slate-900 dark:text-white"
+                            className="h-20 bg-secondary/40 border-none rounded-2xl text-3xl font-dancing italic tracking-widest px-8 focus-visible:ring-0 shadow-inner text-foreground"
                           />
-                          <div className="absolute top-2 right-4 text-[8px] font-black uppercase text-blue-600/40">Authenticated</div>
+                          <div className="absolute top-2 right-4 text-[10px] font-black uppercase text-blue-600/40 text-right">
+                              Authenticated as<br/>{userName}
+                          </div>
                       </div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase text-center opacity-60">Signature automatically generated from your profile.</p>
                   </div>
@@ -620,15 +622,16 @@ function OnboardingContent() {
                   </Button>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
-        {step < 6 && (
-          <div className="pt-12 border-t border-border/40 flex items-center justify-between mt-auto">
+        <div className="p-8 md:p-12 pt-0">
+          <div className="pt-8 border-t border-border/40 flex items-center justify-between gap-4">
             <div className="flex-1">
               {step > 1 && (
-                <Button variant="ghost" onClick={() => setStep(s => s - 1)} className="h-14 px-8 rounded-2xl text-[11px] font-black uppercase tracking-widest">
+                <Button variant="ghost" onClick={() => setStep(s => s - 1)} className="h-14 px-8 rounded-2xl text-[11px] font-black uppercase tracking-widest text-foreground">
                   <ArrowLeft size={16} className="mr-3" /> Back
                 </Button>
               )}
@@ -637,28 +640,27 @@ function OnboardingContent() {
               Continue <ChevronRight size={16} className="ml-3" />
             </Button>
           </div>
-        )}
+        </div>
       </div>
-    </div>
 
-    {/* Right Panel: Live Stage (60%) */}
-      <div className="flex-1 bg-slate-100 dark:bg-slate-900 relative p-8 md:p-12 lg:p-24 overflow-hidden flex items-center justify-center z-10 sandbox-recessed min-h-[500px]">
+      {/* Right Panel: Live Stage (60%) */}
+      <div className="flex-1 h-full bg-slate-100 dark:bg-slate-900 relative overflow-hidden flex items-center justify-center z-10 sandbox-recessed">
         {/* Global Stage Elements */}
         <button 
           onClick={handleFinish}
-          className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl"
+          className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl text-foreground"
         >
           Skip <X size={14} />
         </button>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-6 md:px-0">
-           <div className="bg-white/40 dark:bg-slate-950/40 backdrop-blur-2xl border border-white/20 dark:border-slate-800/40 rounded-[2rem] p-5 md:p-6 flex items-center gap-5 shadow-2xl">
-              <div className="size-12 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/40 shrink-0">
-                  <CheckCircle2 size={24} />
+        <div className="absolute top-8 left-8 z-50">
+           <div className="bg-white/40 dark:bg-slate-950/40 backdrop-blur-2xl border border-white/20 dark:border-slate-800/40 rounded-[2rem] p-4 flex items-center gap-4 shadow-2xl">
+              <div className="size-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/40 shrink-0">
+                  <CheckCircle2 size={18} />
               </div>
               <div className="text-left">
-                  <p className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mb-1">Highly Recommended</p>
-                  <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase leading-tight opacity-80">
+                  <p className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mb-0.5">Highly Recommended</p>
+                  <p className="text-[9px] font-bold text-slate-600 dark:text-slate-400 uppercase leading-tight opacity-80">
                     Increases efficiency by 10% from the first hour.
                   </p>
               </div>
@@ -666,45 +668,45 @@ function OnboardingContent() {
         </div>
 
         {/* The Evolving UI */}
-        <div className="w-full h-full flex items-center justify-center perspective-1000 relative">
+        <div className="w-full h-full flex items-center justify-center perspective-1000 p-12 md:p-16 lg:p-24">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
-              initial={{ opacity: 0, scale: 0.9, rotateX: 8 }}
-              animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-              exit={{ opacity: 0, scale: 1.1, rotateX: -8 }}
+              initial={{ opacity: 0, scale: 0.85, rotateX: 5 }}
+              animate={{ opacity: 1, scale: 0.95, rotateX: 0 }}
+              exit={{ opacity: 0, scale: 1.05, rotateX: -5 }}
               className="w-full h-full flex items-center justify-center"
             >
               {(step === 1 || step === 2) && <MockTable clients={clients} visibleColumns={formData.visibleColumns} title="Leads" />}
               {step === 3 && (formData.viewType === 'list' ? <MockTable clients={clients} visibleColumns={formData.visibleColumns} title="Leads" /> : <MockKanban clients={clients} />)}
               {step === 4 && (
                 <div className="relative w-full h-full flex items-center justify-center">
-                    <div className="opacity-40 scale-90 blur-sm pointer-events-none transition-all duration-700">
+                    <div className="opacity-30 scale-90 blur-sm pointer-events-none transition-all duration-700">
                         <MockTable clients={clients} visibleColumns={formData.visibleColumns} title="Leads" />
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center">
                         <motion.div 
                             initial={{ y: 50, opacity: 0, scale: 0.8 }}
                             animate={{ y: 0, opacity: 1, scale: 1 }}
-                            className="bg-white dark:bg-slate-950 p-12 rounded-[4rem] shadow-[0_80px_160px_rgba(0,0,0,0.25)] border border-slate-200 dark:border-slate-800 w-[450px] relative z-20"
+                            className="bg-white dark:bg-slate-950 p-10 rounded-[3.5rem] shadow-[0_80px_160px_rgba(0,0,0,0.25)] border border-slate-200 dark:border-slate-800 w-[400px] relative z-20"
                         >
-                            <div className="size-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white mb-8 shadow-xl shadow-blue-500/30"><DollarSign size={32} strokeWidth={3} /></div>
-                            <h3 className="text-xl font-black uppercase tracking-[0.1em] mb-6 text-slate-400 leading-tight">New Deal for<br/><span className="text-slate-900 dark:text-white text-3xl">{clients[0]}</span></h3>
-                            <div className="space-y-4">
-                                <div className="h-16 bg-slate-100 dark:bg-slate-900 rounded-[1.5rem] flex items-center px-8 text-lg font-black uppercase tracking-widest text-blue-600 shadow-inner">
+                            <div className="size-14 bg-blue-600 rounded-3xl flex items-center justify-center text-white mb-6 shadow-xl shadow-blue-500/30"><DollarSign size={28} strokeWidth={3} /></div>
+                            <h3 className="text-lg font-black uppercase tracking-[0.1em] mb-4 text-slate-400 leading-tight text-center">New Deal for<br/><span className="text-slate-900 dark:text-white text-2xl">{clients[0]}</span></h3>
+                            <div className="space-y-3">
+                                <div className="h-14 bg-slate-100 dark:bg-slate-900 rounded-[1.2rem] flex items-center px-6 text-base font-black uppercase tracking-widest text-blue-600 shadow-inner">
                                     {formData.dealValue ? `$${formData.dealValue}` : "Set Value..."}
                                 </div>
-                                <div className="h-16 bg-slate-100 dark:bg-slate-900 rounded-[1.5rem] flex items-center px-8 opacity-40">
-                                    <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                <div className="h-14 bg-slate-100 dark:bg-slate-900 rounded-[1.2rem] flex items-center px-6 opacity-40">
+                                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
                                 </div>
-                                <Button className="w-full h-16 bg-blue-600 text-sm font-black uppercase tracking-widest rounded-[1.5rem] mt-4 shadow-xl">Launch Deal</Button>
+                                <Button className="w-full h-14 bg-blue-600 text-[10px] font-black uppercase tracking-widest rounded-[1.2rem] mt-2 shadow-xl">Launch Deal</Button>
                             </div>
                         </motion.div>
                     </div>
                 </div>
               )}
-              {step === 5 && <MockInvoice clientName={clients[0]} userName={userName} />}
-              {step === 6 && <div className="grid grid-cols-2 gap-12 w-full"><MockTable clients={clients} visibleColumns={formData.visibleColumns} title="Leads" /><MockDashboard /></div>}
+              {step === 5 && <div className="scale-90 lg:scale-100 transition-transform"><MockInvoice clientName={clients[0]} userName={userName} /></div>}
+              {step === 6 && <div className="grid grid-cols-2 gap-8 w-full scale-90 lg:scale-100 transition-transform"><MockTable clients={clients} visibleColumns={formData.visibleColumns} title="Leads" /><MockDashboard /></div>}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -720,4 +722,3 @@ export default function CRMOnboarding() {
     </Suspense>
   );
 }
-
