@@ -2,25 +2,37 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const session = request.cookies.get('trac_auth_session');
-  const { pathname, search } = request.nextUrl;
+  // We ignore the session check for the demo branch
+  // const session = request.cookies.get('trac_auth_session');
+  const { pathname } = request.nextUrl;
 
-  // 1. Only protect the dashboard root and its sub-pages
-  // We explicitly EXCLUDE login and signup from protection
-  const isAuthPage = pathname.includes('/login') || pathname.includes('/signup') || pathname.includes('/forgot-password') || pathname.startsWith('/api/employee/analyze');  
-  const isProtectedPage = pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname === '/dashboard';
+  const isAuthPage = 
+    pathname.includes('/login') || 
+    pathname.includes('/signup') || 
+    pathname.includes('/forgot-password') || 
+    pathname.startsWith('/api/employee/analyze');  
 
+  const isProtectedPage = 
+    pathname.startsWith('/ems') || 
+    pathname.startsWith('/crm') || 
+    pathname.startsWith('/pos') || 
+    pathname.startsWith('/tasks') || 
+    pathname === '/dashboard';
+
+  // REDIRECT BYPASS: Logic commented out to prevent redirection to login
+  /*
   if (isProtectedPage && !isAuthPage) {
     if (!session || !session.value) {
       const loginUrl = new URL('/ems/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname + search);
+      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
   }
+  */
 
   const response = NextResponse.next();
 
-  // 2. Kill cache ONLY for protected pages
+  // Keep cache killing for consistency in the UI
   if (isProtectedPage && !isAuthPage) {
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   }
