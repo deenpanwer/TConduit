@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       2. If the user input is vague, use the provided CONTEXT to infer missing details.
       3. Output ONLY valid JSON. No markdown formatting.
       4. Ensure subtasks are actionable and atomic.
-      5. Every subtask MUST have a single-line description/note.
+      5. Every subtask MUST have a single-line high-density note in its "description" field. The number of subtasks should be NATURALLY DYNAMIC—if a task is simple, return 1-2 subtasks; if it's complex, return 5-8. Never force a fixed count.
       6. Assign leaderPoints based on complexity (simple=10, hard=50, massive=100).
       7. Assign deadlineHours based on estimated effort (1, 2, 4, 8, 24, 48, etc).
     `;
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         User provided: "${text}"
         Current Context: ${JSON.stringify(context || {})}
         
-        Refine the title, expand the description into a professional brief, and generate 3-5 logical subtasks, each with a brief 1-line description.
+        Refine the title, expand the description into a professional brief, and generate a dynamic set of atomic subtasks (as many or as few as logically needed for 100% completion), each with a high-density contextual note.
       `;
     } else if (mode === 'bulk') {
       userPrompt = `

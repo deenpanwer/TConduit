@@ -129,6 +129,7 @@ interface CRMContextType {
   // Configuration and state
   config: CRMConfig;
   loading: boolean;
+  isSyncing: boolean;
   
   // Pagination
   pageSize: number;
@@ -375,16 +376,37 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const { user, userData } = useAuth();
   const [entities, setEntities] = useState<CRMEntity[]>([]);
   const [optimisticEntities, setOptimisticEntities] = useState<CRMEntity[]>([]);
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<CRMEntity>>>({});
   const [config, setConfig] = useState<CRMConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Pagination State (Records per fetch)
   const [pageSize, setPageSize] = useState(50);
+
+  const SYNC_STORAGE_KEY = 'trac_pending_crm_syncs';
 
   // Helper to get active organization ID
   const getOrgId = useCallback(() => {
     return userData?.ownedOrgId || userData?.orgId;
   }, [userData]);
+
+  // Load pending updates from localStorage
+  useEffect(() => {
+    const savedPending = localStorage.getItem(SYNC_STORAGE_KEY);
+    if (savedPending) {
+        try { setPendingUpdates(JSON.parse(savedPending)); } catch (e) {}
+    }
+  }, []);
+
+  // Persist pending updates to localStorage
+  useEffect(() => {
+    if (Object.keys(pendingUpdates).length > 0) {
+        localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(pendingUpdates));
+    } else {
+        localStorage.removeItem(SYNC_STORAGE_KEY);
+    }
+  }, [pendingUpdates]);
 
   /**
    * INITIALIZATION & REAL-TIME LISTENERS
@@ -578,41 +600,44 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     // Optimistic Update
     setOptimisticEntities(prev => [newEntity, ...prev]);
 
-    try {
-      const entitiesRef = collection(db, `organizations/${orgId}/crm_entities`);
-      
-      const firestoreData = cleanObject({
-        orgId,
-        name: data.name || data.summary || `Unnamed ${type}`,
-        type,
-        data,
-        isDeleted: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastEditedBy: user.uid,
-        history: [{
-          id: crypto.randomUUID(),
-          type: 'System',
-          action: "created",
-          content: `${type.charAt(0).toUpperCase() + type.slice(1)} "${data.name || data.summary}" was created.`,
-          userId: user.uid,
-          userName: userData?.name || user.displayName || "User",
-          timestamp: new Date().toISOString(),
-        }]
-      });
+    // FIRE AND FORGET (Async): Handle Firestore in the background
+    (async () => {
+      try {
+        const entitiesRef = collection(db, `organizations/${orgId}/crm_entities`);
+        
+        const firestoreData = cleanObject({
+          orgId,
+          name: data.name || data.summary || `Unnamed ${type}`,
+          type,
+          data,
+          isDeleted: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastEditedBy: user.uid,
+          history: [{
+            id: crypto.randomUUID(),
+            type: 'System',
+            action: "created",
+            content: `${type.charAt(0).toUpperCase() + type.slice(1)} "${data.name || data.summary}" was created.`,
+            userId: user.uid,
+            userName: userData?.name || user.displayName || "User",
+            timestamp: new Date().toISOString(),
+          }]
+        });
 
-      const docRef = await addDoc(entitiesRef, firestoreData);
-      
-      // Update optimistic entity with the real ID
-      setOptimisticEntities(prev => prev.map(e => e.id === tempId ? { ...e, id: docRef.id } : e));
-      
-      return docRef.id;
-    } catch (e) {
-      console.error("Error adding CRM entity:", e);
-      setOptimisticEntities(prev => prev.filter(e => e.id !== tempId));
-      toast.error("Failed to add item");
-      return null;
-    }
+        const docRef = await addDoc(entitiesRef, firestoreData);
+        
+        // Update optimistic entity with the real ID once known
+        setOptimisticEntities(prev => prev.map(e => e.id === tempId ? { ...e, id: docRef.id } : e));
+      } catch (e) {
+        console.error("Error adding CRM entity:", e);
+        setOptimisticEntities(prev => prev.filter(e => e.id !== tempId));
+        toast.error("Failed to add item");
+      }
+    })();
+
+    // RETURN IMMEDIATELY: Give the UI the tempId so it can focus the row NOW
+    return tempId;
   };
 
   /**
@@ -623,75 +648,121 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const orgId = getOrgId();
     if (!orgId || !user) return;
 
-    // Optimistic Update
-    setOptimisticEntities(prev => {
-        const index = prev.findIndex(e => e.id === id);
-        if (index > -1) {
-            const updated = { ...prev[index] };
-            Object.entries(updates).forEach(([key, value]) => {
-                if (key === 'name' || key === 'summary') updated.name = value;
-                else if (key === 'isDeleted') updated.isDeleted = value;
-                else updated.data = { ...updated.data, [key]: value };
-            });
-            updated.data = { ...updated.data, lastInteraction: new Date().toISOString() };
-            const newOptimistic = [...prev];
-            newOptimistic[index] = updated;
-            return newOptimistic;
-        } else {
-            const realEntity = entities.find(e => e.id === id);
-            if (realEntity) {
-                const updated = { ...realEntity };
-                Object.entries(updates).forEach(([key, value]) => {
-                    if (key === 'name' || key === 'summary') updated.name = value;
-                    else if (key === 'isDeleted') updated.isDeleted = value;
-                    else updated.data = { ...updated.data, [key]: value };
-                });
-                return [...prev, updated];
-            }
-        }
-        return prev;
+    // Deep clean updates
+    const deepClean = (obj: any): any => {
+      if (Array.isArray(obj)) return obj.map(deepClean);
+      if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && !(obj instanceof Timestamp)) {
+        return Object.entries(obj).reduce((acc: any, [key, value]) => {
+          if (value !== undefined) acc[key] = deepClean(value);
+          return acc;
+        }, {} as any);
+      }
+      return obj;
+    };
+
+    const finalUpdates = deepClean(updates);
+
+    // Optimistic Update: Use pendingUpdates for debouncing
+    setPendingUpdates(prev => {
+      const existing = prev[id] || {};
+      return {
+        ...prev,
+        [id]: { ...existing, ...finalUpdates }
+      };
     });
-
-    try {
-      const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
-      
-      const historyEntry = {
-        id: crypto.randomUUID(),
-        type: 'System',
-        action,
-        content: `Updated ${action}`,
-        userId: user.uid,
-        userName: userData?.name || user.displayName || "User",
-        timestamp: new Date().toISOString(),
-        details: updates
-      };
-
-      const firestoreUpdates: any = {
-        updatedAt: serverTimestamp(),
-        lastEditedBy: user.uid,
-        history: arrayUnion(historyEntry),
-        'data.lastInteraction': new Date().toISOString()
-      };
-
-      // Flatten data updates for nested firestore update
-      Object.entries(updates).forEach(([key, value]) => {
-        if (key === 'name' || key === 'summary') {
-          firestoreUpdates.name = value;
-        } else if (key === 'isDeleted') {
-          firestoreUpdates.isDeleted = value;
-        } else {
-          firestoreUpdates[`data.${key}`] = value;
-        }
-      });
-
-      await updateDoc(entityRef, cleanObject(firestoreUpdates));
-    } catch (e) {
-      console.error("Error updating CRM entity:", e);
-      // Revert optimistic update on failure (optional, but good practice)
-      setOptimisticEntities(prev => prev.filter(e => e.id !== id));
-      toast.error("Update failed");
-    }
   };
+
+  // Flush pending updates to Firestore
+  const flushUpdates = useCallback(async (updatesToFlush: Record<string, any>) => {
+    const orgId = getOrgId();
+    if (!orgId || !user || Object.keys(updatesToFlush).length === 0) return;
+
+    setIsSyncing(true);
+    
+    try {
+      for (const [id, updates] of Object.entries(updatesToFlush)) {
+        const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
+        
+        const historyEntry = {
+          id: crypto.randomUUID(),
+          type: 'System',
+          action: 'updated',
+          content: `Updated fields`,
+          userId: user.uid,
+          userName: userData?.name || user.displayName || "User",
+          timestamp: new Date().toISOString(),
+          details: updates
+        };
+
+        const firestoreUpdates: any = {
+          updatedAt: serverTimestamp(),
+          lastEditedBy: user.uid,
+          history: arrayUnion(historyEntry),
+          'data.lastInteraction': new Date().toISOString()
+        };
+
+        // Flatten data updates for nested firestore update
+        Object.entries(updates as any).forEach(([key, value]) => {
+          if (key === 'name' || key === 'summary') {
+            firestoreUpdates.name = value;
+          } else if (key === 'isDeleted') {
+            firestoreUpdates.isDeleted = value;
+          } else {
+            firestoreUpdates[`data.${key}`] = value;
+          }
+        });
+
+        await updateDoc(entityRef, cleanObject(firestoreUpdates));
+      }
+
+      // Remove successfully flushed updates from pending
+      setPendingUpdates(prev => {
+        const next = { ...prev };
+        for (const id in updatesToFlush) {
+          delete next[id];
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error("Error flushing CRM updates:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [getOrgId, user, userData]);
+
+  // Heartbeat Syncing
+  useEffect(() => {
+    const heartbeat = setInterval(() => {
+        if (Object.keys(pendingUpdates).length > 0) {
+            flushUpdates(pendingUpdates);
+        }
+    }, 5 * 60 * 1000); // 5 minute heartbeat
+
+    return () => clearInterval(heartbeat);
+  }, [pendingUpdates, flushUpdates]);
+
+  // Flush on tab close or background
+  useEffect(() => {
+    const handleFlush = () => {
+        if (Object.keys(pendingUpdates).length > 0) {
+            flushUpdates(pendingUpdates);
+        }
+    };
+
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+            handleFlush();
+        }
+    };
+
+    window.addEventListener('beforeunload', handleFlush);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+        window.removeEventListener('beforeunload', handleFlush);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pendingUpdates, flushUpdates]);
 
   const updateEntityField = async (id: string, fieldKey: string, value: any) => {
     await updateEntity(id, { [fieldKey]: value }, fieldKey);
@@ -810,12 +881,13 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       notes,
       invoices,
       config, 
-      loading, 
+      loading,
+      isSyncing,
       pageSize,
       setPageSize,
       addEntity, 
       updateEntity, 
-      updateEntityField, 
+      updateEntityField,
       addActivity, 
       deleteEntity, 
       restoreEntity, 

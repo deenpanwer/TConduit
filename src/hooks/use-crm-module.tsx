@@ -20,6 +20,7 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
     updateEntity: globalUpdateEntity,
     deleteEntity: globalDeleteEntity,
     loading: globalLoading,
+    isSyncing: globalIsSyncing,
     pageSize, // Get pagination from global hook
     setPageSize, // Get pagination from global hook
     // Pull the pre-filtered, pre-sorted entity lists from the global provider
@@ -159,6 +160,7 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
     addEntity,
     updateEntity,
     deleteEntity,
-    updateConfig
+    updateConfig,
+    isSyncing: globalIsSyncing
   };
 }

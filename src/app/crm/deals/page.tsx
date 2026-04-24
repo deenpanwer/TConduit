@@ -30,7 +30,17 @@ import { useAuth } from "@/hooks/use-auth";
 function DealsPageContent() {
   const { user } = useAuth();
   const { leads } = useCRM();
-  const { entities: deals, config, updateEntity, deleteEntity, updateConfig, pageSize, setPageSize, addEntity, loading } = useCRMDeals();
+  const { 
+    entities: deals, 
+    config, 
+    updateEntity, 
+    deleteEntity, 
+    updateConfig, 
+    pageSize, 
+    setPageSize, 
+    addEntity, 
+    loading
+  } = useCRMDeals();
   const { addEntity: addNote } = useCRMNotes();
   const { addEntity: addCall } = useCRMCalls();
   const router = useRouter();

@@ -244,6 +244,7 @@ function TasksPageContent() {
             ...s,
             id: s.id || `ai-st-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             completed: s.completed || false,
+            createdAt: new Date(),
             descriptions: s.description ? [{ id: `ai-desc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, text: s.description, createdAt: new Date() }] : [],
             subtasks: (s.subtasks || []).map(mapSubtask)
         });
@@ -422,7 +423,8 @@ function TasksPageContent() {
             subtasks: [],
             resources: [],
             dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
-            type: 'task'
+            type: 'task',
+            createdAt: new Date()
         } as any);
         setActiveDraftId(newDraftId);
     }
@@ -662,7 +664,7 @@ function TasksPageContent() {
             </div>
         </header>
 
-        <div className="flex-1 overflow-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
             {!isSubscriptionActive ? (
                 <PaywallScreen 
                     orgData={orgData}
