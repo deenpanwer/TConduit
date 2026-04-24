@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Task, Attachment } from "@/hooks/useTasks";
+import { Task, Attachment, useTasks, Draft } from "@/hooks/useTasks";
 import { AutoResizingTextarea } from "./BoardView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { triggerSmallConfetti } from "@/lib/confetti";
@@ -105,6 +105,14 @@ export const DrawerHierarchicalTable = ({
     onUpload,
     recordingState
 }: DrawerHierarchicalTableProps) => {
+    const draftTypeMap: Record<string, Draft['type']> = {
+        subtasks: 'subtask',
+        notes: 'nestedDescription',
+        resources: 'resource',
+        images: 'image',
+        voiceNotes: 'voiceNote'
+    };
+    const draftType = draftTypeMap[type];
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
     const [isAdding, setIsAdding] = useState(false);
@@ -163,19 +171,41 @@ export const DrawerHierarchicalTable = ({
         backgroundColor: `hsla(${config.hue}, 80%, ${98 - (depth * 2)}%, ${0.03 + (depth * 0.02)})` 
     };
 
+    const { drafts, updateDraft, deleteDraft } = useTasks();
+
+    // Filter drafts for this specific task and hierarchical type
+    const currentDrafts = drafts.filter((d: Draft) => d.parentId === taskId && d.type === draftType);
+
     const handleQuickAdd = () => {
         const val = quickAddValue.trim();
-        if (!val) return;
+        if (!val || !draftType) return;
+
+        const draftId = `draft_${taskId}_${type}_${Date.now()}`;
+        updateDraft(draftId, { 
+            title: val, 
+            parentId: taskId, 
+            type: draftType as any,
+            status: 'todo'
+        });
+        setQuickAddValue("");
+        setTimeout(() => quickAddInputRef.current?.focus(), 10);
+    };
+
+    const handleDraftFinalize = (draftId: string) => {
+        const draft = drafts.find((d: Draft) => d.id === draftId);
+        if (!draft || !draft.title.trim()) {
+            deleteDraft(draftId);
+            return;
+        }
 
         const timestamp = Date.now();
-        const newItem = type === 'notes' ? { id: `note-${timestamp}`, text: val, createdAt: new Date() } :
-                       type === 'subtasks' ? { id: `st-${timestamp}`, title: val, completed: false, createdAt: new Date() } :
-                       { id: `${type === 'images' ? 'img' : 'res'}-${timestamp}`, title: val, url: '', createdAt: new Date() };
+        const newItem = type === 'notes' ? { id: `note-${timestamp}`, text: draft.title, createdAt: new Date() } :
+                       type === 'subtasks' ? { id: `st-${timestamp}`, title: draft.title, completed: false, createdAt: new Date() } :
+                       { id: `${type === 'images' ? 'img' : 'res'}-${timestamp}`, title: draft.title, url: '', createdAt: new Date() };
         
         onUpdate([...items, newItem]);
-        setQuickAddValue("");
-        // Maintain adding state and focus for rapid-fire entry
-        setTimeout(() => quickAddInputRef.current?.focus(), 10);
+        deleteDraft(draftId);
+        // After finalize, the next draft created will auto-focus
     };
 
     return (
@@ -198,10 +228,10 @@ export const DrawerHierarchicalTable = ({
                 <ChevronRight size={12} className={cn("transition-transform opacity-40 group-hover/table-header:opacity-100", (!isCollapsed || isAdding) && "rotate-90")} />
                 <config.icon size={12} className="opacity-70" />
                 <span className="text-[10px] font-black uppercase tracking-widest">{config.label}</span>
-                <span className="text-[9px] font-bold opacity-30 bg-black/5 px-1.5 rounded-full ml-1">{items.length}</span>
-                {isAdding && (
-                    <span className="ml-auto text-[8px] font-black uppercase tracking-widest text-primary/40 animate-pulse">Adding Mode</span>
-                )}
+                <div className="ml-auto flex items-center gap-2">
+                    {items.length > 0 && <span className="text-[9px] font-bold opacity-30 bg-black/5 px-1.5 rounded-full">{items.length}</span>}
+                    {currentDrafts.length > 0 && <span className="text-[9px] font-bold text-amber-500/60 animate-pulse">{currentDrafts.length} Drafts</span>}
+                </div>
             </div>
 
             <AnimatePresence mode="popLayout">
@@ -233,8 +263,30 @@ export const DrawerHierarchicalTable = ({
                                 />
                             ))}
 
+                            {/* Render Ghost Drafts */}
+                            {currentDrafts.map((draft: Draft) => (
+                                <div key={draft.id} className="flex items-center gap-3 px-4 py-2 bg-primary/5 animate-pulse-subtle group/draft border-t border-border/5">
+                                     <div className="size-4 rounded-full border border-dashed border-primary/40 shrink-0" />
+                                     <input 
+                                        autoFocus
+                                        className="bg-transparent border-none p-0 text-[11px] font-bold outline-none flex-1"
+                                        value={draft.title}
+                                        onChange={(e) => updateDraft(draft.id, { title: e.target.value })}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleDraftFinalize(draft.id);
+                                        }}
+                                        onBlur={() => {
+                                            if (!draft.title.trim()) deleteDraft(draft.id);
+                                        }}
+                                     />
+                                     <button onClick={() => deleteDraft(draft.id)} className="opacity-0 group-hover/draft:opacity-100 p-1 hover:text-destructive transition-all">
+                                         <X size={10} />
+                                     </button>
+                                </div>
+                            ))}
+
                             {/* Active Uploads for this section */}
-                            {Object.values(uploads).filter(u => (type === 'files' && !u.type.startsWith('audio/')) || (type === 'voiceNotes' && u.type.startsWith('audio/'))).map((upload: ActiveUpload) => (
+                            {Object.values(uploads).filter((u: ActiveUpload) => (type === 'files' && !u.type.startsWith('audio/')) || (type === 'voiceNotes' && u.type.startsWith('audio/'))).map((upload: ActiveUpload) => (
                                 <div key={upload.id} className="flex flex-col gap-2 px-4 py-3 bg-primary/5 border-t border-border/5 animate-pulse">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -340,14 +392,21 @@ export const DrawerHierarchicalTable = ({
                                         value={type === 'voiceNotes' ? "" : quickAddValue}
                                         disabled={type === 'voiceNotes'}
                                         onFocus={() => setIsAdding(true)}
-                                        onChange={(e) => setQuickAddValue(e.target.value)}
-                                        onBlur={() => {
-                                            setTimeout(() => {
-                                                if (!quickAddValue.trim()) {
-                                                    setIsAdding(false);
-                                                    onFocusHandled?.();
-                                                }
-                                            }, 200);
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val.length === 1) {
+                                                if (!draftType) return;
+                                                const draftId = `draft_${taskId}_${type}_${Date.now()}`;
+                                                updateDraft(draftId, { 
+                                                    title: val, 
+                                                    parentId: taskId, 
+                                                    type: draftType as any,
+                                                    status: 'todo'
+                                                });
+                                                setQuickAddValue("");
+                                            } else {
+                                                setQuickAddValue(val);
+                                            }
                                         }}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') handleQuickAdd();
@@ -365,10 +424,11 @@ export const DrawerHierarchicalTable = ({
                                             animate={{ opacity: 1, x: 0 }}
                                             className="text-[8px] font-black uppercase tracking-tighter opacity-20"
                                         >
-                                            Enter to Save / Esc to Cancel
+                                            Press Enter to add
                                         </motion.div>
                                     )}
                                 </div>
+
                             )}
                         </div>
                     </motion.div>
@@ -536,7 +596,7 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
                                 <span className="text-[11px] font-bold text-foreground/80">{item.name || 'Voice Note'}</span>
                                 <span className="text-[9px] opacity-40 font-mono">{item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : ''}</span>
                              </div>
-                             <InlineAudioPlayer url={item.url} />
+                             <InlineAudioPlayer url={item.url} audioDuration={item.duration || 0} />
                              {renderTimestamp()}
                         </div>
                     ) : (
@@ -688,7 +748,7 @@ export function UnifiedHierarchyRoot({
     onUpload,
     recordingState
 }: { 
-    task: Partial<Task> | null, 
+    task: Draft | Partial<Task> | null | undefined, 
     onUpdateTask: (updates: Partial<Task>) => void,
     canManage: boolean,
     user: any,

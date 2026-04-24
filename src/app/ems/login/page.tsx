@@ -54,7 +54,7 @@ function LoginContent() {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name for organization
         const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14);
+        trialExpiry.setDate(trialExpiry.getDate() + 7);
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,
@@ -137,7 +137,7 @@ function LoginContent() {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`;
         const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14);
+        trialExpiry.setDate(trialExpiry.getDate() + 7);
 
         await setDoc(doc(db, "organizations", orgId), {
           name: orgName,

@@ -65,7 +65,7 @@ import { useSidebar } from '@/hooks/use-sidebar';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function TasksPageContent() {
-  const { tasks, loading, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
+  const { tasks, loading, drafts, updateDraft, deleteDraft, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
   const { setUpload, removeUpload } = useUpload();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
@@ -87,12 +87,11 @@ function TasksPageContent() {
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const [drafts, setDrafts] = useState<Partial<Task>[]>([]);
-  const [activeDraftIndex, setActiveDraftIndex] = useState<number | null>(null);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
   const editingNewTask = useMemo(() => 
-    activeDraftIndex !== null ? drafts[activeDraftIndex] : null
-  , [drafts, activeDraftIndex]);
+    activeDraftId ? drafts.find(d => d.id === activeDraftId) : null
+  , [drafts, activeDraftId]);
   
   useEffect(() => {
     if (userData) {
@@ -107,36 +106,6 @@ function TasksPageContent() {
       if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
     }
   };
-
-  // Draft System
-  useEffect(() => {
-    const savedDrafts = localStorage.getItem('trac_task_drafts');
-    if (savedDrafts) {
-      setDrafts(JSON.parse(savedDrafts));
-    } else {
-      // Migration from old single-draft system
-      const oldTypeDraft = localStorage.getItem('trac_task_draft_type');
-      const oldVoiceDraft = localStorage.getItem('trac_task_draft_voice');
-      const migrated: Partial<Task>[] = [];
-      if (oldTypeDraft) migrated.push({ ...JSON.parse(oldTypeDraft), id: 'migrated-type-' + Date.now() });
-      if (oldVoiceDraft) migrated.push({ ...JSON.parse(oldVoiceDraft), id: 'migrated-voice-' + Date.now() });
-      
-      if (migrated.length > 0) {
-        setDrafts(migrated);
-        localStorage.setItem('trac_task_drafts', JSON.stringify(migrated));
-        localStorage.removeItem('trac_task_draft_type');
-        localStorage.removeItem('trac_task_draft_voice');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (drafts.length > 0) {
-        localStorage.setItem('trac_task_drafts', JSON.stringify(drafts));
-    } else {
-        localStorage.removeItem('trac_task_drafts');
-    }
-  }, [drafts]);
 
   const isSubscriptionActive = orgData?.subscriptionExpiry 
     ? orgData.subscriptionExpiry.toDate() > new Date() 
@@ -195,15 +164,10 @@ function TasksPageContent() {
                     newFile.duration = (file as any).duration || 0; 
                 }
 
-                if (taskId === 'new' && activeDraftIndex !== null) {
-                    setDrafts(prev => {
-                        const next = [...prev];
-                        const field = isAudio ? 'voiceNotes' : 'attachments';
-                        next[activeDraftIndex] = {
-                            ...next[activeDraftIndex],
-                            [field]: [...(next[activeDraftIndex][field] || []), newFile]
-                        };
-                        return next;
+                if (taskId === 'new' && activeDraftId) {
+                    const field = isAudio ? 'voiceNotes' : 'attachments';
+                    updateDraft(activeDraftId, {
+                        [field]: [...(editingNewTask?.[field] || []), newFile]
                     });
                 } else {
                     const currentTask = tasks.find(t => t.id === taskId);
@@ -228,7 +192,9 @@ function TasksPageContent() {
       });
 
       return promise;
-  }, [userData, activeDraftIndex, tasks, updateTask, setUpload, removeUpload]);
+  }, [userData, activeDraftId, tasks, updateTask, setUpload, removeUpload, editingNewTask, updateDraft]);
+
+  const listViewRef = useRef<{ focus: () => void }>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -427,32 +393,26 @@ function TasksPageContent() {
 
   const selectedTask = useMemo(() => {
     if (selectedTaskId === "new") {
-      return editingNewTask as Task;
+      return editingNewTask as unknown as Task;
     }
     return tasks.find(t => t.id === selectedTaskId) || null;
   }, [tasks, selectedTaskId, editingNewTask]);
 
   const handleAddNewTaskClick = useCallback((initialStatus?: Status, initialDate?: Date) => {
     // Check if we already have an empty draft
-    const emptyDraftIndex = drafts.findIndex(d => !d.title && !d.description && (!d.voiceNotes || d.voiceNotes.length === 0));
+    const emptyDraft = drafts.find(d => !d.title && !d.description && (!d.voiceNotes || d.voiceNotes.length === 0));
 
-    if (emptyDraftIndex !== -1) {
-
-        setActiveDraftIndex(emptyDraftIndex);
+    if (emptyDraft) {
+        setActiveDraftId(emptyDraft.id);
         if (initialStatus || initialDate) {
-            setDrafts(prev => {
-                const updated = [...prev];
-                updated[emptyDraftIndex] = {
-                    ...updated[emptyDraftIndex],
-                    status: initialStatus || updated[emptyDraftIndex].status || "todo",
-                    dueDate: initialDate ? initialDate.toISOString() : (updated[emptyDraftIndex].dueDate || new Date().toISOString())
-                };
-                return updated;
-            });
+            updateDraft(emptyDraft.id, {
+                status: initialStatus || emptyDraft.status || "todo",
+                dueDate: initialDate ? initialDate.toISOString() : (emptyDraft.dueDate || new Date().toISOString())
+            } as any);
         }
     } else {
         const newDraftId = 'draft-' + Date.now();
-        const newDraft: Partial<Task> = {
+        updateDraft(newDraftId, {
             id: newDraftId,
             title: "",
             description: "",
@@ -461,39 +421,41 @@ function TasksPageContent() {
             assignees: [],
             subtasks: [],
             resources: [],
-            comments: [],
-            tags: [],
             dueDate: initialDate ? initialDate.toISOString() : new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        setDrafts(prev => {
-            const newList = [...prev, newDraft];
-            setActiveDraftIndex(newList.length - 1);
-            return newList;
-        });
+            type: 'task'
+        } as any);
+        setActiveDraftId(newDraftId);
     }
     
     setSelectedTaskId("new");
     setShowCreateTaskModal(false);
     setCreateTaskMode("type");
-  }, [drafts]);
+  }, [drafts, updateDraft]);
 
   const handleUpdateTaskLocal = useCallback((id: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => {
-    if (id === "new" && activeDraftIndex !== null) {
-      setDrafts(prev => {
-          const newDrafts = [...prev];
-          newDrafts[activeDraftIndex] = { ...newDrafts[activeDraftIndex], ...updates };
-          return newDrafts;
-      });
+    if (id === "new" && activeDraftId) {
+      updateDraft(activeDraftId, updates as any);
     } else {
       updateTask(id, updates, action, skipHistory);
     }
-  }, [activeDraftIndex, updateTask]);
+  }, [activeDraftId, updateDraft, updateTask]);
 
   const handleSaveNewTask = useCallback(async () => {
     if (editingNewTask && selectedTaskId === "new") {
-      const title = editingNewTask.title || "New Task";
+      const title = editingNewTask.title?.trim();
+      
+      if (!title) {
+          // If no title, just remove the draft and close
+          if (activeDraftId) {
+              deleteDraft(activeDraftId);
+              setActiveDraftId(null);
+          }
+          setSelectedTaskId(null);
+          setLocalTask(null);
+          setCreateTaskMode(null);
+          return;
+      }
+
       const status = editingNewTask.status || "todo";
       const newId = await addTask(
         title,
@@ -512,23 +474,23 @@ function TasksPageContent() {
       );
 
       if (newId) {
-        const { title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, attachments: att, voiceNotes: vn, nestedDescriptions: nd, images: img, ...rest } = editingNewTask;
+        const { id, title: t, status: s, description: d, priority: p, assignees: a, leaderPoints: lp, deadlineHours: dh, subtasks: st, resources: r, attachments: att, voiceNotes: vn, nestedDescriptions: nd, images: img, createdAt, ...rest } = editingNewTask;
         if (Object.keys(rest).length > 0) {
             await updateTask(newId, rest);
         }
         toast.success("Task created!");
         
         // Remove from drafts
-        if (activeDraftIndex !== null) {
-            setDrafts(prev => prev.filter((_, i) => i !== activeDraftIndex));
-            setActiveDraftIndex(null);
+        if (activeDraftId) {
+            deleteDraft(activeDraftId);
+            setActiveDraftId(null);
         }
       }
       setSelectedTaskId(null);
       setLocalTask(null);
       setCreateTaskMode(null);
     }
-  }, [editingNewTask, selectedTaskId, addTask, updateTask, activeDraftIndex]);
+  }, [editingNewTask, selectedTaskId, addTask, updateTask, activeDraftId, deleteDraft]);
 
   const handleDeleteTaskLocal = useCallback((id: string) => {
     deleteTask(id);
@@ -554,7 +516,7 @@ function TasksPageContent() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-14 px-4 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
+        <header className="h-14 px-6 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
                     <Menu size={20} />
@@ -618,7 +580,7 @@ function TasksPageContent() {
                             <Button variant="ghost" size="sm" className="h-8 text-xs gap-2">
                                 <FileText size={14} />
                                 <span className="hidden sm:inline">Drafts</span>
-                                {drafts.length > 0 && (
+                                {drafts.filter(d => !d.parentId).length > 0 && (
                                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                                 )}
                             </Button>
@@ -629,17 +591,17 @@ function TasksPageContent() {
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Stored on this device only</p>
                             </div>
                             <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
-                                {drafts.length === 0 ? (
+                                {drafts.filter(d => !d.parentId).length === 0 ? (
                                     <div className="py-8 text-center text-muted-foreground/40 text-xs italic">
                                         No active drafts
                                     </div>
                                 ) : (
-                                    drafts.map((draft, idx) => (
-                                        <div key={draft.id || idx} className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
+                                    drafts.filter(d => !d.parentId).map((draft) => (
+                                        <div key={draft.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/30 group">
                                             <div 
                                                 className="flex-1 cursor-pointer"
                                                 onClick={() => {
-                                                    setActiveDraftIndex(idx);
+                                                    setActiveDraftId(draft.id);
                                                     setSelectedTaskId("new");
                                                     setCreateTaskMode("type");
                                                 }}
@@ -656,13 +618,10 @@ function TasksPageContent() {
                                                 variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                                                 onClick={() => {
                                                     if (confirm("Clear this draft forever?")) {
-                                                        const newDrafts = drafts.filter((_, i) => i !== idx);
-                                                        setDrafts(newDrafts);
-                                                        if (activeDraftIndex === idx) {
-                                                            setActiveDraftIndex(null);
+                                                        deleteDraft(draft.id);
+                                                        if (activeDraftId === draft.id) {
+                                                            setActiveDraftId(null);
                                                             setSelectedTaskId(null);
-                                                        } else if (activeDraftIndex !== null && activeDraftIndex > idx) {
-                                                            setActiveDraftIndex(activeDraftIndex - 1);
                                                         }
                                                     }
                                                 }}
@@ -703,7 +662,7 @@ function TasksPageContent() {
             </div>
         </header>
 
-        <div className="flex-1 overflow-hidden p-4 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
+        <div className="flex-1 overflow-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
             {!isSubscriptionActive ? (
                 <PaywallScreen 
                     orgData={orgData}
@@ -744,6 +703,7 @@ function TasksPageContent() {
                 </ScrollArea>
             ) : (
                 <ListView 
+                    ref={listViewRef}
                     tasks={filteredTasks}
                     onTaskClick={setSelectedTaskId}
                     personnel={personnel}
@@ -832,6 +792,7 @@ function TasksPageContent() {
               exit={{ opacity: 0 }}
               onClick={() => {
                   setSelectedTaskId(null);
+                  setTimeout(() => listViewRef.current?.focus(), 10);
               }}
               className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
             />
@@ -1222,32 +1183,9 @@ function TasksPageContent() {
               <div className="flex items-center justify-end gap-2 p-4 border-t border-border/50 bg-card shrink-0">
                  <Button variant="outline" onClick={() => {
                     setSelectedTaskId(null);
+                    setTimeout(() => listViewRef.current?.focus(), 10);
                  }}>
-                    Cancel
-                 </Button>
-                 <Button onClick={() => {
-                    if (localTask && originalTask) {
-                       // Deep compare to see if we actually need a history entry
-                       const hasChanged = 
-                          localTask.title !== originalTask.title ||
-                          localTask.description !== originalTask.description ||
-                          localTask.status !== originalTask.status ||
-                          localTask.priority !== originalTask.priority ||
-                          localTask.dueDate !== originalTask.dueDate ||
-                          localTask.flagged !== originalTask.flagged ||
-                          JSON.stringify(localTask.assignees) !== JSON.stringify(originalTask.assignees) ||
-                          JSON.stringify(localTask.subtasks) !== JSON.stringify(originalTask.subtasks) ||
-                          JSON.stringify(localTask.resources) !== JSON.stringify(originalTask.resources) ||
-                          JSON.stringify(localTask.attachments) !== JSON.stringify(originalTask.attachments) ||
-                          JSON.stringify(localTask.voiceNotes) !== JSON.stringify(originalTask.voiceNotes);
-                       if (hasChanged) {
-                          const { history, updatedAt, createdAt, id, ...updates } = localTask;
-                          handleUpdateTaskLocal(selectedTaskId!, updates, 'manual_save');
-                       }
-                       setSelectedTaskId(null);
-                    }
-                 }}>
-                    Save
+                    Close
                  </Button>
               </div>
             </motion.div>
@@ -1307,28 +1245,31 @@ function TasksPageContent() {
                 onUpdateTask={handleUpdateTaskLocal}
                 onSave={handleSaveNewTask}
                 onCancel={() => {
-                    const hasContent = !!(
-                        editingNewTask?.title ||
-                        editingNewTask?.description ||
-                        (editingNewTask?.voiceNotes && editingNewTask.voiceNotes.length > 0) ||
-                        (editingNewTask?.attachments && editingNewTask.attachments.length > 0) ||
-                        (editingNewTask?.subtasks && editingNewTask.subtasks.length > 0) ||
-                        (editingNewTask?.resources && editingNewTask.resources.length > 0) ||
-                        (editingNewTask?.images && editingNewTask.images.length > 0) ||
-                        (editingNewTask?.nestedDescriptions && editingNewTask.nestedDescriptions.length > 0)
+                    const hasContent = editingNewTask && !!(
+                        editingNewTask.title ||
+                        editingNewTask.description ||
+                        (editingNewTask.voiceNotes && editingNewTask.voiceNotes.length > 0) ||
+                        (editingNewTask.attachments && editingNewTask.attachments.length > 0) ||
+                        (editingNewTask.subtasks && editingNewTask.subtasks.length > 0) ||
+                        (editingNewTask.resources && editingNewTask.resources.length > 0) ||
+                        (editingNewTask.images && editingNewTask.images.length > 0) ||
+                        (editingNewTask.nestedDescriptions && editingNewTask.nestedDescriptions.length > 0)
                     );
-                    if (editingNewTask && hasContent) {
+                    
+                    if (hasContent) {
                         toast.info("Task draft saved.", {
                             description: "You can recover it from the Drafts menu."
                         });
                     } else {
                         // Remove empty draft if cancelled
-                        if (activeDraftIndex !== null) {
-                            setDrafts(prev => prev.filter((_, i) => i !== activeDraftIndex));
+                        if (activeDraftId) {
+                            deleteDraft(activeDraftId);
                         }
                     }
+                    
+                    // Always close
                     setSelectedTaskId(null);
-                    setActiveDraftIndex(null);
+                    setActiveDraftId(null);
                     setCreateTaskMode(null);
                 }}
                 personnel={personnel}

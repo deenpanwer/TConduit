@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { DashboardSidebar } from '@/components/ems/DashboardSidebar';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { useTeam } from '@/hooks/use-team';
 import { InviteModal } from '@/components/ems/InviteModal';
 import { SubscriptionBadge } from '@/components/ems/SubscriptionBadge';
 import { IntelligenceModal } from '@/components/ems/IntelligenceModal';
+import { DepartmentManager } from '@/components/ems/DepartmentManager';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -165,22 +166,39 @@ export default function SettingsPage() {
     mutedEmployees: [] as string[]
   });
 
+  // Track initial state for "Save" button visibility
+  const [initialSettings, setInitialSettings] = useState<any>(null);
+  const [initialNotifications, setInitialNotifications] = useState<any>(null);
+
   useEffect(() => {
     if (userData?.settings) {
         setSettings(prev => ({...prev, ...userData.settings}));
+        if (!initialSettings) setInitialSettings(userData.settings);
     }
     if (userData?.notificationPreferences) {
-      setNotificationPreferences(prev => ({
-        ...prev, 
+      const prefs = {
         ...userData.notificationPreferences,
         categories: {
-          ...prev.categories,
+          shifts: true,
+          tasks: true,
+          chats: true,
           ...userData.notificationPreferences.categories
         },
         mutedEmployees: userData.notificationPreferences.mutedEmployees || []
-      }));
+      };
+      setNotificationPreferences(prefs);
+      if (!initialNotifications) setInitialNotifications(prefs);
     }
   }, [userData]);
+
+  const hasChanges = useMemo(() => {
+    if (!initialSettings || !initialNotifications) return false;
+    
+    const settingsChanged = JSON.stringify(settings) !== JSON.stringify({ ...settings, ...initialSettings });
+    const notificationsChanged = JSON.stringify(notificationPreferences) !== JSON.stringify(initialNotifications);
+    
+    return settingsChanged || notificationsChanged;
+  }, [settings, notificationPreferences, initialSettings, initialNotifications]);
 
   useEffect(() => {
     async function fetchOrg() {
@@ -355,6 +373,37 @@ export default function SettingsPage() {
   };
 
 
+  const handleSaveStructure = async (departments: any[], employeeUpdates: Record<string, any>) => {
+    if (!user || !orgData) return;
+    const batch = writeBatch(db);
+    const targetOrgId = userData.ownedOrgId || userData.orgId;
+    
+    // Update Org Doc
+    const orgRef = doc(db, 'organizations', targetOrgId);
+    batch.update(orgRef, {
+      departments: departments,
+      updatedAt: serverTimestamp()
+    });
+
+    // Update individual employees
+    Object.entries(employeeUpdates).forEach(([empId, updates]) => {
+      const userRef = doc(db, 'users', empId);
+      batch.update(userRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    });
+
+    try {
+      await batch.commit();
+      toast({ title: 'Structure Saved', description: 'Organizational hierarchy and employee roles updated.' });
+      // Refresh local org data state
+      setOrgData((prev: any) => ({ ...prev, departments }));
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <>
       <InviteModal 
@@ -440,11 +489,12 @@ export default function SettingsPage() {
           </div>
 
           <Tabs defaultValue="identity" className="w-full space-y-8">
-            <TabsList className="w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-1">
+            <TabsList className="w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 md:grid-cols-6 gap-1">
               <TabsTrigger value="identity" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Identity</TabsTrigger>
               <TabsTrigger value="company" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Company</TabsTrigger>
+              <TabsTrigger value="structure" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Structure</TabsTrigger>
               <TabsTrigger value="intelligence" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Intelligence</TabsTrigger>
-              <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Notification Settings</TabsTrigger>
+              <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger>
               <TabsTrigger value="operations" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
             </TabsList>
 
@@ -572,6 +622,17 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+                </section>
+            </TabsContent>
+
+            <TabsContent value="structure" className="space-y-8">
+                <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
+                    <DepartmentManager 
+                        orgName={userData?.orgName || 'Your Organization'}
+                        employees={employees}
+                        departments={orgData?.departments || []}
+                        onSave={handleSaveStructure}
+                    />
                 </section>
             </TabsContent>
 

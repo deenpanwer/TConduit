@@ -199,10 +199,24 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
     // --- STEP 1: SYNC PERSONNEL LIST (GLOBAL ORG VIEW) ---
     // Establishes the baseline roster of employees for the target organization.
-    const q = query(
+    const role = userData?.role?.toLowerCase();
+    const isManager = role === 'manager';
+    const isOwner = role === 'owner' || role === 'founder' || role === 'hr' || role === 'ops' || !!userData?.ownedOrgId;
+    const userDept = userData?.department;
+
+    let q = query(
       collection(db, "users"), 
       where("orgId", "==", targetOrgId)
     );
+
+    // Only restrict Managers; Owners/Founders/HR/Ops see everything
+    if (isManager && userDept && !isOwner) {
+      q = query(
+        collection(db, "users"),
+        where("orgId", "==", targetOrgId),
+        where("department", "==", userDept)
+      );
+    }
 
     const unsubscribePersonnel = onSnapshot(q, async (snapshot) => {
       const allPersonnel = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { 
   Plus, ChevronRight, 
-  ChevronDown, Save, Undo2, 
+  ChevronDown, 
   MoreHorizontal, Link as LinkIcon, Sparkles,
   CheckCircle2, Circle, MessageSquare, ExternalLink,
   UserPlus, X,
@@ -54,6 +54,10 @@ import { StopCircle, Pause, Play } from 'lucide-react';
 import { InlineAudioPlayer } from './InlineAudioPlayer';
 
 // --- Types & Interfaces ---
+
+export interface ListViewHandle {
+  focus: () => void;
+}
 
 interface ListViewProps {
   tasks: Task[]; // Array of tasks from the database.
@@ -275,7 +279,7 @@ const GridCell = ({
                         />
                     )}
                     <div className="absolute -bottom-5 right-0 text-[9px] font-bold text-primary uppercase tracking-tighter bg-background px-1 border border-primary/20 rounded shadow-sm">
-                        Enter to save
+                        Press Enter to finish
                     </div>
                 </div>
             )}
@@ -894,10 +898,9 @@ const HierarchicalTable = ({
                                                     </div>
 
                                                     <div className="flex items-center gap-1 shrink-0">
-                                                        {/* SAVE BUTTON */}
                                                         <Button 
                                                             size="icon" variant="ghost" className="h-7 w-7 rounded-full text-red-500 hover:bg-red-500/10" 
-                                                            onClick={() => stopRecording(true)} title="Save Recording"
+                                                            onClick={() => stopRecording(true)} title="Done Recording"
                                                         >
                                                             <Check size={14} />
                                                         </Button>
@@ -1032,8 +1035,8 @@ const TaskRowDesktop = ({
     onUploadFile
 }: { 
     task: Task, // The original task data.
-    localTask: Task, // The task data including local, unsaved changes.
-    onUpdate: (updates: Partial<Task>) => void, // Callback to update the task in local state.
+    localTask: Task, // The task data including local-first synced changes.
+    onUpdate: (updates: Partial<Task>) => void, // Callback to update the task in local state and sync.
     onDelete: (id: string) => void, // Callback to delete the task.
     onTaskClick: (taskId: string) => void, // Passes the full task ID.
     personnel: any[], // List of all users.
@@ -1893,17 +1896,45 @@ const TaskRowMobile = ({
     );
 };
 
+const SyncStatusPulse = ({ isSyncing, hasPending }: { isSyncing: boolean; hasPending: boolean }) => {
+    return (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/10 border border-border/40">
+            <div className="flex gap-1">
+                {/* Local Save Indicator (Yellow) */}
+                <motion.div 
+                    animate={{ opacity: hasPending ? [0.4, 1, 0.4] : 0.2 }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className={cn("size-1.5 rounded-full shadow-sm", hasPending ? "bg-amber-500 shadow-amber-500/50" : "bg-muted-foreground/30")}
+                />
+                {/* Cloud Sync Indicator (Blue) */}
+                <motion.div 
+                    animate={{ opacity: isSyncing ? [0.4, 1, 0.4] : 0.2 }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className={cn("size-1.5 rounded-full shadow-sm", isSyncing ? "bg-blue-500 shadow-blue-500/50" : "bg-muted-foreground/30")}
+                />
+                {/* All Safe Indicator (Green) */}
+                <motion.div 
+                    className={cn("size-1.5 rounded-full shadow-sm transition-colors", (!isSyncing && !hasPending) ? "bg-emerald-500 shadow-emerald-500/50" : "bg-muted-foreground/10")}
+                />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+                {isSyncing ? "Syncing..." : hasPending ? "Local Safe" : "All Changes Saved"}
+            </span>
+        </div>
+    );
+};
+
 /**
  * The main component for the List View.
  * It orchestrates the entire grid, including headers, toolbar, and task rows.
  */
-export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDeleteTask, onUploadFile }: ListViewProps) {
+const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProps> = (
+  { tasks, onTaskClick, personnel, onUpdateTask, onDeleteTask, onUploadFile }, 
+  ref
+) => {
   const isMobile = useIsMobile();
-  const { bulkUpdateTasks, addTask, deleteTask } = useTasks();
+  const { addTask, deleteTask, isSyncing, hasPending, drafts, updateDraft, finalizeDraft } = useTasks();
 
-  // State to hold local, unsaved changes. The key is the task ID.
-  const [localChanges, setLocalChanges] = useState<Record<string, Partial<Task>>>({});
-  
   // State for task ordering (Drag & Drop)
   const [orderedTasks, setOrderedTasks] = useState<Task[]>(tasks);
 
@@ -1928,58 +1959,77 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
       }
   }, [isMobile]); // Re-run if isMobile changes
 
-  // State to track the saving process for bulk updates.
-  const [isSaving, setIsSaving] = useState(false);
-  
   // State to track which task is currently being enhanced by AI.
   const [isEnhancing, setIsEnhancing] = useState<string | null>(null);
 
-  const hasUnsavedChanges = Object.keys(localChanges).length > 0;
+  // Focus the scrollable container on mount for keyboard navigation
+  const internalRef = useRef<HTMLDivElement>(null);
+  
+  // Expose the internal ref to the parent via the forwarded ref
+  React.useImperativeHandle(ref, () => ({
+    focus: () => {
+        internalRef.current?.focus();
+    }
+  }));
 
-  /**
-   * Updates a task in the `localChanges` state.
-   * This allows users to make multiple changes that can be saved in a single batch.
-   */
-  const handleUpdateLocal = (taskId: string, updates: Partial<Task>) => {
-      setLocalChanges(prev => ({
-          ...prev,
-          [taskId]: { ...(prev[taskId] || {}), ...updates }
-      }));
-  };
+  useEffect(() => {
+    if (!isMobile) {
+      internalRef.current?.focus();
+    }
+  }, [isMobile]);
 
-  /**
-   * Saves all the batched changes from `localChanges` to the database.
-   */
-  const handleSaveBulk = async () => {
-      if (!hasUnsavedChanges) return;
-      setIsSaving(true);
-      try {
-          await bulkUpdateTasks(localChanges);
-          setLocalChanges({});
-          toast.success("Changes saved!")
-      } catch (error) {
-          console.error('Bulk save failed:', error);
-          toast.error("Failed to save changes.")
-      } finally {
-          setIsSaving(false);
+  // Global keyboard navigation listener
+  useEffect(() => {
+    if (isMobile) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't scroll if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      const isTyping = 
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable;
+
+      if (isTyping) return;
+
+      const container = internalRef.current;
+      if (!container) return;
+
+      const scrollStep = 100;
+      
+      switch (e.key) {
+        case 'ArrowRight':
+          container.scrollBy({ left: scrollStep, behavior: 'auto' });
+          break;
+        case 'ArrowLeft':
+          container.scrollBy({ left: -scrollStep, behavior: 'auto' });
+          break;
+        case 'ArrowDown':
+          // Optional: handle vertical scroll if default is intercepted
+          container.scrollBy({ top: scrollStep, behavior: 'auto' });
+          break;
+        case 'ArrowUp':
+          container.scrollBy({ top: -scrollStep, behavior: 'auto' });
+          break;
+        default:
+          return;
       }
-  };
 
-  /**
-   * Discards all unsaved local changes after user confirmation.
-   */
-  const handleDiscardChanges = () => {
-      if (confirm('Discard all unsaved changes?')) {
-          setLocalChanges({});
-      }
-  };
+      // Prevent default browser behavior (like scrolling the whole page) 
+      // if we've handled the scroll inside the table
+      e.preventDefault();
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isMobile]);
 
   /**
    * Triggers the AI enhancement process for a specific task.
    * It sends the task title and description to the backend and updates the task with the response.
    */
   const handleEnhanceWithAI = async (taskId: string) => {
-      const taskToEnhance = displayTasks.find(t => t.id === taskId);
+      const taskToEnhance = tasks.find(t => t.id === taskId);
       if (!taskToEnhance) return;
 
       setIsEnhancing(taskId);
@@ -2003,7 +2053,7 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
               descriptions: s.description ? [{ id: Math.random().toString(), text: s.description, createdAt: new Date() }] : []
           }));
 
-          handleUpdateLocal(taskId, {
+          onUpdateTask?.(taskId, {
               title: data.title || taskToEnhance.title,
               description: data.description || taskToEnhance.description,
               priority: data.priority || taskToEnhance.priority,
@@ -2021,46 +2071,32 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
       }
   };
 
-  /**
-   * Memoized array of tasks that merges the original tasks with any local, unsaved changes.
-   * This ensures the UI always reflects the current state being edited.
-   */
-  const displayTasks = useMemo(() => {
-      return orderedTasks.map(task => ({
-          ...task,
-          ...(localChanges[task.id] || {})
-      }));
-  }, [orderedTasks, localChanges]);
+  const activeTasks = useMemo(() => tasks.filter(t => !t.flagged), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter(t => t.flagged), [tasks]);
 
-  const activeTasks = useMemo(() => displayTasks.filter(t => !t.flagged), [displayTasks]);
-  const completedTasks = useMemo(() => displayTasks.filter(t => t.flagged), [displayTasks]);
+  const handleAddNewTask = async (title: string) => {
+      if (!title.trim()) return;
+      const cleanTitle = title.trim();
+      setNewTaskTitle(''); // Clear immediately
+      try {
+          await addTask(cleanTitle, 'todo');
+          toast.success('Task created');
+      } catch (error) {
+          console.error("Failed to add task:", error);
+          toast.error("Failed to create task");
+      }
+  };
 
-  // Render a simplified mobile view if screen is small.
   if (isMobile) {
       return (
           <div className='flex flex-col h-full bg-background'>
-              {/* Sticky Save Bar */}
-              <AnimatePresence>
-                  {hasUnsavedChanges && (
-                      <motion.div 
-                        initial={{ y: -50, opacity: 0 }} 
-                        animate={{ y: 0, opacity: 1 }} 
-                        exit={{ y: -50, opacity: 0 }} 
-                        className="sticky top-0 z-30 px-4 py-3 bg-primary/10 backdrop-blur-md border-b border-primary/20 flex items-center justify-between"
-                      >
-                          <div className="flex items-center gap-2">
-                              <Sparkles size={14} className="text-primary animate-pulse" />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-primary">Local Edits</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" onClick={handleDiscardChanges} className="h-7 text-[10px] font-bold uppercase">Discard</Button>
-                              <Button size="sm" onClick={handleSaveBulk} disabled={isSaving} className="h-7 px-4 rounded-full text-[10px] font-bold uppercase shadow-sm">
-                                  {isSaving ? "Saving..." : "Save Now"}
-                              </Button>
-                          </div>
-                      </motion.div>
-                  )}
-              </AnimatePresence>
+              <div className="h-14 px-6 flex items-center justify-between border-b border-border/40 shrink-0">
+                  <div className='flex flex-col'>
+                    <h2 className='text-[10px] font-black uppercase tracking-widest text-primary/80'>Tasks Mobile</h2>
+                    <p className='text-[8px] font-bold text-muted-foreground uppercase'>{tasks.length} Items</p>
+                  </div>
+                  <SyncStatusPulse isSyncing={isSyncing} hasPending={hasPending} />
+              </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   <Reorder.Group axis="y" values={orderedTasks} onReorder={setOrderedTasks} className="space-y-3">
@@ -2069,7 +2105,7 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                               key={task.id} 
                               task={orderedTasks.find(t => t.id === task.id)!}
                               localTask={task}
-                              onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                              onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
                               onDelete={onDeleteTask || deleteTask}
                               onTaskClick={onTaskClick}
                               handleEnhanceTask={handleEnhanceWithAI}
@@ -2077,26 +2113,61 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                               personnel={personnel}
                           />
                       ))}
+                      
+                      {/* Mobile Ghost Drafts */}
+                      {drafts.filter(d => !d.parentId && (d.type === 'task' || !d.type)).map(draft => (
+                          <motion.div 
+                              key={draft.id}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="flex items-center gap-3 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl"
+                          >
+                               <div className="size-5 rounded-full border-2 border-dashed border-primary/30" />
+                               <input 
+                                    autoFocus
+                                    className='flex-1 bg-transparent border-none p-0 text-sm font-bold focus:outline-none'
+                                    value={draft.title}
+                                    onChange={(e) => updateDraft(draft.id, { title: e.target.value })}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') finalizeDraft(draft.id);
+                                    }}
+                               />
+                          </motion.div>
+                      ))}
                   </Reorder.Group>
 
-                  {/* Add Task Row Mobile */}
-                  <div className="flex items-center gap-3 p-4 bg-secondary/10 border-2 border-dashed border-border/40 rounded-2xl">
-                      <Plus size={20} className="text-muted-foreground/40" />
-                      <input 
-                          ref={mobileAddTaskInputRef} 
-                          className='flex-1 bg-transparent border-none p-0 text-sm font-bold focus:outline-none placeholder:text-muted-foreground/30'
-                          placeholder='Quick add task...'
-                          value={newTaskTitle}
-                          onChange={(e) => setNewTaskTitle(e.target.value)}
-                          onKeyDown={async (e) => {
-                              if (e.key === 'Enter' && newTaskTitle.trim()) {
-                                  const title = newTaskTitle.trim();
-                                  setNewTaskTitle('');
-                                  await addTask(title, 'todo');
-                                  toast.success('Task created');
-                              }
-                          }}
-                      />
+                  <div className="flex flex-col gap-2 p-4 bg-secondary/10 border-2 border-dashed border-border/40 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <Plus size={20} className="text-muted-foreground/40" />
+                        <input 
+                            ref={mobileAddTaskInputRef} 
+                            className='flex-1 bg-transparent border-none p-0 text-sm font-bold focus:outline-none placeholder:text-muted-foreground/30'
+                            placeholder='Quick add task...'
+                            value={newTaskTitle}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val.length === 1) {
+                                    const draftId = 'draft_' + Date.now();
+                                    updateDraft(draftId, { title: val, type: 'task' });
+                                    setNewTaskTitle('');
+                                } else {
+                                    setNewTaskTitle(val);
+                                }
+                            }}
+                        />
+                      </div>
+                      <AnimatePresence>
+                          {newTaskTitle.length > 0 && (
+                              <motion.div 
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  className="text-[9px] text-primary/60 font-black uppercase tracking-widest pl-8"
+                              >
+                                  Press Enter to add
+                              </motion.div>
+                          )}
+                      </AnimatePresence>
                   </div>
 
                   {completedTasks.length > 0 && (
@@ -2112,7 +2183,7 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                                       key={task.id} 
                                       task={orderedTasks.find(t => t.id === task.id)!}
                                       localTask={task}
-                                      onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                                      onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
                                       onDelete={onDeleteTask || deleteTask}
                                       onTaskClick={onTaskClick}
                                       handleEnhanceTask={handleEnhanceWithAI}
@@ -2139,25 +2210,15 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                 <p className='text-[10px] font-bold text-muted-foreground uppercase'>{tasks.length} Active Items</p>
               </div>
           </div>
-          
-          <div className='flex items-center gap-3'>
-              <AnimatePresence>
-                  {hasUnsavedChanges && (
-                      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className='flex items-center gap-3'>
-                          <Button variant='ghost' size='sm' onClick={handleDiscardChanges} className='h-9 text-[10px] font-bold uppercase tracking-widest gap-2'>
-                              <Undo2 size={14} /> Discard All
-                          </Button>
-                          <Button size='sm' onClick={handleSaveBulk} disabled={isSaving} className='h-9 px-6 rounded-lg text-[10px] font-black uppercase tracking-widest gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all'>
-                              <Save size={14} /> {isSaving ? 'Syncing...' : 'Save Changes'}
-                          </Button>
-                      </motion.div>
-                  )}
-              </AnimatePresence>
-          </div>
+          <SyncStatusPulse isSyncing={isSyncing} hasPending={hasPending} />
       </div>
 
       {/* Main scrollable grid container */}
-      <div className="flex-1 overflow-auto custom-scrollbar-thick">
+      <div 
+        ref={internalRef}
+        className="flex-1 overflow-auto custom-scrollbar-thick outline-none focus:ring-0"
+        tabIndex={0}
+      >
           <div style={{ minWidth: 1400 }}>
               {/* Sticky Grid Header */}
               <div className='sticky top-0 z-20 flex h-10 bg-secondary/20 dark:bg-card border-b-2 border-border/80 text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 select-none'>
@@ -2181,7 +2242,7 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                           key={task.id} 
                           task={orderedTasks.find(t => t.id === task.id)!}
                           localTask={task}
-                          onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                          onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
                           onDelete={onDeleteTask || deleteTask}
                           onTaskClick={onTaskClick}
                           personnel={personnel}
@@ -2189,6 +2250,31 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                           isEnhancing={isEnhancing === task.id}
                           onUploadFile={onUploadFile}
                       />
+                  ))}
+
+                  {/* Render Ghost Drafts */}
+                  {drafts.filter(d => !d.parentId && (d.type === 'task' || !d.type)).map(draft => (
+                      <div key={draft.id} className='flex h-12 border-b border-border/60 bg-primary/5 animate-pulse-subtle'>
+                          <div className='sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 flex items-center justify-center bg-background/50'>
+                              <div className="size-5 rounded-full border-2 border-dashed border-primary/20" />
+                          </div>
+                          <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 bg-background/50' />
+                          <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 bg-background/50 flex flex-col justify-center py-1'>
+                              <input 
+                                  autoFocus
+                                  className='w-full h-full px-4 text-sm font-bold focus:outline-none bg-transparent'
+                                  value={draft.title}
+                                  onChange={(e) => updateDraft(draft.id, { title: e.target.value })}
+                                  onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                          finalizeDraft(draft.id);
+                                          // Next draft will be created by the "Add task" row logic below
+                                      }
+                                  }}
+                              />
+                          </div>
+                          <div className="flex-1 bg-background/20" />
+                      </div>
                   ))}
 
                   {/* Sticky Add Task Row */}
@@ -2203,27 +2289,17 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                                                     className='w-full h-full px-4 text-sm font-medium focus:outline-none bg-transparent placeholder:text-muted-foreground/30 placeholder:italic'
                                                     placeholder='+ Add task'
                                                     value={newTaskTitle}
-                                                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                                                    onKeyDown={async (e) => {
-                                                        if (e.key === 'Enter' && newTaskTitle.trim()) {
-                                                            const title = newTaskTitle.trim();
-                                                            setNewTaskTitle(''); // Clear input immediately
-                                                            await addTask(title, 'todo');
-                                                            toast.success('New task created');
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val.length === 1) {
+                                                            const draftId = 'draft_' + Date.now();
+                                                            updateDraft(draftId, { title: val, type: 'task' });
+                                                            setNewTaskTitle('');
+                                                        } else {
+                                                            setNewTaskTitle(val);
                                                         }
                                                     }}
-                                                />                          <AnimatePresence>
-                              {newTaskTitle.length > 2 && (
-                                  <motion.div 
-                                      initial={{ opacity: 0, y: -5 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: -5 }}
-                                      className="px-4 text-[10px] text-muted-foreground/80 font-medium"
-                                  >
-                                      Press Enter to save
-                                  </motion.div>
-                              )}
-                          </AnimatePresence>
+                                                />
                       </div>
                       {/* Filler divs for alignment */}
                       <div className='flex-[2] min-w-[400px] border-r border-border/60' />
@@ -2265,7 +2341,7 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
                                 key={task.id} 
                                 task={orderedTasks.find(t => t.id === task.id)!}
                                 localTask={task}
-                                onUpdate={(updates) => handleUpdateLocal(task.id, updates)}
+                                onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
                                 onDelete={deleteTask}
                                 onTaskClick={onTaskClick}
                                 personnel={personnel}
@@ -2280,4 +2356,6 @@ export function ListView({ tasks, onTaskClick, personnel, onUpdateTask, onDelete
       </div>
     </div>
   );
-}
+};
+
+export const ListView = React.forwardRef(ListViewInner);

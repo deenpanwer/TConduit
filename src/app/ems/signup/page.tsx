@@ -59,7 +59,7 @@ function SignupContent() {
       if (!isEmployee) {
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 14);
+        trialExpiry.setDate(trialExpiry.getDate() + 7);
 
         // 1. Create Organization
         await setDoc(doc(db, "organizations", orgId), {

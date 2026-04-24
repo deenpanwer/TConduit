@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { MessageCircle, Lock, AlertCircle, ArrowRight } from "lucide-react";
+import { MessageCircle, Lock, AlertCircle, ArrowRight, CreditCard, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface PaywallScreenProps {
   orgData: any;
@@ -10,6 +12,7 @@ interface PaywallScreenProps {
 }
 
 export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
+  const [loading, setLoading] = useState(false);
   const whatsappNumber = "923057631663";
   const orgName = orgData?.name || "My Organization";
   const orgId = orgData?.id || "Unknown ID";
@@ -19,6 +22,36 @@ export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
   );
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
 
+  const handleSubscribe = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId, orgName }),
+      });
+
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        throw new Error("The server returned an invalid response (not JSON). Please try again later.");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to create subscription");
+      }
+    } catch (error: any) {
+      console.error("Subscription error:", error);
+      toast.error(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 md:p-8 text-center">
       <motion.div 
@@ -26,7 +59,7 @@ export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl w-full space-y-8"
       >
-        {/* Status Indicator */}
+        {/* Status Indicator ... */}
         <div className="flex flex-col items-center space-y-4">
           <div className="size-20 bg-destructive/10 rounded-3xl flex items-center justify-center border-4 border-destructive/20 relative">
             <Lock size={40} className="text-destructive" />
@@ -82,10 +115,23 @@ export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
         {/* CTA Section */}
         <div className="space-y-6 pt-4">
           <p className="text-sm font-bold text-muted-foreground">
-            Connect with our support team on WhatsApp to extend your access immediately.
+            Choose a payment method to extend your access immediately.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {/*<Button 
+              onClick={handleSubscribe}
+              disabled={loading}
+              className="group relative inline-flex items-center justify-center gap-3 bg-black text-white dark:bg-white dark:text-black font-black uppercase tracking-widest text-sm px-10 py-8 border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px]"
+            >
+              {loading ? (
+                <Loader2 className="size-6 animate-spin" />
+              ) : (
+                <CreditCard size={24} />
+              )}
+              Subscribe via Safepay
+            </Button> */}
+
             <a 
               href={whatsappUrl} 
               target="_blank" 
@@ -93,7 +139,7 @@ export function PaywallScreen({ orgData, userData }: PaywallScreenProps) {
               className="group relative inline-flex items-center justify-center gap-3 bg-[#25D366] text-white font-black uppercase tracking-widest text-sm px-10 py-5 border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px]"
             >
               <img src="/whatsapp-real.svg" alt="WA" className="size-6 invert-0" />
-              Top Up via WhatsApp
+              Help via WhatsApp
             </a>
           </div>
         </div>

@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import { motion as m, AnimatePresence } from "framer-motion";
 import { 
   AlertTriangle, Clock, Lock, MessageCircle, 
-  X, ArrowRight, Zap, ShieldAlert, Timer
+  X, ArrowRight, Zap, ShieldAlert, Timer,
+  CreditCard, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { differenceInSeconds } from "date-fns";
+import { toast } from "sonner";
 
 interface SubscriptionBadgeProps {
   orgData: any;
@@ -26,6 +28,7 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
   const [isOpen, setIsOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const expiryDate = useMemo(() => {
     if (!orgData?.subscriptionExpiry) return null;
@@ -46,6 +49,39 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
 
     return () => clearInterval(timer);
   }, [expiryDate]);
+
+  const handleSubscribe = async () => {
+    try {
+      setLoading(true);
+      const orgId = orgData?.id || "Unknown ID";
+      const orgName = orgData?.name || "My Organization";
+
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId, orgName }),
+      });
+
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        throw new Error("The server returned an invalid response (not JSON). Please try again later.");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to create subscription");
+      }
+    } catch (error: any) {
+      console.error("Subscription error:", error);
+      toast.error(error.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!mounted || !expiryDate || timeLeft <= 0) return null;
 
@@ -151,6 +187,18 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
             </div>
 
             <div className="flex flex-col gap-3 sm:gap-4 pt-2 sm:pt-4">
+              {/*<Button 
+                onClick={handleSubscribe}
+                disabled={loading}
+                className="group relative inline-flex items-center justify-center gap-3 bg-black text-white dark:bg-white dark:text-black font-black uppercase tracking-widest text-[10px] sm:text-xs h-14 sm:h-16 rounded-xl sm:rounded-2xl border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px]"
+              >
+                {loading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <CreditCard size={18} />
+                )}
+                Renew via Safepay
+              </Button>*/}
               <a 
                 href={whatsappUrl} 
                 target="_blank" 
@@ -158,7 +206,7 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
                 className="group relative inline-flex items-center justify-center gap-3 bg-[#25D366] text-white font-black uppercase tracking-widest text-[10px] sm:text-xs h-14 sm:h-16 rounded-xl sm:rounded-2xl border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px]"
               >
                 <MessageCircle size={18} />
-                Top Up via WhatsApp
+                Support via WhatsApp
               </a>
               <Button 
                 variant="ghost" 
