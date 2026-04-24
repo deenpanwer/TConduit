@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/request';
 
 export function middleware(request: NextRequest) {
-  // We ignore the session check for the demo branch
-  // const session = request.cookies.get('trac_auth_session');
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
   const isAuthPage = 
     pathname.includes('/login') || 
@@ -19,20 +18,18 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/tasks') || 
     pathname === '/dashboard';
 
-  // REDIRECT BYPASS: Logic commented out to prevent redirection to login
-  /*
-  if (isProtectedPage && !isAuthPage) {
+  // Only run auth logic if NOT in demo mode
+  if (!isDemoMode && isProtectedPage && !isAuthPage) {
+    const session = request.cookies.get('trac_auth_session');
     if (!session || !session.value) {
       const loginUrl = new URL('/ems/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
+      loginUrl.searchParams.set('callbackUrl', pathname + search);
       return NextResponse.redirect(loginUrl);
     }
   }
-  */
 
   const response = NextResponse.next();
 
-  // Keep cache killing for consistency in the UI
   if (isProtectedPage && !isAuthPage) {
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   }
