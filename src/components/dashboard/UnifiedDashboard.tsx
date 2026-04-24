@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { storage } from "@/lib/storage";
 import { UnifiedSidebar } from "./UnifiedSidebar";
 import { MasterDashboard } from "@/components/ems/main/MasterDashboard";
 import { PosDashboardContent } from "@/components/pos/PosDashboardContent";
@@ -26,16 +27,32 @@ export function UnifiedDashboard({ selectedModules }: { selectedModules: string[
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchOrgDetails() {
+    const fetchOrgDetails = () => {
       const targetOrgId = userData?.ownedOrgId || userData?.orgId;
       if (targetOrgId) {
-        const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
-        if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
+        const localOrgs = storage.getCollection<any>("organizations");
+        const localOrg = localOrgs.find(o => o.id === targetOrgId);
+        if (localOrg) {
+          setOrgData(localOrg);
+          setOrgLoading(false);
+        } else {
+          // Fallback to Firebase if not in local storage
+          getDoc(doc(db, "organizations", targetOrgId))
+            .then(orgDoc => {
+              if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
+            })
+            .catch(() => {})
+            .finally(() => setOrgLoading(false));
+        }
+      } else {
+        setOrgLoading(false);
       }
-      setOrgLoading(false);
-    }
+    };
+
     if (userData) {
       fetchOrgDetails();
+      const unsubscribe = storage.onSnapshot("organizations", fetchOrgDetails);
+      return () => unsubscribe();
     }
   }, [userData]);
 

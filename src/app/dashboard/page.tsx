@@ -72,7 +72,7 @@ export default function ModuleSelectorPage() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [persistedModules, setPersistedModules] = useState<string[] | null>(null);
+  const [persistedModules, setPersistedModules] = useState<string[] | null>(["ems", "crm", "tasks", "pos"]);
   const [isSaving, setIsSaving] = useState(false);
   const [checking, setChecking] = useState(true);
 

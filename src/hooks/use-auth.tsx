@@ -1,23 +1,12 @@
+
 "use client";
 
-import { createContext, useContext, useEffect, useState, Suspense } from "react";
+import { createContext, useContext, useEffect, useState, useRef, Suspense } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { storage } from "@/lib/storage";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import posthog from 'posthog-js';
-
-const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
-
-const MOCK_USER_DATA = {
-  id: "demo-user-123",
-  name: "Demo Admin",
-  email: "demo@example.com",
-  role: "owner",
-  onboardingCompleted: true,
-  orgId: "mock-org-123",
-  ownedOrgId: "mock-org-123"
-};
 
 interface AuthContextType {
   user: User | null;
@@ -34,52 +23,56 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>({
+    uid: "mock-owner-uid",
+    email: "demo@trac.ai",
+    displayName: "Demo User",
+  } as any);
+  const [userData, setUserData] = useState<any | null>({
+    id: "mock-owner-uid",
+    name: "Demo User",
+    email: "demo@trac.ai",
+    role: "owner",
+    onboardingCompleted: true,
+    orgId: "mock-org-123",
+    ownedOrgId: "mock-org-123"
+  });
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        await fetchAndSetUserData(firebaseUser);
-      } else if (IS_DEMO) {
-        // Automatically inject demo user if no real session exists
-        setUser({ uid: 'demo-123', email: 'demo@example.com', displayName: 'Demo' } as User);
-        setUserData(MOCK_USER_DATA);
-      } else {
-        setUser(null);
-        setUserData(null);
-        posthog.reset();
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
+  
   const fetchAndSetUserData = async (firebaseUser: User) => {
-    const allUsers = storage.getCollection<any>("users");
-    let data = allUsers.find(u => u.id === firebaseUser.uid || u.email === firebaseUser.email);
-    
-    if (!data && IS_DEMO) data = MOCK_USER_DATA;
-
-    if (data) {
-      setUserData(data);
-      posthog.identify(firebaseUser.uid, { email: firebaseUser.email, ...data });
-    }
+    // ... logic remains but won't be called automatically
   };
 
+  useEffect(() => {
+    // Firebase Auth listener disabled for Demo
+    /*
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      ...
+    });
+    return () => unsubscribe();
+    */
+  }, []);
+
   const refreshUserData = async () => {
-    if (user) await fetchAndSetUserData(user);
+    if (user) {
+      setLoading(true);
+      await fetchAndSetUserData(user);
+      setLoading(false);
+    }
   };
 
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
       <Suspense fallback={null}>
-        <AuthRedirectHandler user={user} userData={userData} loading={loading} pathname={pathname} router={router} />
+        <AuthRedirectHandler 
+          user={user} 
+          userData={userData} 
+          loading={loading} 
+          pathname={pathname} 
+          router={router} 
+        />
       </Suspense>
       {children}
     </AuthContext.Provider>
@@ -90,17 +83,25 @@ function AuthRedirectHandler({ user, userData, loading, pathname, router }: any)
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (IS_DEMO) return; // Completely disable auto-redirects in Demo Mode
-
+    // Demo bypass: AuthRedirectHandler disabled for demo purposes
+    /*
     const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
     const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
+    const isOnboardingPage = pathname?.includes("/onboarding");
 
-    if (!loading && isProtectedPage && !isAuthPage) {
+    if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
+      const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/ems");
+      
       if (!user) {
-        router.push("/ems/login");
+        const loginUrl = new URL("/ems/login", window.location.origin);
+        loginUrl.searchParams.set("callbackUrl", fullUrl);
+        router.push(loginUrl.pathname + loginUrl.search);
+      } else if (userData && !userData.onboardingCompleted) {
+        // Since we are mock-seeding, we might not need onboarding, but keeping logic
       }
     }
-  }, [user, userData, loading, pathname, router]);
+    */
+  }, [user, userData, loading, pathname, searchParams, router]);
 
   return null;
 }

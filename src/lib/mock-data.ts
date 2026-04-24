@@ -102,7 +102,6 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
       },
     };
   });
-  storage.saveCollection(COLLECTIONS.USERS, users);
 
   // 3. Shifts & Time Entries & Screenshots
   const shifts: any[] = [];
@@ -458,6 +457,9 @@ export function seedMockData(force = false, counts = { users: 15, tasks: 40, crm
   // Combine all CRM related entities into one collection
   const allCrmEntities = [...crmEntities, ...invoices, ...notes, ...callLogs];
   storage.saveCollection(COLLECTIONS.CRM_ENTITIES, allCrmEntities);
+
+  // Save users last to trigger listeners
+  storage.saveCollection(COLLECTIONS.USERS, users);
 
   console.log("Mock data seeded successfully and anchored to April 16, 2026.");
 }

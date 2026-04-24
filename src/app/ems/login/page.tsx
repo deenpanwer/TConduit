@@ -279,6 +279,14 @@ function LoginContent() {
             <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold tracking-wide shadow-xl shadow-primary/20">
               {loading ? "Signing in..." : "Sign In"}
             </Button>
+            <Button 
+              variant="secondary" 
+              type="button" 
+              onClick={() => router.push(callbackUrl)}
+              className="w-full h-14 rounded-2xl font-bold tracking-wide border-2 border-primary"
+            >
+              Skip (Demo Access)
+            </Button>
           </form>
 
           <div className="relative my-8">

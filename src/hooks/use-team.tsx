@@ -106,7 +106,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-    const unsubscribeUsers = storage.onSnapshot<any>("users", (allUsers) => {
+    const refreshData = () => {
+      const allUsers = storage.getCollection<any>("users");
       const orgUsers = allUsers.filter(u => u.orgId === targetOrgId);
       const allShifts = storage.getCollection<any>("shifts");
       const allScreenshots = storage.getCollection<any>("screenshots");
@@ -114,7 +115,6 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
       const enrichedData: Record<string, any> = {};
       orgUsers.forEach(u => {
-        // KEEP ALL SHIFTS for all-time calculations, filter them for the view-specific enrichment
         const allUserShifts = allShifts.filter(s => s.userId === u.id);
         const dayShifts = allUserShifts.filter(s => s.startTime.startsWith(dateStr));
         
@@ -123,8 +123,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
         enrichedData[u.id] = {
           ...u,
-          workShifts: allUserShifts, // Keep ALL for aggregates
-          dailyShifts: dayShifts, // Use these for date-specific UI
+          workShifts: allUserShifts,
+          dailyShifts: dayShifts,
           screenshots: userScreenshots,
           timeEntries: userTimeEntries,
           heartbeat: u.heartbeat || { updatedAt: u.lastActive }
@@ -133,9 +133,19 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
       setPersonnelData(enrichedData);
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribeUsers();
+    const unsubscribeUsers = storage.onSnapshot<any>("users", refreshData);
+    const unsubscribeShifts = storage.onSnapshot<any>("shifts", refreshData);
+    const unsubscribeScreenshots = storage.onSnapshot<any>("screenshots", refreshData);
+    const unsubscribeTimeEntries = storage.onSnapshot<any>("time_entries", refreshData);
+
+    return () => {
+      unsubscribeUsers();
+      unsubscribeShifts();
+      unsubscribeScreenshots();
+      unsubscribeTimeEntries();
+    };
   }, [userData?.ownedOrgId, userData?.orgId, authLoading, selectedDate]);
 
   const employees = Object.values(personnelData).filter(p => p.active !== false);
