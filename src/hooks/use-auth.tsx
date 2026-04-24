@@ -1,12 +1,29 @@
-
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, Suspense } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { createContext, useContext, useEffect, useState, Suspense } from "react";
+import { User } from "firebase/auth";
+// These imports remain to prevent breaking references, even if unused
 import { auth } from "@/lib/firebase";
 import { storage } from "@/lib/storage";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import posthog from 'posthog-js';
+
+// --- DEMO DATA ---
+const MOCK_USER = {
+  uid: "demo-user-123",
+  email: "demo@example.com",
+  displayName: "Demo Admin",
+} as User;
+
+const MOCK_USER_DATA = {
+  id: "demo-user-123",
+  name: "Demo Admin",
+  email: "demo@example.com",
+  role: "owner",
+  onboardingCompleted: true,
+  orgId: "mock-org-123",
+  ownedOrgId: "mock-org-123"
+};
 
 interface AuthContextType {
   user: User | null;
@@ -16,75 +33,46 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  userData: null,
-  loading: true,
+  user: MOCK_USER,
+  userData: MOCK_USER_DATA,
+  loading: false,
   refreshUserData: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
+  // Initialize with dummy data so UI components find a user immediately
+  const [user, setUser] = useState<User | null>(MOCK_USER);
+  const [userData, setUserData] = useState<any | null>(MOCK_USER_DATA);
+  const [loading, setLoading] = useState(false);
   
-  const fetchAndSetUserData = async (firebaseUser: User) => {
-    // Fetch from LocalStorage instead of Firestore
-    const allUsers = storage.getCollection<any>("users");
-    let data = allUsers.find(u => u.id === firebaseUser.uid || u.email === firebaseUser.email);
-    
-    if (data) {
-      setUserData(data);
-      posthog.identify(firebaseUser.uid, {
-        email: firebaseUser.email,
-        name: data.name,
-        role: data.role,
-        ...data
-      });
-    } else {
-      // Create a default mock user if not found in seeded data
-      const newData = {
-        id: firebaseUser.uid,
-        name: firebaseUser.displayName || "Mock User",
-        email: firebaseUser.email,
-        role: "owner",
-        onboardingCompleted: true,
-        orgId: "mock-org-123",
-        ownedOrgId: "mock-org-123"
-      };
-      storage.saveItem("users", newData);
-      setUserData(newData);
-    }
-  };
-
+  const pathname = usePathname();
+  const router = useRouter();
+  
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        await fetchAndSetUserData(user);
-      } else {
-        setUser(null);
-        setUserData(null);
-        posthog.reset();
-      }
-      setLoading(false);
-    });
-
+    // We disable the Firebase listener to prevent it from overwriting our mock state
+    /*
+    const unsubscribe = onAuthStateChanged(auth, async (user) => { ... });
     return () => unsubscribe();
+    */
+    
+    // Identify demo user in Posthog if needed
+    posthog.identify(MOCK_USER.uid, {
+      email: MOCK_USER.email,
+      name: MOCK_USER_DATA.name,
+      role: MOCK_USER_DATA.role,
+    });
   }, []);
 
   const refreshUserData = async () => {
-    if (user) {
-      setLoading(true);
-      await fetchAndSetUserData(user);
-      setLoading(false);
-    }
+    setUserData(MOCK_USER_DATA);
   };
 
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
-      <Suspense fallback={null}>
+      {/* AuthRedirectHandler is commented out to prevent client-side 
+        redirection logic from checking for a "real" Firebase session.
+      */}
+      {/* <Suspense fallback={null}>
         <AuthRedirectHandler 
           user={user} 
           userData={userData} 
@@ -92,34 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           pathname={pathname} 
           router={router} 
         />
-      </Suspense>
+      </Suspense> 
+      */}
       {children}
     </AuthContext.Provider>
   );
 }
 
-function AuthRedirectHandler({ user, userData, loading, pathname, router }: any) {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
-    const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
-    const isOnboardingPage = pathname?.includes("/onboarding");
-
-    if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage) {
-      const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/ems");
-      
-      if (!user) {
-        const loginUrl = new URL("/ems/login", window.location.origin);
-        loginUrl.searchParams.set("callbackUrl", fullUrl);
-        router.push(loginUrl.pathname + loginUrl.search);
-      } else if (userData && !userData.onboardingCompleted) {
-        // Since we are mock-seeding, we might not need onboarding, but keeping logic
-      }
-    }
-  }, [user, userData, loading, pathname, searchParams, router]);
-
-  return null;
-}
-
+// Keep the hook exported so components don't crash
 export const useAuth = () => useContext(AuthContext);
