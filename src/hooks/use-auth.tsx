@@ -1,19 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, Suspense } from "react";
-import { User } from "firebase/auth";
-// These imports remain to prevent breaking references, even if unused
+import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { storage } from "@/lib/storage";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import posthog from 'posthog-js';
 
-// --- DEMO DATA ---
-const MOCK_USER = {
-  uid: "demo-user-123",
-  email: "demo@example.com",
-  displayName: "Demo Admin",
-} as User;
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 const MOCK_USER_DATA = {
   id: "demo-user-123",
@@ -33,59 +27,82 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: MOCK_USER,
-  userData: MOCK_USER_DATA,
-  loading: false,
+  user: null,
+  userData: null,
+  loading: true,
   refreshUserData: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Initialize with dummy data so UI components find a user immediately
-  const [user, setUser] = useState<User | null>(MOCK_USER);
-  const [userData, setUserData] = useState<any | null>(MOCK_USER_DATA);
-  const [loading, setLoading] = useState(false);
-  
-  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
-  
+  const pathname = usePathname();
+
   useEffect(() => {
-    // We disable the Firebase listener to prevent it from overwriting our mock state
-    /*
-    const unsubscribe = onAuthStateChanged(auth, async (user) => { ... });
-    return () => unsubscribe();
-    */
-    
-    // Identify demo user in Posthog if needed
-    posthog.identify(MOCK_USER.uid, {
-      email: MOCK_USER.email,
-      name: MOCK_USER_DATA.name,
-      role: MOCK_USER_DATA.role,
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        await fetchAndSetUserData(firebaseUser);
+      } else if (IS_DEMO) {
+        // Automatically inject demo user if no real session exists
+        setUser({ uid: 'demo-123', email: 'demo@example.com', displayName: 'Demo' } as User);
+        setUserData(MOCK_USER_DATA);
+      } else {
+        setUser(null);
+        setUserData(null);
+        posthog.reset();
+      }
+      setLoading(false);
     });
+
+    return () => unsubscribe();
   }, []);
 
+  const fetchAndSetUserData = async (firebaseUser: User) => {
+    const allUsers = storage.getCollection<any>("users");
+    let data = allUsers.find(u => u.id === firebaseUser.uid || u.email === firebaseUser.email);
+    
+    if (!data && IS_DEMO) data = MOCK_USER_DATA;
+
+    if (data) {
+      setUserData(data);
+      posthog.identify(firebaseUser.uid, { email: firebaseUser.email, ...data });
+    }
+  };
+
   const refreshUserData = async () => {
-    setUserData(MOCK_USER_DATA);
+    if (user) await fetchAndSetUserData(user);
   };
 
   return (
     <AuthContext.Provider value={{ user, userData, loading, refreshUserData }}>
-      {/* AuthRedirectHandler is commented out to prevent client-side 
-        redirection logic from checking for a "real" Firebase session.
-      */}
-      {/* <Suspense fallback={null}>
-        <AuthRedirectHandler 
-          user={user} 
-          userData={userData} 
-          loading={loading} 
-          pathname={pathname} 
-          router={router} 
-        />
-      </Suspense> 
-      */}
+      <Suspense fallback={null}>
+        <AuthRedirectHandler user={user} userData={userData} loading={loading} pathname={pathname} router={router} />
+      </Suspense>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// Keep the hook exported so components don't crash
+function AuthRedirectHandler({ user, userData, loading, pathname, router }: any) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (IS_DEMO) return; // Completely disable auto-redirects in Demo Mode
+
+    const isProtectedPage = pathname?.startsWith("/ems") || pathname?.startsWith("/crm") || pathname?.startsWith("/pos") || pathname?.startsWith("/tasks") || pathname === "/dashboard";
+    const isAuthPage = pathname?.includes("/login") || pathname?.includes("/signup") || pathname?.includes("/forgot-password");
+
+    if (!loading && isProtectedPage && !isAuthPage) {
+      if (!user) {
+        router.push("/ems/login");
+      }
+    }
+  }, [user, userData, loading, pathname, router]);
+
+  return null;
+}
+
 export const useAuth = () => useContext(AuthContext);
