@@ -94,7 +94,7 @@ const STEPS = [
 
 // --- Components ---
 
-export default function InvoiceBuilder() {
+function InvoiceBuilderContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { leads, deals, invoices: allInvoices, updateEntity, addActivity } = useCRM();
@@ -891,5 +891,17 @@ export default function InvoiceBuilder() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InvoiceBuilder() {
+  return (
+    <React.Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="animate-spin text-primary" size={48} />
+      </div>
+    }>
+      <InvoiceBuilderContent />
+    </React.Suspense>
   );
 }
