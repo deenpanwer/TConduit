@@ -99,9 +99,18 @@ function TasksLayoutContent({ children }: { children: React.ReactNode }) {
 export default function TasksClientLayout({ children }: { children: React.ReactNode }) {
     return (
         <SidebarProvider>
-            <TasksLayoutContent>
-                {children}
-            </TasksLayoutContent>
+            <React.Suspense fallback={
+                <div className="flex h-screen items-center justify-center bg-background">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        <p className="text-muted-foreground font-medium animate-pulse">Loading Workspace...</p>
+                    </div>
+                </div>
+            }>
+                <TasksLayoutContent>
+                    {children}
+                </TasksLayoutContent>
+            </React.Suspense>
         </SidebarProvider>
     );
 }
