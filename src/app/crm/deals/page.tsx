@@ -190,7 +190,6 @@ function DealsPageContent() {
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2"><span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[10px] font-black uppercase tracking-widest border border-green-500/20">Revenue Intelligence</span><span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" /></div>
           <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase font-poppins">Deal <span className="text-blue-600 italic">Core</span></h1>
         </div>
         <div className="flex items-center gap-3">

@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useCRM, CRMEntity, FieldConfig, ModuleConfig } from "@/hooks/use-crm";
+import { useCRM, FieldConfig, ModuleConfig } from "@/hooks/use-crm";
 import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
+import { useCRMStore } from "@/store/use-crm-store";
 
 // Sub-components
 import { CRMTableHeader } from "./CRMTableHeader";
@@ -27,19 +28,19 @@ const lightenHexColor = (hex: string, percent: number) => {
 };
 
 interface CRMTableProps {
-  entities: CRMEntity[];
+  entities: any[]; // These come from context (filtered/searched)
   config: ModuleConfig;
   updateEntity: (id: string, updates: any) => Promise<void>;
   deleteEntity: (id: string) => Promise<void>;
   updateConfig: (updates: Partial<ModuleConfig>) => Promise<void>;
-  onEntityClick: (entity: CRMEntity) => void;
+  onEntityClick: (entity: any) => void;
   selectedIds: string[];
   onSelect: (id: string) => void;
   onSelectAll: (ids: string[]) => void;
   addEntity: (data: any) => Promise<string | null>;
   pageSize: number;
   setPageSize: (size: number) => void;
-  actions?: (entity: CRMEntity) => React.ReactNode;
+  actions?: (entity: any) => React.ReactNode;
 }
 
 export function CRMTable({
@@ -98,6 +99,7 @@ export function CRMTable({
   };
 
   const handleCellSave = async (id: string, fieldKey: string, value: any) => {
+    // This now updates the Zustand store instantly
     await updateEntity(id, { [fieldKey]: value });
   };
 
@@ -106,23 +108,22 @@ export function CRMTable({
   const handleQuickAddChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     
-    // BIRTH: The moment any character is typed, a real (optimistic) row is born.
+    // ZUSTAND BIRTH: This happens entirely in local state first
     if (val.length > 0 && !isCreatingRef.current) {
       isCreatingRef.current = true;
       const firstField = displayFields[0];
       const singularType = config.name.toLowerCase().endsWith('s') ? config.name.toLowerCase().slice(0, -1) : config.name.toLowerCase();
       
-      // CLEAR INPUT SYNCHRONOUSLY: Stops the browser from triggering more change events
       setQuickAddValue("");
 
-      // INSTANT BIRTH: addEntity now returns the ID immediately
+      // addEntity returns a UUID immediately from Zustand
       addEntity({ 
         name: val, 
         type: singularType as any,
         data: { [firstField.key]: val } 
       }).then(id => {
           if (id) {
-            // FOCUS THE NEW ROW IMMEDIATELY
+            // Because of the ID subscription, the new row appears and is focused instantly
             setEditingCell({ id, fieldKey: firstField.key });
           }
           isCreatingRef.current = false;
@@ -231,11 +232,6 @@ export function CRMTable({
     }
   };
 
-  const getFieldValue = (entity: CRMEntity, fieldKey: string) => {
-    if (fieldKey in entity) return (entity as any)[fieldKey];
-    return entity.data?.[fieldKey];
-  };
-
   return (
     <TooltipProvider>
       <div className="space-y-0">
@@ -262,12 +258,11 @@ export function CRMTable({
               {entities.map((entity) => (
                 <CRMTableRow 
                   key={entity.id}
-                  entity={entity}
+                  entityId={entity.id} // ONLY pass ID
                   isSelected={selectedIds.includes(entity.id)}
                   onSelect={onSelect}
                   displayFields={displayFields}
                   tableColor={tableColor}
-                  getFieldValue={getFieldValue}
                   editingCell={editingCell}
                   setEditingCell={setEditingCell}
                   openDropdownId={openDropdownId}

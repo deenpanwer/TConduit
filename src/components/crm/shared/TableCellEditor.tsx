@@ -2,16 +2,15 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
-import { Check, X, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { FieldConfig } from "@/hooks/use-crm";
 
 interface TableCellEditorProps {
-  field: FieldConfig;
+  field: any;
   value: string;
   onSave: (val: string) => void;
   onCancel: () => void;
@@ -28,13 +27,16 @@ export const TableCellEditor = ({
   const [temp, setTemp] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync temp state with value prop when it changes (essential for Zustand instant updates)
+  useEffect(() => {
+    setTemp(value);
+  }, [value]);
+
   useEffect(() => {
     if (field.type !== 'select' && field.type !== 'date' && field.type !== 'timeline') {
-      // requestAnimationFrame ensures the DOM has settled and focus is reliable
       const frame = requestAnimationFrame(() => {
         if (inputRef.current) {
           inputRef.current.focus({ preventScroll: true });
-          // Move cursor to end of text
           const len = inputRef.current.value.length;
           inputRef.current.setSelectionRange(len, len);
         }
@@ -48,13 +50,12 @@ export const TableCellEditor = ({
     if (onNext) onNext();
   };
 
-  const handleBlur = (e: React.FocusEvent) => {
+  const handleBlur = () => {
     onSave(temp);
-    // Use a small timeout to allow next cell focus to "win"
-    const timer = setTimeout(() => {
+    // Tiny delay to check if next click was another cell
+    setTimeout(() => {
         onCancel();
-    }, 100);
-    return () => clearTimeout(timer);
+    }, 150);
   };
 
   if (field.type === 'date') {
@@ -86,43 +87,6 @@ export const TableCellEditor = ({
       );
   }
 
-  if (field.type === 'timeline') {
-      const range = temp ? JSON.parse(temp) : { from: undefined, to: undefined };
-      return (
-          <div className="absolute inset-0 z-50 flex items-center bg-background ring-2 ring-blue-500 shadow-xl overflow-hidden h-full">
-              <Popover open={true} onOpenChange={(open) => !open && onCancel()}>
-                  <PopoverTrigger asChild>
-                      <Button variant="ghost" className="w-full h-full justify-start text-[10px] font-black uppercase tracking-widest px-4 truncate">
-                          {range.from ? (range.to ? `${format(new Date(range.from), "MMM d")} - ${format(new Date(range.to), "MMM d")}` : format(new Date(range.from), "MMM d")) : "Select range"}
-                      </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[100]" align="start">
-                      <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={range.from ? new Date(range.from) : new Date()}
-                          selected={{ 
-                              from: range.from ? new Date(range.from) : undefined, 
-                              to: range.to ? new Date(range.to) : undefined 
-                          }}
-                          onSelect={(newRange) => {
-                              if (newRange?.from) {
-                                  const saved = JSON.stringify({ from: newRange.from.toISOString(), to: newRange.to?.toISOString() });
-                                  setTemp(saved);
-                                  if (newRange.to) {
-                                    onSave(saved);
-                                    if (onNext) onNext();
-                                  }
-                              }
-                          }}
-                          numberOfMonths={2}
-                      />
-                  </PopoverContent>
-              </Popover>
-          </div>
-      );
-  }
-
   return (
     <div className="absolute inset-0 z-50 flex items-center bg-background ring-2 ring-blue-500 shadow-xl overflow-hidden h-full">
       {field.type === "select" ? (
@@ -139,7 +103,7 @@ export const TableCellEditor = ({
                 autoFocus
             >
                 <option value="">Select...</option>
-                {field.options?.map((opt) => (
+                {field.options?.map((opt: any) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
             </select>
@@ -151,7 +115,7 @@ export const TableCellEditor = ({
             value={temp}
             onChange={(e) => {
                 setTemp(e.target.value);
-                onSave(e.target.value);
+                onSave(e.target.value); // INSTANT STORE UPDATE
             }}
             onBlur={handleBlur}
             onKeyDown={(e) => {
@@ -176,10 +140,8 @@ export const TableCellEditor = ({
             value={temp}
             onChange={(e) => {
                 const val = e.target.value;
-                if ((field.type === "number" || field.type === "currency") && val !== "" && Number(val) < 0) return;
-                if (field.type === "phone" && val !== "" && !/^\d*$/.test(val)) return;
                 setTemp(val);
-                onSave(val);
+                onSave(val); // INSTANT STORE UPDATE
             }}
             onBlur={handleBlur}
             onKeyDown={(e) => {

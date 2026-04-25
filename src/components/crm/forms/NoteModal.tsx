@@ -20,13 +20,30 @@ interface NoteModalProps {
   note: CRMEntity | null;
   leads?: CRMEntity[];
   organizations?: CRMEntity[];
+  contacts?: CRMEntity[];
+  deals?: CRMEntity[];
+  invoices?: CRMEntity[];
   onSubmit?: (data: any) => void;
   initialStage?: string;
   initialData?: Record<string, any>;
   onClose?: () => void;
 }
 
-export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads = [], organizations = [], onSubmit, initialStage, initialData, onClose }: NoteModalProps) {
+export function NoteModal({ 
+  isOpen, 
+  onOpenChange, 
+  mode: initialMode, 
+  note, 
+  leads = [], 
+  organizations = [], 
+  contacts = [],
+  deals = [],
+  invoices = [],
+  onSubmit, 
+  initialStage, 
+  initialData, 
+  onClose 
+}: NoteModalProps) {
   const { addEntity, updateEntity, config, updateConfig } = useCRMNotes();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [currentMode, setCurrentMode] = useState(initialMode);
@@ -99,8 +116,12 @@ export function NoteModal({ isOpen, onOpenChange, mode: initialMode, note, leads
     );
 
     if (field.key === 'relatedTo') {
-      // Find name from either leads or organizations
-      const relatedEntity = leads.find(l => l.id === value) || organizations.find(o => o.id === value);
+      // Find name from leads, organizations, contacts, deals, or invoices
+      const relatedEntity = leads.find(l => l.id === value) || 
+                            organizations.find(o => o.id === value) ||
+                            contacts.find(c => c.id === value) ||
+                            deals.find(d => d.id === value) ||
+                            invoices.find(i => i.id === value);
       const displayName = value ? (relatedEntity?.name || value) : 'N/A';
       return (
         <div key={field.key} className="space-y-1">

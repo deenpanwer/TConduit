@@ -3,7 +3,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { 
-  MoreHorizontal, Eye, Trash, Check, Link as LinkIcon, FileText, Clock, Search as SearchIcon, Plus, X
+  MoreHorizontal, Eye, Trash, Check, Link as LinkIcon, FileText, Clock, Search as SearchIcon, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,16 +14,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
   DropdownMenuTrigger, DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { CRMEntity, FieldConfig } from "@/hooks/use-crm";
+import { FieldConfig, useCRM } from "@/hooks/use-crm";
+import { useCRMStore } from "@/store/use-crm-store";
 import { TableCellEditor } from "./TableCellEditor";
 
 interface CRMTableRowProps {
-  entity: CRMEntity;
+  entityId: string; // ONLY pass the ID
   isSelected: boolean;
   onSelect: (id: string) => void;
   displayFields: FieldConfig[];
   tableColor: string;
-  getFieldValue: (entity: CRMEntity, fieldKey: string) => any;
   editingCell: { id: string, fieldKey: string } | null;
   setEditingCell: (cell: { id: string, fieldKey: string } | null) => void;
   openDropdownId: string | null;
@@ -33,24 +33,23 @@ interface CRMTableRowProps {
   handleCellSave: (id: string, fieldKey: string, value: any) => Promise<void>;
   moveToNextCell: (id: string, fieldKey: string) => void;
   employees: any[];
-  organizations: CRMEntity[];
+  organizations: any[];
   activeFieldIdForOption: string | null;
   setActiveFieldIdForOption: (id: string | null) => void;
   newOptionValue: string;
   setNewOptionValue: (val: string) => void;
   handleAddOption: (fieldId: string) => void;
-  onEntityClick: (entity: CRMEntity) => void;
+  onEntityClick: (entity: any) => void;
   deleteEntity: (id: string) => Promise<void>;
-  actions?: (entity: CRMEntity) => React.ReactNode;
+  actions?: (entity: any) => React.ReactNode;
 }
 
-export const CRMTableRow = ({
-  entity,
+export const CRMTableRow = React.memo(({
+  entityId,
   isSelected,
   onSelect,
   displayFields,
   tableColor,
-  getFieldValue,
   editingCell,
   setEditingCell,
   openDropdownId,
@@ -70,6 +69,16 @@ export const CRMTableRow = ({
   deleteEntity,
   actions
 }: CRMTableRowProps) => {
+  // ATOMIC SUBSCRIPTION: This row ONLY re-renders if its specific entity changes
+  const entity = useCRMStore(state => state.entities[entityId]);
+  
+  if (!entity) return null;
+
+  const getFieldValue = (fieldKey: string) => {
+    if (fieldKey in entity) return (entity as any)[fieldKey];
+    return entity.data?.[fieldKey];
+  };
+
   return (
     <tr className={cn(
       "border-b border-border/20 transition-all group h-[52px]", 
@@ -82,14 +91,14 @@ export const CRMTableRow = ({
         </div>
       </td>
       {displayFields.map((field) => {
-        const val = getFieldValue(entity, field.key);
+        const val = getFieldValue(field.key);
         const isEditing = editingCell?.id === entity.id && editingCell?.fieldKey === field.key;
         const isLastInteraction = field.key === 'lastInteraction';
         
         if (field.type === 'select' || field.type === 'label' || field.key === 'company' || field.key === 'organization') {
           let options = field.options || [];
           if (field.key === 'company' || field.key === 'organization') {
-              const orgOptions = organizations.map(o => ({ label: o.name, value: o.name, color: 'blue' }));
+              const orgOptions = (organizations || []).map(o => ({ label: o.name, value: o.name, color: 'blue' }));
               const existingKeys = new Set(options.map(o => o.value));
               const uniqueOrgOptions = orgOptions.filter(o => !existingKeys.has(o.value));
               options = [...uniqueOrgOptions, ...options];
@@ -234,7 +243,7 @@ export const CRMTableRow = ({
                               Unassigned
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1 bg-border/20" />
-                          {employees.map((emp) => (
+                          {(employees || []).map((emp) => (
                               <DropdownMenuItem key={emp.id} onClick={() => {
                                 handleCellSave(entity.id, field.key, emp.id);
                                 moveToNextCell(entity.id, field.key);
@@ -349,4 +358,4 @@ export const CRMTableRow = ({
       </td>
     </tr>
   );
-};
+});
