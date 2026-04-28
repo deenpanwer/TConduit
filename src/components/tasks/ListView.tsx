@@ -13,6 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { SyncStatusPulse } from './list-view/ListViewPrimitives';
 import { TaskRowDesktop, TaskRowMobile } from './list-view/TaskRows';
+import { CompletedTaskTable } from './list-view/CompletedTaskTable';
+import { TaskTableBlock } from './list-view/TaskTableBlock';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -49,7 +51,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
   ref
 ) => {
   const isMobile = useIsMobile();
-  const { addTask, deleteTask, isSyncing, hasPending, drafts, updateDraft, finalizeDraft } = useTasks();
+  const { addTask, deleteTask, isSyncing, hasPending, drafts, updateDraft, finalizeDraft, groups, addTaskGroup } = useTasks();
 
   // State for task ordering (Drag & Drop)
   const [orderedTasks, setOrderedTasks] = useState<Task[]>(tasks);
@@ -227,7 +229,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                   <Reorder.Group axis="y" values={orderedTasks} onReorder={setOrderedTasks} className="space-y-3">
                       {activeTasks.map(task => (
                           <TaskRowMobile 
-                              key={task.id} 
+                              key={`mobile-active-${task.id}`} 
                               task={orderedTasks.find(t => t.id === task.id)!}
                               localTask={task}
                               onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
@@ -241,7 +243,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                       
                       {drafts.filter(d => !d.parentId && (d.type === 'task' || !d.type)).map(draft => (
                           <motion.div 
-                              key={draft.id}
+                              key={`draft-${draft.id}`}
                               initial={{ opacity: 0, x: -20 }}
                               animate={{ opacity: 1, x: 0 }}
                               className="flex items-center gap-3 p-4 bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl"
@@ -304,7 +306,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                           <div className="opacity-60 grayscale-[0.5] space-y-3">
                               {completedTasks.map(task => (
                                   <TaskRowMobile 
-                                      key={task.id} 
+                                      key={`mobile-completed-${task.id}`} 
                                       task={orderedTasks.find(t => t.id === task.id)!}
                                       localTask={task}
                                       onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
@@ -370,149 +372,69 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
         className="flex-1 overflow-auto custom-scrollbar-thick outline-none focus:ring-0"
         tabIndex={0}
       >
-          <div style={{ minWidth: 1400 }}>
-              <div className='sticky top-0 z-20 flex h-10 bg-secondary/20 dark:bg-card border-b-2 border-border/80 text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 select-none'>
-                  <div className='sticky left-0 z-30 w-10 shrink-0 border-r border-border/60 bg-secondary/20 dark:bg-card' />
-                  <div className='sticky left-10 z-30 w-10 shrink-0 border-r border-border/60 bg-secondary/20 dark:bg-card' />
-                  <div className='sticky left-20 z-30 flex-[1.5] min-w-[250px] border-r border-border/60 px-4 flex items-center bg-secondary/20 dark:bg-card'>Task Name</div>
-                  <div className='flex-[2] min-w-[400px] border-r border-border/60 px-4 flex items-center'>Description & Brief</div>
-                  <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center'>Collaborators</div>
-                  <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Points</div>
-                  <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Est. Hrs</div>
-                  <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Timeline</div>
-                  <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Priority</div>
-                  <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center'><MessageSquare size={12} /></div>
-                  <div className='w-10 shrink-0' />
+          <div style={{ minWidth: 1400 }} className="pb-10">
+              {/* Main Tasks (No Group) */}
+              <TaskTableBlock 
+                  tasks={activeTasks.filter(t => !t.groupId)}
+                  orderedTasks={orderedTasks}
+                  personnel={personnel}
+                  onUpdateTask={onUpdateTask!}
+                  onDeleteTask={onDeleteTask || deleteTask}
+                  onTaskClick={onTaskClick}
+                  handleEnhanceWithAI={handleEnhanceWithAI}
+                  isEnhancing={isEnhancing}
+                  onUploadFile={onUploadFile}
+                  lastCreatedTaskId={lastCreatedTaskId}
+                  setLastCreatedTaskId={setLastCreatedTaskId}
+              />
+
+              {/* Dynamic Buckets */}
+              {groups.map(group => (
+                  <TaskTableBlock 
+                      key={group.id}
+                      group={group}
+                      tasks={activeTasks.filter(t => t.groupId === group.id)}
+                      orderedTasks={orderedTasks}
+                      personnel={personnel}
+                      onUpdateTask={onUpdateTask!}
+                      onDeleteTask={onDeleteTask || deleteTask}
+                      onTaskClick={onTaskClick}
+                      handleEnhanceWithAI={handleEnhanceWithAI}
+                      isEnhancing={isEnhancing}
+                      onUploadFile={onUploadFile}
+                      lastCreatedTaskId={lastCreatedTaskId}
+                      setLastCreatedTaskId={setLastCreatedTaskId}
+                  />
+              ))}
+
+              {/* Add New Table Button
+              <div className="px-4 py-8">
+                  <Button 
+                      variant="ghost" 
+                      className="group/btn h-12 gap-3 px-6 rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                      onClick={() => addTaskGroup('New Bucket')}
+                  >
+                      <div className="size-6 rounded-lg bg-secondary/50 flex items-center justify-center group-hover/btn:bg-primary/20 transition-colors">
+                        <Plus size={16} className="text-muted-foreground group-hover/btn:text-primary" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover/btn:text-primary">Add New Table Bucket</span>
+                  </Button>
               </div>
-
-              <div className='flex flex-col'>
-                  {activeTasks.map(task => (
-                      <TaskRowDesktop 
-                          key={task.id} 
-                          task={orderedTasks.find(t => t.id === task.id)!}
-                          localTask={task}
-                          onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
-                          onDelete={onDeleteTask || deleteTask}
-                          onTaskClick={onTaskClick}
-                          personnel={personnel}
-                          handleEnhanceTask={handleEnhanceWithAI}
-                          isEnhancing={isEnhancing === task.id}
-                          onUploadFile={onUploadFile}
-                          autoFocusDescription={lastCreatedTaskId === task.id}
-                      />
-                  ))}
-
-                  {drafts.filter(d => !d.parentId && (d.type === 'task' || !d.type)).map(draft => (
-                      <div key={draft.id} className='flex h-12 border-b border-border/60 bg-primary/5 animate-pulse-subtle'>
-                          <div className='sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 flex items-center justify-center bg-background/50'>
-                              <div className="size-5 rounded-full border-2 border-dashed border-primary/20" />
-                          </div>
-                          <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 bg-background/50' />
-                          <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 bg-background/50 flex flex-col justify-center py-1'>
-                              <input 
-                                  autoFocus
-                                  className='w-full h-full px-4 text-sm font-bold focus:outline-none bg-transparent'
-                                  value={draft.title}
-                                  onChange={(e) => updateDraft(draft.id, { title: e.target.value })}
-                                  onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                          finalizeDraft(draft.id).then((res: any) => {
-                                              if (res && typeof res === 'string') setLastCreatedTaskId(res);
-                                              else if (res && res.id) setLastCreatedTaskId(res.id);
-                                          });
-                                      }
-                                  }}
-                               />
-                          </div>
-                          <div className="flex-1 bg-background/20" />
-                      </div>
-                  ))}
-
-                  <div className='flex h-12 border-b border-border/60'>
-                      <div className='sticky left-0 z-10 w-10 shrink-0 border-r border-border/60 flex items-center justify-center bg-background'>
-                          <Plus size={16} className='text-muted-foreground/30' />
-                      </div>
-                      <div className='sticky left-10 z-10 w-10 shrink-0 border-r border-border/60 bg-background' />
-                      <div className='sticky left-20 z-10 flex-[1.5] min-w-[250px] border-r border-border/60 bg-background flex flex-col justify-center py-1'>
-                                                <input 
-                                                    ref={desktopAddTaskInputRef} 
-                                                    className='w-full h-full px-4 text-sm font-medium focus:outline-none bg-transparent placeholder:text-muted-foreground/30 placeholder:italic'
-                                                    placeholder='+ Add task'
-                                                    value={newTaskTitle}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (val.length === 1) {
-                                                            const draftId = 'draft_' + Date.now();
-                                                            updateDraft(draftId, { title: val, type: 'task' });
-                                                            setNewTaskTitle('');
-                                                        } else {
-                                                            setNewTaskTitle(val);
-                                                        }
-                                                    }}
-                                                />
-                                                <AnimatePresence>
-                                                    {newTaskTitle.length > 0 && (
-                                                        <motion.div 
-                                                            initial={{ opacity: 0, x: -10 }}
-                                                            animate={{ opacity: 1, x: 0 }}
-                                                            exit={{ opacity: 0, x: 10 }}
-                                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase tracking-widest text-primary/40 pointer-events-none"
-                                                        >
-                                                            Press Enter to add
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                      </div>
-                      <div className='flex-[2] min-w-[400px] border-r border-border/60' />
-                      <div className='w-32 shrink-0 border-r border-border/60' />
-                      <div className='w-24 shrink-0 border-r border-border/60' />
-                      <div className='w-24 shrink-0 border-r border-border/60' />
-                      <div className='w-32 shrink-0 border-r border-border/60' />
-                      <div className='w-32 shrink-0 border-r border-border/60' />
-                      <div className='w-16 shrink-0 border-r border-border/60' />
-                      <div className='w-10 shrink-0' />
-                  </div>
-              </div>
-
-              {completedTasks.length > 0 && (
-                <div className="mt-12 flex flex-col h-full border-t border-border/40 bg-secondary/[0.02]">
-                    <div className='sticky top-0 z-20 flex h-10 bg-green-500/5 border-b border-border/40 shrink-0 group/completed-header'>
-                        <div className='sticky left-0 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center justify-center'>
-                            <Check size={12} className='text-green-600' />
-                        </div>
-                        <div className='sticky left-10 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/10' />
-                        <div className='sticky left-20 z-20 flex-[1.5] min-w-[250px] border-r border-border/60 bg-green-500/10 flex items-center px-4'>
-                            <span className='text-[10px] font-black uppercase tracking-[0.2em] text-green-700/80'>Completed Items</span>
-                            <span className='ml-3 text-[10px] font-bold text-green-600/60 bg-green-500/10 px-2 py-0.5 rounded-full'>{completedTasks.length} Done</span>
-                        </div>
-                        <div className='flex-[2] min-w-[400px] border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Description</div>
-                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Assignees</div>
-                        <div className='w-24 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Priority</div>
-                        <div className='w-24 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Due Date</div>
-                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Subtasks</div>
-                        <div className='w-32 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Resources</div>
-                        <div className='w-16 shrink-0 border-r border-border/60 bg-green-500/10 flex items-center px-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40'>Status</div>
-                        <div className='w-10 shrink-0 bg-green-500/10' />
-                    </div>
-
-                    <div className='flex flex-col opacity-60 grayscale-[0.3] hover:opacity-100 hover:grayscale-0 transition-all'>
-                        {completedTasks.map(task => (
-                            <TaskRowDesktop 
-                                key={task.id} 
-                                task={orderedTasks.find(t => t.id === task.id)!}
-                                localTask={task}
-                                onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
-                                onDelete={deleteTask}
-                                onTaskClick={onTaskClick}
-                                personnel={personnel}
-                                handleEnhanceTask={handleEnhanceWithAI}
-                                isEnhancing={isEnhancing === task.id}
-                            />
-                        ))}
-                    </div>
-                </div>
-              )}
+              */}
           </div>
+      </div>
+
+      <div className="px-6 pb-20">
+          <CompletedTaskTable 
+              tasks={completedTasks}
+              orderedTasks={orderedTasks}
+              personnel={personnel}
+              onUpdateTask={onUpdateTask!}
+              onDeleteTask={onDeleteTask || deleteTask}
+              onTaskClick={onTaskClick}
+              isEnhancing={isEnhancing}
+              handleEnhanceWithAI={handleEnhanceWithAI}
+          />
       </div>
     </div>
   );

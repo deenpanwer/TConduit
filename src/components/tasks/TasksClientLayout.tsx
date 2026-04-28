@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
@@ -9,14 +9,34 @@ import { InviteModal } from "@/components/ems/InviteModal";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, useSidebar } from "@/hooks/use-sidebar";
+import { useRouter, usePathname } from "next/navigation";
 
 function TasksLayoutContent({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  const { loading, userData } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const { employees } = useTeam();
   const { isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    // Only redirect if auth and userData are fully loaded
+    if (!loading && userData) {
+        const tourNotDone = userData.tasksTourCompleted === false || userData.tasksTourCompleted === undefined;
+        const isNotOnOnboardingPage = pathname !== "/tasks/onboarding" && !pathname?.startsWith("/tasks/onboarding");
+        
+        if (tourNotDone && isNotOnOnboardingPage) {
+            router.push("/tasks/onboarding");
+        }
+    }
+  }, [loading, userData, pathname, router]);
+
+  // Show shimmer while loading auth or while redirecting to tour
+  const tourNotDone = userData?.tasksTourCompleted === false || userData?.tasksTourCompleted === undefined;
+  const isNotOnOnboardingPage = pathname !== "/tasks/onboarding" && !pathname?.startsWith("/tasks/onboarding");
+  const shouldRedirect = userData && tourNotDone && isNotOnOnboardingPage;
+
+  if (loading || shouldRedirect) {
     return (
       <div className="flex h-screen overflow-hidden bg-background">
         <div className="w-64 border-r p-4 space-y-4 hidden lg:block">
@@ -96,12 +116,23 @@ function TasksLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+function TasksLayoutWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isOnboarding = pathname?.startsWith("/tasks/onboarding");
+
+  if (isOnboarding) {
+    return <div className="h-screen w-full overflow-hidden">{children}</div>;
+  }
+
+  return <TasksLayoutContent>{children}</TasksLayoutContent>;
+}
+
 export default function TasksClientLayout({ children }: { children: React.ReactNode }) {
     return (
         <SidebarProvider>
-            <TasksLayoutContent>
+            <TasksLayoutWrapper>
                 {children}
-            </TasksLayoutContent>
+            </TasksLayoutWrapper>
         </SidebarProvider>
     );
 }

@@ -5,7 +5,7 @@ import {
   FolderTree, Plus, ChevronRight, ChevronDown, 
   Users, Pencil, Save, MoreHorizontal,
   Building2, Briefcase, User as UserIcon,
-  GripVertical, Info, Loader2
+  GripVertical, Info, Loader2, Trash2
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,11 @@ import { Label } from '@/components/ui/label';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
+import { 
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, 
+  AlertDialogTrigger 
+} from '@/components/ui/alert-dialog';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -65,12 +70,14 @@ export function DepartmentManager({ orgName, employees: initialEmployees, depart
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
   const [isEditEmpOpen, setIsEditEmpOpen] = useState(false);
   const [isRenameDeptOpen, setIsRenameDeptOpen] = useState(false);
+  const [isDeleteDeptOpen, setIsDeleteDeptOpen] = useState(false);
   
   // Temp State
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptColor, setNewDeptColor] = useState(DEPT_COLORS[0].name);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
+  const [deptToDelete, setDeptToDelete] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameColor, setRenameColor] = useState('');
   
@@ -131,6 +138,21 @@ export function DepartmentManager({ orgName, employees: initialEmployees, depart
     ));
     setIsRenameDeptOpen(false);
     setSelectedDept(null);
+  };
+
+  const handleDeleteDepartment = (id: string) => {
+    // 1. Remove department
+    setDepartments(prev => prev.filter(d => d.id !== id));
+    
+    // 2. Move employees to unassigned
+    const updates: Record<string, Partial<Employee>> = { ...pendingEmployeeUpdates };
+    employees.forEach(emp => {
+      const currentDept = updates[emp.id]?.department !== undefined ? updates[emp.id].department : emp.department;
+      if (currentDept === id) {
+        updates[emp.id] = { ...updates[emp.id], department: 'unassigned' };
+      }
+    });
+    setPendingEmployeeUpdates(updates);
   };
 
   const onDragEnd = (result: DropResult) => {
@@ -253,6 +275,15 @@ export function DepartmentManager({ orgName, employees: initialEmployees, depart
                   setIsRenameDeptOpen(true);
                 }}>
                   <Pencil size={12} className="mr-2" /> Rename & Color
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    setDeptToDelete(id);
+                    setIsDeleteDeptOpen(true);
+                  }}
+                >
+                  <Trash2 size={12} className="mr-2" /> Delete Department
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => toggleDept(id)}>
                   {isExpanded ? "Collapse" : "Expand"}
@@ -482,6 +513,32 @@ export function DepartmentManager({ orgName, employees: initialEmployees, depart
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={isDeleteDeptOpen} onOpenChange={setIsDeleteDeptOpen}>
+        <AlertDialogContent className="rounded-[2rem] border-4 border-black dark:border-white shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black uppercase tracking-tighter">Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-bold uppercase tracking-tight text-muted-foreground">
+              This will permanently remove the department. Any employees currently assigned to it will be moved to the "Unassigned" bucket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-black uppercase tracking-widest text-[10px]">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deptToDelete) {
+                  handleDeleteDepartment(deptToDelete);
+                  setDeptToDelete(null);
+                }
+              }}
+              className="rounded-xl bg-destructive text-destructive-foreground font-black uppercase tracking-widest text-[10px] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+            >
+              Confirm Deletion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

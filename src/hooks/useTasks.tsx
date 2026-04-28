@@ -41,6 +41,7 @@ export interface Draft {
   title: string;
   status: Status;
   parentId?: string; // For subtasks, notes, etc.
+  groupId?: string; // Group/Bucket the draft belongs to
   type?: 'task' | 'subtask' | 'resource' | 'image' | 'voiceNote' | 'nestedDescription';
   createdAt: number;
   
@@ -113,6 +114,13 @@ export interface Resource {
   images?: NestedImage[];
 }
 
+export interface TaskGroup {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: any;
+}
+
 export interface HistoryEntry {
     id: string;
     userId: string;
@@ -147,6 +155,7 @@ export interface Task {
   comments: Comment[];
   history: HistoryEntry[];
   flagged?: boolean;
+  groupId?: string;
   isDeleted?: boolean;
   leaderPoints?: number; // Total points for this task
   deadlineHours?: number; // Estimated hours to complete
@@ -185,6 +194,7 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 
 interface TasksContextType {
   tasks: Task[];
+  groups: TaskGroup[];
   loading: boolean;
   drafts: Draft[];
   hasPending: boolean;
@@ -204,18 +214,23 @@ interface TasksContextType {
     attachments?: Attachment[],
     voiceNotes?: Attachment[],
     nestedDescriptions?: NestedDescription[],
-    images?: NestedImage[]
+    images?: NestedImage[],
+    groupId?: string
   ) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   bulkUpdateTasks: (updates: Record<string, Partial<Task>>, actionName?: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
+  addTaskGroup: (name: string) => Promise<string | null>;
+  updateTaskGroup: (groupId: string, updates: Partial<TaskGroup>) => Promise<void>;
+  deleteTaskGroup: (groupId: string) => Promise<void>;
   canManageTasks: boolean;
   isSyncing: boolean;
 }
 
 const TasksContext = createContext<TasksContextType>({
   tasks: [],
+  groups: [],
   loading: true,
   drafts: [],
   hasPending: false,
@@ -227,6 +242,9 @@ const TasksContext = createContext<TasksContextType>({
   deleteTask: async () => {},
   bulkUpdateTasks: async () => {},
   addComment: async () => {},
+  addTaskGroup: async () => null,
+  updateTaskGroup: async () => {},
+  deleteTaskGroup: async () => {},
   canManageTasks: false,
   isSyncing: false,
 });
@@ -239,6 +257,7 @@ const DRAFTS_STORAGE_KEY = 'trac_ghost_drafts';
 export function TasksProvider({ children }: { children: ReactNode }) {
   const { user, userData, loading: authLoading } = useAuth();
   const [remoteTasks, dispatch] = useReducer(taskReducer, []);
+  const [groups, setGroups] = useState<TaskGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<Task>>>({});
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -268,7 +287,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const userRole = userData?.role?.toLowerCase();
-  const canManageTasks = userRole === 'owner' || userRole === 'manager' || userRole === 'founder';
+  const canManageTasks = userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops';
 
   // Load drafts and pending updates from localStorage
   useEffect(() => {
@@ -350,53 +369,54 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       deadlineHours: number = 0,
       subtasks: Subtask[] = [],
       resources: Resource[] = [],
-      attachments: Attachment[] = [],
-      voiceNotes: Attachment[] = [],
-      nestedDescriptions: NestedDescription[] = [],
-      images: NestedImage[] = []
-    ): Promise<string | null> => {
-      console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks });
+          attachments: Attachment[] = [],
+          voiceNotes: Attachment[] = [],
+          nestedDescriptions: NestedDescription[] = [],
+          images: NestedImage[] = [],
+          groupId?: string
+        ): Promise<string | null> => {
+          console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks, groupId });
+          
+          if (!orgId || !user) {
+            console.error("useTasks: Missing orgId or user");
+            return null;
+          }
+          if (!canManageTasks) {
+            console.error("useTasks: User does not have permission to manage tasks");
+            return null;
+          }
       
-      if (!orgId || !user) {
-        console.error("useTasks: Missing orgId or user");
-        return null;
-      }
-      if (!canManageTasks) {
-        console.error("useTasks: User does not have permission to manage tasks");
-        return null;
-      }
-
-      const newTask: any = {
-        title,
-        description,
-        status,
-        priority,
-        assignees,
-        subtasks,
-        resources,
-        attachments,
-        voiceNotes,
-        nestedDescriptions,
-        images,
-        comments: [],
-        tags: [],
-        flagged: false,
-        isDeleted: false,
-        leaderPoints,
-        deadlineHours,
-        history: [
-            {
-                id: Date.now().toString(),
-                userId: user.uid,
-                action: 'created',
-                details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length },
-                createdAt: new Date(),
-            }
-        ],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
+          const newTask: any = {
+            title,
+            description,
+            status,
+            priority,
+            assignees,
+            subtasks,
+            resources,
+            attachments,
+            voiceNotes,
+            nestedDescriptions,
+            images,
+            groupId,
+            comments: [],
+            tags: [],
+            flagged: false,
+            isDeleted: false,
+            leaderPoints,
+            deadlineHours,
+            history: [
+                {
+                    id: Date.now().toString(),
+                    userId: user.uid,
+                    action: 'created',
+                    details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length, groupId },
+                    createdAt: new Date(),
+                }
+            ],
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
       try {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");
         const docRef = await addDoc(tasksCollection, newTask);
@@ -456,7 +476,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         draft.attachments || [],
         draft.voiceNotes || [],
         draft.nestedDescriptions || [],
-        draft.images || []
+        draft.images || [],
+        draft.groupId
     );
     
     if (taskId) {
@@ -585,6 +606,70 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
     });
   }, [user?.uid]);
+
+  const addTaskGroup = useCallback(async (name: string) => {
+    if (!orgId || !canManageTasks) return null;
+    try {
+        const groupsCollection = collection(db, "organizations", orgId, "taskGroups");
+        const docRef = await addDoc(groupsCollection, {
+            name,
+            order: groups.length,
+            createdAt: serverTimestamp()
+        });
+        return docRef.id;
+    } catch (e) {
+        console.error("Error adding task group:", e);
+        return null;
+    }
+  }, [orgId, canManageTasks, groups.length]);
+
+  const updateTaskGroup = useCallback(async (groupId: string, updates: Partial<TaskGroup>) => {
+    if (!orgId || !canManageTasks) return;
+    try {
+        const groupRef = doc(db, "organizations", orgId, "taskGroups", groupId);
+        await updateDoc(groupRef, updates);
+    } catch (e) {
+        console.error("Error updating task group:", e);
+    }
+  }, [orgId, canManageTasks]);
+
+  const deleteTaskGroup = useCallback(async (groupId: string) => {
+    if (!orgId || !canManageTasks) return;
+    try {
+        const groupRef = doc(db, "organizations", orgId, "taskGroups", groupId);
+        await deleteDoc(groupRef);
+        
+        // Move tasks from deleted group to no group (default)
+        const tasksToMove = tasks.filter(t => t.groupId === groupId);
+        if (tasksToMove.length > 0) {
+            const batch = writeBatch(db);
+            tasksToMove.forEach(task => {
+                const taskRef = doc(db, "organizations", orgId, "tasks", task.id);
+                batch.update(taskRef, { groupId: null });
+            });
+            await batch.commit();
+        }
+    } catch (e) {
+        console.error("Error deleting task group:", e);
+    }
+  }, [orgId, canManageTasks, tasks]);
+
+  useEffect(() => {
+    if (!orgId) return;
+
+    const groupsCollection = collection(db, "organizations", orgId, "taskGroups");
+    const q = query(groupsCollection);
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const updatedGroups = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as TaskGroup[];
+        setGroups(updatedGroups.sort((a, b) => a.order - b.order));
+    });
+
+    return () => unsubscribe();
+  }, [orgId]);
 
   useEffect(() => {
     if (!orgId) {
@@ -824,7 +909,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   return (
     <TasksContext.Provider
-      value={{ tasks, loading, drafts, hasPending, updateDraft, deleteDraft, finalizeDraft, addTask, updateTask, deleteTask, bulkUpdateTasks, addComment, canManageTasks, isSyncing }}
+      value={{ tasks, groups, loading, drafts, hasPending, updateDraft, deleteDraft, finalizeDraft, addTask, updateTask, deleteTask, bulkUpdateTasks, addComment, addTaskGroup, updateTaskGroup, deleteTaskGroup, canManageTasks, isSyncing }}
     >
       {children}
     </TasksContext.Provider>

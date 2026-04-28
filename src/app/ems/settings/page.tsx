@@ -6,7 +6,7 @@ import { auth, db } from '@/lib/firebase';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardSidebar } from '@/components/ems/DashboardSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,6 +69,9 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'identity';
+
   const [orgData, setOrgData] = useState<any>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
@@ -488,7 +491,11 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <Tabs defaultValue="identity" className="w-full space-y-8">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(value) => router.push(`/ems/settings?tab=${value}`)} 
+            className="w-full space-y-8"
+          >
             <TabsList className="w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 md:grid-cols-6 gap-1">
               <TabsTrigger value="identity" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Identity</TabsTrigger>
               <TabsTrigger value="company" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Company</TabsTrigger>

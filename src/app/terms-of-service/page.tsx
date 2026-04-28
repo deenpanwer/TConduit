@@ -54,6 +54,10 @@ const TermsOfServicePage = () => {
             You can revoke our access to your Gmail account at any time by clicking the "Disconnect
             Gmail" button in your account settings. This will remove our access to your Gmail data.
           </p>
+          <h2 className="text-2xl font-bold mt-8 mb-4">Cancellation/Return/Refund Policy</h2>
+          <p>
+            We offer a 30-day money-back guarantee for all of our products. If you are not satisfied with your purchase, you may request a full refund within 30 days of the purchase date. To request a refund, please contact us at support@traconomics.com. We do not offer refunds for any purchases made after the 30-day period.
+          </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">Termination</h2>
 

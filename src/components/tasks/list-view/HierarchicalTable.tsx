@@ -1,5 +1,6 @@
 'use client';
 
+import 'regenerator-runtime/runtime';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -187,7 +188,7 @@ export const HierarchicalTable = ({
     }, [itemToAutoEdit, items]);
 
     const config = {
-        subtasks: { label: 'Subtasks', icon: ListTodo, color: 'blue', bg: 'bg-blue-500/5', text: 'text-blue-800 dark:text-blue-200', border: 'border-blue-500/20' },
+        subtasks: { label: depth > 0 ? 'Granular Subtasks' : 'Subtasks', icon: ListTodo, color: 'blue', bg: 'bg-blue-500/5', text: 'text-blue-800 dark:text-blue-200', border: 'border-blue-500/20' },
         resources: { label: 'Resources', icon: LinkIcon, color: 'purple', bg: 'bg-purple-500/5', text: 'text-purple-800 dark:text-purple-200', border: 'border-purple-500/20' },
         descriptions: { label: 'Notes', icon: Type, color: 'emerald', bg: 'bg-emerald-500/5', text: 'text-emerald-800 dark:text-emerald-200', border: 'border-emerald-500/20' },
         images: { label: 'Images', icon: ImageIcon, color: 'orange', bg: 'bg-orange-500/5', text: 'text-orange-800 dark:text-orange-200', border: 'border-orange-500/20' },

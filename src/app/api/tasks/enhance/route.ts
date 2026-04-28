@@ -14,6 +14,17 @@ export async function POST(req: Request) {
       });
     }
 
+    if (mode === 'description_only') {
+        const { text: description } = await generateText({
+            model: mistral('ministral-3b-2512'),
+            system: "You are a professional project architect. Generate a concise, high-impact project description (max 3 sentences) based on the title provided. Focus on 'why' and the 'value'. Return ONLY the description text.",
+            prompt: `Title: ${text}`,
+        });
+        return new Response(JSON.stringify({ description: description.trim() }), {
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
     const systemPrompt = `
       CONTEXT: You are the AI Engine for "Trac AI", a category-defining talent platform.
       OBJECTIVE: Convert unstructured user input (voice transcripts or bulk text) into a structured, production-grade Task object.

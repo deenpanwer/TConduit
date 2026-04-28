@@ -1,4 +1,5 @@
 'use client'
+import 'regenerator-runtime/runtime';
 import posthog from 'posthog-js'
 import { PostHogProvider } from 'posthog-js/react'
 import clarity from '@microsoft/clarity';

@@ -6,7 +6,7 @@ import {
   UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
   Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays, Database,
   ShoppingCart, Briefcase, X,
-  Bell
+  Bell, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ import { useTeam } from "@/hooks/use-team";
 import { useShift } from "@/hooks/use-shift";
 import { NotificationsDrawer } from "./NotificationsDrawer";
 import { toast } from "sonner";
+import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
@@ -100,6 +101,7 @@ export function DashboardSidebar({
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   const shiftUser = useMemo(() => {
     if (!userData && !user) return null;
@@ -177,47 +179,65 @@ export function DashboardSidebar({
 
   const userEmail = user?.email;
 
-  const NavItem = ({ icon: Icon, label, href, active, count, onClick }: any) => (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button 
-            onClick={() => {
-              if (onClick) {
-                onClick();
-              } else {
-                router.push(href);
-              }
-              if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
-            }}
-            className={cn(
-              "flex items-center gap-3 w-full p-2.5 rounded-xl transition-all group relative",
-              active ? "bg-secondary text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-              (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+  const NavItem = ({ icon: Icon, label, href, active, count, onClick }: any) => {
+    const content = (
+      <>
+        <Icon className={cn("size-5 shrink-0", active && "text-primary")} size={20} />
+        {(!isCollapsed || isMobileSidebarOpen) && (
+          <div className="flex flex-1 items-center justify-between overflow-hidden">
+            <span className="text-sm font-bold truncate">{label}</span>
+            {count !== undefined && count > 0 && (
+               <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-black animate-pulse">
+                 {count}
+               </span>
             )}
-          >
-            <Icon className={cn("size-5 shrink-0", active && "text-primary")} size={20} />
-            {(!isCollapsed || isMobileSidebarOpen) && (
-              <div className="flex flex-1 items-center justify-between overflow-hidden">
-                <span className="text-sm font-bold truncate">{label}</span>
-                {count !== undefined && count > 0 && (
-                   <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-black animate-pulse">
-                     {count}
-                   </span>
-                )}
-              </div>
+          </div>
+        )}
+        {isCollapsed && !isMobileSidebarOpen && count !== undefined && count > 0 && (
+          <span className="absolute top-1 right-1 size-2 bg-red-500 rounded-full border-2 border-card" />
+        )}
+      </>
+    );
+
+    const className = cn(
+      "flex items-center gap-3 w-full p-2.5 rounded-xl transition-all group relative",
+      active ? "bg-secondary text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+    );
+
+    return (
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {href ? (
+              <Link 
+                href={href}
+                onClick={() => {
+                  if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+                }}
+                className={className}
+              >
+                {content}
+              </Link>
+            ) : (
+              <button 
+                onClick={() => {
+                  if (onClick) onClick();
+                  if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+                }}
+                className={className}
+              >
+                {content}
+              </button>
             )}
-            {isCollapsed && !isMobileSidebarOpen && count !== undefined && count > 0 && (
-              <span className="absolute top-1 right-1 size-2 bg-red-500 rounded-full border-2 border-card" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-          {label} {count !== undefined && count > 0 && `(${count})`}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+          </TooltipTrigger>
+          <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+            {label} {count !== undefined && count > 0 && `(${count})`}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   return (
     <>
@@ -314,6 +334,22 @@ export function DashboardSidebar({
                     </div>
                   </DropdownMenuItem>
                 ))}
+
+                <div className="border-t border-border mt-2 pt-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
+                    onClick={() => setIsConfigOpen(true)}
+                  >
+                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Sparkles className="size-5 text-primary" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold text-sm">Add more apps</span>
+                      <span className="text-[10px] text-muted-foreground">Customize workspace</span>
+                    </div>
+                  </Button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -466,6 +502,12 @@ export function DashboardSidebar({
             <NotificationsDrawer 
               isOpen={isNotificationsOpen}
               onClose={() => setIsNotificationsOpen(false)}
+            />
+
+            <ModuleConfigModal 
+              isOpen={isConfigOpen} 
+              onOpenChange={setIsConfigOpen} 
+              selectedModules={selectedModules} 
             />
           </>
         );

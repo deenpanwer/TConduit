@@ -173,7 +173,7 @@ export default function ShiftsPage() {
 
   const isManager = useMemo(() => {
     const role = userData?.role?.toLowerCase();
-    return role === 'manager' || role === 'owner' || role === 'founder' || !!userData?.ownedOrgId;
+    return role === 'manager' || role === 'owner' || role === 'founder' || role === 'hr' || role === 'ops' || !!userData?.ownedOrgId;
   }, [userData]);
 
   const handleCellClick = (userId: string | null, day: Date) => {

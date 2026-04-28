@@ -105,6 +105,7 @@ export const DrawerHierarchicalTable = ({
     onUpload,
     recordingState
 }: DrawerHierarchicalTableProps) => {
+    const { drafts, updateDraft, deleteDraft } = useTasks();
     const draftTypeMap: Record<string, Draft['type']> = {
         subtasks: 'subtask',
         notes: 'nestedDescription',
@@ -121,7 +122,7 @@ export const DrawerHierarchicalTable = ({
     const { uploads } = useUpload();
 
     const config = {
-        subtasks: { label: 'Subtasks', icon: ListTodo, color: 'text-blue-600', hue: 221, bg: 'bg-blue-500/5', border: 'border-blue-500/20' },
+        subtasks: { label: depth > 0 ? 'Granular Subtasks' : 'Subtasks', icon: ListTodo, color: 'text-blue-600', hue: 221, bg: 'bg-blue-500/5', border: 'border-blue-500/20' },
         notes: { label: 'Notes', icon: FileText, color: 'text-emerald-600', hue: 142, bg: 'bg-emerald-500/5', border: 'border-emerald-500/20' },
         resources: { label: 'Resources', icon: LinkIcon, color: 'text-purple-600', hue: 281, bg: 'bg-purple-500/5', border: 'border-purple-500/20' },
         images: { label: 'Images', icon: ImageIcon, color: 'text-orange-600', hue: 24, bg: 'bg-orange-500/5', border: 'border-orange-500/20' },
@@ -170,8 +171,6 @@ export const DrawerHierarchicalTable = ({
     const backgroundStyle = { 
         backgroundColor: `hsla(${config.hue}, 80%, ${98 - (depth * 2)}%, ${0.03 + (depth * 0.02)})` 
     };
-
-    const { drafts, updateDraft, deleteDraft } = useTasks();
 
     // Filter drafts for this specific task and hierarchical type
     const currentDrafts = drafts.filter((d: Draft) => d.parentId === taskId && d.type === draftType);

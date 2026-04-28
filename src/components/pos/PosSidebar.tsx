@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ShoppingCart, ChevronsLeft, ChevronsRight, 
   Keyboard, Archive, Users, BarChart, Settings, History,
   Moon, Sun, Briefcase, ChevronDown, X,
-  ListTodo, Utensils
+  ListTodo, Utensils, Sparkles
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePos } from "@/hooks/use-pos";
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
+import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 
 interface PosSidebarProps {
   isCollapsed: boolean; 
@@ -89,6 +90,7 @@ export function PosSidebar({
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Swipe logic refs
   const touchStartX = useRef<number | null>(null);
@@ -159,9 +161,9 @@ export function PosSidebar({
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button 
+          <Link 
+            href={href}
             onClick={() => {
-              router.push(href);
               if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
             }}
             className={cn(
@@ -174,7 +176,7 @@ export function PosSidebar({
             {(!isCollapsed || isMobileSidebarOpen) && (
               <span className="text-sm font-bold truncate">{label}</span>
             )}
-          </button>
+          </Link>
         </TooltipTrigger>
         <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
           {label}
@@ -294,10 +296,27 @@ export function PosSidebar({
                     <span className="font-bold text-sm">CRM Dashboard</span>
                     <span className="text-[10px] text-muted-foreground">Customer Relations</span>
                   </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  </DropdownMenuItem>
+                  ){'}'}
+
+                  <div className="border-t border-border mt-2 pt-2">
+                  <Button 
+                  variant="ghost" 
+                  className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
+                  onClick={() => setIsConfigOpen(true)}
+                  >
+                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Sparkles className="size-5 text-primary" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-sm">Add more apps</span>
+                    <span className="text-[10px] text-muted-foreground">Customize workspace</span>
+                  </div>
+                  </Button>
+                  </div>
+                  </DropdownMenuContent>
+                  </DropdownMenu>
+                  </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
             <div className="space-y-1">
@@ -380,6 +399,12 @@ export function PosSidebar({
           </div>
         </div>
       </div>
+
+      <ModuleConfigModal 
+        isOpen={isConfigOpen} 
+        onOpenChange={setIsConfigOpen} 
+        selectedModules={selectedModules} 
+      />
     </>
   );
 }

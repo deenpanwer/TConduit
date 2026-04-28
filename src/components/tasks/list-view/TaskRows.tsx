@@ -16,6 +16,7 @@ import {
   ListTodo,
   FileText,
   Mic,
+  FolderInput,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -25,6 +26,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { 
     Tooltip, 
@@ -35,7 +40,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Task } from '@/hooks/useTasks';
+import { Task, useTasks } from '@/hooks/useTasks';
 import { toast } from 'sonner';
 import { triggerBigConfetti, triggerSmallConfetti } from '@/lib/confetti';
 import { 
@@ -97,7 +102,7 @@ export const MobileHierarchicalList = ({ items, type, onUpdate, onDelete, depth 
     }, [itemToAutoEdit, items]);
 
     const config = {
-        subtasks: { icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-500/5', label: 'Subtasks' },
+        subtasks: { icon: ListTodo, color: 'text-blue-500', bg: 'bg-blue-500/5', label: depth > 0 ? 'Granular Subtasks' : 'Subtasks' },
         resources: { icon: LinkIcon, color: 'text-purple-500', bg: 'bg-purple-500/5', label: 'Resources' },
         descriptions: { icon: Type, color: 'text-emerald-500', bg: 'bg-emerald-500/5', label: 'Notes' },
         images: { icon: ImageIcon, color: 'text-orange-500', bg: 'bg-orange-500/5', label: 'Images' },
@@ -324,6 +329,7 @@ export const TaskRowDesktop = ({
     onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void,
     autoFocusDescription?: boolean
 }) => {
+    const { groups } = useTasks();
     const [isExpanded, setIsExpanded] = useState(autoFocusDescription);
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
     const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | 'attachments' | 'voiceNotes' | null>(null);
@@ -572,6 +578,27 @@ export const TaskRowDesktop = ({
                                 <span className="flex-1">Add Subtask</span>
                                 <CountTicker count={(localTask.subtasks || []).length} icon={ListTodo} color="bg-blue-500/10 text-blue-600" />
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator/>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className='gap-2'>
+                                    <FolderInput size={14} className='text-muted-foreground' />
+                                    <span>Move to Bucket</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent className='w-48'>
+                                        <DropdownMenuItem onClick={() => onUpdate({ groupId: undefined })} className='gap-2'>
+                                            <span>Main Tasks</span>
+                                            {!localTask.groupId && <Check size={12} className='ml-auto text-primary' />}
+                                        </DropdownMenuItem>
+                                        {groups.map(group => (
+                                            <DropdownMenuItem key={group.id} onClick={() => onUpdate({ groupId: group.id })} className='gap-2'>
+                                                <span className='truncate'>{group.name}</span>
+                                                {localTask.groupId === group.id && <Check size={12} className='ml-auto text-primary' />}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem onClick={() => onDelete(task.id)} className='text-destructive focus:text-destructive'><Trash2 size={14} className='mr-2'/> Delete Task</DropdownMenuItem>
                         </DropdownMenuContent>

@@ -16,6 +16,11 @@ const PrivacyPolicyPage = () => {
 
           <h2 className="text-2xl font-bold mt-8 mb-4">Information We Collect</h2>
 
+          <h3 className="text-xl font-bold mt-4 mb-2">Information You Provide</h3>
+          <p>
+            We collect information that you provide to us directly, such as when you create an account, contact us for support, or otherwise communicate with us. This may include your name, email address, and any other information you choose to provide.
+          </p>
+
           <h3 className="text-xl font-bold mt-4 mb-2">Gmail Integration</h3>
           <p>
             If you choose to connect your Gmail account to Traconomics, we will have access to the

@@ -17,8 +17,18 @@ import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useCRMLeads } from "@/hooks/use-crm-leads";
-import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import confetti from 'canvas-confetti';
+import { toast } from "sonner";
 
 // --- Mock Components for Preview ---
 
@@ -280,6 +290,7 @@ const MockDashboard = () => (
 
 function OnboardingContent() {
   const [step, setStep] = useState(1);
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const { user, userData, loading: authLoading, refreshUserData } = useAuth();
   const { addEntity: addLead } = useCRMLeads();
   const [finishing, setFinishing] = useState(false);
@@ -677,10 +688,10 @@ function OnboardingContent() {
       <div className="flex-1 h-full bg-slate-100 dark:bg-slate-900 relative overflow-hidden flex items-center justify-center z-10 sandbox-recessed">
         {/* Global Stage Elements */}
         <button 
-          onClick={handleFinish}
+          onClick={() => setSkipDialogOpen(true)}
           className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl text-foreground"
         >
-          Skip <X size={14} />
+          Skip Tour <X size={14} />
         </button>
 
         <div className="absolute top-8 left-8 z-50">
@@ -741,6 +752,29 @@ function OnboardingContent() {
           </AnimatePresence>
         </div>
       </div>
+
+      <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-10 max-w-md">
+          <AlertDialogHeader className="space-y-4">
+            <div className="size-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 mb-2">
+              <Sparkles size={32} />
+            </div>
+            <AlertDialogTitle className="text-3xl font-black uppercase tracking-tighter">Skip Onboarding?</AlertDialogTitle>
+            <AlertDialogDescription className="text-base font-medium text-muted-foreground leading-relaxed italic">
+              This onboarding is highly recommended to get the most out of your hub. Are you sure you want to skip?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-10 gap-3">
+            <AlertDialogCancel className="h-14 rounded-2xl border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-widest flex-1">Go Back</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleFinish}
+              className="h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black uppercase tracking-widest flex-1 shadow-lg shadow-blue-500/20"
+            >
+              Skip Tour
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

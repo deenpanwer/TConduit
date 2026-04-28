@@ -71,6 +71,13 @@ const MODULES = [
 export default function ModuleSelectorPage() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      router.replace("/ems");
+    }
+  }, [loading, router]);
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [persistedModules, setPersistedModules] = useState<string[] | null>(null);
   const [isSaving, setIsSaving] = useState(false);

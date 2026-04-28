@@ -21,11 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
+import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 
 interface CRMSidebarProps {
   isCollapsed: boolean;
@@ -86,6 +88,7 @@ export function CRMSidebar({
   const [mounted, setMounted] = useState(false);
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
@@ -142,9 +145,9 @@ export function CRMSidebar({
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button 
+          <Link 
+            href={href}
             onClick={() => {
-              router.push(href);
               if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
             }}
             className={cn(
@@ -157,7 +160,7 @@ export function CRMSidebar({
             {(!isCollapsed || isMobileSidebarOpen) && (
               <span className="text-sm font-bold truncate">{label}</span>
             )}
-          </button>
+          </Link>
         </TooltipTrigger>
         <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
           {label}
@@ -252,6 +255,22 @@ export function CRMSidebar({
                     </div>
                   </DropdownMenuItem>
                 ))}
+
+                <div className="border-t border-border mt-2 pt-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
+                    onClick={() => setIsConfigOpen(true)}
+                  >
+                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Sparkles className="size-5 text-primary" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold text-sm">Add more apps</span>
+                      <span className="text-[10px] text-muted-foreground">Customize workspace</span>
+                    </div>
+                  </Button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -307,6 +326,12 @@ export function CRMSidebar({
           </div>
         </div>
       </div>
+
+      <ModuleConfigModal 
+        isOpen={isConfigOpen} 
+        onOpenChange={setIsConfigOpen} 
+        selectedModules={selectedModules} 
+      />
     </>
   );
 }
