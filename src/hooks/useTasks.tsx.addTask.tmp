@@ -1,0 +1,106 @@
+  const addTask = useCallback(
+    async (
+      title: string, 
+      status: Status, 
+      description: string = "", 
+      priority: Priority = "medium", 
+      assignees: string[] = [],
+      leaderPoints: number = 0,
+      deadlineHours: number = 0,
+      subtasks: Subtask[] = [],
+      resources: Resource[] = [],
+      attachments: Attachment[] = [],
+      voiceNotes: Attachment[] = [],
+      nestedDescriptions: NestedDescription[] = [],
+      images: NestedImage[] = [],
+      groupId?: string
+    ): Promise<string | null> => {
+      console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks, groupId });
+      
+      if (!orgId || !user) {
+        console.error("useTasks: Missing orgId or user");
+        return null;
+      }
+      if (!canManageTasks) {
+        console.error("useTasks: User does not have permission to manage tasks");
+        return null;
+      }
+
+      const deepClean = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map((v: any) => deepClean(v));
+        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+          return Object.entries(obj).reduce((acc: any, [key, value]) => {
+            if (value !== undefined) acc[key] = deepClean(value);
+            return acc;
+          }, {} as any);
+        }
+        return obj === undefined ? null : obj;
+      };
+  
+      const rawTask: any = {
+        title,
+        description,
+        status,
+        priority,
+        assignees,
+        subtasks,
+        resources,
+        attachments,
+        voiceNotes,
+        nestedDescriptions,
+        images,
+        groupId,
+        comments: [],
+        tags: [],
+        flagged: false,
+        isDeleted: false,
+        leaderPoints,
+        deadlineHours,
+        history: [
+            {
+                id: Date.now().toString(),
+                userId: user.uid,
+                action: 'created',
+                details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length, groupId },
+                createdAt: new Date(),
+            }
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: user.uid,
+      };
+
+      const newTask = deepClean(rawTask);
+
+      try {
+        const tasksCollection = collection(db, "organizations", orgId, "tasks");
+        const docRef = await addDoc(tasksCollection, newTask);
+        console.log("useTasks: Task created successfully", docRef.id);
+
+        // Notify assignees (if any) about the new task
+        if (assignees.length > 0) {
+          assignees.forEach(assigneeId => {
+            if (assigneeId !== user.uid) {
+               fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: assigneeId,
+                        title: `New task assigned: "${title}"`,
+                        body: `Priority: ${priority}`,
+                        data: { taskId: docRef.id }
+                    })
+                });
+            }
+          });
+        }
+
+        return docRef.id;
+      } catch (error) {
+        console.error("useTasks: Error adding task:", error);
+        return null;
+      }
+    },
+    [orgId, user, canManageTasks, assignees]
+  );

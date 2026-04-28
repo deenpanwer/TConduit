@@ -226,20 +226,24 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  <Reorder.Group axis="y" values={orderedTasks} onReorder={setOrderedTasks} className="space-y-3">
-                      {activeTasks.map(task => (
-                          <TaskRowMobile 
-                              key={`mobile-active-${task.id}`} 
-                              task={orderedTasks.find(t => t.id === task.id)!}
-                              localTask={task}
-                              onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
-                              onDelete={onDeleteTask || deleteTask}
-                              onTaskClick={onTaskClick}
-                              handleEnhanceTask={handleEnhanceWithAI}
-                              isEnhancing={isEnhancing === task.id}
-                              personnel={personnel}
-                          />
-                      ))}
+                  <Reorder.Group axis="y" values={orderedTasks || []} onReorder={setOrderedTasks} className="space-y-3">
+                      {(activeTasks || []).map(task => {
+                          const taskInOrdered = (orderedTasks || []).find(t => t.id === task.id);
+                          if (!taskInOrdered) return null;
+                          return (
+                            <TaskRowMobile 
+                                key={`mobile-active-${task.id}`} 
+                                task={taskInOrdered}
+                                localTask={task}
+                                onUpdate={(updates) => onUpdateTask?.(task.id, updates)}
+                                onDelete={onDeleteTask || deleteTask}
+                                onTaskClick={onTaskClick}
+                                handleEnhanceTask={handleEnhanceWithAI}
+                                isEnhancing={isEnhancing === task.id}
+                                personnel={personnel}
+                            />
+                          );
+                      })}
                       
                       {drafts.filter(d => !d.parentId && (d.type === 'task' || !d.type)).map(draft => (
                           <motion.div 

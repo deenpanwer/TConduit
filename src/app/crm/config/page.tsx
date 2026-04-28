@@ -287,143 +287,145 @@ const ModuleSetup = ({
 
           <Card className="border-border/40 bg-card/50 backdrop-blur-sm rounded-[2.5rem] overflow-hidden shadow-xl">
             <CardContent className="p-8 space-y-6">
-              <Reorder.Group axis="y" values={localFields} onReorder={setLocalFields} className="space-y-4">
-                {localFields.map((field) => (
-                  <Reorder.Item 
-                    key={field.id} 
-                    value={field}
-                    className={cn(
-                      "p-5 rounded-[1.5rem] bg-secondary/20 border border-border/20 transition-all hover:bg-secondary/30",
-                      !field.isVisible && "opacity-60 bg-muted/10 grayscale-[0.5]"
-                    )}
-                  >
-                    <div className="flex flex-col gap-6">
-                      <div className="flex flex-col md:flex-row md:items-center gap-6">
-                        <div className="flex items-center gap-4 flex-1">
-                          <GripVertical className="text-muted-foreground cursor-grab active:cursor-grabbing shrink-0" size={16} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Input 
-                                value={field.label} 
-                                disabled={field.isSystem && (field.key === 'name' || field.key === 'status')}
-                                onChange={e => updateField(field.id, { label: e.target.value })}
-                                className="h-8 bg-transparent border-none focus-visible:ring-0 font-black text-sm uppercase tracking-tight p-0 w-full"
-                                placeholder="Detail Name (e.g. Budget)"
-                              />
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              {field.isSystem ? (
-                                <Badge className="bg-blue-500 text-white border-none text-[8px] font-black uppercase px-2 py-0.5">Built-in</Badge>
-                              ) : (
-                                <Badge className="bg-secondary text-muted-foreground border-none text-[8px] font-black uppercase px-2 py-0.5">Custom</Badge>
-                              )}
-                              {field.isVisible ? (
-                                <Badge className="bg-green-500/10 text-green-500 border border-green-500/20 text-[8px] font-black uppercase px-2 py-0.5">Active</Badge>
-                              ) : (
-                                <Badge className="bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase px-2 py-0.5">Hidden</Badge>
-                              )}
-                              <div className="size-1 rounded-full bg-border" />
-                              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{field.type}</span>
+              {localFields && (
+                <Reorder.Group axis="y" values={localFields} onReorder={setLocalFields} className="space-y-4">
+                  {localFields.map((field) => (
+                    <Reorder.Item 
+                      key={field.id} 
+                      value={field}
+                      className={cn(
+                        "p-5 rounded-[1.5rem] bg-secondary/20 border border-border/20 transition-all hover:bg-secondary/30",
+                        !field.isVisible && "opacity-60 bg-muted/10 grayscale-[0.5]"
+                      )}
+                    >
+                      <div className="flex flex-col gap-6">
+                        <div className="flex flex-col md:flex-row md:items-center gap-6">
+                          <div className="flex items-center gap-4 flex-1">
+                            <GripVertical className="text-muted-foreground cursor-grab active:cursor-grabbing shrink-0" size={16} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Input 
+                                  value={field.label} 
+                                  disabled={field.isSystem && (field.key === 'name' || field.key === 'status')}
+                                  onChange={e => updateField(field.id, { label: e.target.value })}
+                                  className="h-8 bg-transparent border-none focus-visible:ring-0 font-black text-sm uppercase tracking-tight p-0 w-full"
+                                  placeholder="Detail Name (e.g. Budget)"
+                                />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {field.isSystem ? (
+                                  <Badge className="bg-blue-500 text-white border-none text-[8px] font-black uppercase px-2 py-0.5">Built-in</Badge>
+                                ) : (
+                                  <Badge className="bg-secondary text-muted-foreground border-none text-[8px] font-black uppercase px-2 py-0.5">Custom</Badge>
+                                )}
+                                {field.isVisible ? (
+                                  <Badge className="bg-green-500/10 text-green-500 border border-green-500/20 text-[8px] font-black uppercase px-2 py-0.5">Active</Badge>
+                                ) : (
+                                  <Badge className="bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase px-2 py-0.5">Hidden</Badge>
+                                )}
+                                <div className="size-1 rounded-full bg-border" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{field.type}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="w-40">
-                            <Select 
-                              disabled={field.isSystem}
-                              value={field.type} 
-                              onValueChange={v => updateField(field.id, { type: v as any, options: v === 'select' ? [] : undefined })}
-                            >
-                              <SelectTrigger className="h-10 text-[9px] font-black uppercase tracking-widest border-border/40 bg-background/50 rounded-xl">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-2xl border-border/40 bg-card/95 backdrop-blur-xl">
-                                <SelectItem value="text" className="text-[9px] font-black uppercase tracking-widest">Short Text</SelectItem>
-                                <SelectItem value="textarea" className="text-[9px] font-black uppercase tracking-widest">Long Text</SelectItem>
-                                <SelectItem value="number" className="text-[9px] font-black uppercase tracking-widest">Number</SelectItem>
-                                <SelectItem value="select" className="text-[9px] font-black uppercase tracking-widest">Choice List</SelectItem>
-                                <SelectItem value="date" className="text-[9px] font-black uppercase tracking-widest">Calendar Date</SelectItem>
-                                <SelectItem value="currency" className="text-[9px] font-black uppercase tracking-widest">Money Value</SelectItem>
-                                <SelectItem value="email" className="text-[9px] font-black uppercase tracking-widest">Email Address</SelectItem>
-                                <SelectItem value="phone" className="text-[9px] font-black uppercase tracking-widest">Phone Number</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-40">
+                              <Select 
+                                disabled={field.isSystem}
+                                value={field.type} 
+                                onValueChange={v => updateField(field.id, { type: v as any, options: v === 'select' ? [] : undefined })}
+                              >
+                                <SelectTrigger className="h-10 text-[9px] font-black uppercase tracking-widest border-border/40 bg-background/50 rounded-xl">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-2xl border-border/40 bg-card/95 backdrop-blur-xl">
+                                  <SelectItem value="text" className="text-[9px] font-black uppercase tracking-widest">Short Text</SelectItem>
+                                  <SelectItem value="textarea" className="text-[9px] font-black uppercase tracking-widest">Long Text</SelectItem>
+                                  <SelectItem value="number" className="text-[9px] font-black uppercase tracking-widest">Number</SelectItem>
+                                  <SelectItem value="select" className="text-[9px] font-black uppercase tracking-widest">Choice List</SelectItem>
+                                  <SelectItem value="date" className="text-[9px] font-black uppercase tracking-widest">Calendar Date</SelectItem>
+                                  <SelectItem value="currency" className="text-[9px] font-black uppercase tracking-widest">Money Value</SelectItem>
+                                  <SelectItem value="email" className="text-[9px] font-black uppercase tracking-widest">Email Address</SelectItem>
+                                  <SelectItem value="phone" className="text-[9px] font-black uppercase tracking-widest">Phone Number</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                          <div className="flex items-center bg-background/50 rounded-xl border border-border/40 p-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className={cn("h-8 w-8 rounded-lg transition-all", field.isVisible ? "text-blue-500 bg-blue-500/5" : "text-muted-foreground")}
-                              onClick={() => toggleVisibility(field.id)}
-                              title={field.isVisible ? "Hide Detail" : "Show Detail"}
-                            >
-                              {field.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
-                            </Button>
-                            
-                            {!field.isSystem && (
+                            <div className="flex items-center bg-background/50 rounded-xl border border-border/40 p-1">
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8 rounded-lg text-orange-500 hover:bg-orange-500/10"
-                                onClick={() => archiveField(field.id)}
-                                title="Move to Archive"
+                                className={cn("h-8 w-8 rounded-lg transition-all", field.isVisible ? "text-blue-500 bg-blue-500/5" : "text-muted-foreground")}
+                                onClick={() => toggleVisibility(field.id)}
+                                title={field.isVisible ? "Hide Detail" : "Show Detail"}
                               >
-                                <Trash2 size={14} />
+                                {field.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                               </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* DESCRIPTION FIELD */}
-                      <div className="space-y-1.5 pl-8">
-                        <Label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
-                          <AlignLeft size={10} /> Explanation for your team
-                        </Label>
-                        <Input 
-                          value={field.description || ""}
-                          onChange={e => updateField(field.id, { description: e.target.value })}
-                          className="h-10 bg-background/40 border-border/40 rounded-xl text-xs font-medium placeholder:italic"
-                          placeholder="Briefly describe what this info is used for..."
-                        />
-                      </div>
-
-                      {/* CHOICE LIST OPTIONS */}
-                      {field.type === 'select' && field.key !== 'status' && (
-                        <div className="mt-2 pt-6 border-t border-border/10 space-y-4">
-                          <div className="flex items-center justify-between ml-8">
-                            <div className="flex items-center gap-2">
-                              <Check className="size-3 text-blue-500" />
-                              <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500/70">List Choices</Label>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => addOption(field.id)} className="h-7 px-4 rounded-xl text-[8px] font-black uppercase tracking-widest border-border/60 hover:bg-blue-500/5">Add Choice</Button>
-                          </div>
-                          <div className="ml-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {field.options?.map((opt, idx) => (
-                              <div key={idx} className="flex items-center gap-2 p-2 px-3 rounded-xl bg-background/40 border border-border/40 group/opt hover:border-blue-500/20 transition-all shadow-sm">
-                                <Input 
-                                  value={opt.label} 
-                                  onChange={e => updateOption(field.id, idx, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                                  className="h-6 bg-transparent border-none focus-visible:ring-0 text-[10px] font-bold p-0 uppercase"
-                                  placeholder="Choice name..."
-                                />
-                                <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 opacity-0 group-hover/opt:opacity-100 rounded-lg transition-opacity" onClick={() => {
-                                  const newOpts = field.options?.filter((_: any, i: number) => i !== idx);
-                                  updateField(field.id, { options: newOpts || [] });
-                                }}>
-                                  <X size={10} />
+                              
+                              {!field.isSystem && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 rounded-lg text-orange-500 hover:bg-orange-500/10"
+                                  onClick={() => archiveField(field.id)}
+                                  title="Move to Archive"
+                                >
+                                  <Trash2 size={14} />
                                 </Button>
-                              </div>
-                            ))}
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
+
+                        {/* DESCRIPTION FIELD */}
+                        <div className="space-y-1.5 pl-8">
+                          <Label className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
+                            <AlignLeft size={10} /> Explanation for your team
+                          </Label>
+                          <Input 
+                            value={field.description || ""}
+                            onChange={e => updateField(field.id, { description: e.target.value })}
+                            className="h-10 bg-background/40 border-border/40 rounded-xl text-xs font-medium placeholder:italic"
+                            placeholder="Briefly describe what this info is used for..."
+                          />
+                        </div>
+
+                        {/* CHOICE LIST OPTIONS */}
+                        {field.type === 'select' && field.key !== 'status' && (
+                          <div className="mt-2 pt-6 border-t border-border/10 space-y-4">
+                            <div className="flex items-center justify-between ml-8">
+                              <div className="flex items-center gap-2">
+                                <Check className="size-3 text-blue-500" />
+                                <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500/70">List Choices</Label>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={() => addOption(field.id)} className="h-7 px-4 rounded-xl text-[8px] font-black uppercase tracking-widest border-border/60 hover:bg-blue-500/5">Add Choice</Button>
+                            </div>
+                            <div className="ml-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                              {field.options?.map((opt, idx) => (
+                                <div key={idx} className="flex items-center gap-2 p-2 px-3 rounded-xl bg-background/40 border border-border/40 group/opt hover:border-blue-500/20 transition-all shadow-sm">
+                                  <Input 
+                                    value={opt.label} 
+                                    onChange={e => updateOption(field.id, idx, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                                    className="h-6 bg-transparent border-none focus-visible:ring-0 text-[10px] font-bold p-0 uppercase"
+                                    placeholder="Choice name..."
+                                  />
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 opacity-0 group-hover/opt:opacity-100 rounded-lg transition-opacity" onClick={() => {
+                                    const newOpts = field.options?.filter((_: any, i: number) => i !== idx);
+                                    updateField(field.id, { options: newOpts || [] });
+                                  }}>
+                                    <X size={10} />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Reorder.Item>
+                  ))}
+                </Reorder.Group>
+              )}
               
               <Button 
                 variant="outline" 

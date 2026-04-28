@@ -504,14 +504,19 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
 
     const renderTimestamp = () => {
         if (!item.createdAt) return null;
-        const date = item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt);
-        return (
-            <div className="mt-1 flex items-center gap-1.5 opacity-40 group-hover/row:opacity-70 transition-opacity">
-                <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                    {format(date, "MMM d, h:mm a")}
-                </span>
-            </div>
-        );
+        try {
+            const date = item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : (item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt));
+            if (isNaN(date.getTime())) return null;
+            return (
+                <div className="mt-1 flex items-center gap-1.5 opacity-40 group-hover/row:opacity-70 transition-opacity">
+                    <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                        {format(date, "MMM d, h:mm a")}
+                    </span>
+                </div>
+            );
+        } catch (e) {
+            return null;
+        }
     };
 
     return (

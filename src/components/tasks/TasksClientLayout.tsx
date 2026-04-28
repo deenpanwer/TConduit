@@ -20,8 +20,8 @@ function TasksLayoutContent({ children }: { children: React.ReactNode }) {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   useEffect(() => {
-    // Only redirect if auth and userData are fully loaded
-    if (!loading && userData) {
+    // Only redirect if auth and userData are fully loaded AND we are in the tasks module
+    if (!loading && userData && pathname?.startsWith("/tasks")) {
         const tourNotDone = userData.tasksTourCompleted === false || userData.tasksTourCompleted === undefined;
         const isNotOnOnboardingPage = pathname !== "/tasks/onboarding" && !pathname?.startsWith("/tasks/onboarding");
         
@@ -34,7 +34,8 @@ function TasksLayoutContent({ children }: { children: React.ReactNode }) {
   // Show shimmer while loading auth or while redirecting to tour
   const tourNotDone = userData?.tasksTourCompleted === false || userData?.tasksTourCompleted === undefined;
   const isNotOnOnboardingPage = pathname !== "/tasks/onboarding" && !pathname?.startsWith("/tasks/onboarding");
-  const shouldRedirect = userData && tourNotDone && isNotOnOnboardingPage;
+  const isTasksPath = pathname?.startsWith("/tasks");
+  const shouldRedirect = userData && tourNotDone && isNotOnOnboardingPage && isTasksPath;
 
   if (loading || shouldRedirect) {
     return (

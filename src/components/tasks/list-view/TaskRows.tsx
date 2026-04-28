@@ -446,13 +446,26 @@ export const TaskRowDesktop = ({
                 <div className='sticky left-20 z-10 flex flex-[1.5] min-w-[250px] border-r border-border/60 bg-background'>
                     <div className="flex-grow h-full min-w-0 flex flex-col justify-center pt-1">
                         <GridCell isEditable value={localTask.title} onChange={(v) => onUpdate({ title: v })} className={cn('font-bold pr-0 h-auto', localTask.flagged && 'line-through text-muted-foreground decoration-border')} placeholder='Task Title' />
-                        {localTask.createdAt && (
-                            <div className="px-3 -mt-1.5 pb-1 opacity-30">
-                                <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                                    Created {format(localTask.createdAt.seconds ? new Date(localTask.createdAt.seconds * 1000) : new Date(localTask.createdAt), "MMM d, h:mm a")}
-                                </span>
-                            </div>
-                        )}
+                        {(() => {
+                            if (!localTask.createdAt) return null;
+                            try {
+                                const date = localTask.createdAt.seconds 
+                                    ? new Date(localTask.createdAt.seconds * 1000) 
+                                    : (localTask.createdAt.toDate ? localTask.createdAt.toDate() : new Date(localTask.createdAt));
+                                
+                                if (isNaN(date.getTime())) return null;
+
+                                return (
+                                    <div className="px-3 -mt-1.5 pb-1 opacity-30">
+                                        <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
+                                            Created {format(date, "MMM d, h:mm a")}
+                                        </span>
+                                    </div>
+                                );
+                            } catch (e) {
+                                return null;
+                            }
+                        })()}
                     </div>
                     <div className='w-12 flex-shrink-0 h-full flex items-center justify-center border-l border-transparent group-hover:border-border/40 transition-colors'>
                         <button onClick={() => canEnhance && handleEnhanceTask(task.id)} disabled={!canEnhance} className='p-1 rounded-md transition-colors disabled:text-muted-foreground/20 disabled:cursor-not-allowed text-primary/70 hover:text-primary enabled:hover:bg-primary/10' title={canEnhance ? 'Enhance with AI' : 'Write a longer title or description to enable AI'} >

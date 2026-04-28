@@ -273,13 +273,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
             createdAt: entity.createdAt.includes('Z') ? entity.createdAt : serverTimestamp(),
           });
           
-          if (id.length > 36) { 
-             const newDoc = await addDoc(collection(db, `organizations/${orgId}/crm_entities`), firestoreData);
-             deleteStoreEntity(id);
-             addStoreEntity({ ...entity, id: newDoc.id });
-          } else {
-             await updateDoc(entityRef, firestoreData);
-          }
+          // Use setDoc with merge: true for all syncs. 
+          // This creates the document if it doesn't exist (e.g. for new UUIDs) 
+          // or updates it if it does.
+          await setDoc(entityRef, firestoreData, { merge: true });
+          
           markSynced(id);
         } catch (e) {
           console.error("Sync failed for", id, e);

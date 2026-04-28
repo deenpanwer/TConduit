@@ -369,54 +369,70 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       deadlineHours: number = 0,
       subtasks: Subtask[] = [],
       resources: Resource[] = [],
-          attachments: Attachment[] = [],
-          voiceNotes: Attachment[] = [],
-          nestedDescriptions: NestedDescription[] = [],
-          images: NestedImage[] = [],
-          groupId?: string
-        ): Promise<string | null> => {
-          console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks, groupId });
-          
-          if (!orgId || !user) {
-            console.error("useTasks: Missing orgId or user");
-            return null;
-          }
-          if (!canManageTasks) {
-            console.error("useTasks: User does not have permission to manage tasks");
-            return null;
-          }
+      attachments: Attachment[] = [],
+      voiceNotes: Attachment[] = [],
+      nestedDescriptions: NestedDescription[] = [],
+      images: NestedImage[] = [],
+      groupId?: string
+    ): Promise<string | null> => {
+      console.log("useTasks: addTask called", { title, status, orgId, userId: user?.uid, canManageTasks, groupId });
       
-          const newTask: any = {
-            title,
-            description,
-            status,
-            priority,
-            assignees,
-            subtasks,
-            resources,
-            attachments,
-            voiceNotes,
-            nestedDescriptions,
-            images,
-            groupId,
-            comments: [],
-            tags: [],
-            flagged: false,
-            isDeleted: false,
-            leaderPoints,
-            deadlineHours,
-            history: [
-                {
-                    id: Date.now().toString(),
-                    userId: user.uid,
-                    action: 'created',
-                    details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length, groupId },
-                    createdAt: new Date(),
-                }
-            ],
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
+      if (!orgId || !user) {
+        console.error("useTasks: Missing orgId or user");
+        return null;
+      }
+      if (!canManageTasks) {
+        console.error("useTasks: User does not have permission to manage tasks");
+        return null;
+      }
+
+      const deepClean = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map((v: any) => deepClean(v));
+        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+          return Object.entries(obj).reduce((acc: any, [key, value]) => {
+            if (value !== undefined) acc[key] = deepClean(value);
+            return acc;
+          }, {} as any);
+        }
+        return obj === undefined ? null : obj;
+      };
+  
+      const rawTask: any = {
+        title,
+        description,
+        status,
+        priority,
+        assignees,
+        subtasks,
+        resources,
+        attachments,
+        voiceNotes,
+        nestedDescriptions,
+        images,
+        groupId,
+        comments: [],
+        tags: [],
+        flagged: false,
+        isDeleted: false,
+        leaderPoints,
+        deadlineHours,
+        history: [
+            {
+                id: Date.now().toString(),
+                userId: user.uid,
+                action: 'created',
+                details: { title, status, description, priority, assignees, leaderPoints, deadlineHours, subtasksCount: subtasks.length, resourcesCount: resources.length, attachmentsCount: attachments.length, voiceNotesCount: voiceNotes.length, nestedDescriptionsCount: nestedDescriptions.length, imagesCount: images.length, groupId },
+                createdAt: new Date(),
+            }
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: user.uid,
+      };
+
+      const newTask = deepClean(rawTask);
+
       try {
         const tasksCollection = collection(db, "organizations", orgId, "tasks");
         const docRef = await addDoc(tasksCollection, newTask);
@@ -426,23 +442,23 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         if (assignees.length > 0) {
           assignees.forEach(assigneeId => {
             if (assigneeId !== user.uid) {
-              fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId: assigneeId,
-                  title: `New Task Assigned`,
-                  body: `You've been assigned to: "${title}"`,
-                  data: { taskId: docRef.id }
-                })
-              });
+               fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: assigneeId,
+                        title: `New task assigned: "${title}"`,
+                        body: `Priority: ${priority}`,
+                        data: { taskId: docRef.id }
+                    })
+                });
             }
           });
         }
 
         return docRef.id;
       } catch (error) {
-        console.error("Error adding task: ", error);
+        console.error("useTasks: Error adding task:", error);
         return null;
       }
     },
@@ -680,6 +696,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const tasksCollection = collection(db, "organizations", orgId, "tasks");
     
+    // We'll use a ref to track the unsubscribe function so we can clean it up safely
+    let unsubscribe: () => void = () => {};
+
     // Fetch org data to check for departments
     getDoc(doc(db, "organizations", orgId)).then(orgDoc => {
       const orgData = orgDoc.data();
@@ -689,14 +708,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       // If Manager and Org has departments, restrict to their dept + unassigned
       if (userRole === 'manager' && hasDepartments && userData?.department && !(userData?.ownedOrgId)) {
+        const dept = userData.department || "unassigned";
         q = query(
           tasksCollection, 
           where("isDeleted", "==", false), 
-          where("department", "in", [userData.department, "unassigned"])
+          where("department", "in", [dept, "unassigned"])
         );
       }
 
-      const unsubscribe = onSnapshot(
+      unsubscribe = onSnapshot(
         q,
         (snapshot) => {
           snapshot.docChanges().forEach((change) => {
@@ -720,15 +740,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       );
-      
-      // We need to return the unsubscribe function for the useEffect
-      return unsubscribe;
     });
 
-    // Cleanup: since the unsubscribe is async, we can't return it directly here.
-    // In a real production app, we would handle this with a ref.
-    return () => {};
-  }, [orgId, authLoading]);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [orgId, authLoading, userRole, userData?.department, userData?.ownedOrgId]);
 
   const updateTask = useCallback(
     async (taskId: string, updates: Partial<Task>, actionName: string = 'updated', skipHistory: boolean = false) => {

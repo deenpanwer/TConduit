@@ -43,7 +43,6 @@ import { TimelineView } from "@/components/tasks/TimelineView";
 
 function OnboardingContent() {
   const [step, setStep] = useState(1);
-  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const { user, userData, loading: authLoading, refreshUserData } = useAuth();
   const { addTask } = useTasks();
   const [finishing, setFinishing] = useState(false);
@@ -187,18 +186,34 @@ function OnboardingContent() {
     if (!taskData.title.trim() || !user) return;
     setFinishing(true);
     try {
-      await addTask(
-        taskData.title,
-        taskData.status,
-        taskData.description,
-        taskData.priority,
-        [user?.uid],
-        taskData.leaderPoints,
+      // Ensure subtasks have proper IDs and mapped descriptions
+      const finalizedSubtasks = (taskData.subtasks || []).map((st: any) => ({
+        ...st,
+        id: st.id || `st-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        completed: st.completed || false,
+        createdAt: st.createdAt || new Date()
+      }));
+
+      const taskId = await addTask(
+        taskData.title.trim(),
+        taskData.status || "todo",
+        taskData.description || "",
+        taskData.priority || "medium",
+        [user.uid],
+        taskData.leaderPoints || 100,
         4, // default hours
-        taskData.subtasks,
-        [], [], [],
-        taskData.nestedDescriptions
+        finalizedSubtasks,
+        [], // resources
+        [], // attachments
+        [], // voiceNotes
+        taskData.nestedDescriptions || [],
+        [], // images
+        undefined // groupId explicitly undefined (will be cleaned by useTasks)
       );
+
+      if (!taskId) {
+        throw new Error("Failed to create task in Firestore");
+      }
 
       // Mark tour as complete
       await updateDoc(doc(db, "users", user.uid), {
@@ -220,10 +235,10 @@ function OnboardingContent() {
       
       setTimeout(() => {
         router.push('/tasks?view=dashboard');
-      }, 2000);
+      }, 1500);
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to save workspace.");
+      console.error("Onboarding finish error:", err);
+      toast.error("Failed to save workspace. Please try again.");
     } finally {
       setFinishing(false);
     }
@@ -479,10 +494,11 @@ function OnboardingContent() {
       <div className="flex-1 h-full bg-slate-100 dark:bg-slate-900/50 relative overflow-hidden flex items-center justify-center z-10 sandbox-recessed p-12">
         {/* Global Stage Elements */}
         <button 
-          onClick={() => setSkipDialogOpen(true)}
-          className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl text-foreground"
+          onClick={handleFinish}
+          disabled={finishing}
+          className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl text-foreground disabled:opacity-50"
         >
-          Skip Tour <X size={14} />
+          {finishing ? <Loader2 className="animate-spin size-3" /> : <>Skip Tour <X size={14} /></>}
         </button>
 
         <div className="absolute top-8 left-8 z-50">
@@ -710,29 +726,6 @@ function OnboardingContent() {
           </AnimatePresence>
         </div>
       </div>
-
-      <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
-        <AlertDialogContent className="rounded-[2rem] border-border/40 bg-card p-10 max-w-md">
-          <AlertDialogHeader className="space-y-4">
-            <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-2">
-              <Sparkles size={32} />
-            </div>
-            <AlertDialogTitle className="text-3xl font-black uppercase tracking-tighter">Skip Architecting?</AlertDialogTitle>
-            <AlertDialogDescription className="text-base font-medium text-muted-foreground leading-relaxed">
-              This journey is designed to optimize your workflow. Are you sure you want to skip the setup?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-10 gap-3">
-            <AlertDialogCancel className="h-14 rounded-2xl border-border/40 text-[11px] font-black uppercase tracking-widest flex-1">Go Back</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleFinish}
-              className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white text-[11px] font-black uppercase tracking-widest flex-1 shadow-lg shadow-primary/20"
-            >
-              Skip Tour
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

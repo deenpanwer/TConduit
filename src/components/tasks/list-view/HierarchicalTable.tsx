@@ -220,6 +220,20 @@ export const HierarchicalTable = ({
         setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
+    const safeFormatDate = (dateVal: any) => {
+        if (!dateVal) return null;
+        try {
+            const date = dateVal.seconds 
+                ? new Date(dateVal.seconds * 1000) 
+                : (dateVal.toDate ? dateVal.toDate() : new Date(dateVal));
+            
+            if (isNaN(date.getTime())) return null;
+            return format(date, "MMM d, h:mm a");
+        } catch (e) {
+            return null;
+        }
+    };
+
     const handleItemQuickAdd = (itemId: string, subType: string) => {
         setExpandedIds(prev => ({ ...prev, [itemId]: true }));
         setItemActiveTypeToFocus(prev => ({ ...prev, [itemId]: subType }));
@@ -273,7 +287,7 @@ export const HierarchicalTable = ({
                                                     {item.createdAt && (
                                                         <div className="px-1 opacity-40 group-hover/item:opacity-70 transition-opacity">
                                                             <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                                                                {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                {safeFormatDate(item.createdAt)}
                                                             </span>
                                                         </div>
                                                     )}
@@ -289,7 +303,7 @@ export const HierarchicalTable = ({
                                                     {item.createdAt && (
                                                         <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
                                                             <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                                                                {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                {safeFormatDate(item.createdAt)}
                                                             </span>
                                                         </div>
                                                     )}
@@ -311,7 +325,7 @@ export const HierarchicalTable = ({
                                                         {item.createdAt && (
                                                             <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
                                                                 <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                                                                    {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                    {safeFormatDate(item.createdAt)}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -330,7 +344,7 @@ export const HierarchicalTable = ({
                                                         {item.createdAt && (
                                                             <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
                                                                 <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
-                                                                    {format(item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : new Date(item.createdAt), "MMM d, h:mm a")}
+                                                                    {safeFormatDate(item.createdAt)}
                                                                 </span>
                                                             </div>
                                                         )}
