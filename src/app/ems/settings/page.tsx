@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import { cn, getUserAvatar } from '@/lib/utils';
@@ -64,7 +64,7 @@ const DAYS = [
 ];
 
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const { user, userData, refreshUserData } = useAuth();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -1165,6 +1165,14 @@ export default function SettingsPage() {
           </Tabs>
         </div>
       </main>
-    </>
-  );
-}
+      </>
+      );
+      }
+
+      export default function SettingsPage() {
+      return (
+      <Suspense fallback={null}>
+      <SettingsPageContent />
+      </Suspense>
+      );
+      }
