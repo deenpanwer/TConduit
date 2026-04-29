@@ -199,7 +199,6 @@ const UnscheduledColumn = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (!canManage) return;
     const taskId = e.dataTransfer.getData("taskId");
     if (taskId) {
       onDateDrop(taskId, null); // Clear due date
@@ -213,7 +212,7 @@ const UnscheduledColumn = ({
         isMobile ? "min-w-full h-auto min-h-[140px]" : "min-w-[200px] flex-1 h-full",
         isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-secondary/10 border-transparent",
       )}
-      onDragOver={(e) => { e.preventDefault(); if (canManage) setIsDragOver(true); }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
     >
@@ -297,7 +296,6 @@ const TimelineDayColumn = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (!canManage) return;
     const taskId = e.dataTransfer.getData("taskId");
     if (taskId) {
       onDateDrop(taskId, date);
@@ -312,7 +310,7 @@ const TimelineDayColumn = ({
         isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-transparent border-transparent",
         isToday && "bg-blue-100/20 border-blue-200/50"
       )}
-      onDragOver={(e) => { e.preventDefault(); if (canManage) setIsDragOver(true); }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
     >

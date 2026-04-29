@@ -60,6 +60,17 @@ export function UnifiedDashboard({ selectedModules }: { selectedModules: string[
   const activeModuleData = MODULE_CONFIG.find(m => m.id === activeModule);
 
   const renderContent = () => {
+    if (!orgData && activeModule !== "tasks") {
+      return (
+        <div className="flex-1 p-8 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <Shimmer key={i} className="h-32 w-full rounded-2xl" />)}
+          </div>
+          <Shimmer className="h-96 w-full rounded-[2.5rem]" />
+        </div>
+      );
+    }
+
     switch (activeModule) {
       case "ems":
         return (

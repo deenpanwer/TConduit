@@ -287,7 +287,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const userRole = userData?.role?.toLowerCase();
-  const canManageTasks = userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops';
+  const canManageTasks = !!(userData?.ownedOrgId) || userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops';
 
   // Load drafts and pending updates from localStorage
   useEffect(() => {
@@ -671,7 +671,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [orgId, canManageTasks, tasks]);
 
   useEffect(() => {
-    if (!orgId) return;
+    if (!orgId || typeof orgId !== 'string' || orgId.length < 5) return;
 
     const groupsCollection = collection(db, "organizations", orgId, "taskGroups");
     const q = query(groupsCollection);
@@ -682,13 +682,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
             ...doc.data()
         })) as TaskGroup[];
         setGroups(updatedGroups.sort((a, b) => a.order - b.order));
+    }, (error) => {
+        console.error("TaskGroups snapshot error:", error);
     });
 
     return () => unsubscribe();
   }, [orgId]);
 
   useEffect(() => {
-    if (!orgId) {
+    if (!orgId || typeof orgId !== 'string' || orgId.length < 5) {
       if (!authLoading) setLoading(false);
       return;
     }
@@ -736,10 +738,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         },
         (error) => {
-          console.error("Error fetching tasks:", error);
+          console.error("Tasks snapshot error:", error);
           setLoading(false);
         }
       );
+    }).catch(err => {
+        console.error("Error fetching org for tasks:", err);
+        setLoading(false);
     });
 
     return () => {

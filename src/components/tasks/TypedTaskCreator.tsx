@@ -600,9 +600,10 @@ export function TypedTaskCreator({
                 {Object.entries(PRIORITIES).map(([key, val]) => (
                   <DropdownMenuItem
                     key={key}
-                    onClick={() =>
-                      onUpdateTask("new", { priority: key as Priority })
-                    }
+                    onClick={() => {
+                      const taskId = (editingNewTask as any)?.id || "new";
+                      onUpdateTask(taskId, { priority: key as Priority });
+                    }}
                   >
                     <div
                       className={cn("w-2 h-2 rounded-full mr-2", val.color)}
@@ -611,8 +612,8 @@ export function TypedTaskCreator({
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
-            </DropdownMenu>
-            <Popover>
+              </DropdownMenu>
+              <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
@@ -633,16 +634,16 @@ export function TypedTaskCreator({
                       ? new Date(editingNewTask.dueDate)
                       : undefined
                   }
-                  onSelect={(date) =>
-                    onUpdateTask("new", {
+                  onSelect={(date) => {
+                    const taskId = (editingNewTask as any)?.id || "new";
+                    onUpdateTask(taskId, {
                       dueDate: date ? date.toISOString() : undefined,
-                    })
-                  }
+                    });
+                  }}
                   initialFocus
                 />
               </PopoverContent>
-            </Popover>
-          </div>
+              </Popover>          </div>
 
           <div className="flex items-center gap-2">
             <Button

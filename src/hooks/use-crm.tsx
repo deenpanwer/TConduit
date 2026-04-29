@@ -21,6 +21,13 @@ import {
   QueryConstraint
 } from "firebase/firestore";
 import { useCRMStore, CRMEntity as StoreEntity } from "@/store/use-crm-store";
+import { 
+  FieldConfig, 
+  ViewConfig, 
+  ModuleConfig, 
+  CRMConfig,
+  DEFAULT_CONFIG 
+} from "@/store/crm-types";
 
 /**
  * RECURSIVE UTILITY: Removes undefined values from an object.
@@ -45,45 +52,8 @@ const cleanObject = (obj: any): any => {
 
 export type CRMEntity = StoreEntity;
 
-export interface FieldConfig {
-  id: string;
-  key: string;
-  label: string;
-  description?: string;
-  type: 'text' | 'number' | 'select' | 'date' | 'currency' | 'email' | 'phone' | 'textarea' | 'checkbox' | 'timeline' | 'link' | 'people' | 'label' | 'file';
-  isSystem: boolean;
-  isVisible: boolean;
-  order: number;
-  options?: { label: string; value: string; color?: string }[];
-}
-
-export interface ViewConfig {
-  id: string;
-  name: string;
-  type: 'kanban' | 'list';
-  visibleFields: string[];
-  kanbanFieldId?: string;
-  sortBy?: { fieldId: string; direction: 'asc' | 'desc' };
-}
-
-export interface ModuleConfig {
-  name: string;
-  description: string;
-  fields: FieldConfig[];
-  views: ViewConfig[];
-}
-
-export interface CRMConfig {
-  modules: {
-    leads: ModuleConfig;
-    organizations: ModuleConfig;
-    contacts: ModuleConfig;
-    deals: ModuleConfig;
-    calls: ModuleConfig;
-    notes: ModuleConfig;
-    invoices: ModuleConfig;
-  };
-}
+// Re-export types for backward compatibility
+export type { FieldConfig, ViewConfig, ModuleConfig, CRMConfig };
 
 export interface EntityHistory {
   id: string;
@@ -119,90 +89,14 @@ interface CRMContextType {
   updateModuleConfig: (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => Promise<void>;
 }
 
-const DEFAULT_CONFIG: CRMConfig = {
-  modules: {
-    leads: {
-      name: "Leads",
-      description: "People who might buy from you but aren't customers yet.",
-      fields: [
-        { id: 'f1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
-        { id: 'f_last', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
-        { id: 'f2', key: 'company', label: 'Organization', type: 'text', isSystem: true, isVisible: true, order: 2 },
-        { id: 'f5', key: 'status', label: 'Status', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
-          { label: 'New', value: 'new', color: 'blue' },
-          { label: 'Talking', value: 'contacted', color: 'yellow' },
-          { label: 'Qualified', value: 'qualified', color: 'purple' },
-        ]},
-        { id: 'f6', key: 'priority', label: 'Priority', type: 'select', isSystem: true, isVisible: true, order: 4, options: [
-          { label: 'Low', value: 'low', color: 'gray' },
-          { label: 'Medium', value: 'medium', color: 'orange' },
-          { label: 'High', value: 'high', color: 'red' },
-        ]},
-        { id: 'f_val', key: 'estimatedValue', label: 'Est. Value', type: 'currency', isSystem: true, isVisible: true, order: 5 },
-      ],
-      views: [
-        { id: 'v2', name: 'List', type: 'list', visibleFields: ['f1', 'f_last', 'f2', 'f5', 'f6', 'f_val'] },
-      ]
-    },
-    deals: {
-      name: "Deals",
-      description: "Active business opportunities.",
-      fields: [
-        { id: 'd1', key: 'name', label: 'Deal Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
-        { id: 'd_org', key: 'organization', label: 'Organization', type: 'text', isSystem: true, isVisible: true, order: 1 },
-        { id: 'd_rev', key: 'annualRevenue', label: 'Value', type: 'currency', isSystem: true, isVisible: true, order: 2 },
-        { id: 'd_status', key: 'status', label: 'Status', type: 'select', isSystem: true, isVisible: true, order: 3, options: [
-          { label: 'Qualification', value: 'qualification', color: 'blue' },
-          { label: 'Negotiation', value: 'negotiation', color: 'purple' },
-          { label: 'Won', value: 'won', color: 'green' },
-          { label: 'Lost', value: 'lost', color: 'red' },
-        ]},
-      ],
-      views: [
-        { id: 'dv2', name: 'All Deals', type: 'list', visibleFields: ['d1', 'd_org', 'd_rev', 'd_status'] },
-      ]
-    },
-    organizations: {
-      name: "Organizations",
-      description: "Companies you do business with.",
-      fields: [
-        { id: 'o1', key: 'name', label: 'Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
-        { id: 'o2', key: 'website', label: 'Website', type: 'link', isSystem: true, isVisible: true, order: 1 },
-        { id: 'o3', key: 'industry', label: 'Industry', type: 'select', isSystem: true, isVisible: true, order: 2, options: [
-          { label: 'Tech', value: 'tech' }, { label: 'Finance', value: 'finance' }, { label: 'Retail', value: 'retail' }
-        ]},
-      ],
-      views: [
-        { id: 'ov1', name: 'All Organizations', type: 'list', visibleFields: ['o1', 'o2', 'o3'] },
-      ]
-    },
-    contacts: {
-      name: "Contacts",
-      description: "People at the companies.",
-      fields: [
-        { id: 'c1', key: 'firstName', label: 'First Name', type: 'text', isSystem: true, isVisible: true, order: 0 },
-        { id: 'c2', key: 'lastName', label: 'Last Name', type: 'text', isSystem: true, isVisible: true, order: 1 },
-        { id: 'c3', key: 'email', label: 'Email', type: 'email', isSystem: true, isVisible: true, order: 2 },
-        { id: 'c4', key: 'mobile', label: 'Phone', type: 'phone', isSystem: true, isVisible: true, order: 3 },
-      ],
-      views: [
-        { id: 'cv1', name: 'List', type: 'list', visibleFields: ['c1', 'c2', 'c3', 'c4'] },
-      ]
-    },
-    calls: { name: "Calls", description: "Logs", fields: [], views: [] },
-    notes: { name: "Notes", description: "Thoughts", fields: [], views: [] },
-    invoices: { name: "Invoices", description: "Billing", fields: [], views: [] },
-  }
-};
-
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
 export function CRMProvider({ children }: { children: React.ReactNode }) {
   const { user, userData } = useAuth();
-  const [config, setConfig] = useState<CRMConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(1000);
   
+  // Zustand Store
   const entitiesMap = useCRMStore(state => state.entities);
   const setStoreEntities = useCRMStore(state => state.setEntities);
   const updateStoreEntity = useCRMStore(state => state.updateEntityLocal);
@@ -210,6 +104,10 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const deleteStoreEntity = useCRMStore(state => state.deleteEntityLocal);
   const markSynced = useCRMStore(state => state.markSynced);
   const dirtyIds = useCRMStore(state => state.dirtyIds);
+
+  const config = useCRMStore(state => state.config);
+  const updateModuleConfigLocal = useCRMStore(state => state.updateModuleConfigLocal);
+  const setGlobalConfig = useCRMStore(state => state.setGlobalConfig);
 
   const getOrgId = useCallback(() => userData?.ownedOrgId || userData?.orgId, [userData]);
 
@@ -219,10 +117,29 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [entitiesMap]);
 
+  // Load Config from Firestore
   useEffect(() => {
     const orgId = getOrgId();
-    if (!orgId) {
-      setLoading(false);
+    if (!orgId || typeof orgId !== 'string' || orgId.length < 5) return;
+
+    const configRef = doc(db, `organizations/${orgId}/crm_config`, "main");
+    const unsubscribe = onSnapshot(configRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as CRMConfig;
+        setGlobalConfig(data);
+      }
+    }, (error) => {
+      console.error("Config snapshot error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [getOrgId, setGlobalConfig]);
+
+  // Load Entities from Firestore
+  useEffect(() => {
+    const orgId = getOrgId();
+    if (!orgId || typeof orgId !== 'string' || orgId.length < 5) {
+      if (!orgId) setLoading(false);
       return;
     }
 
@@ -245,6 +162,9 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       });
       setStoreEntities(docs);
       setLoading(false);
+    }, (error) => {
+      console.error("Entities snapshot error:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -252,6 +172,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
   const syncingIdsRef = useRef<Set<string>>(new Set());
 
+  // Sync Entities to Firestore
   useEffect(() => {
     const orgId = getOrgId();
     if (!orgId || !user || dirtyIds.size === 0) return;
@@ -273,11 +194,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
             createdAt: entity.createdAt.includes('Z') ? entity.createdAt : serverTimestamp(),
           });
           
-          // Use setDoc with merge: true for all syncs. 
-          // This creates the document if it doesn't exist (e.g. for new UUIDs) 
-          // or updates it if it does.
           await setDoc(entityRef, firestoreData, { merge: true });
-          
           markSynced(id);
         } catch (e) {
           console.error("Sync failed for", id, e);
@@ -321,6 +238,36 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     updateStoreEntity(id, { isDeleted: true });
   };
 
+  const updateModuleConfig = async (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => {
+    const orgId = getOrgId();
+    if (!orgId) return;
+
+    // 1. Update local store for instant UI feedback
+    updateModuleConfigLocal(module, updates);
+
+    // 2. Sync to Firestore in background
+    try {
+      const configRef = doc(db, `organizations/${orgId}/crm_config`, "main");
+      
+      // Get the full latest config from store (after the local update above)
+      // Note: Zustand state update might be async, so we manually merge for the write
+      const newConfig = {
+        ...config,
+        modules: {
+          ...config.modules,
+          [module]: {
+            ...config.modules[module],
+            ...updates
+          }
+        }
+      };
+
+      await setDoc(configRef, cleanObject(newConfig), { merge: true });
+    } catch (e) {
+      console.error("Failed to sync CRM config:", e);
+    }
+  };
+
   const leads = useMemo(() => allEntities.filter(e => e.type === 'lead'), [allEntities]);
   const organizations = useMemo(() => allEntities.filter(e => e.type === 'organization'), [allEntities]);
   const contacts = useMemo(() => allEntities.filter(e => e.type === 'contact'), [allEntities]);
@@ -335,7 +282,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       config, loading, isSyncing: dirtyIds.size > 0, pageSize, setPageSize,
       addEntity, updateEntity, updateEntityField: (id, key, val) => updateEntity(id, { [key]: val }),
       addActivity: async () => {}, deleteEntity, restoreEntity: async (id) => updateEntity(id, { isDeleted: false }),
-      updateModuleConfig: async () => {} 
+      updateModuleConfig
     }}>
       {children}
     </CRMContext.Provider>

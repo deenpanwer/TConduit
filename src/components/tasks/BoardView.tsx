@@ -783,7 +783,7 @@ export function BoardView({
                 column={column}
                 tasks={tasks.filter(t => 
                   column.id === 'done' 
-                    ? (t.status === 'done' || t.flagged)
+                    ? t.status === 'done'
                     : (t.status === column.id && !t.flagged)
                 )}
                 onTaskClick={onTaskClick}

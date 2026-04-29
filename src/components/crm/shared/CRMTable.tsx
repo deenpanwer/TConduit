@@ -60,7 +60,6 @@ export function CRMTable({
   const [tableColor] = useState(() => STRIP_COLORS[Math.floor(Math.random() * STRIP_COLORS.length)]);
   const lightTableColor = useMemo(() => lightenHexColor(tableColor, 75), [tableColor]);
 
-  const [orderedFieldIds, setOrderedFieldIds] = useState<string[]>([]);
   const [newOptionValue, setNewOptionValue] = useState("");
   const [activeFieldIdForOption, setActiveFieldIdForOption] = useState<string | null>(null);
   const [dropdownSearch, setDropdownSearch] = useState("");
@@ -68,20 +67,16 @@ export function CRMTable({
 
   const view = useMemo(() => config.views.find(v => v.type === 'list') || config.views[0], [config.views]);
   
-  useEffect(() => {
-    setOrderedFieldIds(view.visibleFields);
-  }, [view.visibleFields]);
-
+  // DRIVE UI DIRECTLY FROM STORE CONFIG
   const displayFields = useMemo(() => {
-    const ids = orderedFieldIds.length > 0 ? orderedFieldIds : view.visibleFields;
-    return ids
+    return view.visibleFields
       .map(id => {
         const field = config.fields.find(f => f.id === id);
         if (!field || !field.isVisible) return null;
         return field;
       })
       .filter((f): f is FieldConfig => !!f);
-  }, [config.fields, view.visibleFields, orderedFieldIds]);
+  }, [config.fields, view.visibleFields]);
 
   const moveToNextCell = (id: string, currentFieldKey: string) => {
     const currentIndex = displayFields.findIndex(f => f.key === currentFieldKey);
@@ -99,7 +94,6 @@ export function CRMTable({
   };
 
   const handleCellSave = async (id: string, fieldKey: string, value: any) => {
-    // This now updates the Zustand store instantly
     await updateEntity(id, { [fieldKey]: value });
   };
 
@@ -108,7 +102,6 @@ export function CRMTable({
   const handleQuickAddChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     
-    // ZUSTAND BIRTH: This happens entirely in local state first
     if (val.length > 0 && !isCreatingRef.current) {
       isCreatingRef.current = true;
       const firstField = displayFields[0];
@@ -116,14 +109,12 @@ export function CRMTable({
       
       setQuickAddValue("");
 
-      // addEntity returns a UUID immediately from Zustand
       addEntity({ 
         name: val, 
         type: singularType as any,
         data: { [firstField.key]: val } 
       }).then(id => {
           if (id) {
-            // Because of the ID subscription, the new row appears and is focused instantly
             setEditingCell({ id, fieldKey: firstField.key });
           }
           isCreatingRef.current = false;
@@ -136,13 +127,13 @@ export function CRMTable({
   };
 
   const handleMoveColumn = (fieldId: string, direction: 'left' | 'right') => {
-    const currentIndex = orderedFieldIds.indexOf(fieldId);
+    const currentIndex = view.visibleFields.indexOf(fieldId);
     if (currentIndex === -1) return;
     const nextIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
-    if (nextIndex < 0 || nextIndex >= orderedFieldIds.length) return;
-    const newOrder = [...orderedFieldIds];
+    if (nextIndex < 0 || nextIndex >= view.visibleFields.length) return;
+    const newOrder = [...view.visibleFields];
     [newOrder[currentIndex], newOrder[nextIndex]] = [newOrder[nextIndex], newOrder[currentIndex]];
-    setOrderedFieldIds(newOrder);
+    
     updateConfig({ views: config.views.map(v => v.id === view.id ? { ...v, visibleFields: newOrder } : v) });
   };
 
@@ -180,7 +171,7 @@ export function CRMTable({
     if (template) {
         const existing = config.fields.find(f => f.key === template.key);
         if (existing) {
-            if (orderedFieldIds.includes(existing.id)) {
+            if (view.visibleFields.includes(existing.id)) {
                 toast.error("Column already exists in this view");
                 return;
             }
@@ -210,8 +201,7 @@ export function CRMTable({
         };
         newFields.push(finalField);
     }
-    const newVisible = [...orderedFieldIds, finalField.id];
-    setOrderedFieldIds(newVisible);
+    const newVisible = [...view.visibleFields, finalField.id];
     updateConfig({ 
         fields: newFields,
         views: config.views.map(v => v.id === view.id ? { ...v, visibleFields: newVisible } : v)
@@ -222,8 +212,7 @@ export function CRMTable({
     const field = config.fields.find(f => f.id === fieldId);
     if (!field) return;
     if (confirm(`Remove "${field.label}" from this view?`)) {
-        const newVisible = orderedFieldIds.filter(id => id !== fieldId);
-        setOrderedFieldIds(newVisible);
+        const newVisible = view.visibleFields.filter(id => id !== fieldId);
         const updates: Partial<ModuleConfig> = {
             views: config.views.map(v => v.id === view.id ? { ...v, visibleFields: newVisible } : v)
         };
@@ -248,17 +237,17 @@ export function CRMTable({
               handleRenameColumn={handleRenameColumn}
               setEditingDescriptionFieldId={setEditingDescriptionFieldId}
               setDescriptionValue={setDescriptionValue}
-              orderedFieldIds={orderedFieldIds}
+              orderedFieldIds={view.visibleFields}
               handleMoveColumn={handleMoveColumn}
               handleDeleteColumn={handleDeleteColumn}
               handleAddColumn={handleAddColumn}
-              availableTemplates={config.fields.filter(f => f.isSystem && !orderedFieldIds.includes(f.id))}
+              availableTemplates={config.fields.filter(f => f.isSystem && !view.visibleFields.includes(f.id))}
             />
             <tbody>
               {entities.map((entity) => (
                 <CRMTableRow 
                   key={entity.id}
-                  entityId={entity.id} // ONLY pass ID
+                  entityId={entity.id}
                   isSelected={selectedIds.includes(entity.id)}
                   onSelect={onSelect}
                   displayFields={displayFields}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { CRMConfig, ModuleConfig, DEFAULT_CONFIG } from './crm-types';
 
 export interface CRMEntity {
   id: string;
@@ -16,6 +17,7 @@ export interface CRMEntity {
 
 interface CRMStore {
   entities: Record<string, CRMEntity>; // Map for O(1) access
+  config: CRMConfig;
   dirtyIds: Set<string>; // Tracking what needs to be synced
   
   // Actions
@@ -24,6 +26,10 @@ interface CRMStore {
   addEntityLocal: (entity: CRMEntity) => void;
   markSynced: (id: string) => void;
   deleteEntityLocal: (id: string) => void;
+  
+  // Config Actions
+  updateModuleConfigLocal: (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => void;
+  setGlobalConfig: (config: CRMConfig) => void;
   
   // Selectors
   getEntitiesArray: () => CRMEntity[];
@@ -34,6 +40,7 @@ export const useCRMStore = create<CRMStore>()(
   persist(
     (set, get) => ({
       entities: {},
+      config: DEFAULT_CONFIG,
       dirtyIds: new Set(),
 
       setEntities: (entitiesArray) => {
@@ -95,6 +102,23 @@ export const useCRMStore = create<CRMStore>()(
         });
       },
 
+      updateModuleConfigLocal: (module, updates) => {
+        set((state) => ({
+          config: {
+            ...state.config,
+            modules: {
+              ...state.config.modules,
+              [module]: {
+                ...state.config.modules[module],
+                ...updates
+              }
+            }
+          }
+        }));
+      },
+
+      setGlobalConfig: (config) => set({ config }),
+
       getEntitiesArray: () => {
         return Object.values(get().entities).sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -106,8 +130,8 @@ export const useCRMStore = create<CRMStore>()(
     {
       name: 'trac-crm-storage',
       storage: createJSONStorage(() => localStorage),
-      // Only persist entities, not the dirtyIds set (sets are hard to JSONify anyway)
-      partialize: (state) => ({ entities: state.entities }),
+      // Persist both entities and config
+      partialize: (state) => ({ entities: state.entities, config: state.config }),
     }
   )
 );

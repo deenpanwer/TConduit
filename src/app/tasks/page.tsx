@@ -472,7 +472,9 @@ function TasksPageContent() {
         editingNewTask.attachments || [],
         editingNewTask.voiceNotes || [],
         editingNewTask.nestedDescriptions || [],
-        editingNewTask.images || []
+        editingNewTask.images || [],
+        undefined, // groupId
+        editingNewTask.dueDate
       );
 
       if (newId) {
@@ -676,8 +678,12 @@ function TasksPageContent() {
             onTaskClick={setSelectedTaskId}
             onDeleteTask={handleDeleteTaskLocal}
             onDropTask={(taskId, status) => {
-               if (status === 'done') triggerBigConfetti();
-               updateTask(taskId, { status });
+               if (status === 'done') {
+                 triggerBigConfetti();
+                 updateTask(taskId, { status, flagged: true });
+               } else {
+                 updateTask(taskId, { status, flagged: false });
+               }
             }}
             onQuickAdd={(status, title) => addTask(title, status)}
             onAddClick={handleAddNewTaskClick}

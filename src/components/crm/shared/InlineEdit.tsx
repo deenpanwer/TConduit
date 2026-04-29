@@ -48,7 +48,13 @@ export function InlineEdit({
   useEffect(() => {
     if (isEditing && inputRef.current && type !== 'select') {
       inputRef.current.focus();
-      if (type !== 'date') inputRef.current.select();
+      if (type !== 'date') {
+        try {
+          inputRef.current.select();
+        } catch (e) {
+          // select() might fail on some input types in some browsers
+        }
+      }
     }
   }, [isEditing, type]);
 

@@ -13,7 +13,7 @@ const FeaturesHero = () => {
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 rounded-full blur-[80px] opacity-40" />
           
           <Image
-            src="/feature/hero-image.jfif"
+            src="/feature/hero-image.jpg"
             alt="Trac AI Features Overview"
             fill
             className="object-contain"

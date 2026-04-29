@@ -37,8 +37,13 @@ export const TableCellEditor = ({
       const frame = requestAnimationFrame(() => {
         if (inputRef.current) {
           inputRef.current.focus({ preventScroll: true });
-          const len = inputRef.current.value.length;
-          inputRef.current.setSelectionRange(len, len);
+          try {
+            const len = inputRef.current.value.length;
+            inputRef.current.setSelectionRange(len, len);
+          } catch (e) {
+            // setSelectionRange is not supported for all input types (e.g. email, number)
+            // and throws InvalidStateError in some browsers. We can safely ignore it.
+          }
         }
       });
       return () => cancelAnimationFrame(frame);

@@ -173,6 +173,13 @@ export function TasksDashboardContent({ onTaskClick }: { onTaskClick?: (taskId: 
   }, [tasks]);
 
   const heatmapData = useMemo(() => {
+    if (!tasks || tasks.length === 0) {
+      return Array.from({ length: 7 }, (_, i) => ({
+        label: format(subDays(now, 6 - i), "EEE"),
+        count: 0,
+        percentage: 0
+      }));
+    }
     return Array.from({ length: 7 }, (_, i) => {
       const date = subDays(now, 6 - i);
       const dayTasks = tasks.filter(t => {

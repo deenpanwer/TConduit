@@ -182,6 +182,25 @@ function OnboardingContent() {
     }
   };
 
+  const handleSkip = async () => {
+    if (!user) return;
+    setFinishing(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        tasksTourCompleted: true,
+        updatedAt: new Date().toISOString()
+      });
+      await refreshUserData();
+      toast.success("Onboarding skipped");
+      router.push('/tasks?view=dashboard');
+    } catch (err) {
+      console.error("Skip error:", err);
+      toast.error("Failed to skip onboarding.");
+    } finally {
+      setFinishing(false);
+    }
+  };
+
   const handleFinish = async () => {
     if (!taskData.title.trim() || !user) return;
     setFinishing(true);
@@ -493,12 +512,11 @@ function OnboardingContent() {
       {/* RIGHT: LIVE STAGE (60%) */}
       <div className="flex-1 h-full bg-slate-100 dark:bg-slate-900/50 relative overflow-hidden flex items-center justify-center z-10 sandbox-recessed p-12">
         {/* Global Stage Elements */}
-        <button 
-          onClick={handleFinish}
+        <button
+          onClick={handleSkip}
           disabled={finishing}
           className="absolute top-8 right-8 z-50 flex items-center gap-3 px-5 py-2.5 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl text-foreground disabled:opacity-50"
-        >
-          {finishing ? <Loader2 className="animate-spin size-3" /> : <>Skip Tour <X size={14} /></>}
+        >          {finishing ? <Loader2 className="animate-spin size-3" /> : <>Skip Tour <X size={14} /></>}
         </button>
 
         <div className="absolute top-8 left-8 z-50">
