@@ -9,6 +9,7 @@ import { format, parse, isSameDay, startOfMonth, endOfMonth, isValid } from "dat
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { cacheOrchestrator } from "@/lib/cache-orchestrator";
 import { isEmployeeOnline } from "@/lib/utils";
+import { generateDummyData } from "@/lib/dummy-data";
 
 /**
  * TeamContext: The Global Organization Data Orchestrator
@@ -181,6 +182,30 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const isToday = isSameDay(selectedDate, new Date());
 
+    // --- STEP 0: SYNC ORGANIZATION SETTINGS (DUMMY DATA FLAG) ---
+    const unsubOrg = onSnapshot(doc(db, "organizations", targetOrgId), (snap) => {
+      const orgData = snap.data();
+      const showDummy = orgData?.showDummyData;
+      
+      if (showDummy && isToday) {
+        const dummyPersonnel = generateDummyData(targetOrgId);
+        setPersonnelData(prev => ({
+          ...prev,
+          ...dummyPersonnel
+        }));
+        setLoading(false);
+      } else {
+        // Reactive Removal: Clear dummy data if the flag is disabled
+        setPersonnelData(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(key => {
+            if (key.startsWith('dummy_')) delete next[key];
+          });
+          return next;
+        });
+      }
+    });
+
     // --- HYBRID CACHE ORCHESTRATION ---
     // If viewing a past date, attempt to hydrate state from IndexedDB instantly.
     // This bypasses the network and provides a "Gem" like rapid-load experience.
@@ -341,6 +366,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      unsubOrg();
       unsubscribePersonnel();
     };
   }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners, selectedDate]);

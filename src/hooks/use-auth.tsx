@@ -149,6 +149,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * This effect handles the periodic heartbeat for the session.
+   * It updates the session document every 30 seconds with the latest 
+   * 'lastSeen' timestamp and the current calculated duration.
+   */
+  useEffect(() => {
+    if (!user || !sessionId.current) return;
+
+    const intervalId = setInterval(async () => {
+      const durationSeconds = Math.round((Date.now() - sessionStartTime.current) / 1000);
+      const sessionDocRef = doc(db, "users", user.uid, "sessions", sessionId.current!);
+      
+      try {
+        await updateDoc(sessionDocRef, {
+          lastSeen: serverTimestamp(),
+          durationSeconds: durationSeconds
+        });
+        
+        // Also update the main user doc with a "live" heartbeat
+        const userDocRef = doc(db, "users", user.uid);
+        await updateDoc(userDocRef, {
+          "heartbeat.lastActive": serverTimestamp(),
+          "heartbeat.isCurrentlyRunning": true
+        });
+      } catch (e) {
+        console.error("Heartbeat update failed:", e);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [user, sessionId.current]);
+
+  /**
    * This effect is responsible for logging the total duration of the user's session.
    * It attaches listeners to 'beforeunload' and 'visibilitychange' to robustly capture
    * when the user leaves the page. This is a "best-effort" attempt.

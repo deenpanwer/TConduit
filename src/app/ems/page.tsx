@@ -18,6 +18,7 @@ import { IntelligenceModal } from "@/components/ems/IntelligenceModal";
 import { BrainCircuit, Sparkles, ArrowRight, ShieldAlert, Plus as PlusIcon, Minus, Loader2, Trash2 } from "lucide-react";
 import { GlobalDateSelector } from "@/components/ems/shared/GlobalDateSelector";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { DummyDataTile } from "@/components/ems/DummyDataTile";
 
 
 export default function DashboardPage() {
@@ -173,6 +174,13 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
+
+      {orgData?.showDummyData && (
+        <DummyDataTile 
+          orgId={orgData.id} 
+          onRemove={() => setShowInviteModal(true)} 
+        />
+      )}
     </>
   );
 }

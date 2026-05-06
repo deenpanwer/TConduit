@@ -30,6 +30,8 @@ export async function GET() {
           orgName: data.orgName,
           totalVisits: data.totalVisits || 0,
           visits: data.visits || {},
+          whatsAppNumber: data.whatsAppNumber || data.whatsapp || null,
+          talked: data.talked || false,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
         };
@@ -77,6 +79,7 @@ export async function GET() {
           userId: doc.ref.parent.parent?.id,
           startTime: data.startTime?.toDate ? data.startTime.toDate().toISOString() : data.startTime,
           endTime: data.endTime?.toDate ? data.endTime.toDate().toISOString() : data.endTime,
+          lastSeen: data.lastSeen?.toDate ? data.lastSeen.toDate().toISOString() : data.lastSeen,
           initialLoadTimeMs: data.initialLoadTimeMs,
           durationSeconds: data.durationSeconds,
           pathname: data.pathname,
@@ -90,11 +93,43 @@ export async function GET() {
     }
 
     // 4. Merge and enrich data
-    const enrichedUsers = ownerUsers.map(user => {
+    const enrichedUsers = await Promise.all(ownerUsers.map(async (user) => {
       const orgData = user.ownedOrgId ? orgDataMap[user.ownedOrgId] : null;
       
-      // Calculate last activity from session if available
-      const userSessions = recentSessions.filter(s => s.userId === user.id);
+      // Attempt to get sessions from global top 50
+      let userSessions = recentSessions.filter(s => s.userId === user.id);
+      let totalSessionCount = user.totalVisits || 0;
+
+      // Always check for the latest session and count if we want reliable data from the "sessions folder"
+      try {
+        const personalSessionSnap = await adminDb.collection("users").doc(user.id).collection("sessions")
+          .orderBy("startTime", "desc")
+          .get();
+        
+        // Update the count based on actual sessions in the sub-collection
+        totalSessionCount = personalSessionSnap.size;
+
+        // If we didn't find any sessions in the global feed, or we want the freshest 5 for the owner
+        if (userSessions.length === 0 && personalSessionSnap.size > 0) {
+          const latestDoc = personalSessionSnap.docs[0];
+          const data = latestDoc.data();
+          userSessions = [{
+            id: latestDoc.id,
+            userId: user.id,
+            startTime: data.startTime?.toDate ? data.startTime.toDate().toISOString() : data.startTime,
+            endTime: data.endTime?.toDate ? data.endTime.toDate().toISOString() : data.endTime,
+            lastSeen: data.lastSeen?.toDate ? data.lastSeen.toDate().toISOString() : data.lastSeen,
+            initialLoadTimeMs: data.initialLoadTimeMs,
+            durationSeconds: data.durationSeconds,
+            pathname: data.pathname,
+            device: data.device || {},
+            pageViews: data.pageViews || {},
+          }];
+        }
+      } catch (e) {
+        console.error(`Failed to fetch personal sessions for ${user.id}`, e);
+      }
+
       const lastSession = userSessions[0];
       
       let lastActivity = user.updatedAt || user.createdAt || null;
@@ -111,9 +146,10 @@ export async function GET() {
         ...user,
         orgData,
         lastActivity,
-        recentSessions: userSessions // Attach relevant sessions to each owner
+        totalVisits: totalSessionCount, // Use the aggregated count from sessions folder
+        recentSessions: userSessions
       };
-    });
+    }));
 
     // Sort by last activity descending
     enrichedUsers.sort((a, b) => {

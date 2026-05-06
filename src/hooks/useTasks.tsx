@@ -194,6 +194,7 @@ const taskReducer = (state: Task[], action: Action): Task[] => {
 
 interface TasksContextType {
   tasks: Task[];
+  deletedTasks: Task[];
   groups: TaskGroup[];
   loading: boolean;
   drafts: Draft[];
@@ -202,12 +203,12 @@ interface TasksContextType {
   deleteDraft: (id: string) => void;
   finalizeDraft: (id: string) => Promise<string | null>;
   addTask: (
-    title: string, 
-    status: Status, 
-    description?: string, 
-    priority?: Priority, 
-    assignees?: string[], 
-    leaderPoints?: number, 
+    title: string,
+    status: Status,
+    description?: string,
+    priority?: Priority,
+    assignees?: string[],
+    leaderPoints?: number,
     deadlineHours?: number,
     subtasks?: Subtask[],
     resources?: Resource[],
@@ -219,6 +220,8 @@ interface TasksContextType {
   ) => Promise<string | null>;
   updateTask: (taskId: string, updates: Partial<Task>, action?: string, skipHistory?: boolean) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  restoreTask: (taskId: string) => Promise<void>;
+  permanentlyDeleteTask: (taskId: string) => Promise<void>;
   bulkUpdateTasks: (updates: Record<string, Partial<Task>>, actionName?: string) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
   addTaskGroup: (name: string) => Promise<string | null>;
@@ -230,6 +233,7 @@ interface TasksContextType {
 
 const TasksContext = createContext<TasksContextType>({
   tasks: [],
+  deletedTasks: [],
   groups: [],
   loading: true,
   drafts: [],
@@ -240,6 +244,8 @@ const TasksContext = createContext<TasksContextType>({
   addTask: async () => null,
   updateTask: async () => {},
   deleteTask: async () => {},
+  restoreTask: async () => {},
+  permanentlyDeleteTask: async () => {},
   bulkUpdateTasks: async () => {},
   addComment: async () => {},
   addTaskGroup: async () => null,
@@ -248,7 +254,6 @@ const TasksContext = createContext<TasksContextType>({
   canManageTasks: false,
   isSyncing: false,
 });
-
 // --- 4. Provider Component ---
 
 const SYNC_STORAGE_KEY = 'trac_pending_task_syncs';
@@ -266,7 +271,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const hasPending = useMemo(() => Object.keys(pendingUpdates).length > 0, [pendingUpdates]);
 
   // Optimistic UI: Merge remote tasks + local pending updates + ghost drafts
-  const tasks = useMemo(() => {
+  const { tasks, deletedTasks } = useMemo(() => {
     // 1. Process remote tasks with pending updates
     const mergedRemote = remoteTasks.map((task: Task) => {
         const pending = pendingUpdates[task.id];
@@ -276,13 +281,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         return task;
     });
 
-    // 2. Filter out deleted tasks
+    // 2. Filter into active and deleted
     const activeTasks = mergedRemote.filter(t => !t.isDeleted);
+    const softDeletedTasks = mergedRemote.filter(t => t.isDeleted);
 
-    // 3. For now, we only return Task objects. Drafts will be handled separately in the UI 
-    // or we can wrap them in a Task-like structure. 
-    // Let's keep them separate but provided via context for the QuickAdd rows to show them.
-    return activeTasks;
+    return { 
+        tasks: activeTasks, 
+        deletedTasks: softDeletedTasks 
+    };
   }, [remoteTasks, pendingUpdates]);
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
@@ -324,7 +330,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 (d.subtasks && d.subtasks.length > 0) ||
                 (d.resources && d.resources.length > 0) ||
                 (d.images && d.images.length > 0) ||
-                (d.nestedDescriptions && d.nestedDescriptions.length > 0)
+                (d.nestedDescriptions && d.nestedDescriptions.length > 0) ||
+                d.priority ||
+                d.dueDate ||
+                (d.status && d.status !== 'todo')
             );
         };
 
@@ -706,14 +715,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const orgData = orgDoc.data();
       const hasDepartments = (orgData?.departments?.length || 0) > 0;
       
-      let q = query(tasksCollection, where("isDeleted", "==", false));
+      let q = query(tasksCollection);
 
       // If Manager and Org has departments, restrict to their dept + unassigned
       if (userRole === 'manager' && hasDepartments && userData?.department && !(userData?.ownedOrgId)) {
         const dept = userData.department || "unassigned";
         q = query(
           tasksCollection, 
-          where("isDeleted", "==", false), 
           where("department", "in", [dept, "unassigned"])
         );
       }
@@ -756,7 +764,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     async (taskId: string, updates: Partial<Task>, actionName: string = 'updated', skipHistory: boolean = false) => {
       if (!orgId || !user) return;
 
-      const currentTask = tasks.find((t: Task) => t.id === taskId);
+      const currentTask = tasks.find((t: Task) => t.id === taskId) || deletedTasks.find((t: Task) => t.id === taskId);
       if (!currentTask) return;
 
       const cleanUpdates = { ...updates };
@@ -830,13 +838,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       // NOTE: History is omitted for minor "word-by-word" updates to avoid polluting the DB.
       // We only log history in flushUpdates if we want, or keep it simple.
     },
-    [orgId, user, tasks, awardPointsToUser]
+    [orgId, user, tasks, deletedTasks, awardPointsToUser]
   );
 
   const addComment = useCallback(
     async (taskId: string, text: string) => {
       if (!orgId || !user) return;
-      const currentTask = tasks.find((t: Task) => t.id === taskId);
+      const currentTask = tasks.find((t: Task) => t.id === taskId) || deletedTasks.find((t: Task) => t.id === taskId);
       if (!currentTask) return;
 
       const newComment: Comment = {
@@ -870,7 +878,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [orgId, user, tasks, updateTask]
+    [orgId, user, tasks, deletedTasks, updateTask]
   );
 
 
@@ -883,6 +891,30 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     [orgId, canManageTasks, updateTask]
   );
 
+  const restoreTask = useCallback(
+    async (taskId: string) => {
+      if (!orgId || !canManageTasks) return;
+      await updateTask(taskId, { isDeleted: false }, 'restored');
+    },
+    [orgId, canManageTasks, updateTask]
+  );
+
+  const permanentlyDeleteTask = useCallback(
+    async (taskId: string) => {
+      if (!orgId || !canManageTasks) return;
+      try {
+        const taskRef = doc(db, "organizations", orgId, "tasks", taskId);
+        await deleteDoc(taskRef);
+        dispatch({ type: "DELETE_TASK", taskId });
+        toast.success("Task permanently deleted");
+      } catch (e) {
+        console.error("Error permanently deleting task:", e);
+        toast.error("Failed to delete task permanently");
+      }
+    },
+    [orgId, canManageTasks]
+  );
+
   const bulkUpdateTasks = useCallback(
     async (updates: Record<string, Partial<Task>>, actionName: string = 'bulk_updated') => {
       if (!orgId || !user) return;
@@ -892,7 +924,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       Object.entries(updates).forEach(([taskId, taskUpdates]) => {
         const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
-        const currentTask = tasks.find((t: Task) => t.id === taskId);
+        const currentTask = tasks.find((t: Task) => t.id === taskId) || deletedTasks.find((t: Task) => t.id === taskId);
         
         if (currentTask) {
           const historyEntry = {
@@ -926,12 +958,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         toast.error("Failed to save some changes");
       }
     },
-    [orgId, user, tasks]
+    [orgId, user, tasks, deletedTasks]
   );
 
   return (
     <TasksContext.Provider
-      value={{ tasks, groups, loading, drafts, hasPending, updateDraft, deleteDraft, finalizeDraft, addTask, updateTask, deleteTask, bulkUpdateTasks, addComment, addTaskGroup, updateTaskGroup, deleteTaskGroup, canManageTasks, isSyncing }}
+      value={{ tasks, deletedTasks, groups, loading, drafts, hasPending, updateDraft, deleteDraft, finalizeDraft, addTask, updateTask, deleteTask, restoreTask, permanentlyDeleteTask, bulkUpdateTasks, addComment, addTaskGroup, updateTaskGroup, deleteTaskGroup, canManageTasks, isSyncing }}
     >
       {children}
     </TasksContext.Provider>

@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { 
-  Building2, ChevronRight, CheckCircle2, Loader2, 
+  Building2, ChevronRight, CheckCircle2, Loader2, Sparkles,
   Upload, Image as ImageIcon, Link as LinkIcon, Plus, MapPin, Phone, Pencil, User,
   ShoppingCart, ListTodo, Users, LayoutDashboard
 } from "lucide-react";
@@ -95,6 +96,7 @@ function OnboardingContent() {
     motivation: "",
     whatsapp: "",
     inviteCode: "",
+    showDummyData: true,
     shift: "8",
     workdays: [1, 2, 3, 4, 5],
     timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC",
@@ -252,7 +254,8 @@ function OnboardingContent() {
             createdAt: serverTimestamp(),
             settings: orgSettings,
             selectedModules: formData.modulePriorities, // Boss instructions: rank modules
-            modulePriorities: formData.modulePriorities
+            modulePriorities: formData.modulePriorities,
+            showDummyData: formData.showDummyData
           });
 
           // Attribution
@@ -285,6 +288,7 @@ function OnboardingContent() {
             settings: orgSettings, 
             selectedModules: formData.modulePriorities,
             modulePriorities: formData.modulePriorities,
+            showDummyData: formData.showDummyData,
             updatedAt: serverTimestamp()
           });
         }
@@ -619,6 +623,15 @@ function OnboardingContent() {
                       onChange={(e) => setFormData({ ...formData, motivation: e.target.value })}
                       className="min-h-[120px] rounded-2xl p-6 bg-background/50 resize-none border-border/50"
                     />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-secondary/30 p-4 border border-border/50">
+                      <Label htmlFor="dummy-data-toggle" className="font-bold">Enable Dummy Data</Label>
+                      <Switch
+                        id="dummy-data-toggle"
+                        checked={formData.showDummyData}
+                        onCheckedChange={(checked) => setFormData({ ...formData, showDummyData: checked })}
+                      />
                   </div>
                 </div>
 
@@ -1049,9 +1062,6 @@ function OnboardingContent() {
           </AnimatePresence>
         </div>
         
-        <p className="text-center mt-8 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-          Professional Performance Monitoring • v1.0
-        </p>
       </div>
 
       <style jsx global>{`

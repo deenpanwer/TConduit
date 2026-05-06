@@ -741,7 +741,8 @@ export const TaskRowMobile = ({
     onTaskClick,
     handleEnhanceTask,
     isEnhancing,
-    personnel
+    personnel,
+    isDraggable = true,
 }: { 
     task: Task, 
     localTask: Task, 
@@ -750,7 +751,8 @@ export const TaskRowMobile = ({
     onTaskClick: (taskId: string) => void,
     handleEnhanceTask: (id: string) => void,
     isEnhancing: boolean,
-    personnel: any[]
+    personnel: any[],
+    isDraggable?: boolean,
 }) => {
     const [expandedBranches, setExpandedBranches] = useState({ 
         subtasks: false, 
@@ -814,18 +816,11 @@ export const TaskRowMobile = ({
             toast.error('Failed to suggest subtask');
         }
     };
-
-    return (
-        <Reorder.Item 
-            value={task}
-            dragListener={false} 
-            dragControls={dragControls} 
-            layoutId={task.id} 
-            whileDrag={{ scale: 0.98, boxShadow: "0px 10px 30px rgba(0,0,0,0.2)", cursor: 'grabbing' }}
-            className="group flex flex-col bg-background/50 border border-border/40 rounded-2xl overflow-hidden shadow-sm transition-shadow"
-        >
+    
+    const content = (
+        <>
             <div className="flex items-center p-4 gap-3 relative">
-                <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab touch-none p-2 -ml-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"><GripVertical size={20} /></div>
+                {isDraggable && <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab touch-none p-2 -ml-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"><GripVertical size={20} /></div>}
 
                 <button 
                     onClick={() => {
@@ -944,6 +939,27 @@ export const TaskRowMobile = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-        </Reorder.Item>
+        </>
+    );
+
+    if (isDraggable) {
+        return (
+            <Reorder.Item 
+                value={task}
+                dragListener={false} 
+                dragControls={dragControls} 
+                layoutId={task.id} 
+                whileDrag={{ scale: 0.98, boxShadow: "0px 10px 30px rgba(0,0,0,0.2)", cursor: 'grabbing' }}
+                className="group flex flex-col bg-background/50 border border-border/40 rounded-2xl overflow-hidden shadow-sm transition-shadow"
+            >
+                {content}
+            </Reorder.Item>
+        );
+    }
+
+    return (
+        <div className="group flex flex-col bg-background/50 border border-border/40 rounded-2xl overflow-hidden shadow-sm transition-shadow">
+            {content}
+        </div>
     );
 };

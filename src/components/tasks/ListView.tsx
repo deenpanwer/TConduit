@@ -319,6 +319,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                                       handleEnhanceTask={handleEnhanceWithAI}
                                       isEnhancing={isEnhancing === task.id}
                                       personnel={personnel}
+                                      isDraggable={false}
                                   />
                               ))}
                           </div>
@@ -341,7 +342,10 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
           <div className="flex items-center gap-3">
               <SyncStatusPulse isSyncing={isSyncing} hasPending={hasPending} />
               
-              <DropdownMenu>
+              {/* 
+                // TODO: Re-enable this when the shortcuts are functional again.
+                // Currently, the "N" key for new task is not working as expected.
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-secondary/20">
                           <HelpCircle size={16} className="text-muted-foreground" />
@@ -367,7 +371,7 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                           </div>
                       </div>
                   </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu> */}
           </div>
       </div>
 

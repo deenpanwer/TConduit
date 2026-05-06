@@ -3,9 +3,8 @@
 import { cn } from "@/lib/utils";
 import { 
   ChevronsRight, ChevronsLeft, Moon, Sun,
-  LayoutDashboard, Briefcase, ShoppingCart, ListTodo,
-  ExternalLink, X, Settings2, Settings, Sparkles, CheckCircle2,
-  ChevronRight
+  LayoutDashboard, ExternalLink, X, Settings, Sparkles, CheckCircle2,
+  ChevronRight, SquarePen, History as HistoryIcon, MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,115 +13,51 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
-import { toast } from "sonner";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { useRouter, useParams } from "next/navigation";
 
 interface UnifiedSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (v: boolean) => void;
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
-  selectedModules: string[];
-  activeModule: string;
-  setActiveModule: (id: string) => void;
 }
-
-const MODULE_CONFIG = [
-  {
-    id: "ems",
-    title: "Employee Monitoring",
-    shortTitle: "EMS",
-    icon: LayoutDashboard,
-    href: "/ems",
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "crm",
-    title: "Customer Relations",
-    shortTitle: "CRM",
-    icon: Briefcase,
-    href: "/crm",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
-  },
-  {
-    id: "pos",
-    title: "Point of Sale System",
-    shortTitle: "POS",
-    icon: ShoppingCart,
-    href: "/pos/dashboard",
-    color: "text-orange-500",
-    bg: "bg-orange-500/10"
-  },
-  {
-    id: "tasks",
-    title: "Operations & Tasks",
-    shortTitle: "Tasks",
-    icon: ListTodo,
-    href: "/tasks",
-    color: "text-purple-500",
-    bg: "bg-purple-500/10"
-  }
-];
 
 export function UnifiedSidebar({
   isCollapsed,
   setIsCollapsed,
   isMobileSidebarOpen,
   setIsMobileSidebarOpen,
-  selectedModules,
-  activeModule,
-  setActiveModule
 }: UnifiedSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { userData } = useAuth();
+  const params = useParams();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [tempSelected, setTempSelected] = useState<string[]>(selectedModules);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
+  const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
-  useEffect(() => { setTempSelected(selectedModules); }, [selectedModules]);
+
+  // Fetch History
+  useEffect(() => {
+    const userId = userData?.uid;
+    if (userId) {
+        const chatsRef = collection(db, 'users', userId, 'chats');
+        const q = query(chatsRef, orderBy('updatedAt', 'desc'), limit(20));
+        
+        const unsub = onSnapshot(q, (snap) => {
+            setHistory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsub();
+    }
+  }, [userData?.uid]);
 
   if (!mounted) return null;
-
-  const modulesToShow = MODULE_CONFIG.filter(m => selectedModules.includes(m.id));
-
-  const handleSaveConfig = async () => {
-    if (tempSelected.length === 0) {
-      toast.error("Select at least one module");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const orgId = userData?.ownedOrgId || userData?.orgId;
-      if (orgId) {
-        await updateDoc(doc(db, "organizations", orgId), {
-          selectedModules: tempSelected
-        });
-        toast.success("Workspace updated");
-        setIsConfigOpen(false);
-        // Page will re-render due to parent listener or reload if needed
-        window.location.reload(); 
-      }
-    } catch (error) {
-      toast.error("Failed to update");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <>
@@ -133,61 +68,6 @@ export function UnifiedSidebar({
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
-
-      {/* Config Modal */}
-      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <DialogContent className="max-w-2xl bg-card border-border rounded-[2rem] overflow-hidden">
-          <DialogHeader className="p-8 pb-4">
-            <DialogTitle className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
-              <Settings2 className="text-primary" /> Configure Workspace
-            </DialogTitle>
-            <DialogDescription className="text-sm font-medium italic">
-              Select which modules appear in your unified dashboard hub.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-8 pt-0">
-            {MODULE_CONFIG.map((module) => {
-              const isSelected = tempSelected.includes(module.id);
-              const Icon = module.icon;
-              return (
-                <div 
-                  key={module.id}
-                  onClick={() => {
-                    setTempSelected(prev => 
-                      prev.includes(module.id) ? prev.filter(id => id !== module.id) : [...prev, module.id]
-                    );
-                  }}
-                  className={cn(
-                    "p-6 rounded-3xl border-2 transition-all cursor-pointer group",
-                    isSelected 
-                      ? "border-primary bg-primary/5" 
-                      : "border-border hover:border-primary/50 bg-secondary/20"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={cn("size-10 rounded-xl flex items-center justify-center", module.bg, module.color)}>
-                      <Icon size={20} />
-                    </div>
-                    {isSelected && <CheckCircle2 className="text-primary size-5" />}
-                  </div>
-                  <h4 className="font-black uppercase tracking-tight">{module.shortTitle}</h4>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">
-                    {module.title}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="p-8 bg-secondary/30 border-t flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setIsConfigOpen(false)} className="rounded-xl font-black uppercase text-[10px] tracking-widest">Cancel</Button>
-            <Button onClick={handleSaveConfig} disabled={isSaving} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-8">
-              {isSaving ? "Saving..." : "Apply Changes"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <div className={cn(
         "bg-card border-r transition-all duration-300 flex flex-col shrink-0 overflow-hidden h-screen sticky top-0",
@@ -210,113 +90,119 @@ export function UnifiedSidebar({
           )}
 
           {/* Logo Section */}
-          <div className="mb-10 pt-8 lg:pt-0 shrink-0 flex items-center gap-3 px-2">
+          <div className="mb-6 pt-8 lg:pt-0 shrink-0 flex items-center gap-3 px-2">
             <img src="/logo.svg" alt="Trac Logo" className="w-10 h-10 min-w-10 dark:invert shrink-0" />
             {(!isCollapsed || isMobileSidebarOpen) && (
               <div className="flex flex-col items-start min-w-0 text-left">
-                <span className="font-poppins font-black text-xl tracking-tighter uppercase leading-none">TRAC AI</span>
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em] mt-1">HUB</span>
+                <span className="font-poppins font-black text-2xl tracking-tighter uppercase leading-none">TRAC AI</span>
               </div>
             )}
           </div>
 
-          {/* Navigation */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-3">
-            <div className="px-3 mb-2">
-               {(!isCollapsed || isMobileSidebarOpen) && <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/30">Dashboards</span>}
-            </div>
-            {modulesToShow.map((module) => {
-              const Icon = module.icon;
-              const isActive = activeModule === module.id;
-              
-              return (
-                <div key={module.id} className="group relative flex items-center px-1">
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                         <button
-                          onClick={() => {
-                            setActiveModule(module.id);
-                            if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
-                          }}
-                          className={cn(
-                            "flex items-center gap-4 w-full p-4 rounded-3xl transition-all relative border",
-                            isActive
-                              ? "border-border bg-secondary/60 text-foreground shadow-inner-lg"
-                              : "border-transparent text-muted-foreground hover:bg-secondary/30 hover:border-border/20",
-                            (isCollapsed && !isMobileSidebarOpen) ? "justify-center p-3" : "px-4"
-                          )}
-                        >
-                          <div className={cn(
-                            "size-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
-                            isActive ? "bg-background/70" : "bg-secondary/50 group-hover:bg-secondary/80"
-                          )}>
-                            <Icon className={cn("size-5", isActive ? module.color : 'text-muted-foreground group-hover:text-foreground')} />
-                          </div>
-                          {(!isCollapsed || isMobileSidebarOpen) && (
-                            <div className="flex flex-col items-start overflow-hidden text-left">
-                              <span className="font-bold w-full text-sm whitespace-normal">{module.title}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{module.shortTitle}</span>
-                            </div>
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                        {module.title}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+          {/* Core Actions */}
+          <div className="space-y-2 mb-6 px-1">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => {
+                      router.push('/dashboard');
+                      if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-4 rounded-3xl transition-all border",
+                      !params.id 
+                        ? "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10" 
+                        : "border-transparent hover:border-border hover:bg-secondary/30 text-muted-foreground hover:text-foreground",
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center p-3" : "px-4"
+                    )}
+                  >
+                    <SquarePen className="size-5 shrink-0" />
+                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">New Chat</span>}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                  New Chat
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-                  {/* External Link Icon */}
-                  {(!isCollapsed || isMobileSidebarOpen) && (
-                    <TooltipProvider delayDuration={0}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(module.href, '_blank');
-                            }}
-                            className="absolute right-4 p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary hover:bg-primary/10 rounded-xl bg-card shadow-sm border"
-                          >
-                            <ExternalLink size={14} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">Full Module</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              );
-            })}
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => window.location.href = '/ems'}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-4 rounded-3xl transition-all border border-transparent hover:border-border hover:bg-secondary/30 text-muted-foreground hover:text-foreground",
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center p-3" : "px-4"
+                    )}
+                  >
+                    <LayoutDashboard className="size-5 shrink-0" />
+                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">EMS</span>}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                  Go to EMS
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Navigation / History */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-3">
+            <div className="px-3 flex items-center justify-between group cursor-pointer" onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}>
+               {(!isCollapsed || isMobileSidebarOpen) && (
+                 <>
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Recent History</span>
+                   <ChevronRight className={cn("size-3 text-muted-foreground/30 transition-transform", isHistoryExpanded && "rotate-90")} />
+                 </>
+               )}
+            </div>
+            
+            {isHistoryExpanded && (
+              <div className="space-y-1">
+                {history.length > 0 ? (
+                  history.map((chat) => (
+                    <button
+                      key={chat.id}
+                      onClick={() => {
+                        router.push(`/dashboard/c/${chat.id}`);
+                        if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 w-full p-3 rounded-2xl transition-all text-left group overflow-hidden",
+                        params.id === chat.id 
+                            ? "bg-secondary text-foreground border border-border/50" 
+                            : "text-muted-foreground hover:bg-secondary/30"
+                      )}
+                    >
+                      <MessageSquare className={cn("size-4 shrink-0 transition-colors", params.id === chat.id ? "text-primary" : "text-muted-foreground/30 group-hover:text-muted-foreground")} />
+                      {(!isCollapsed || isMobileSidebarOpen) && (
+                        <span className="text-xs font-medium truncate whitespace-nowrap overflow-hidden">
+                          {chat.title || 'Untitled Chat'}
+                        </span>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  (!isCollapsed || isMobileSidebarOpen) ? (
+                    <div className="px-3 py-8 text-center border-2 border-dashed border-border/20 rounded-3xl">
+                      <HistoryIcon className="size-8 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">No Recent Chats</p>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center">
+                      <HistoryIcon className="size-5 text-muted-foreground/20" />
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer Actions */}
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-3 shrink-0">
             
-            {/* Configure Button */}
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setIsConfigOpen(true)}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-primary/5 hover:text-primary group border border-transparent hover:border-primary/20",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-4"
-                    )}
-                  >
-                    <Settings2 className="size-5 shrink-0 transition-transform group-hover:rotate-90" />
-                    {(!isCollapsed || isMobileSidebarOpen) && (
-                      <span className="text-[10px] font-black uppercase tracking-widest">Workspace Config</span>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Manage Modules
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
             {/* Profile (Now also the Settings link) */}
             <TooltipProvider delayDuration={0}>
               <Tooltip>

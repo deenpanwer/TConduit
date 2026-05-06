@@ -46,6 +46,7 @@ import { IntelligenceModal } from "@/components/ems/IntelligenceModal";
 import { cn, isEmployeeOnline } from "@/lib/utils";
 import { GlobalDateSelector } from "@/components/ems/shared/GlobalDateSelector";
 import { AIPersonnelPulse } from "@/components/ems/employee/AIPersonnelPulse";
+import { DummyDataTile } from "@/components/ems/DummyDataTile";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -97,6 +98,17 @@ export default function EmployeeDetailPage() {
   const [showDeactivateEmployeeModal, setShowDeactivateEmployeeModal] = useState(false);
   const [showMemberAccessModal, setShowMemberAccessModal] = useState(false);
   const [selectedModalRole, setSelectedModalRole] = useState("");
+
+  useEffect(() => {
+    async function fetchOrgDetails() {
+      const targetOrgId = userData?.ownedOrgId || userData?.orgId;
+      if (targetOrgId) {
+        const orgDoc = await getDoc(doc(db, "organizations", targetOrgId));
+        if (orgDoc.exists()) setOrgData({ id: orgDoc.id, ...orgDoc.data() });
+      }
+    }
+    if (userData) fetchOrgDetails();
+  }, [userData]);
 
   // Helper to extract JS Date safely
   const getDate = (ts: any) => {
@@ -474,6 +486,13 @@ export default function EmployeeDetailPage() {
           )}
         </div>
       </main>
+
+      {orgData?.showDummyData && (
+        <DummyDataTile 
+          orgId={orgData.id} 
+          onRemove={() => setShowInviteModal(true)} 
+        />
+      )}
 
       {/* Edit Employee Modal */}
       <Dialog open={showEditEmployeeModal} onOpenChange={setShowEditEmployeeModal}>

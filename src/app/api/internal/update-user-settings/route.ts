@@ -22,7 +22,8 @@ export async function POST(req: Request) {
       'screenshotInterval', 
       'shiftSyncInterval', 
       'blurScreenshots',
-      'active'
+      'active',
+      'talked'
     ];
 
     const filteredUpdates: Record<string, any> = {};

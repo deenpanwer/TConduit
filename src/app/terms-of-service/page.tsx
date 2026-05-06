@@ -1,119 +1,184 @@
 import React from 'react';
+import Link from 'next/link';
+import { FileText, Shield, MapPin, Phone, Mail, Scale } from 'lucide-react';
 
 const TermsOfServicePage = () => {
   return (
-    <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-4 text-foreground">Terms of Service for Traconomics</h1>
-        <p className="text-muted-foreground mb-8">Last Updated: March 29, 2026</p>
-
-        <div className="prose dark:prose-invert max-w-none">
-          <p>
-            Please read these Terms of Service ("Terms", "Terms of Service") carefully before using the
-            traconomics.com website (the "Service") operated by Traconomics ("us", "we", or "our").
-          </p>
-
-          <p>
-            Your access to and use of the Service is conditioned on your acceptance of and compliance with
-            these Terms. These Terms apply to all visitors, users and others who access or use the
-            Service.
-          </p>
-
-          <p>
-            By accessing or using the Service you agree to be bound by these Terms. If you disagree with
-            any part of the terms then you may not access the Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Accounts</h2>
-
-          <p>
-            When you create an account with us, you must provide us information that is accurate,
-            complete, and current at all times. Failure to do so constitutes a breach of the Terms,
-            which may result in immediate termination of your account on our Service.
-          </p>
-
-          <p>
-            You are responsible for safeguarding the password that you use to access the Service and for
-            any activities or actions under your password, whether your password is with our Service or a
-            third-party service.
-          </p>
-
-          <p>
-            You agree not to disclose your password to any third party. You must notify us immediately
-            upon becoming aware of any breach of security or unauthorized use of your account.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Gmail Integration</h2>
-
-          <p>
-            If you choose to connect your Gmail account, you grant us permission to access your gmail emails, metadata, and labels. We will use this information in accordance with our Privacy Policy.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Disconnect Gmail</h2>
-          <p>
-            You can revoke our access to your Gmail account at any time by clicking the "Disconnect
-            Gmail" button in your account settings. This will remove our access to your Gmail data.
-          </p>
-          <h2 className="text-2xl font-bold mt-8 mb-4">Cancellation/Return/Refund Policy</h2>
-          <p>
-            We offer a 30-day money-back guarantee for all of our products. If you are not satisfied with your purchase, you may request a full refund within 30 days of the purchase date. To request a refund, please contact us at support@traconomics.com. We do not offer refunds for any purchases made after the 30-day period.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Termination</h2>
-
-          <p>
-            We may terminate or suspend your account immediately, without prior notice or liability, for
-            any reason whatsoever, including without limitation if you breach the Terms.
-          </p>
-
-          <p>
-            Upon termination, your right to use the Service will immediately cease. If you wish to
-            terminate your account, you may simply discontinue using the Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Governing Law</h2>
-
-          <p>
-            These Terms shall be governed and construed in accordance with the laws of the United
-            States, without regard to its conflict of law provisions.
-          </p>
-
-          <p>
-            Our failure to enforce any right or provision of these Terms will not be considered a waiver
-            of those rights. If any provision of these Terms is held to be invalid or unenforceable by a
-            court, the remaining provisions of these Terms will remain in effect. These Terms constitute
-            the entire agreement between us regarding our Service, and supersede and replace any prior
-            agreements we might have between us regarding the Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Changes</h2>
-
-          <p>
-            We reserve the right, at our sole discretion, to modify or replace these Terms at any time.
-            If a revision is material we will try to provide at least 30 days notice prior to any new
-            terms taking effect. What constitutes a material change will be determined at our sole
-            discretion.
-          </p>
-
-          <p>
-            By continuing to access or use our Service after those revisions become effective, you agree
-            to be bound by the revised terms. If you do not agree to the new terms, please stop using the
-            Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4">Contact Us</h2>
-
-          <p>
-            If you have any questions about these Terms, please contact us at{' '}
-            <a href="mailto:support@traconomics.com" className="text-blue-500 hover:underline">
-              support@traconomics.com
-            </a>
-            .
-          </p>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="relative py-24 bg-secondary/30 overflow-hidden border-b border-border/50">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-50">
+          <div className="absolute -top-[20%] -left-[15%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[150px]" />
+          <div className="absolute -bottom-[20%] -right-[15%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[150px]" />
         </div>
-      </div>
+        <div className="container mx-auto px-4 text-center">
+          <div className="inline-flex items-center justify-center size-20 bg-primary/10 rounded-3xl mb-8 border border-primary/20 rotate-3 hover:rotate-0 transition-transform duration-500 shadow-xl shadow-primary/5">
+            <FileText className="text-primary" size={40} />
+          </div>
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic mb-4">
+            Terms & Conditions
+          </h1>
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em]">Effective Date: May 5, 2026</p>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-20">
+        <div className="max-w-4xl mx-auto">
+          {/* Business Info Card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            <div className="bg-card border border-border/60 p-6 rounded-2xl flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
+              <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <MapPin className="text-primary" size={24} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest mb-2">Registered Office</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan</p>
+            </div>
+            <div className="bg-card border border-border/60 p-6 rounded-2xl flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
+              <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Phone className="text-primary" size={24} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest mb-2">Contact Number</h3>
+              <p className="text-xs text-muted-foreground">+923178005465</p>
+            </div>
+            <div className="bg-card border border-border/60 p-6 rounded-2xl flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
+              <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Mail className="text-primary" size={24} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest mb-2">Support Email</h3>
+              <p className="text-xs text-muted-foreground">info@traconomics.com</p>
+            </div>
+          </div>
+
+          <div className="prose dark:prose-invert prose-lg max-w-none 
+            prose-headings:font-black prose-headings:tracking-tighter prose-headings:uppercase prose-headings:italic
+            prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:text-primary
+            prose-p:text-muted-foreground prose-p:leading-relaxed
+            prose-li:text-muted-foreground
+            prose-strong:text-foreground">
+            
+            <h2>1. Introduction</h2>
+            <p>
+              a. This website is owned and operated by <strong>TRAC AI (PRIVATE) LIMITED</strong> (hereinafter and throughout this website referred to as "we", "us" and "our"). Our registered office is at A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan. Our principal place of business is located at A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan.
+            </p>
+            <p>
+              b. We offer this website, including all information, tools, products and services available from this website to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.
+            </p>
+            <p>
+              c. If you have any problems placing your order on our website, or require support after placing an order through our website, please contact us by calling us on <strong>+923178005465</strong> or send us an email on <strong>info@traconomics.com</strong>.
+            </p>
+
+            <h2>2. Applicability and Updates</h2>
+            <p>
+              a. By visiting our site and/ or purchasing something from us, you engage in our "Service" and agree to be bound by the following terms and conditions ("Terms and Conditions"), including those additional terms and conditions and policies referenced herein and/or available by hyperlink. These Terms and Conditions apply to all users of the site, including without limitation users who are browsers, vendors, customers, merchants, and/ or contributors of content.
+            </p>
+            <p>
+              b. In consideration of your use of our website and services, you represent that you are of legal age to form a binding contract and are not a person barred from receiving products and services under the laws of Pakistan or other applicable jurisdiction.
+            </p>
+            <p>
+              c. We may need to update our Terms and Conditions from time to time, each time you place an order on our website you will be agreeing to the latest version of our Terms and Conditions.
+            </p>
+
+            <h2>3. Terms of Usage</h2>
+            <p>You are prohibited from using this website or its content:</p>
+            <ul>
+              <li>for any unlawful purpose;</li>
+              <li>to solicit others to perform or participate in any unlawful acts;</li>
+              <li>to violate any international, federal, provincial or state laws, regulations and rules;</li>
+              <li>to infringe upon or violate our intellectual property rights or the intellectual property rights of others;</li>
+              <li>to harass, abuse, insult, harm, defame, slander, disparage, intimidate, or discriminate based on gender, sexual orientation, religion, ethnicity, race, age, national origin, or disability;</li>
+              <li>to submit false or misleading information;</li>
+              <li>to upload or transmit viruses or any other type of malicious code that will or may be used in any way that will affect the functionality or operation of the service or interfere with or circumvent the security features of our service, any related website, other websites, or the internet;</li>
+              <li>to collect or track the personal information of others or spam, phish, pharm, pretext, spider, crawl, or scrape; or</li>
+              <li>for any obscene or immoral purpose.</li>
+            </ul>
+            <p>
+              We reserve the right to terminate your use of the Service or any related website for violating any of the prohibited uses.
+            </p>
+
+            <h2>4. Intellectual Property</h2>
+            <p>
+              This website and its related software and content (including images and designs) are the intellectual property of and is exclusively owned by us. The structure, organization, and code of the website and its related software contain valuable trade secrets and confidential information of <strong>TRAC AI (PRIVATE) LIMITED</strong>. Except as expressly stated herein, these terms and conditions do not grant you any intellectual property rights whatsoever in the website and its related software and all rights are reserved by <strong>TRAC AI (PRIVATE) LIMITED</strong>.
+            </p>
+
+            <h2>5. Indemnity and Limitation of Liability</h2>
+            <p>
+              a. You agree to indemnify us, defend and hold us harmless and our parent, subsidiaries, affiliates, partners, officers, directors, agents, contractors, licensors, service providers, subcontractors, suppliers, interns and employees, harmless from any claim or demand, including reasonable attorneys' fees, made by any third-party due to or arising out of your breach of these Terms and Conditions or the documents they incorporate by reference, or your violation of any law or the rights of a third-party.
+            </p>
+            <p>
+              b. Neither we nor any third parties provide any warranty or guarantee as to the accuracy, timeliness, performance, completeness or suitability of the information and materials found or offered on this website for any particular purpose. You acknowledge that such information and materials may contain inaccuracies or errors and we expressly exclude liability for any such inaccuracies or errors to the fullest extent permitted by law.
+            </p>
+            <p>
+              c. Your use of any information or materials on this website is entirely at your own risk, for which we shall not be liable. It shall be your own responsibility to ensure that any products, services or information available through this website meet your specific requirements.
+            </p>
+            <p>
+              d. To the extent permitted by law, we also disclaim all warranties, whether express or implied, including the implied warranties of merchantability, fitness for a particular purpose, title and non-infringement.
+            </p>
+            <p>
+              e. We reserve the right to not process an order that you place on our website. This is usually for the following reasons:
+            </p>
+            <ul>
+              <li>We no longer hold stock of the goods or services that you ordered from us.</li>
+              <li>We are unable to ship goods to your location.</li>
+              <li>The goods or services that you have ordered are no longer available.</li>
+              <li>Any reason outside of our control.</li>
+            </ul>
+
+            <h2>6. Termination</h2>
+            <p>
+              We may immediately change or terminate your access to our products, services and this website, or any online membership(s) with us, with or without notice, at any time, without liability to you, any other user or any third party. We reserve the right to terminate your access if, without limitation, you have: (1) provided us with false or misleading registration information; (2) interfered with other users or the administration of our services or websites; (3) upon a request by law enforcement or other governmental authorities; or (4) otherwise violated these Terms and Conditions.
+            </p>
+
+            <h2>7. Severability and Waiver</h2>
+            <p>
+              If any portion of these terms is found to be unenforceable, the unenforceable portion will be deemed amended to the minimum extent necessary to make it enforceable, and if it can't be made enforceable, then it will be severed and the remaining portion will remain in full force and effect. If we fail to enforce any of these terms, it will not be considered a waiver. Any amendment to or waiver of these terms must be made in writing and signed by us.
+            </p>
+
+            <h2>8. Governing Law</h2>
+            <p>
+              Our Terms and Conditions are governed by the laws of the Islamic Republic of Pakistan and you agree that the courts of <strong>Karachi</strong> (including any consumer court) will have exclusive jurisdiction in any dispute that you have with us.
+            </p>
+
+            <h2>9. WhatsApp Messaging Terms</h2>
+            <p>
+              By providing your phone number and opting in to our WhatsApp messaging service, you consent to receive automated messages from Traconomics. You can opt-out at any time by replying with 'STOP' or 'UNSUBSCRIBE'. Message frequency will vary based on your interaction with our service. Standard message and data rates may apply.
+            </p>
+
+            <h2>10. Cancellation/Return/Refund Policy</h2>
+            <p>
+              We offer a 30-day money-back guarantee for all of our products. If you are not satisfied with your purchase, you may request a full refund within 30 days of the purchase date. To request a refund, please contact us at <strong>info@traconomics.com</strong>. We do not offer refunds for any purchases made after the 30-day period.
+            </p>
+
+            <h2>11. Contact Us</h2>
+            <p>
+              If you have any questions about these Terms, please contact us at{' '}
+              <a href="mailto:info@traconomics.com" className="text-primary font-black hover:underline italic">
+                info@traconomics.com
+              </a>{' '}
+              or call us at <strong>+923178005465</strong>.
+            </p>
+          </div>
+          
+          <div className="mt-20 pt-12 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-6">
+            <Link href="/" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
+              <ChevronLeft size={14} />
+              Back to Home
+            </Link>
+            <div className="flex items-center gap-4">
+              <div className="size-8 bg-secondary rounded-lg flex items-center justify-center">
+                <Shield className="text-primary" size={16} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Secure & Transparent</span>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
+
+const ChevronLeft = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+);
 
 export default TermsOfServicePage;

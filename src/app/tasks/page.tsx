@@ -65,7 +65,7 @@ import { useSidebar } from '@/hooks/use-sidebar';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function TasksPageContent() {
-  const { tasks, loading, drafts, updateDraft, deleteDraft, addTask, updateTask, deleteTask, addComment, canManageTasks } = useTasks();
+  const { tasks, deletedTasks, loading, drafts, updateDraft, deleteDraft, addTask, updateTask, deleteTask, restoreTask, permanentlyDeleteTask, addComment, canManageTasks } = useTasks();
   const { setUpload, removeUpload } = useUpload();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
@@ -78,6 +78,7 @@ function TasksPageContent() {
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
+  const [showTrashDrawer, setShowTrashDrawer] = useState(false);
   
   const activeView = (searchParams.get("view") as "board" | "timeline" | "list" | "dashboard") || "dashboard";
 
@@ -639,6 +640,19 @@ function TasksPageContent() {
                         </PopoverContent>
                     </Popover>
 
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs gap-2"
+                        onClick={() => setShowTrashDrawer(true)}
+                    >
+                        <Trash2 size={14} />
+                        <span className="hidden sm:inline">Trash</span>
+                        {deletedTasks.length > 0 && (
+                            <Badge variant="secondary" className="h-4 px-1 text-[8px]">{deletedTasks.length}</Badge>
+                        )}
+                    </Button>
+
                     <Button
                         className={cn("font-semibold text-xs h-8 rounded-md", isMobile ? "px-2" : "px-3")}
                         onClick={() => {
@@ -855,6 +869,19 @@ function TasksPageContent() {
                       <History size={14} />
                    </Button>
 
+                   {canManageTasks && (
+                      <Button 
+                        size="icon" variant="secondary" 
+                        className="h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                           handleUpdateTaskLocal(selectedTaskId!, { isDeleted: true }, 'deleted');
+                           setSelectedTaskId(null);
+                        }}
+                      >
+                         <Trash2 size={14} />
+                      </Button>
+                   )}
+
                    <Button 
                       size="icon" variant="secondary" 
                       className="h-8 w-8 rounded-full bg-background/50 backdrop-blur-md hover:bg-background border shadow-sm"
@@ -913,6 +940,36 @@ function TasksPageContent() {
                                     <DropdownMenuItem key={key} onClick={() => handleUpdateTaskLocal(selectedTaskId!, { priority: key as Priority })}>
                                        <div className={cn("w-2 h-2 rounded-full mr-2", val.color)} />
                                        {val.label}
+                                    </DropdownMenuItem>
+                                 ))}
+                              </DropdownMenuContent>
+                           )}
+                        </DropdownMenu>
+
+                        <DropdownMenu>
+                           <DropdownMenuTrigger asChild disabled={!canManageTasks}>
+                              <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50" disabled={!canManageTasks}>
+                                 <div className="w-2 h-2 rounded-full bg-primary" />
+                                 Status: {
+                                    {
+                                       'todo': 'To Do',
+                                       'in_progress': 'In Progress',
+                                       'review': 'Review',
+                                       'done': 'Done'
+                                    }[selectedTask.status || 'todo']
+                                 }
+                              </Button>
+                           </DropdownMenuTrigger>
+                           { canManageTasks && (
+                              <DropdownMenuContent align="start">
+                                 {[
+                                    { id: 'todo', label: 'To Do' },
+                                    { id: 'in_progress', label: 'In Progress' },
+                                    { id: 'review', label: 'Review' },
+                                    { id: 'done', label: 'Done' }
+                                 ].map((s) => (
+                                    <DropdownMenuItem key={s.id} onClick={() => handleUpdateTaskLocal(selectedTaskId!, { status: s.id as any })}>
+                                       {s.label}
                                     </DropdownMenuItem>
                                  ))}
                               </DropdownMenuContent>
@@ -1295,6 +1352,105 @@ function TasksPageContent() {
                 />
 
         )}
+
+        <AnimatePresence>
+          {showTrashDrawer && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowTrashDrawer(false)}
+                className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className={cn(
+                  "fixed z-[70] bg-card border-l border-border/50 shadow-2xl overflow-hidden flex flex-col outline-none inset-y-0 right-0",
+                  isMobile ? "w-full" : "w-[400px]"
+                )}
+              >
+                <div className="p-6 border-b border-border/40 flex items-center justify-between bg-secondary/5">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Trash2 size={18} className="text-muted-foreground" />
+                        Trash
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Deleted tasks are kept here</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowTrashDrawer(false)}>
+                    <X size={18} />
+                  </Button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-card">
+                  {deletedTasks.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 italic text-sm py-20">
+                      <Trash2 size={64} strokeWidth={1} className="mb-4" />
+                      <p className="font-bold uppercase tracking-widest text-[10px]">Trash is empty</p>
+                    </div>
+                  ) : (
+                    deletedTasks.map(task => (
+                      <div key={task.id} className="p-4 rounded-2xl border border-border/50 bg-secondary/10 hover:bg-secondary/20 transition-colors group">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm truncate text-foreground/80">{task.title || "Untitled Task"}</h4>
+                            {task.description && (
+                                <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1 italic">{task.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-3">
+                              <Badge variant="outline" className="text-[8px] border-border/50 uppercase font-black">{task.status}</Badge>
+                              <Badge variant="outline" className={cn("text-[8px] uppercase font-black", PRIORITIES[task.priority || 'medium'].bg)}>{task.priority}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button 
+                              variant="secondary" size="sm" className="h-8 w-8 p-0 rounded-full shadow-sm hover:shadow-md transition-all"
+                              title="Restore Task"
+                              onClick={() => restoreTask(task.id)}
+                            >
+                              <Undo2 size={14} className="text-primary" />
+                            </Button>
+                            <Button 
+                              variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive transition-all"
+                              title="Delete Permanently"
+                              onClick={() => {
+                                if (confirm("Permanently delete this task? This cannot be undone.")) {
+                                  permanentlyDeleteTask(task.id);
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {deletedTasks.length > 0 && (
+                    <div className="p-4 border-t border-border/40 bg-secondary/5">
+                        <Button 
+                            variant="ghost" 
+                            className="w-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={() => {
+                                if (confirm("Empty trash? All tasks here will be gone forever.")) {
+                                    deletedTasks.forEach(t => permanentlyDeleteTask(t.id));
+                                }
+                            }}
+                        >
+                            Empty Trash
+                        </Button>
+                    </div>
+                )}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
     </>
   );
 }

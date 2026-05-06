@@ -601,8 +601,7 @@ export function TypedTaskCreator({
                   <DropdownMenuItem
                     key={key}
                     onClick={() => {
-                      const taskId = (editingNewTask as any)?.id || "new";
-                      onUpdateTask(taskId, { priority: key as Priority });
+                      onUpdateTask("new", { priority: key as Priority });
                     }}
                   >
                     <div
@@ -612,8 +611,46 @@ export function TypedTaskCreator({
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
-              </DropdownMenu>
-              <Popover>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50"
+                >
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  Status: {
+                    {
+                      todo: "To Do",
+                      in_progress: "In Progress",
+                      review: "Review",
+                      done: "Done",
+                    }[editingNewTask?.status || "todo"]
+                  }
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {[
+                  { id: "todo", label: "To Do" },
+                  { id: "in_progress", label: "In Progress" },
+                  { id: "review", label: "Review" },
+                  { id: "done", label: "Done" },
+                ].map((s) => (
+                  <DropdownMenuItem
+                    key={s.id}
+                    onClick={() => {
+                      onUpdateTask("new", { status: s.id as any });
+                    }}
+                  >
+                    {s.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
@@ -635,15 +672,14 @@ export function TypedTaskCreator({
                       : undefined
                   }
                   onSelect={(date) => {
-                    const taskId = (editingNewTask as any)?.id || "new";
-                    onUpdateTask(taskId, {
+                    onUpdateTask("new", {
                       dueDate: date ? date.toISOString() : undefined,
                     });
                   }}
                   initialFocus
                 />
               </PopoverContent>
-              </Popover>          </div>
+            </Popover>          </div>
 
           <div className="flex items-center gap-2">
             <Button
