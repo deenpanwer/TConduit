@@ -43,22 +43,24 @@ const LEGAL_LINKS = [
 
 const COMPANY_LINKS = [
   { name: 'About Us', href: '/about' },
+  { name: 'Features', href: '/features' },
   { name: 'Contact Us', href: '/contact' },
   { name: 'Partner Program', href: '/partner' },
 ];
 
 export function Footer() {
   return (
-    <footer className="relative w-full h-screen">
+    <footer className="relative w-full h-auto lg:h-screen">
       <Image
         src="/footerimage.png"
         alt="Footer background"
         layout="fill"
         objectFit="cover"
         quality={100}
+        className="hidden lg:block"
       />
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative z-10 flex items-center justify-center h-full">
+      <div className="relative z-10 flex items-center justify-center h-full py-24 lg:py-0">
         <div className="max-w-7xl w-full mx-auto bg-white dark:bg-zinc-900 rounded-3xl p-8 sm:p-12 lg:p-16 shadow-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-16 mb-16">
             <div className="lg:col-span-2">
@@ -114,7 +116,7 @@ export function Footer() {
 
             <div>
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-zinc-500 dark:text-zinc-400">Legal</h3>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 mb-8">
                 {LEGAL_LINKS.map((link) => (
                   <Link 
                     key={link.name} 
@@ -125,11 +127,34 @@ export function Footer() {
                   </Link>
                 ))}
               </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/5 rounded-full cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors w-fit">
+                <img src="/compliance/choices.png" alt="Privacy Choices" className="h-4 w-auto" />
+                <span className="text-[10px] font-bold text-zinc-900 dark:text-white">Your privacy choices</span>
+              </div>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-center">
-             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-400">&copy; 2026 TRAC AI (PRIVATE) LIMITED</span>
+          <div className="pt-8 border-t border-zinc-200 dark:border-zinc-800 flex flex-col lg:flex-row items-center justify-between gap-8">
+             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-10 gap-y-4">
+                <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
+                  <img src="/compliance/gdpr.png" alt="GDPR" className="h-20 w-auto object-contain dark:invert" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">GDPR</span>
+                </div>
+                <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
+                  <img src="/compliance/hipaa.png" alt="HIPAA" className="h-8 w-auto object-contain dark:invert" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">HIPAA</span>
+                </div>
+                <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
+                  <img src="/compliance/LGPD-CCPA.png" alt="LGPD and CCPA" className="h-10 w-auto object-contain dark:invert" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">LGPD and CCPA</span>
+                </div>
+             </div>
+
+             <div className="flex items-center gap-6">
+                <span className="text-[11px] font-bold tracking-tight text-zinc-500 dark:text-zinc-400">
+                  &copy; 2026 <span className="text-zinc-900 dark:text-white font-black">TRAC AI (PRIVATE) LIMITED</span>. All rights reserved.
+                </span>
+             </div>
           </div>
         </div>
       </div>

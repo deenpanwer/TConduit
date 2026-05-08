@@ -15,12 +15,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -31,6 +25,7 @@ import { useShift } from "@/hooks/use-shift";
 import { NotificationsDrawer } from "./NotificationsDrawer";
 import { toast } from "sonner";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
+import { ProductSwitcher } from "./shared/ProductSwitcher";
 
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
@@ -43,45 +38,6 @@ interface DashboardSidebarProps {
   employees: any[];
   onInviteClick?: () => void;
 }
-
-const MODULE_CONFIG = [
-  {
-    id: "ems",
-    title: "EMS",
-    description: "Enterprise Management",
-    icon: LayoutDashboard,
-    href: "/ems",
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "crm",
-    title: "CRM",
-    description: "Customer Relations",
-    icon: Briefcase,
-    href: "/crm",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
-  },
-  {
-    id: "tasks",
-    title: "Tasks",
-    description: "Productivity & Ops",
-    icon: ListTodo,
-    href: "/tasks",
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "pos",
-    title: "POS System",
-    description: "Retail & Transactions",
-    icon: ShoppingCart,
-    href: "/pos/checkout",
-    color: "text-orange-500",
-    bg: "bg-orange-500/10"
-  }
-];
 
 export function DashboardSidebar({
   isCollapsed,
@@ -150,11 +106,6 @@ export function DashboardSidebar({
   }, [userData?.partnerSlug, orgId]);
 
   if (!mounted) return null;
-
-  const currentModule = MODULE_CONFIG.find(m => m.id === "ems")!;
-  const otherModules = MODULE_CONFIG.filter(m => 
-    m.id !== "ems" && (selectedModules.length === 0 || selectedModules.includes(m.id))
-  );
 
   // --- SWIPE HANDLERS ---
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -276,82 +227,14 @@ export function DashboardSidebar({
 
           {/* Product Switcher */}
           <div className="mb-8 pt-8 lg:pt-0 shrink-0 min-h-8">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className={cn(
-                  "flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group",
-                  isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
-                )}>
-                  <div className="flex items-center gap-3">
-                    <img src="/logo.svg" alt="Trac Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
-                    {(!isCollapsed || isMobileSidebarOpen) && (
-                      <div className="flex flex-col items-start min-w-0 text-left">
-                        <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">TRAC AI</span>
-                        {partnerBrand && (
-                          <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1">
-                            Subsidiary of {partnerBrand}
-                          </span>
-                        )}
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">EMS</span>
-                      </div>
-                    )}
-                  </div>
-                  {(!isCollapsed || isMobileSidebarOpen) && <ChevronDown size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl">
-                <div className="px-2 py-2 mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
-                </div>
-                
-                {/* CURRENT MODULE */}
-                <DropdownMenuItem 
-                  disabled
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
-                >
-                  <div className={cn("size-10 rounded-xl flex items-center justify-center", currentModule.bg)}>
-                    <currentModule.icon className={cn("size-5", currentModule.color)} />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">{currentModule.title}</span>
-                    <span className="text-[10px] text-muted-foreground">Current Product</span>
-                  </div>
-                </DropdownMenuItem>
-
-                {/* OTHER MODULES */}
-                {otherModules.map((module) => (
-                  <DropdownMenuItem 
-                    key={module.id}
-                    onClick={() => router.push(module.href)}
-                    className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-                  >
-                    <div className={cn("size-10 rounded-xl flex items-center justify-center", module.bg)}>
-                      <module.icon className={cn("size-5", module.color)} />
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold text-sm">{module.title}</span>
-                      <span className="text-[10px] text-muted-foreground">{module.description}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-
-                <div className="border-t border-border mt-2 pt-2">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
-                    onClick={() => setIsConfigOpen(true)}
-                  >
-                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Sparkles className="size-5 text-primary" />
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold text-sm">Add more apps</span>
-                      <span className="text-[10px] text-muted-foreground">Customize workspace</span>
-                    </div>
-                  </Button>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ProductSwitcher 
+              currentModuleId="ems"
+              isCollapsed={isCollapsed}
+              isMobileSidebarOpen={isMobileSidebarOpen}
+              selectedModules={selectedModules}
+              partnerBrand={partnerBrand}
+              onConfigOpen={() => setIsConfigOpen(true)}
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
@@ -408,10 +291,10 @@ export function DashboardSidebar({
                             </div>
                         ) : (
                             employees.map((emp) => (
-                                <button
+                                <Link
                                     key={emp.id}
+                                    href={`/ems/team/${emp.id}`}
                                     onClick={() => {
-                                      router.push(`/ems/team/${emp.id}`);
                                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                                     }}
                                     className={cn(
@@ -423,7 +306,7 @@ export function DashboardSidebar({
                                 >
                                     <div className={cn("size-1.5 rounded-full shrink-0 transition-all", params.id === emp.id ? "bg-purple-500 scale-110" : "bg-purple-500/40")} />
                                     <span className="truncate">{emp.name}</span>
-                                </button>
+                                </Link>
                             ))
                         )}
                     </div>
@@ -471,7 +354,7 @@ export function DashboardSidebar({
               </Tooltip>
             </TooltipProvider>
             
-            <div className={cn("flex w-full gap-2", (isCollapsed && !isMobileSidebarOpen) ? "flex-col items-center" : "justify-center")}>
+            <div className={cn("flex w-full gap-2", (isCollapsed && !isMobileSidebarOpen) ? "flex-col items-center" : "flex-row justify-center")}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -497,19 +380,18 @@ export function DashboardSidebar({
             </div>
           </div>
         </div>
-            </div>
+      </div>
       
-            <NotificationsDrawer 
-              isOpen={isNotificationsOpen}
-              onClose={() => setIsNotificationsOpen(false)}
-            />
+      <NotificationsDrawer 
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
 
-            <ModuleConfigModal 
-              isOpen={isConfigOpen} 
-              onOpenChange={setIsConfigOpen} 
-              selectedModules={selectedModules} 
-            />
-          </>
-        );
-      }
-      
+      <ModuleConfigModal 
+        isOpen={isConfigOpen} 
+        onOpenChange={setIsConfigOpen} 
+        selectedModules={selectedModules} 
+      />
+    </>
+  );
+}

@@ -2,8 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { 
-  LayoutDashboard, Briefcase, ShoppingCart, ListTodo,
-  CheckCircle2, Plus, Settings2
+  CheckCircle2, Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,47 +17,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { toast } from "sonner";
+import { MODULE_CONFIG } from "@/lib/modules";
 
 interface ModuleConfigModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   selectedModules: string[];
 }
-
-const MODULE_CONFIG = [
-  {
-    id: "ems",
-    title: "Employee Monitoring",
-    shortTitle: "EMS",
-    icon: LayoutDashboard,
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "crm",
-    title: "Customer Relations",
-    shortTitle: "CRM",
-    icon: Briefcase,
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
-  },
-  {
-    id: "pos",
-    title: "Point of Sale System",
-    shortTitle: "POS",
-    icon: ShoppingCart,
-    color: "text-orange-500",
-    bg: "bg-orange-500/10"
-  },
-  {
-    id: "tasks",
-    title: "Operations & Tasks",
-    shortTitle: "Tasks",
-    icon: ListTodo,
-    color: "text-purple-500",
-    bg: "bg-purple-500/10"
-  }
-];
 
 export function ModuleConfigModal({
   isOpen,
@@ -108,8 +73,8 @@ export function ModuleConfigModal({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-8 pt-0">
-          {MODULE_CONFIG.map((module) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-8 pt-0 overflow-y-auto max-h-[60vh] custom-scrollbar">
+          {MODULE_CONFIG.filter(m => m.released).map((module) => {
             const isSelected = tempSelected.includes(module.id);
             const Icon = module.icon;
             return (

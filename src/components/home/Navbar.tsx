@@ -59,104 +59,108 @@ export function Navbar() {
   }, [mobileMenuOpen]);
 
   return (
-    <nav
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-500 px-6 py-4",
-        isScrolled ? "bg-white/95 dark:bg-black/95 backdrop-blur-2xl border-b border-black/5 dark:border-white/10 py-3" : "bg-transparent"
-      )}
-    >
-      <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-12">
-          <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <div className="size-10 bg-black dark:bg-white rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-500 shadow-xl group-hover:shadow-primary/20">
-              <span className="text-white dark:text-black font-black text-2xl">T</span>
-            </div>
-            <span className="font-poppins font-black text-2xl tracking-tighter uppercase italic">Trac AI</span>
-          </Link>
-
-          <div className="hidden xl:flex items-center gap-10">
-            <div 
-              className="relative py-2"
-              onMouseEnter={() => setIsAppsOpen(true)}
-              onMouseLeave={() => setIsAppsOpen(false)}
-            >
-              <button className="flex items-center gap-1.5 font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">
-                Apps <ChevronDown size={14} className={cn("transition-transform duration-500", isAppsOpen && "rotate-180")} />
-              </button>
-              
-              <AnimatePresence>
-                {isAppsOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                    transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                    className="absolute top-full left-[-300px] mt-2 w-[1200px] bg-white dark:bg-[#0a0a0a] border border-black/10 dark:border-white/10 rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] p-12 overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-                    
-                    <div className="relative z-10 grid grid-cols-4 gap-x-12 gap-y-2">
-                      {APPS.map((app) => (
-                        <Link
-                          key={app.name}
-                          href={app.href}
-                          className="group/item flex items-center gap-4 p-4 rounded-3xl hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all duration-300"
-                        >
-                          <div className={cn("size-14 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 transition-all duration-500 group-hover/item:scale-110 group-hover/item:rotate-6 shadow-sm", app.color)}>
-                            <app.icon size={28} strokeWidth={2.5} />
-                          </div>
-                          <div>
-                            <div className="font-black text-sm uppercase italic tracking-tight mb-0.5">{app.name}</div>
-                            <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest leading-tight">{app.description}</div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-
-                    <div className="mt-12 pt-8 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
-                       <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">
-                          <ShieldCheck size={18} className="text-emerald-500" />
-                          Software that replaces all software.
-                       </div>
-                       <Link href="/apps" className="group/all flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.3em] text-primary hover:opacity-70 transition-opacity">
-                          Explore all 50+ integrations 
-                          <ArrowRight size={16} className="group-hover/all:translate-x-1 transition-transform" />
-                       </Link>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <Link 
-              href="/apps/hiring" 
-              className="flex items-center gap-2 font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]"
-            >
-              Google For Hiring
-              <Sparkles size={14} className="text-primary animate-pulse" />
+    <>
+      <nav
+        className={cn(
+          "fixed top-0 left-0 right-0 transition-all duration-500 px-6 py-4",
+          isScrolled && !mobileMenuOpen ? "bg-white/95 dark:bg-black/95 backdrop-blur-2xl border-b border-black/5 dark:border-white/10 py-3" : "bg-transparent",
+          mobileMenuOpen ? "z-[110]" : "z-50"
+        )}
+      >
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-12">
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
+              <div className="size-10 bg-black dark:bg-white rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-500 shadow-xl group-hover:shadow-primary/20">
+                <span className="text-white dark:text-black font-black text-2xl">T</span>
+              </div>
+              <span className="font-poppins font-black text-2xl tracking-tighter uppercase">Trac AI</span>
             </Link>
 
-            <Link href="/pricing" className="font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">Pricing</Link>
+            <div className="hidden xl:flex items-center gap-10">
+              <div 
+                className="relative py-2"
+                onMouseEnter={() => setIsAppsOpen(true)}
+                onMouseLeave={() => setIsAppsOpen(false)}
+              >
+                <button className="flex items-center gap-1.5 font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">
+                  Apps <ChevronDown size={14} className={cn("transition-transform duration-500", isAppsOpen && "rotate-180")} />
+                </button>
+                
+                <AnimatePresence>
+                  {isAppsOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                      className="absolute top-full left-[-300px] mt-2 w-[1200px] bg-white dark:bg-[#0a0a0a] border border-black/10 dark:border-white/10 rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] p-12 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+                      
+                      <div className="relative z-10 grid grid-cols-4 gap-x-12 gap-y-2">
+                        {APPS.map((app) => (
+                          <Link
+                            key={app.name}
+                            href={app.href}
+                            className="group/item flex items-center gap-4 p-4 rounded-3xl hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all duration-300"
+                          >
+                            <div className={cn("size-14 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 transition-all duration-500 group-hover/item:scale-110 group-hover/item:rotate-6 shadow-sm", app.color)}>
+                              <app.icon size={28} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                              <div className="font-black text-sm uppercase italic tracking-tight mb-0.5">{app.name}</div>
+                              <div className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest leading-tight">{app.description}</div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+
+                      <div className="mt-12 pt-8 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                         <div className="flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">
+                            <ShieldCheck size={18} className="text-emerald-500" />
+                            Software that replaces all software.
+                         </div>
+                         <Link href="/apps" className="group/all flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.3em] text-primary hover:opacity-70 transition-opacity">
+                            Explore all 50+ integrations 
+                            <ArrowRight size={16} className="group-hover/all:translate-x-1 transition-transform" />
+                         </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <Link 
+                href="/apps/hiring" 
+                className="flex items-center gap-2 font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]"
+              >
+                Google For Hiring
+                <Sparkles size={14} className="text-primary animate-pulse" />
+              </Link>
+
+              <Link href="/features" className="font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">Features</Link>
+              <Link href="/pricing" className="font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">Pricing</Link>
+            </div>
           </div>
-        </div>
 
-        <div className="hidden lg:flex items-center gap-8">
-          <Link href="/ems/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
-          <Link 
-            href="/ems/signup" 
-            className="bg-black dark:bg-white text-white dark:text-black font-black text-[11px] uppercase tracking-[0.3em] px-12 py-4 rounded-full hover:scale-105 transition-all active:scale-95 shadow-2xl shadow-primary/20"
+          <div className="hidden lg:flex items-center gap-8">
+            <Link href="/ems/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
+            <Link 
+              href="/ems/signup" 
+              className="bg-black dark:bg-white text-white dark:text-black font-black text-[11px] uppercase tracking-[0.3em] px-12 py-4 rounded-full hover:scale-105 transition-all active:scale-95 shadow-2xl shadow-primary/20"
+            >
+              Start Now
+            </Link>
+          </div>
+
+          <button 
+            className="xl:hidden p-3 rounded-2xl bg-black/5 dark:bg-white/5 transition-all active:scale-90 z-[110]"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            Start Now
-          </Link>
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-
-        <button 
-          className="xl:hidden p-3 rounded-2xl bg-black/5 dark:bg-white/5 transition-all active:scale-90 z-[110]"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
+      </nav>
 
       {/* Mobile Menu */}
       <AnimatePresence>
@@ -168,7 +172,7 @@ export function Navbar() {
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className="xl:hidden fixed inset-0 bg-white dark:bg-black z-[100] flex flex-col p-6 pt-24 overflow-y-auto"
           >
-            <div className="flex flex-col gap-2 mb-12">
+            <div className="flex flex-col gap-2 mb-8">
               <Link 
                 href="/apps/hiring"
                 onClick={() => setMobileMenuOpen(false)}
@@ -183,6 +187,23 @@ export function Navbar() {
                   <span className="font-black text-sm uppercase tracking-widest leading-none">Google For Hiring</span>
                 </div>
                 <ArrowRight size={20} className="ml-auto" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-12">
+              <Link 
+                href="/pricing" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-6 text-center font-black text-[11px] uppercase tracking-[0.3em] border-2 border-black/10 dark:border-white/10 rounded-[2rem] active:scale-95 transition-transform"
+              >
+                Pricing
+              </Link>
+              <Link 
+                href="/features" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-6 text-center font-black text-[11px] uppercase tracking-[0.3em] border-2 border-black/10 dark:border-white/10 rounded-[2rem] active:scale-95 transition-transform"
+              >
+                Features
               </Link>
             </div>
 
@@ -204,14 +225,7 @@ export function Navbar() {
               ))}
             </div>
 
-            <div className="mt-auto space-y-6 pb-10">
-              <Link 
-                href="/pricing" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="block w-full p-4 font-black text-xs uppercase tracking-[0.4em] text-center hover:text-primary transition-colors"
-              >
-                Pricing
-              </Link>
+            <div className="mt-auto pb-10">
               <div className="grid grid-cols-2 gap-4">
                 <Link 
                   href="/ems/login"
@@ -232,6 +246,6 @@ export function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   );
 }

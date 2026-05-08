@@ -4,6 +4,7 @@ import { Hero } from "@/components/home/Hero";
 import { AppGrid } from "@/components/home/AppGrid";
 import { ValueProps } from "@/components/home/ValueProps";
 import { Testimonials } from "@/components/home/Testimonials";
+import { ContactForm } from "@/components/home/ContactForm";
 import { Footer } from "@/components/home/Footer";
 
 export default function LandingPage() {
@@ -14,6 +15,7 @@ export default function LandingPage() {
       <AppGrid />
       <ValueProps />
       <Testimonials />
+      <ContactForm />
       <Footer />
     </main>
   );

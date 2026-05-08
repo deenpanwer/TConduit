@@ -57,77 +57,71 @@ const PRODUCT_GROUPS = [
 
 export function AppGrid() {
   return (
-    <section className="py-32 px-6 bg-[#f5f5f7] dark:bg-[#0a0a0a] border-y border-black/5 dark:border-white/5 relative overflow-hidden">
+    <section className="py-20 md:py-32 px-6 bg-[#f5f5f7] dark:bg-[#0a0a0a] border-y border-black/5 dark:border-white/5 relative overflow-hidden">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-32">
-          <h2 className="text-4xl md:text-7xl font-black font-poppins tracking-tighter mb-8 uppercase italic selection:bg-primary selection:text-white">
-            Replace all your <br className="hidden md:block" />
-            <span className="text-primary underline underline-offset-8 decoration-primary/20">other software.</span>
-          </h2>
-          <p className="text-xl md:text-2xl text-muted-foreground font-medium max-w-2xl mx-auto leading-relaxed">
-            Stop paying for 20 different tools. Trac AI gives you everything in one place, so things just work.
-          </p>
-        </div>
-
-        <div className="space-y-32">
+        <div className="space-y-16 md:space-y-32">
           {PRODUCT_GROUPS.map((group) => (
             <div key={group.category}>
-              <div className="flex items-center gap-6 mb-16">
+              <div className="flex items-center gap-6 mb-8 md:mb-16">
                 <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
                 <h3 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground/60 font-poppins italic">{group.category}</h3>
                 <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
               </div>
               
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-8 gap-y-16">
+              {/* Mobile: List view, Desktop: Grid view */}
+              <div className="flex flex-col md:grid md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-x-8 md:gap-y-16">
                 {group.apps.map((app, index) => (
                   <motion.div
                     key={app.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: index * 0.05 }}
-                    className="flex flex-col items-center"
+                    className="w-full"
                   >
                     <Link 
                       href={app.href} 
-                      className="group relative flex flex-col items-center gap-4 p-8 rounded-[2.5rem] transition-all duration-500 hover:bg-white dark:hover:bg-white/[0.05] hover:shadow-2xl hover:shadow-black/5 dark:hover:shadow-white/5 hover:-translate-y-2 border border-transparent hover:border-black/5 dark:hover:border-white/10 w-full"
+                      className={cn(
+                        "group relative flex items-center md:flex-col gap-4 p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] transition-all duration-500",
+                        "hover:bg-white dark:hover:bg-white/[0.05] hover:shadow-2xl hover:shadow-black/5 dark:hover:shadow-white/5 md:hover:-translate-y-2 border border-transparent hover:border-black/5 dark:hover:border-white/10 w-full"
+                      )}
                     >
                       <div className={cn(
-                        "size-20 rounded-2xl flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 shadow-lg group-hover:shadow-2xl",
+                        "size-12 md:size-20 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-700 group-hover:scale-110 md:group-hover:rotate-3 shadow-lg group-hover:shadow-2xl shrink-0",
                         "bg-white dark:bg-black border border-black/5 dark:border-white/10"
                       )}>
                         <app.icon className={cn(
-                          "size-10 transition-colors duration-500",
+                          "size-6 md:size-10 transition-colors duration-500",
                           `text-${app.color}-500 group-hover:text-primary`
                         )} strokeWidth={2.5} />
                       </div>
-                      <div className="text-center">
-                      <span className="block font-black text-sm tracking-tighter font-poppins mb-1">
+                      <div className="flex flex-col md:items-center md:text-center">
+                        <span className="block font-black text-sm tracking-tighter font-poppins mb-1">
                           {app.title}
                         </span>
                         <span className="block text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
                           {app.desc}
                         </span>
                       </div>
+
+                      {/* PC Only Competitor Marker (Hidden on Mobile) */}
+                      <div className="hidden md:flex absolute top-full left-0 right-0 mt-6 flex-col items-center text-center pointer-events-none select-none">
+                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-1">Replaces</span>
+                         <div className="relative rotate-[-2deg] flex flex-col items-center">
+                            <span className="font-marker text-lg text-red-500/80 dark:text-red-400/80 line-through decoration-red-500/40 decoration-2 leading-none">
+                               {app.replaces}
+                            </span>
+                            <span className="font-marker text-xs text-red-500/60 dark:text-red-400/60 mt-0.5">
+                               {app.price}
+                            </span>
+                         </div>
+                      </div>
                       
                       {/* Shimmer effect */}
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none overflow-hidden rounded-[2.5rem]">
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none overflow-hidden rounded-2xl md:rounded-[2.5rem]">
                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
                       </div>
                     </Link>
-
-                    {/* Competitor Marker */}
-                    <div className="mt-6 flex flex-col items-center text-center pointer-events-none select-none">
-                       <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-1">Replaces</span>
-                       <div className="relative rotate-[-2deg] flex flex-col items-center">
-                          <span className="font-marker text-lg text-red-500/80 dark:text-red-400/80 line-through decoration-red-500/40 decoration-2 leading-none">
-                             {app.replaces}
-                          </span>
-                          <span className="font-marker text-xs text-red-500/60 dark:text-red-400/60 mt-0.5">
-                             {app.price}
-                          </span>
-                       </div>
-                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -135,7 +129,7 @@ export function AppGrid() {
           ))}
         </div>
 
-        <div className="mt-40 text-center">
+        <div className="mt-20 md:mt-40 text-center">
           <Link 
             href="/apps" 
             className="group inline-flex items-center gap-4 px-12 py-5 bg-black dark:bg-white text-white dark:text-black font-black text-lg rounded-full hover:scale-105 transition-transform active:scale-95 shadow-2xl"

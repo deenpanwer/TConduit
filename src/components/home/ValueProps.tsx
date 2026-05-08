@@ -2,32 +2,28 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Zap, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 const SECTIONS = [
   {
-    title: "AI that does the work for you.",
-    description: "Our AI agents handle the boring stuff. From finding new leads to setting up meetings, Trac AI takes care of it so you can focus on growing your business.",
-    icon: Sparkles,
-    image: "/diary/demo2.png",
+    title: "Real-time visibility into your workforce.",
+    description: "Know exactly what's happening across your team with live updates and intelligent summaries. See work as it happens without ever having to ask for a status report.",
+    image: "/trac-ai-employee-management-reports-traconomics.png",
     direction: "ltr",
     accent: "blue"
   },
   {
-    title: "Everything in one place. Finally.",
-    description: "Stop jumping between different apps. In Trac, everything talks to each other. Your sales leads turn into hired team members with just one click.",
-    icon: Zap,
-    image: "/diary/demo3.png",
+    title: "Streamlined task & work management.",
+    description: "Keep projects on track with a powerful yet simple management suite. From quick-add notes to complex subtasks, everything is organized in one unified window.",
+    image: "/traconomics-ai-task-management-trac-diary.png",
     direction: "rtl",
     accent: "purple"
   },
   {
-    title: "Software that feels like it works.",
-    description: "We built Trac to be fast and easy to use. No complicated setup, no tech-speak. Just simple software that helps you get more done.",
-    icon: Settings,
-    image: "/diary/demo4.png",
+    title: "Deep insights into performance.",
+    description: "Understand productivity with visual charts and detailed activity logs. Identify bottlenecks and optimize your workflow with data-driven insights that help you grow.",
+    image: "/trac-ai-productivity-charts-trac-diary-software.png",
     direction: "ltr",
     accent: "emerald"
   }
@@ -45,64 +41,31 @@ export function ValueProps() {
           )}
         >
           <div className={cn(
-            "max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-32",
+            "max-w-[1400px] mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-24",
             section.direction === "rtl" ? "md:flex-row-reverse" : ""
           )}>
-            <div className="flex-1">
-              <div className={cn(
-                "size-16 rounded-2xl flex items-center justify-center mb-8 shadow-lg",
-                section.accent === "blue" && "bg-blue-500/10 text-blue-500",
-                section.accent === "purple" && "bg-purple-500/10 text-purple-500",
-                section.accent === "emerald" && "bg-emerald-500/10 text-emerald-500"
-              )}>
-                <section.icon size={32} strokeWidth={2.5} />
-              </div>
+            <div className="w-full md:w-[40%] shrink-0">
               <h2 className="text-4xl md:text-7xl font-black tracking-tighter mb-8 leading-[0.9] italic uppercase">
                 {section.title}
               </h2>
               <p className="text-xl md:text-2xl text-muted-foreground font-medium max-w-xl leading-relaxed">
                 {section.description}
               </p>
-              
-              <div className="mt-12 flex flex-wrap items-center gap-6">
-                 <button className="px-10 py-4 bg-black dark:bg-white text-white dark:text-black font-black text-lg rounded-full hover:scale-105 transition-transform active:scale-95 shadow-xl">
-                    Try it free
-                 </button>
-                 <div className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground cursor-pointer hover:text-black dark:hover:text-white transition-colors border-b-2 border-transparent hover:border-black/10">
-                    SEE THE DETAILS
-                 </div>
-              </div>
             </div>
 
-            {/* --- SEAMLESS STACKED MOCKUP --- */}
-            <div className="flex-1 w-full aspect-[4/3] relative group">
-              {/* Outer Shadow Layer */}
-              <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-[3rem] -rotate-3 group-hover:rotate-0 transition-transform duration-700" />
-              
-              {/* Main Window Container (Flexbox for stacking) */}
-              <div className="absolute inset-0 bg-white dark:bg-[#111] rounded-[3rem] border border-black/10 dark:border-white/10 overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700 flex flex-col">
-                
-                {/* 1. Dedicated Header Section (Apple Style) */}
-                <div className="h-10 shrink-0 bg-black/5 dark:bg-white/5 border-b border-black/5 dark:border-white/5 flex items-center px-6 gap-2 relative z-20">
-                   <div className="size-2.5 rounded-full bg-red-400/50" />
-                   <div className="size-2.5 rounded-full bg-yellow-400/50" />
-                   <div className="size-2.5 rounded-full bg-green-400/50" />
-                </div>
-                
-                {/* 2. Dedicated Content Section (Image is seamless) */}
-                <div className="relative w-full flex-grow p-1"> {/* p-1 added for a tight border effect around the image */}
-                  <div className="relative w-full h-full rounded-b-2xl overflow-hidden">
-                    <Image 
-                      src={section.image}
-                      alt={section.title}
-                      fill
-                      className="object-cover object-top" // ensures the top of the app UI is visible
-                      sizes="(max-w-7xl) 50vw, 100vw"
-                    />
-                    {/* Screen Glare Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none z-10" />
-                  </div>
-                </div>
+            {/* --- WIDER FULL IMAGE DISPLAY --- */}
+            <div className="w-full md:w-[60%] aspect-[16/10] relative group">
+              <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-[2.5rem] md:rounded-[4rem] -rotate-2 group-hover:rotate-0 transition-transform duration-700" />
+              <div className="absolute inset-0 rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700 border border-black/10 dark:border-white/10 bg-white dark:bg-[#050505]">
+                <Image 
+                  src={section.image}
+                  alt={section.title}
+                  fill
+                  className="object-cover object-top"
+                  sizes="(max-w-7xl) 60vw, 100vw"
+                  priority={index === 0}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none z-10" />
               </div>
             </div>
             {/* --------------------------- */}

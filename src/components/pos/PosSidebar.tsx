@@ -17,18 +17,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { usePos } from "@/hooks/use-pos";
 import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
+import { ProductSwitcher } from "@/components/ems/shared/ProductSwitcher";
 
 interface PosSidebarProps {
   isCollapsed: boolean; 
@@ -36,45 +31,6 @@ interface PosSidebarProps {
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (v: boolean) => void;
 }
-
-const MODULE_CONFIG = [
-  {
-    id: "ems",
-    title: "EMS",
-    description: "Enterprise Management",
-    icon: LayoutDashboard,
-    href: "/ems",
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "crm",
-    title: "CRM",
-    description: "Customer Relations",
-    icon: Briefcase,
-    href: "/crm",
-    color: "text-blue-500",
-    bg: "bg-blue-500/10"
-  },
-  {
-    id: "tasks",
-    title: "Tasks",
-    description: "Productivity & Ops",
-    icon: ListTodo,
-    href: "/tasks",
-    color: "text-primary",
-    bg: "bg-primary/10"
-  },
-  {
-    id: "pos",
-    title: "POS System",
-    description: "Retail & Transactions",
-    icon: ShoppingCart,
-    href: "/pos/checkout",
-    color: "text-orange-500",
-    bg: "bg-orange-500/10"
-  }
-];
 
 export function PosSidebar({ 
   isCollapsed, 
@@ -130,10 +86,6 @@ export function PosSidebar({
 
   if (!mounted) return null;
 
-  const currentModule = MODULE_CONFIG.find(m => m.id === "pos")!;
-  const otherModules = MODULE_CONFIG.filter(m => 
-    m.id !== "pos" && (selectedModules.length === 0 || selectedModules.includes(m.id))
-  );
   // --- SWIPE HANDLERS ---
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
@@ -222,106 +174,20 @@ export function PosSidebar({
           
           {/* Product Switcher */}
           <div className="mb-8 pt-8 lg:pt-0 shrink-0 min-h-8">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className={cn(
-                  "flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group",
-                  isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
-                )}>
-                  <div className="flex items-center gap-3">
-                    <img src="/logo.svg" alt="POS Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
-                    {(!isCollapsed || isMobileSidebarOpen) && (
-                      <div className="flex flex-col items-start min-w-0 text-left">
-                        <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">POS SYSTEM</span>
-                        {partnerBrand && (
-                          <span className="font-poppins font-black text-[10px] tracking-tighter uppercase leading-none mt-1">
-                            Subsidiary of {partnerBrand}
-                          </span>
-                        )}
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Retail</span>
-                      </div>
-                    )}
-                  </div>
-                  {(!isCollapsed || isMobileSidebarOpen) && <ChevronDown size={16} className="text-muted-foreground group-hover:text-foreground transition-colors" />}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl">
-                <div className="px-2 py-2 mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
-                </div>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/dashboard')}
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <LayoutDashboard className="size-5 text-primary" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">Dashboard</span>
-                    <span className="text-[10px] text-muted-foreground">Admin & Staff</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/tasks')}
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <ListTodo className="size-5 text-primary" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">Tasks</span>
-                    <span className="text-[10px] text-muted-foreground">Productivity</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  disabled
-                  className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
-                >
-                  <div className="size-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                    <ShoppingCart className="size-5 text-orange-500" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">POS System</span>
-                    <span className="text-[10px] text-muted-foreground">Current Product</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => router.push('/crm')}
-                  className="flex items-center gap-4 p-3 rounded-xl cursor-pointer hover:bg-secondary transition-all"
-                >
-                  <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Briefcase className="size-5 text-blue-500" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">CRM Dashboard</span>
-                    <span className="text-[10px] text-muted-foreground">Customer Relations</span>
-                  </div>
-                  </DropdownMenuItem>
-                  ){'}'}
-
-                  <div className="border-t border-border mt-2 pt-2">
-                  <Button 
-                  variant="ghost" 
-                  className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
-                  onClick={() => setIsConfigOpen(true)}
-                  >
-                  <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Sparkles className="size-5 text-primary" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-sm">Add more apps</span>
-                    <span className="text-[10px] text-muted-foreground">Customize workspace</span>
-                  </div>
-                  </Button>
-                  </div>
-                  </DropdownMenuContent>
-                  </DropdownMenu>
-                  </div>
+            <ProductSwitcher 
+              currentModuleId="pos"
+              isCollapsed={isCollapsed}
+              isMobileSidebarOpen={isMobileSidebarOpen}
+              selectedModules={selectedModules}
+              partnerBrand={partnerBrand}
+              onConfigOpen={() => setIsConfigOpen(true)}
+            />
+          </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
             <div className="space-y-1">
               <NavItem icon={ShoppingCart} label="Checkout" href="/pos/checkout" active={pathname === "/pos/checkout"} />
-              {currentModule.id === 'pos' && (config.isRestaurantMode) && (
+              {config.isRestaurantMode && (
                 <NavItem icon={Utensils} label="Table Map" href="/pos/floors" active={pathname === "/pos/floors"} />
               )}
               <NavItem icon={LayoutDashboard} label="Dashboard" href="/pos/dashboard" active={pathname === "/pos/dashboard"} />
