@@ -1,6 +1,6 @@
 import { createAgentUIStreamResponse } from 'ai';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { getTracAiAgent } from '@/lib/ai/agents/trac-ai';
 
 // Increase duration for complex tool-calling sequences
@@ -36,28 +36,29 @@ export async function POST(req: Request) {
                         result: p.output
                     }));
 
-                // Atomic Update of the entire chat "dump"
-                const assistantMsg = {
-                    id: responseMessage.id || crypto.randomUUID(),
+                // 1. Persist the AI response as a NEW document in the sub-collection
+                const messagesRef = collection(db, 'users', userId, 'chats', chatId, 'messages');
+                await addDoc(messagesRef, {
                     role: 'assistant',
                     parts: responseMessage.parts,
                     toolInvocations,
                     createdAt: new Date().toISOString()
-                };
+                });
 
-                const fullHistory = [...messages, assistantMsg];
+                // Update the chat with any new user message parts (like images) that were passed in
+                // if they haven't been persisted yet. 
+                // The frontend usually adds the user message, but we ensure the structure matches.
 
+                // 2. Update Chat Summary (Metadata)
                 const chatRef = doc(db, 'users', userId, 'chats', chatId);
                 await setDoc(chatRef, {
-                    messages: fullHistory,
                     updatedAt: serverTimestamp(),
                     lastMessage: text.substring(0, 100),
                     orgId,
-                    title: messages[0]?.content || messages[0]?.parts?.[0]?.text?.substring(0, 40) || 'New Chat'
                 }, { merge: true });
 
             } catch (e) {
-                console.error("Error persisting chat dump:", e);
+                console.error("Error persisting AI response:", e);
             }
         }
       }

@@ -53,22 +53,32 @@ export function ValueProps() {
               </p>
             </div>
 
-            {/* --- WIDER FULL IMAGE DISPLAY --- */}
             <div className="w-full md:w-[60%] aspect-[16/10] relative group">
               <div className="absolute inset-0 bg-black/5 dark:bg-white/5 rounded-[2.5rem] md:rounded-[4rem] -rotate-2 group-hover:rotate-0 transition-transform duration-700" />
-              <div className="absolute inset-0 rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700 border border-black/10 dark:border-white/10 bg-white dark:bg-[#050505]">
-                <Image 
-                  src={section.image}
-                  alt={section.title}
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-w-7xl) 60vw, 100vw"
-                  priority={index === 0}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none z-10" />
+              <div className="absolute inset-0 rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl group-hover:-translate-y-4 group-hover:translate-x-4 transition-all duration-700 border border-black/10 dark:border-white/10 flex flex-col">
+                
+                {/* Macbook Bar */}
+                <div className="shrink-0 h-10 z-10 flex items-center pl-8 bg-gray-100/70 dark:bg-black/50 backdrop-blur-sm">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                  </div>
+                </div>
+
+                {/* Image container */}
+                <div className="relative flex-grow bg-black">
+                  <Image 
+                    src={section.image}
+                    alt={section.title}
+                    fill
+                    className="object-cover object-top"
+                    sizes="(max-w-7xl) 60vw, 100vw"
+                    priority={index === 0}
+                  />
+                </div>
               </div>
             </div>
-            {/* --------------------------- */}
           </div>
         </section>
       ))}

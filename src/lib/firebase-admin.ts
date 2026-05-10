@@ -38,6 +38,7 @@ export function getFirebaseAdmin() {
         privateKey,
       }),
       databaseURL: `https://${projectId}.firebaseio.com`,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
     });
     return admin;
   } catch (error: any) {

@@ -1,0 +1,22 @@
+name: Clutch Sitemap Harvester
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run Harvester
+        run: npx tsx scripts/clutch-harvester.ts
+        env:
+          LEADS_SUPABASE_URL: ${{ secrets.LEADS_SUPABASE_URL }}
+          LEADS_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LEADS_SUPABASE_SERVICE_ROLE_KEY }}

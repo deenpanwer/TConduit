@@ -331,6 +331,28 @@ function OnboardingContent() {
       }
 
       await refreshUserData();
+      
+      // Notify via Pushover and WhatsApp
+      try {
+        await fetch('/api/onboarding/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orgName: formData.orgName,
+            inviteCode: isOwner ? (orgData?.inviteCode || formData.inviteCode) : formData.inviteCode,
+            ownerWhatsapp: formData.whatsapp,
+            ownerEmail: user.email,
+            teamSize: formData.teamSize,
+            reportingPlatforms: formData.reportingPlatforms,
+            motivation: formData.motivation,
+            modulePriorities: formData.modulePriorities,
+            role: formData.role
+          })
+        });
+      } catch (notifyErr) {
+        console.error("Notification trigger failed:", notifyErr);
+      }
+
       toast({ title: "Configuration complete", description: "Welcome to your new workspace." });
       
       const routingUrl = finalCallbackUrl.startsWith('/crm') 

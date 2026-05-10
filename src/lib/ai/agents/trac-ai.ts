@@ -10,7 +10,7 @@ export const getTracAiAgent = (orgId: string, userId: string) => {
     model: mistral('pixtral-large-2411'),
     instructions: `
       ROLE: You are "Trac AI", the Workforce Intelligence Manager.
-      GOAL: Help the founder/manager run, monitor, and manage their team with 100% truthfulness and zero bias.
+      GOAL: Help the founder/manager run, monitor, and manage their team with 100% truthfulness and zero bias. You have access to the conversation history from both the web interface and WhatsApp; use it to maintain context and answer accurately.
       
       CONTEXT:
       - Current Organization ID: ${orgId}
@@ -28,7 +28,10 @@ export const getTracAiAgent = (orgId: string, userId: string) => {
       - If an employee is underperforming, say it plainly.
       - Always verify "Who" before performing an action (e.g., "Which employee should I audit?").
       - Use Poppins typography style in your mind (bold and clear).
-    `,
+    `,      
+    // FUTURE DIRECTION:
+    // - We may eventually add a tool to "notify_employee_whatsapp" to allow direct messaging to the team. 
+    // - For now, ONLY respond to the manager/owner.
     tools: {
       list_employees: tool({
         ...listEmployeesTool,

@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRef, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { useChatStore } from '@/store/use-chat-store';
 
 export function ChatInterface() {
@@ -33,28 +33,6 @@ export function ChatInterface() {
     [sessionChatId, chatMessages]
   );
 
-  // Helper to persist the entire chat dump to Firestore
-  const persistChatDump = async (chatId: string, history: Message[]) => {
-    const userId = userData?.uid;
-    if (!userId || history.length === 0) return;
-
-    try {
-        const lastMsg = history[history.length - 1];
-        const textContent = lastMsg.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || "";
-
-        const chatRef = doc(db, 'users', userId, 'chats', chatId);
-        await setDoc(chatRef, {
-            messages: history,
-            updatedAt: serverTimestamp(),
-            lastMessage: textContent.substring(0, 100),
-            orgId: orgId || null,
-            title: history[0]?.parts?.[0]?.type === 'text' ? (history[0].parts[0] as any).text.substring(0, 40) : 'New Chat'
-        }, { merge: true });
-    } catch (e) {
-        console.error("Error persisting chat dump:", e);
-    }
-  };
-
   const { 
     messages, 
     setMessages, 
@@ -67,11 +45,8 @@ export function ChatInterface() {
         api: '/api/chat',
     }),
     onFinish: (result) => {
-        // In SDK v6, onFinish receives an object with the message and other metadata
-        const finalMessage = (result as any).message || result;
-        const finalMessages = [...messages, finalMessage];
-        setMessagesForChat(sessionChatId, finalMessages);
-        persistChatDump(sessionChatId, finalMessages);
+        // We no longer persist the whole dump here. 
+        // The server-side /api/chat route handles writing the AI response to the sub-collection.
     },
     onError: (error) => {
         console.error("AI Chat Error:", error);
@@ -79,44 +54,35 @@ export function ChatInterface() {
   });
 
   const isLoading = status === 'submitted' || status === 'streaming';
-  const [initialLoading, setInitialLoading] = useState(!!routeChatId && initialMessages.length === 0);
+  const [initialLoading, setInitialLoading] = useState(!!routeChatId);
 
-  // 1. Effect: Initial Hydration from Firestore (Runs only once per chatId)
+  // 1. Effect: Real-time Hydration from Firestore Sub-collection
   useEffect(() => {
     const userId = userData?.uid;
     if (userId && routeChatId) {
-        // Only fetch if we don't have messages in Zustand already
-        if (chatMessages[routeChatId]?.length > 0) {
-            setInitialLoading(false);
-            return;
-        }
-
         setInitialLoading(true);
-        const chatDocRef = doc(db, 'users', userId, 'chats', routeChatId);
+        const messagesRef = collection(db, 'users', userId, 'chats', routeChatId, 'messages');
+        const q = query(messagesRef, orderBy('createdAt', 'asc'));
         
-        // Use a one-time listener for hydration
-        const unsub = onSnapshot(chatDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                const loadedMsgs = (data.messages || []).map((msg: any) => ({
-                    ...msg,
-                    parts: msg.parts || [{ type: 'text', text: msg.content || '' }],
-                })) as unknown as Message[];
-                
-                if (loadedMsgs.length > 0) {
-                    setMessages(loadedMsgs);
-                    setMessagesForChat(routeChatId, loadedMsgs);
-                }
+        const unsub = onSnapshot(q, (snapshot) => {
+            const loadedMsgs = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data(),
+            })) as unknown as Message[];
+            
+            if (loadedMsgs.length > 0) {
+                setMessages(loadedMsgs);
+                setMessagesForChat(routeChatId, loadedMsgs);
             }
             setInitialLoading(false);
-            // After the first data arrival, we stop this listener to let Zustand take over
-            unsub();
         }, (error) => {
             console.error("History hydration error:", error);
             setInitialLoading(false);
         });
         
         return () => unsub();
+    } else {
+        setInitialLoading(false);
     }
   }, [userData?.uid, routeChatId, setMessages, setMessagesForChat]); 
 
@@ -134,27 +100,37 @@ export function ChatInterface() {
 
   const handleSendMessage = async (content: string) => {
     const userId = userData?.uid;
-    const userMsg: Message = {
-        id: crypto.randomUUID(),
+    if (!userId) return;
+
+    // 1. Create the User Message Object
+    const userMsg: any = {
         role: 'user',
-        parts: [{ type: 'text', text: content }]
+        parts: [{ type: 'text', text: content }],
+        createdAt: new Date().toISOString() // Client-side timestamp for immediate UI
     };
 
-    if (userId) {
-        const fullHistory = [...messages, userMsg];
-        
-        // 1. Update UI and Local Store IMMEDIATELY
-        setMessages(fullHistory);
-        setMessagesForChat(sessionChatId, fullHistory);
-        
-        // 2. Persist the "Dump" to Firestore
-        persistChatDump(sessionChatId, fullHistory);
+    // 2. Persist Message to Firestore Sub-collection (Atomic)
+    try {
+        const messagesRef = collection(db, 'users', userId, 'chats', sessionChatId, 'messages');
+        await addDoc(messagesRef, userMsg);
+
+        // 3. Update Chat Summary (Metadata)
+        const chatRef = doc(db, 'users', userId, 'chats', sessionChatId);
+        await setDoc(chatRef, {
+            updatedAt: serverTimestamp(),
+            lastMessage: content.substring(0, 100),
+            orgId: orgId || null,
+            title: messages.length === 0 ? content.substring(0, 40) : undefined
+        }, { merge: true });
 
         if (!routeChatId) {
             router.replace(`/dashboard/c/${sessionChatId}`, { scroll: false });
         }
+    } catch (e) {
+        console.error("Error persisting user message:", e);
     }
 
+    // 4. Trigger AI SDK
     sendMessage({ text: content }, {
         body: {
             chatId: sessionChatId,

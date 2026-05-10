@@ -1,13 +1,14 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
 import { 
   getFirestore, 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager 
+  persistentMultipleTabManager,
+  Firestore
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import { getDatabase } from "firebase/database";
+import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getDatabase, Database } from "firebase/database";
 
 // TODO: Replace with your actual config from the Trac Dairy app
 const firebaseConfig = {
@@ -21,17 +22,28 @@ const firebaseConfig = {
   databaseURL: "https://trac-dairy-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 
-// Initialize Firebase
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const storage = getStorage(app);
-const rtdb = getDatabase(app);
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
+let rtdb: Database;
 
-// Initialize Firestore with persistent local cache
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  storage = getStorage(app);
+  rtdb = getDatabase(app);
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} else {
+  app = getApp();
+  auth = getAuth(app);
+  storage = getStorage(app);
+  rtdb = getDatabase(app);
+  db = getFirestore(app);
+}
 
 export { auth, db, storage, rtdb };
