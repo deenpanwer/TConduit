@@ -236,7 +236,7 @@ function registerWhatsAppHandlers(bot: Chat) {
 /**
  * Dispatches webhook events to the WhatsApp adapter.
  */
-export const handleWhatsAppEvent = async (bot: Chat, req: Request) => {
+export const handleWhatsAppEvent = async (bot: Chat, req: Request, options?: any) => {
     // The SDK's handleWebhook expects a Request object and handles both GET and POST
-    return await bot.webhooks.whatsapp(req);
+    return await bot.webhooks.whatsapp(req, options);
 };

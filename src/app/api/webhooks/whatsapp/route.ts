@@ -1,4 +1,5 @@
 import { getWhatsAppBot, handleWhatsAppEvent } from "@/lib/whatsapp-bot";
+import { waitUntil } from "@vercel/functions";
 
 export async function GET(req: Request) {
     const bot = getWhatsAppBot();
@@ -7,5 +8,5 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     const bot = getWhatsAppBot();
-    return handleWhatsAppEvent(bot, req);
+    return handleWhatsAppEvent(bot, req, { waitUntil });
 }
