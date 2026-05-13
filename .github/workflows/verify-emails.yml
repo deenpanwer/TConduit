@@ -29,8 +29,8 @@ jobs:
       - name: Run Email Verification
         run: npx tsx scripts/verify-leads.ts
         env:
-          SUPABASE_URL: ${{ secrets.LEADS_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LEADS_SUPABASE_SERVICE_ROLE_KEY }}
+          LEADS_SUPABASE_URL: ${{ secrets.LEADS_SUPABASE_URL }}
+          LEADS_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LEADS_SUPABASE_SERVICE_ROLE_KEY }}
           BATCH_SIZE: ${{ github.event.inputs.batch_size || '2500' }}
           CONCURRENCY: ${{ github.event.inputs.concurrency || '50' }}
           LEADS_TABLE_NAME: 'leads' # Update if your table name is different
