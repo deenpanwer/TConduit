@@ -11,22 +11,23 @@ dotenv.config();
 
 const resolveMx = promisify(dns.resolveMx);
 
-// --- HARDENED CONFIGURATION ---
-// We check for both prefixed and non-prefixed versions to bypass environment conflicts
-const SUPABASE_URL = process.env.LEADS_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.LEADS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+// --- CLEAN CONFIGURATION ---
+// Directly using the standardized secret names you just set in GitHub
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// These remain as environment variables or fallbacks
 const TABLE_NAME = process.env.LEADS_TABLE_NAME || 'leads';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '1000');
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10'); // Reduced for stealth
-const MAX_RETRIES = 5; // Increased for persistence
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '10'); 
+const MAX_RETRIES = 5;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error("❌ Error: Missing Supabase Credentials");
-  console.log("DEBUG - LEADS_SUPABASE_URL found:", !!process.env.LEADS_SUPABASE_URL);
-  console.log("DEBUG - SUPABASE_URL found:", !!process.env.SUPABASE_URL);
+  console.log("Check: Is SUPABASE_URL present?", !!SUPABASE_URL);
+  console.log("Check: Is SUPABASE_SERVICE_ROLE_KEY present?", !!SUPABASE_KEY);
   process.exit(1);
 }
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
