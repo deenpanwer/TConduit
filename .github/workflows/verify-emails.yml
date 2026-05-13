@@ -29,15 +29,9 @@ jobs:
       - name: Run Email Verification
         run: npx tsx scripts/verify-leads.ts
         env:
-          # 1. Provide the prefixed variables the script expects
-          # It checks secrets.LEADS_ first, then falls back to secrets.SUPABASE_
-          LEADS_SUPABASE_URL: ${{ secrets.LEADS_SUPABASE_URL || secrets.SUPABASE_URL }}
-          LEADS_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LEADS_SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          
-          # 2. Provide the normal variables as a safety net
-          SUPABASE_URL: ${{ secrets.LEADS_SUPABASE_URL || secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.LEADS_SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          
+          # Match these to the exact names you just saved in GitHub Secrets
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # 3. Execution parameters
           BATCH_SIZE: ${{ github.event.inputs.batch_size || '2500' }}
           CONCURRENCY: ${{ github.event.inputs.concurrency || '50' }}
