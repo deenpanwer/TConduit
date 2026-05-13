@@ -1,0 +1,36 @@
+name: Verify Email Leads
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Every hour
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Number of leads to process'
+        required: true
+        default: '2500'
+      concurrency:
+        description: 'Parallel processes'
+        required: true
+        default: '50'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - run: npm ci
+      
+      - name: Run Email Verification
+        run: npx tsx scripts/verify-leads.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BATCH_SIZE: ${{ github.event.inputs.batch_size || '2500' }}
+          CONCURRENCY: ${{ github.event.inputs.concurrency || '50' }}
+          LEADS_TABLE_NAME: 'leads' # Update if your table name is different

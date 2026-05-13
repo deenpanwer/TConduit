@@ -64,3 +64,7 @@ firestore-debug.log
 .gemini/
 
 trac-mobile.md
+reference.md
+reference-full.md
+/reference.md
+/reference-full.md
