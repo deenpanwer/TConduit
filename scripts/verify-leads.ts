@@ -64,20 +64,37 @@ async function runBatch() {
   console.log(`📊 Queue Status: ${totalRemaining?.toLocaleString() || 'Unknown'} leads remaining in total.`);
   console.log(`🚀 Targeting: ${BATCH_SIZE} leads with Concurrency: ${CONCURRENCY}`);
 
-  // Fetch unprocessed leads
-  const { data: leads, error } = await supabase
-    .from(TABLE_NAME)
-    .select('*')
-    .eq('is_processed', false)
-    .eq('processing_status', 'PENDING')
-    .limit(BATCH_SIZE);
+  // Fetch unprocessed leads in loops of 1000 to bypass API limits
+  const fetchStart = performance.now();
+  const leads: any[] = [];
+  let remainingToFetch = BATCH_SIZE;
 
-  if (error || !leads || leads.length === 0) {
+  while (remainingToFetch > 0) {
+    const currentBatchSize = Math.min(remainingToFetch, 1000);
+    const { data: batch, error } = await supabase.rpc('claim_leads_for_verification', {
+      batch_size: currentBatchSize,
+      table_name: TABLE_NAME
+    });
+
+    if (error) {
+      console.error("❌ RPC Error:", error.message);
+      break;
+    }
+
+    if (!batch || batch.length === 0) break;
+    
+    leads.push(...batch);
+    remainingToFetch -= batch.length;
+    if (batch.length < currentBatchSize) break; // No more leads available
+  }
+  const fetchEnd = performance.now();
+
+  if (leads.length === 0) {
     console.log("😴 No pending leads found.");
     return;
   }
 
-  console.log(`📦 Loaded ${leads.length} leads.`);
+  console.log(`📦 Loaded ${leads.length} leads in ${((fetchEnd - fetchStart) / 1000).toFixed(2)}s.`);
 
   const results: any[] = [];
   let completed = 0;
