@@ -1,5 +1,5 @@
 import { getDeployments } from "@/lib/vercel";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { GitBranch, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { DeploymentActions } from "./DeploymentActions";
 import Link from "next/link";
@@ -25,9 +25,10 @@ const StateDot = ({ state }: { state: string }) => {
 export default async function ChangelogPage({ searchParams }: Props) {
   const params = await searchParams;
   const until = params.until as string | undefined;
+  const since = params.since as string | undefined;
   const limit = 20;
 
-  const { deployments, pagination } = await getDeployments(limit, until);
+  const { deployments, pagination } = await getDeployments(limit, until, since);
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] pt-24 pb-12 font-sans selection:bg-primary selection:text-white">
@@ -47,16 +48,21 @@ export default async function ChangelogPage({ searchParams }: Props) {
         <div className="flex items-center justify-between py-4">
           <div className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
             {deployments.length > 0 ? (
-              <>
-                Showing {deployments.length} records 
-                {pagination?.next ? " • More updates available" : " • End of stream"}
-              </>
+              <div className="flex flex-col">
+                <span className="text-black dark:text-white text-lg mb-1 tracking-tighter italic font-black uppercase">
+                  {pagination?.next ? "STREAMING RELEASES" : "ALL RELEASES COMPLETED"}
+                </span>
+                <span>
+                  Showing {deployments.length} records 
+                  {pagination?.next ? " • More updates available" : " • End of stream"}
+                </span>
+              </div>
             ) : "No records found"}
           </div>
           <div className="flex items-center gap-2">
             {pagination?.prev && (
               <Button variant="outline" size="sm" asChild className="h-8 rounded-lg font-black text-[10px] uppercase tracking-widest gap-1 px-3">
-                <Link href={`/changelog?until=${pagination.prev}`}>
+                <Link href={`/changelog?since=${pagination.prev}`}>
                   <ChevronLeft size={14} /> Previous
                 </Link>
               </Button>
@@ -129,15 +135,44 @@ export default async function ChangelogPage({ searchParams }: Props) {
                   </div>
 
                   {/* Time & User */}
-                  <div className="w-full md:w-[20%] shrink-0 flex items-center justify-between md:justify-end gap-4">
+                  <div className="w-full md:w-[25%] shrink-0 flex items-center justify-between md:justify-end gap-4">
                     <div className="text-right">
-                      <div className="text-[13px] text-muted-foreground font-medium">
+                      <div className="text-[13px] text-black dark:text-white font-bold tracking-tight">
                         {formatDistanceToNow(new Date(deployment.created), { addSuffix: true })}
                       </div>
-                      <div className="text-[11px] text-muted-foreground/60">
+                      <div className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wider">
+                        {format(new Date(deployment.created), "MMM d, yyyy • h:mm a")}
+                      </div>
+                      <div className="text-[11px] text-primary/80 font-black mt-0.5">
                         by {deployment.creator.username}
                       </div>
                     </div>
+                    
+                    <div className="flex items-center gap-1 shrink-0">
+                      {deployment.meta.githubCommitSha && (
+                        <a 
+                          href={`https://github.com/${deployment.meta.githubCommitOrg || 'TConduit'}/${deployment.meta.githubCommitRepo || 'TConduit'}/commit/${deployment.meta.githubCommitSha}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="size-8 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors border border-black/5 dark:border-white/5"
+                          title="Open on GitHub"
+                        >
+                          <img src="/github.svg" alt="GitHub" className="size-3.5 dark:invert opacity-70 hover:opacity-100 transition-opacity" />
+                        </a>
+                      )}
+                      <a 
+                        href={`https://${deployment.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="size-8 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors border border-black/5 dark:border-white/5"
+                        title="Open on Vercel"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 76 65" fill="currentColor" className="text-black dark:text-white opacity-70 hover:opacity-100 transition-opacity">
+                          <path d="M37.5274 0L75.0548 65H0L37.5274 0Z" />
+                        </svg>
+                      </a>
+                    </div>
+
                     <div className="size-8 rounded-full border border-black/10 dark:border-white/10 overflow-hidden shrink-0 bg-secondary flex items-center justify-center">
                       <img 
                         src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${deployment.creator.username}`} 
@@ -165,7 +200,7 @@ export default async function ChangelogPage({ searchParams }: Props) {
           <div className="flex items-center gap-2">
             {pagination?.prev && (
               <Button variant="outline" size="sm" asChild className="h-8 rounded-lg font-black text-[10px] uppercase tracking-widest gap-1 px-3">
-                <Link href={`/changelog?until=${pagination.prev}`}>
+                <Link href={`/changelog?since=${pagination.prev}`}>
                   <ChevronLeft size={14} /> Previous
                 </Link>
               </Button>

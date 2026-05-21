@@ -46,24 +46,6 @@ export function DeploymentActions({ deployment }: DeploymentActionsProps) {
         >
           <Copy size={14} /> Copy URL
         </DropdownMenuItem>
-        
-        <DropdownMenuSeparator className="my-1 bg-black/5 dark:bg-white/5" />
-        
-        {deployment.meta?.githubCommitSha && (
-          <DropdownMenuItem 
-            onClick={() => copyToClipboard(deployment.meta!.githubCommitSha!, "Commit SHA")}
-            className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest p-3 cursor-pointer rounded-lg"
-          >
-            <Terminal size={14} /> Copy Commit SHA
-          </DropdownMenuItem>
-        )}
-        
-        <DropdownMenuItem 
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest p-3 cursor-pointer rounded-lg"
-          onClick={() => toast.info("Inspect logs feature coming soon")}
-        >
-          <Github size={14} /> View Source
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

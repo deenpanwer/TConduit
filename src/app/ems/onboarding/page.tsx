@@ -79,6 +79,7 @@ function OnboardingContent() {
   const [isEditingTimezone, setIsEditingTimezone] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [detectedCountry, setDetectedCountry] = useState<any>("US");
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || "/ems";
@@ -102,6 +103,22 @@ function OnboardingContent() {
     timezone: (Intl.DateTimeFormat().resolvedOptions().timeZone as any) || "UTC",
     modulePriorities: [] as string[]
   });
+
+  // Fetch Country Metadata
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await fetch('/api/user/metadata');
+        const data = await res.json();
+        if (data.country_code) {
+          setDetectedCountry(data.country_code);
+        }
+      } catch (err) {
+        console.error("Failed to fetch country metadata", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   // Handle Initial Redirects and Org Fetching
   useEffect(() => {
@@ -542,7 +559,7 @@ function OnboardingContent() {
                     <div className="phone-input-container">
                       <PhoneInput
                         international
-                        defaultCountry="PK"
+                        defaultCountry={detectedCountry}
                         value={formData.whatsapp}
                         onChange={(value) => setFormData({ ...formData, whatsapp: value || "" })}
                         className="flex h-14 w-full rounded-2xl border border-input bg-background/50 px-4 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

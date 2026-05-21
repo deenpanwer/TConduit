@@ -1,266 +1,232 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { useTeam } from "@/hooks/use-team";
-import { db } from "@/lib/firebase";
-import { 
-  collection, query, getDocs, 
-  orderBy, startAt, endAt, doc, onSnapshot 
-} from "firebase/firestore";
-import { 
-  format, parseISO, differenceInSeconds, isSameDay, 
-  eachDayOfInterval, subDays, addMinutes, startOfDay
-} from "date-fns";
-import { isEmployeeOnline } from "@/lib/utils";
-import { faker } from "@faker-js/faker";
+import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { useTeam } from '@/hooks/use-team';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  query,
+  getDocs,
+  where,
+  DocumentData,
+} from 'firebase/firestore';
+import { format } from 'date-fns';
+import { isEmployeeOnline } from '@/lib/utils';
 
 export interface AttendanceLog {
   userId: string;
   userName: string;
   avatar?: string;
   date: string;
-  shift: string; // "Recurring" or specific times
+  shift: string;
   clockIn: string | null;
   clockOut: string | null;
-  totalHours: number; // Decimal hours
-  activeTime: number; // Decimal hours
-  breakTime: number; // Decimal hours
+  late: string;
+  extraWorked: string;
+  idleTime: number;
+  totalHours: number;
+  activeTime: number;
+  breakTime: number;
+  assignedTasksCount: number;
+  keystrokes: number;
+  mouseClicks: number;
   status: 'online' | 'offline' | 'on-break' | 'away';
   isVerified?: boolean;
   isFlagged?: boolean;
 }
 
 export function useAttendance() {
+  const { employees: teamEmployees, loading: teamLoading, selectedDate } =
+    useTeam();
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
+  const [tasksLoading, setTasksLoading] = useState(false);
   const { userData } = useAuth();
-  const { employees, loading: teamLoading } = useTeam();
-  const [loading, setLoading] = useState(true);
-  const [orgData, setOrgData] = useState<any>(null);
-  
-  const orgId = userData?.ownedOrgId || userData?.orgId;
+  const [orgData, setOrgData] = useState<DocumentData | null>(null);
+  const [attendanceSettings, setAttendanceSettings] = useState<any>({});
+  const [offDays, setOffDays] = useState<string[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
 
-  // Listen to organization settings
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+  const dateStr = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [
+    selectedDate,
+  ]);
+
   useEffect(() => {
-    if (!orgId) {
-      setLoading(false);
-      return;
-    }
-    const unsub = onSnapshot(doc(db, "organizations", orgId), (snap) => {
-      if (snap.exists()) {
-        setOrgData(snap.data());
+    if (!orgId) return;
+
+    const fetchOrgData = async () => {
+      const orgRef = collection(db, 'organizations');
+      const q = query(orgRef, where('__name__', '==', orgId));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const orgDocData = querySnapshot.docs[0].data();
+        setOrgData(orgDocData);
+        setAttendanceSettings(orgDocData.attendanceSettings || {});
+        setOffDays(orgDocData.settings?.offDays || []);
       }
-      setLoading(false);
-    });
-    return () => unsub();
+    };
+
+    const fetchHolidays = async () => {
+      const holidaysRef = collection(db, 'organizations', orgId, 'holidays');
+      const holidaysSnap = await getDocs(holidaysRef);
+      setHolidays(holidaysSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    };
+
+    fetchOrgData();
+    fetchHolidays();
   }, [orgId]);
 
-  // Memoize settings to prevent downstream infinite loops
-  const attendanceSettings = useMemo(() => orgData?.attendanceSettings || {}, [orgData]);
-  const offDays = useMemo(() => orgData?.settings?.offDays || [], [orgData]);
-  const holidays = useMemo(() => orgData?.holidays || [], [orgData]);
+  useEffect(() => {
+    if (!orgId) return;
 
-  /**
-   * Process shift documents into a single attendance log for a day
-   */
-  const processDayLogs = useCallback((employee: any, dateStr: string, shifts: any[]): AttendanceLog => {
-    if (!shifts || shifts.length === 0) {
-      const defaults = employee.trackingSettings?.shiftDefaults;
-      return {
-        userId: String(employee.id || ""),
-        userName: String(employee.name || "Unknown"),
-        avatar: employee.avatar || employee.photoUrl,
-        date: String(dateStr),
-        shift: defaults 
-          ? `${defaults.startTime} - ${defaults.endTime}`
-          : "Not Set",
-        clockIn: null,
-        clockOut: null,
-        totalHours: 0,
-        activeTime: 0,
-        breakTime: 0,
-        status: 'offline'
-      };
-    }
-
-    // Sort shifts by start time
-    const sortedShifts = [...shifts].sort((a, b) => {
-      const aStart = a.startTime || (typeof a.id === 'string' ? a.id.split('_')[1] : "00:00") || "00:00";
-      const bStart = b.startTime || (typeof b.id === 'string' ? b.id.split('_')[1] : "00:00") || "00:00";
-      return String(aStart).localeCompare(String(bStart));
-    });
-
-    const firstShift = sortedShifts[0];
-    const lastShift = sortedShifts[sortedShifts.length - 1];
-
-    const clockIn = firstShift.startTime || firstShift.liveMetrics?.startTime || null;
-    const clockOut = lastShift.endTime || lastShift.liveMetrics?.endTime || null;
-
-    let totalSeconds = 0;
-    let activeSeconds = 0;
-    let idleSeconds = 0;
-
-    const isToday = isSameDay(parseISO(dateStr), new Date());
-
-    shifts.forEach(s => {
-      const metrics = s.liveMetrics || s.metrics || {};
-      activeSeconds += (metrics.activeSeconds || metrics.totalSeconds || 0);
-      idleSeconds += (metrics.idleSeconds || 0);
-    });
-
-    if (clockIn && clockOut) {
+    async function fetchTasks() {
+      setTasksLoading(true);
       try {
-        const start = new Date(`${dateStr}T${clockIn}`);
-        const end = new Date(`${dateStr}T${clockOut}`);
-        totalSeconds = differenceInSeconds(end, start);
-      } catch (e) {
-        console.warn("Date calculation error", e);
-      }
-    } else if (clockIn && isToday) {
-      try {
-        const start = new Date(`${dateStr}T${clockIn}`);
-        totalSeconds = differenceInSeconds(new Date(), start);
-      } catch (e) {
-        console.warn("Date calculation error", e);
-      }
-    }
+        const tasksRef = collection(db, 'organizations', orgId, 'tasks');
+        const q = query(tasksRef, where('status', '!=', 'done'));
+        const snap = await getDocs(q);
 
-    // Break is either the idle time tracked by the app or the gaps between shifts
-    const breakSeconds = idleSeconds > 0 ? idleSeconds : Math.max(0, totalSeconds - activeSeconds);
-
-    let status: AttendanceLog['status'] = 'offline';
-    if (isToday) {
-      if (isEmployeeOnline(employee)) {
-        status = 'online';
-      } else if (shifts.some(s => s.status === 'active')) {
-        status = 'on-break';
-      }
-    }
-
-    return {
-      userId: String(employee.id || ""),
-      userName: String(employee.name || "Unknown"),
-      avatar: employee.avatar || employee.photoUrl,
-      date: String(dateStr),
-      shift: employee.trackingSettings?.shiftDefaults 
-        ? `${employee.trackingSettings.shiftDefaults.startTime} - ${employee.trackingSettings.shiftDefaults.endTime}`
-        : "Flexible",
-      clockIn: clockIn ? String(clockIn) : null,
-      clockOut: clockOut ? String(clockOut) : null,
-      totalHours: Number((totalSeconds / 3600).toFixed(1)),
-      activeTime: Number((activeSeconds / 3600).toFixed(1)),
-      breakTime: Number((breakSeconds / 3600).toFixed(1)),
-      status
-    };
-  }, []);
-
-  // --- DUMMY DATA GENERATION ---
-  const dummyEmployees = useMemo(() => {
-    return [
-      { id: "dummy_1", name: "Sarah Connor", photoUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah", trackingSettings: { shiftDefaults: { startTime: "09:00", endTime: "17:00" } } },
-      { id: "dummy_2", name: "John McClane", photoUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=John", trackingSettings: { shiftDefaults: { startTime: "10:00", endTime: "19:00" } } }
-    ];
-  }, []);
-
-  const generateDummyShiftsForDate = useCallback((dateStr: string, empId: string) => {
-    const isToday = isSameDay(parseISO(dateStr), new Date());
-    const startHour = empId === "dummy_1" ? 9 : 10;
-    
-    // Multiple shifts per day
-    const morningStart = `${String(startHour).padStart(2, "0")}:00:00`;
-    const morningEnd = `${String(startHour + 4).padStart(2, "0")}:00:00`;
-    const afternoonStart = `${String(startHour + 4).padStart(2, "0")}:45:00`;
-    const afternoonEnd = isToday ? format(new Date(), "HH:mm:ss") : `${String(startHour + 8).padStart(2, "0")}:45:00`;
-
-    return [
-      {
-        id: `${dateStr}_0`,
-        startTime: morningStart,
-        endTime: morningEnd,
-        liveMetrics: { activeSeconds: 14400, idleSeconds: 300 }
-      },
-      {
-        id: `${dateStr}_1`,
-        startTime: afternoonStart,
-        endTime: afternoonEnd,
-        liveMetrics: { activeSeconds: 12000, idleSeconds: 600 },
-        status: isToday ? 'active' : 'completed'
-      }
-    ];
-  }, []);
-
-  /**
-   * Get attendance for today (Overview)
-   */
-  const todayLogs = useMemo(() => {
-    const dateStr = format(new Date(), "yyyy-MM-dd");
-    const realLogs = employees.map(emp => processDayLogs(emp, dateStr, emp.workShifts || []));
-    
-    // Add Dummy Data for Today
-    const dummyLogs = dummyEmployees.map(emp => {
-       const shifts = generateDummyShiftsForDate(dateStr, emp.id);
-       const log = processDayLogs(emp, dateStr, shifts);
-       log.status = 'online'; // Force online for dummy
-       return log;
-    });
-
-    return [...realLogs, ...dummyLogs];
-  }, [employees, processDayLogs, dummyEmployees, generateDummyShiftsForDate]);
-
-  /**
-   * Fetch attendance for a date range (Ledger)
-   */
-  const getLogsForRange = useCallback(async (startDate: Date, endDate: Date) => {
-    const rangeLogs: AttendanceLog[] = [];
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-    // 1. Process Real Data
-    if (orgId) {
-      await Promise.all(employees.map(async (emp) => {
-        try {
-          const shiftsRef = collection(db, "users", emp.id, "workShifts");
-          const q = query(
-            shiftsRef,
-            orderBy("__name__"),
-            startAt(format(startDate, "yyyy-MM-dd")),
-            endAt(format(endDate, "yyyy-MM-dd") + "\uf8ff")
-          );
-
-          const snap = await getDocs(q);
-          const allShifts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-          days.forEach(day => {
-            const dStr = format(day, "yyyy-MM-dd");
-            const dayShifts = allShifts.filter(s => typeof s.id === 'string' && s.id.startsWith(dStr));
-            rangeLogs.push(processDayLogs(emp, dStr, dayShifts));
+        const counts: Record<string, number> = {};
+        snap.docs.forEach(doc => {
+          const data = doc.data();
+          const assignees = data.assignees || [];
+          assignees.forEach((uid: string) => {
+            counts[uid] = (counts[uid] || 0) + 1;
           });
-        } catch (err) {
-          console.error(`Failed to fetch logs for employee ${emp.id}:`, err);
-        }
-      }));
+        });
+        setTaskCounts(counts);
+      } catch (err) {
+        console.error('Failed to fetch task counts:', err);
+      } finally {
+        setTasksLoading(false);
+      }
     }
 
-    // 2. Inject Dummy Data (30 Days)
-    dummyEmployees.forEach(emp => {
-      days.forEach(day => {
-        const dStr = format(day, "yyyy-MM-dd");
-        // Randomly skip some days for realism
-        if (faker.number.float() > 0.1) {
-          const shifts = generateDummyShiftsForDate(dStr, emp.id);
-          rangeLogs.push(processDayLogs(emp, dStr, shifts));
-        }
-      });
-    });
+    fetchTasks();
+  }, [orgId, dateStr]);
 
-    return rangeLogs.sort((a, b) => b.date.localeCompare(a.date));
-  }, [orgId, employees, processDayLogs, dummyEmployees, generateDummyShiftsForDate]);
+  const logs = useMemo(() => {
+    return teamEmployees.map(emp => {
+      const shifts = emp.workShifts || [];
+
+      let clockIn = null;
+      let clockOut = null;
+
+      if (shifts.length > 0) {
+        const sortedShifts = [...shifts].sort((a: any, b: any) =>
+          a.id.localeCompare(b.id)
+        );
+        const firstShift = sortedShifts[0];
+        const lastShift = sortedShifts[sortedShifts.length - 1];
+
+        clockIn = firstShift.startTime || firstShift.createdAt;
+        if (lastShift.status === 'completed' || lastShift.endTime) {
+          clockOut = lastShift.endTime || lastShift.updatedAt;
+        }
+      }
+
+      let totalSeconds = 0;
+      let activeSeconds = 0;
+      let breakSeconds = 0;
+      let idleSeconds = 0;
+      let keystrokes = 0;
+      let mouseClicks = 0;
+
+      shifts.forEach((s: any) => {
+        const metrics = s.liveMetrics || s.metrics || {};
+        activeSeconds += metrics.activeSeconds || 0;
+        totalSeconds += metrics.totalSeconds || s.totalSeconds || 0;
+        breakSeconds += metrics.breakSeconds || 0;
+        idleSeconds += metrics.idleSeconds || 0;
+        keystrokes += metrics.keystrokes || s.keystrokes || 0;
+        mouseClicks += metrics.mouseClicks || s.mouseClicks || 0;
+      });
+
+      let status: any = 'offline';
+      if (isEmployeeOnline(emp)) {
+        status = 'online';
+        if (shifts.some((s: any) => s.status === 'on-break'))
+          status = 'on-break';
+      }
+
+      let late = '0m';
+      let extraWorked = '0m';
+
+      const shiftDefaults = emp.trackingSettings?.shiftDefaults;
+      if (shiftDefaults && clockIn) {
+        try {
+          const [sHour, sMin] = shiftDefaults.startTime.split(':').map(Number);
+          const shiftStart = new Date(selectedDate);
+          shiftStart.setHours(sHour, sMin, 0, 0);
+
+          const actualIn = new Date(clockIn);
+          if (actualIn > shiftStart) {
+            const diffMins = Math.floor(
+              (actualIn.getTime() - shiftStart.getTime()) / 60000
+            );
+            if (diffMins > 5) {
+              const h = Math.floor(diffMins / 60);
+              const m = diffMins % 60;
+              late = h > 0 ? `${h}h ${m}m` : `${m}m`;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (shiftDefaults && clockOut) {
+        try {
+          const [eHour, eMin] = shiftDefaults.endTime.split(':').map(Number);
+          const shiftEnd = new Date(selectedDate);
+          shiftEnd.setHours(eHour, eMin, 0, 0);
+
+          const actualOut = new Date(clockOut);
+          if (actualOut > shiftEnd) {
+            const diffMins = Math.floor(
+              (actualOut.getTime() - shiftEnd.getTime()) / 60000
+            );
+            if (diffMins > 0) {
+              const h = Math.floor(diffMins / 60);
+              const m = diffMins % 60;
+              extraWorked = h > 0 ? `${h}h ${m}m` : `${m}m`;
+            }
+          }
+        } catch (e) {}
+      }
+
+      return {
+        userId: emp.id,
+        userName: emp.name || emp.displayName || 'Unknown',
+        avatar: emp.photoUrl || emp.photoURL || null,
+        date: dateStr,
+        shift:
+          emp.trackingSettings?.shiftDefaults
+            ? `${emp.trackingSettings.shiftDefaults.startTime} - ${emp.trackingSettings.shiftDefaults.endTime}`
+            : 'Flexible',
+        clockIn: clockIn || null,
+        clockOut: clockOut || null,
+        late,
+        extraWorked,
+        totalHours: Number((totalSeconds / 3600).toFixed(2)),
+        activeTime: Number((activeSeconds / 3600).toFixed(2)),
+        breakTime: Number((breakSeconds / 3600).toFixed(2)),
+        idleTime: Number((idleSeconds / 3600).toFixed(2)),
+        assignedTasksCount: taskCounts[emp.id] || 0,
+        keystrokes,
+        mouseClicks,
+        status,
+      } as AttendanceLog;
+    });
+  }, [teamEmployees, taskCounts, selectedDate, dateStr]);
 
   return {
-    todayLogs,
-    getLogsForRange,
-    loading: loading || teamLoading,
-    orgData,
-    attendanceSettings,
-    offDays,
-    holidays
+    todayLogs: logs,
+    fetchForDate: (date: string) => {},
+    getLogsForRange: async (start: Date, end: Date) => [],
+    loading: teamLoading,
+    orgData: orgData,
+    attendanceSettings: attendanceSettings,
+    offDays: offDays,
+    holidays: holidays,
   };
 }

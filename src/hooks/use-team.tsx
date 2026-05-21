@@ -34,6 +34,7 @@ interface TeamContextType {
     totalKeystrokes: number;
     totalMouseClicks: number;
     totalMouseDistance: number;
+    totalBreakSeconds: number;
     hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }>;
   } | null;
   loading: boolean;
@@ -415,6 +416,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     let totalKeystrokes = 0;
     let totalMouseClicks = 0;
     let totalMouseDistance = 0;
+    let totalBreakSeconds = 0;
     const hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }> = {};
 
     Object.values(personnelData).forEach(p => {
@@ -435,6 +437,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
         totalKeystrokes += (shiftMetrics.keystrokes || s.keystrokes || 0);
         totalMouseClicks += (shiftMetrics.mouseClicks || s.mouseClicks || 0);
         totalMouseDistance += (shiftMetrics.mouseDistance || s.mouseDistance || 0);
+        totalBreakSeconds += (shiftMetrics.breakSeconds || 0);
 
         // Application Breakdown: Handles both number (Legacy) and object (Modern) formats.
         if (s.liveBreakdown) {
@@ -494,6 +497,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       totalKeystrokes,
       totalMouseClicks,
       totalMouseDistance,
+      totalBreakSeconds,
       hourlyActivity
     };
   })();

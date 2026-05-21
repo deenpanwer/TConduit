@@ -4,8 +4,9 @@ import { cn, getUserAvatar } from "@/lib/utils";
 import { 
   LayoutDashboard, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun, 
   ShoppingCart, X, CalendarDays, Settings, Sparkles, NotebookPen, 
-  Briefcase, FileText, ClipboardList, UserPlus, ArrowLeft
-} from "lucide-react";
+  Briefcase, UserPlus, ClipboardList, ArrowLeft,
+  CreditCard
+  } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -123,39 +124,16 @@ export function AttendanceSidebar({
       >
         <div className="p-4 flex flex-col h-full relative">
           
-          {/* Invite Button */}
-          <div className="mb-8">
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={onInviteClick}
-                    className={cn(
-                      "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
-                    )}
-                  >
-                    <UserPlus className="size-5 shrink-0" />
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Invite Staff Member
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
           <div className="mb-8 pt-4 lg:pt-0 shrink-0 min-h-8">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className={cn("flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group", isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3")}>
+                <button className={cn("flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group", (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3")}>
                   <div className="flex items-center gap-3">
                     <CalendarDays className={cn("size-6 shrink-0 transition-transform group-hover:scale-105", currentModule.color)} />
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">
                         <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">{currentModule.shortTitle}</span>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">Compliance</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">Human Resource</span>
                       </div>
                     )}
                   </div>
@@ -207,41 +185,106 @@ export function AttendanceSidebar({
             </DropdownMenu>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-1 -mx-2 px-2 scrollbar-none">
-            <NavItem icon={LayoutDashboard} label="Overview" href="/attendance" active={pathname === "/attendance"} />
-            <NavItem icon={ClipboardList} label="Ledger" href="/attendance/ledger" active={pathname?.startsWith("/attendance/ledger")} />
-            <NavItem icon={CalendarDays} label="Holidays" href="/attendance/holidays" active={pathname?.startsWith("/attendance/holidays")} />
-            <NavItem icon={Settings} label="Settings" href="/attendance/settings" active={pathname === "/attendance/settings"} />
+          {/* Invite Button */}
+          <div className="mb-4">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onInviteClick}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+                    )}
+                  >
+                    <UserPlus className="size-5 shrink-0" />
+                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                  Invite Staff Member
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
-          <div className="pt-4 border-t border-border flex flex-col space-y-4 shrink-0">
-            
-            <div className="px-2">
-              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2">Navigation</span>
+          <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
+            <div className="space-y-1">
+              <NavItem icon={LayoutDashboard} label="Overview" href="/attendance" active={pathname === "/attendance"} />
+              {/* <NavItem icon={CreditCard} label="Payroll" href="/attendance/payroll" active={pathname?.startsWith("/attendance/payroll")} /> */}
+              {/* we may remove this its terrible <NavItem icon={ClipboardList} label="Ledger" href="/attendance/ledger" active={pathname?.startsWith("/attendance/ledger")} /> */}
+              <NavItem icon={CalendarDays} label="Holidays" href="/attendance/holidays" active={pathname?.startsWith("/attendance/holidays")} />
+              <NavItem icon={Settings} label="Settings" href="/attendance/settings" active={pathname === "/attendance/settings"} />
             </div>
-            
-            <Link href="/ems" className={cn("flex items-center gap-3 w-full p-2.5 rounded-xl transition-all text-muted-foreground hover:text-foreground hover:bg-secondary", (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3")}>
-               <ArrowLeft size={16} />
-               {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Back to EMS</span>}
-            </Link>
 
-            <button onClick={() => router.push("/ems/settings")} className="w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group">
-              <div className="size-10 rounded-full bg-secondary overflow-hidden border border-border shrink-0">
-                 <img src={getUserAvatar(userData)} alt="Avatar" className="w-full h-full object-cover" />
-              </div>
-              {(!isCollapsed || isMobileSidebarOpen) && (
-                <div className="flex flex-1 items-center justify-between text-left">
-                  <div className="flex flex-col min-w-0">
-                    <div className="text-xs font-bold truncate">{userData?.name || "User"}</div>
-                    <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{userData?.role || "Member"}</div>
-                  </div>
-                  <Settings size={14} className="text-muted-foreground" />
+            <div className="pt-4 mt-4 border-t border-border/40">
+                {(!isCollapsed || isMobileSidebarOpen) && <p className="px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-2">Navigation</p>}
+                <div className="space-y-1">
+                    <NavItem icon={ArrowLeft} label="Back to EMS" href="/ems" active={false} />
                 </div>
-              )}
-            </button>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)}><ChevronsLeft className="size-5" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Moon className="size-5" /></Button>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border flex flex-col items-center space-y-4 shrink-0">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => {
+                      router.push("/ems/settings");
+                      if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group",
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
+                    )}
+                  >
+                    <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0 transition-transform group-hover:scale-105">
+                       <img 
+                          src={getUserAvatar(userData)}
+                          alt="User Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                    </div>
+                    {(!isCollapsed || isMobileSidebarOpen) && (
+                      <div className="flex flex-1 items-center justify-between min-w-0">
+                        <div className="flex flex-col min-w-0 text-left">
+                            <div className="text-xs font-bold truncate">{userData?.name || "User"}</div>
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{userData?.role || "Member"}</div>
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                  Account Settings
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <div className={cn("flex w-full gap-2", (isCollapsed && !isMobileSidebarOpen) ? "flex-col items-center" : "justify-center")}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (isMobileSidebarOpen) {
+                    setIsMobileSidebarOpen(false);
+                  } else {
+                    setIsCollapsed(!isCollapsed);
+                  }
+                }}
+                className="hover:bg-secondary"
+              >
+                {(isCollapsed && !isMobileSidebarOpen) ? <ChevronsRight className="size-5" /> : <ChevronsLeft className="size-5" />}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="hover:bg-secondary"
+              >
+                {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+              </Button>
             </div>
           </div>
         </div>

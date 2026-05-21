@@ -49,13 +49,13 @@ export const MODULE_CONFIG = [
   },
   {
     id: "attendance",
-    title: "Compliance & Reporting",
+    title: "Human Resource",
     shortTitle: "Attendance",
-    description: "Compliance & Reporting",
+    description: "Human Resource & Reporting",
     icon: CalendarDays,
     href: "/attendance",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
-    released: false // Not yet released
+    released: true
   }
 ];

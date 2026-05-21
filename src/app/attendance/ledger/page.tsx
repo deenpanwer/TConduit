@@ -14,9 +14,15 @@ import {
   Select, SelectContent, SelectItem, 
   SelectTrigger, SelectValue 
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAttendance, AttendanceLog } from "@/hooks/use-attendance";
-import { cn } from "@/lib/utils";
-import { format, subMonths, startOfMonth, endOfMonth, setDate, addDays, isBefore, parseISO } from "date-fns";
+import { cn, getUserAvatar } from "@/lib/utils";
+import { format, subMonths, startOfMonth, endOfMonth, setDate, addDays, isBefore, parseISO, parse } from "date-fns";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -25,6 +31,48 @@ export default function AttendanceLedgerPage() {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Helper to format 24h shift to AM/PM
+  const formatShiftTime = (shiftStr: string) => {
+    if (!shiftStr || shiftStr === "Flexible" || shiftStr === "Not Set") return shiftStr;
+    try {
+      const parts = shiftStr.split(" - ");
+      if (parts.length !== 2) return shiftStr;
+      
+      const formatTime = (t: string) => {
+        const timeToParse = t.trim().substring(0, 5);
+        const parsed = parse(timeToParse, "HH:mm", new Date());
+        return format(parsed, "hh:mm a");
+      };
+      
+      return `${formatTime(parts[0])} - ${formatTime(parts[1])}`;
+    } catch (e) {
+      return shiftStr;
+    }
+  };
+
+  // Helper for single row export
+  const exportRow = (log: AttendanceLog) => {
+    const exportData = [{
+      'Employee Name': log.userName,
+      'Date': log.date,
+      'Shift': log.shift,
+      'Clock In': log.clockIn ? format(parseISO(log.clockIn), "hh:mm:ss a") : "--:--",
+      'Clock Out': log.clockOut ? format(parseISO(log.clockOut), "hh:mm:ss a") : "--:--",
+      'Total Hours': log.totalHours,
+      'Active Time': log.activeTime,
+      'Break Time': log.breakTime,
+    }];
+
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `attendance_${log.userName.replace(/\s+/g, '_')}_${log.date}.csv`);
+    link.click();
+    toast.success(`Exported data for ${log.userName}`);
+  };
 
   // Default range: Current Payroll Cycle
   const [dateRange, setDateRange] = useState(() => {
@@ -164,18 +212,18 @@ export default function AttendanceLedgerPage() {
         </div>
 
         {/* The Master Grid */}
-        <Card className="border-border/50 shadow-sm rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-sm border-l-4 border-l-emerald-500/50">
-          <CardContent className="p-0">
+        <Card className="border-border/50 shadow-sm rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-sm border-l-4 border-l-emerald-500/50 flex flex-col max-h-[70vh]">
+          <CardContent className="p-0 overflow-auto custom-scrollbar">
             {isFetching || loading ? (
               <div className="h-64 flex flex-col items-center justify-center gap-4 animate-pulse">
                 <div className="size-12 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Aggregating Cloud Logs...</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-y border-border/50 bg-secondary/10">
+              <div className="relative">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <thead className="sticky top-0 z-20 bg-background/95 backdrop-blur-md shadow-sm">
+                    <tr className="border-y border-border/50">
                       <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Employee</th>
                       <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Date</th>
                       <th className="p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Shift Plan</th>
@@ -188,59 +236,77 @@ export default function AttendanceLedgerPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {filteredLogs.map((log, idx) => (
-                      <tr key={`${log.userId}-${log.date}`} className="hover:bg-secondary/10 transition-colors group">
-                        <td className="p-6">
-                          <div className="flex items-center gap-3">
-                            <div className="size-10 rounded-2xl bg-secondary/50 overflow-hidden border border-border/50 shrink-0">
-                              {log.avatar ? (
-                                <img src={log.avatar} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center font-black text-xs uppercase text-muted-foreground">
-                                  {log.userName.charAt(0)}
-                                </div>
-                              )}
+                    {filteredLogs.map((log, idx) => {
+                      const isAbsent = !log.clockIn && log.totalHours === 0;
+                      return (
+                        <tr key={`${log.userId}-${log.date}`} className={cn(
+                          "hover:bg-secondary/10 transition-colors group",
+                          isAbsent && "bg-rose-500/5 opacity-80"
+                        )}>
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                              <div className="size-10 rounded-2xl bg-secondary/50 overflow-hidden border border-border/50 shrink-0 shadow-sm">
+                                <img src={getUserAvatar({ id: log.userId, photoUrl: log.avatar, email: log.userName })} alt="" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-black uppercase tracking-tight">{log.userName}</span>
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">ID: #{log.userId.slice(-4)}</span>
+                              </div>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-black uppercase tracking-tight">{log.userName}</span>
-                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">ID: #{log.userId.slice(-4)}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6">
-                          <span className="text-xs font-bold uppercase tracking-widest">{format(parseISO(log.date), "MMM dd, yyyy")}</span>
-                        </td>
-                        <td className="p-6">
-                          <Badge variant="outline" className="rounded-lg font-bold text-[9px] uppercase border-border/50 bg-secondary/10 opacity-70">
-                            {log.shift}
-                          </Badge>
-                        </td>
-                        <td className="p-6">
-                          <span className={cn("text-xs font-black italic", log.clockIn ? "text-emerald-500" : "text-muted-foreground opacity-30")}>
-                            {log.clockIn || "--:--"}
-                          </span>
-                        </td>
-                        <td className="p-6">
-                          <span className={cn("text-xs font-black italic", log.clockOut ? "text-rose-500" : "text-muted-foreground opacity-30")}>
-                            {log.clockOut || "--:--"}
-                          </span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className="text-sm font-black text-emerald-600">{log.activeTime}h</span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className="text-xs font-bold text-orange-500/70">{log.breakTime}h</span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className="text-xs font-black opacity-60">{log.totalHours}h</span>
-                        </td>
-                        <td className="p-6 text-right">
-                          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500 transition-all">
-                            <MoreHorizontal size={18} />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-6">
+                            <span className="text-xs font-bold uppercase tracking-widest">{format(parseISO(log.date), "MMM dd, yyyy")}</span>
+                          </td>
+                          <td className="p-6">
+                            <Badge variant="outline" className="rounded-lg font-bold text-[9px] uppercase border-border/50 bg-secondary/10 opacity-70">
+                              {formatShiftTime(log.shift)}
+                            </Badge>
+                          </td>
+                          <td className="p-6">
+                            {isAbsent ? (
+                              <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter border-rose-500/20 text-rose-500 bg-rose-500/5">Absent</Badge>
+                            ) : (
+                              <span className={cn("text-xs font-black italic", log.clockIn ? "text-emerald-500" : "text-muted-foreground opacity-30")}>
+                                {log.clockIn ? format(parseISO(log.clockIn), "hh:mm:ss a") : "--:--"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-6">
+                            <span className={cn("text-xs font-black italic", log.clockOut ? "text-rose-500" : "text-muted-foreground opacity-30")}>
+                              {log.clockOut ? format(parseISO(log.clockOut), "hh:mm:ss a") : "--:--"}
+                            </span>
+                          </td>
+                          <td className="p-6 text-center">
+                            <span className={cn("text-sm font-black", log.activeTime > 0 ? "text-emerald-600" : "text-muted-foreground opacity-40")}>{log.activeTime}h</span>
+                          </td>
+                          <td className="p-6 text-center">
+                            <span className={cn("text-xs font-bold", log.breakTime > 0 ? "text-orange-500/70" : "text-muted-foreground opacity-40")}>{log.breakTime}h</span>
+                          </td>
+                          <td className="p-6 text-center">
+                            <span className="text-xs font-black opacity-60">{log.totalHours}h</span>
+                          </td>
+                          <td className="p-6 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500 transition-all">
+                                  <MoreHorizontal size={18} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-2xl border-border/50 shadow-2xl">
+                                <DropdownMenuItem onClick={() => exportRow(log)} className="rounded-xl font-bold gap-2 p-3 cursor-pointer">
+                                  <Download size={14} className="text-emerald-500" />
+                                  <span>Export for this day</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="rounded-xl font-bold gap-2 p-3 text-rose-500 cursor-pointer">
+                                  <FileText size={14} />
+                                  <span>Flag Discrepancy</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -52,7 +52,7 @@ export default function HolidaysPage() {
   // Custom Calendar State
   const [currentViewDate, setCurrentViewDate] = useState(new Date());
 
-  const orgId = userData?.ownedOrgId || userData?.orgId;
+  const orgId = userData?.ownedOrgId || userData?.orgId
 
   useEffect(() => {
     if (!attendanceLoading) {
@@ -102,7 +102,7 @@ export default function HolidaysPage() {
   };
 
   const isHoliday = (day: Date) => {
-    return holidays.some((h: Holiday) => {
+    return (holidays as Holiday[]).some((h: Holiday) => {
       const start = startOfDay(parseISO(h.startDate));
       const end = startOfDay(parseISO(h.endDate));
       return isWithinInterval(startOfDay(day), { start, end });
@@ -112,7 +112,7 @@ export default function HolidaysPage() {
   const isOffDay = (day: Date) => {
     const dayName = format(day, "EEEE");
     const shortDayName = format(day, "EEE");
-    const offDays: string[] = orgData?.settings?.offDays || [];
+    const offDays: string[] = (orgData as any)?.settings?.offDays || [];
     return offDays.includes(dayName) || offDays.includes(shortDayName);
   };
 
@@ -133,8 +133,8 @@ export default function HolidaysPage() {
   }
 
   return (
-    <div className="p-4 space-y-4 max-w-full mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+    <div className="p-8 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
@@ -304,7 +304,7 @@ export default function HolidaysPage() {
                       {holiday && (
                         <div className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                           <p className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter truncate">
-                            {holidays.find((h: Holiday) => isWithinInterval(startOfDay(day), { start: startOfDay(parseISO(h.startDate)), end: startOfDay(parseISO(h.endDate)) }))?.name}
+                            {(holidays as Holiday[]).find((h: Holiday) => isWithinInterval(startOfDay(day), { start: startOfDay(parseISO(h.startDate)), end: startOfDay(parseISO(h.endDate)) }))?.name}
                           </p>
                         </div>
                       )}
@@ -361,7 +361,7 @@ export default function HolidaysPage() {
                     </div>
                   </div>
                 ) : (
-                  [...holidays]
+                  [...(holidays as Holiday[])]
                     .sort((a: Holiday, b: Holiday) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                     .map((holiday: Holiday) => (
                       <div key={holiday.id} className="p-5 flex items-center justify-between hover:bg-secondary/20 transition-all group">
@@ -378,7 +378,7 @@ export default function HolidaysPage() {
                                 <>
                                   <ChevronRight size={8} />
                                   {format(parseISO(holiday.endDate), "MMM d")}
-                                </>
+                                <>
                               )}
                             </span>
                           </div>

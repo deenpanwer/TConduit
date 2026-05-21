@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "Attendance";
+  if (pathname.includes("/payroll")) return "Payroll";
   if (pathname.endsWith("/ledger")) return "Ledger";
   if (pathname.endsWith("/holidays")) return "Holidays";
   if (pathname.endsWith("/settings")) return "Settings";
@@ -46,10 +47,10 @@ export function AttendanceClientLayout({
             <h1 className="text-sm font-bold uppercase tracking-widest">{getPageTitle(pathname)}</h1>
             <div className="w-8" />
         </header>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col overflow-hidden">
          {children}
         </div>
-      </main>
+        </main>
     </div>
   );
 }
