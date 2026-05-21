@@ -378,7 +378,7 @@ export default function HolidaysPage() {
                                 <>
                                   <ChevronRight size={8} />
                                   {format(parseISO(holiday.endDate), "MMM d")}
-                                <>
+                                </>
                               )}
                             </span>
                           </div>
