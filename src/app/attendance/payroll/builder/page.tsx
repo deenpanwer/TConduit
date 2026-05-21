@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { 
@@ -27,7 +27,7 @@ interface PayslipItem {
   amount: number;
 }
 
-export default function PayslipBuilder() {
+function PayslipBuilderComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { userData } = useAuth();
@@ -353,4 +353,12 @@ export default function PayslipBuilder() {
       </div>
     </div>
   );
+}
+
+export default function PayslipBuilder() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <PayslipBuilderComponent />
+        </Suspense>
+    );
 }
