@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, Clock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { format, parse, isValid } from "date-fns";
 
@@ -15,6 +15,7 @@ export const WorkforceRegistry = ({
   const [visibleCount, setVisibleCount] = useState(5);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   const items = employees.slice(0, visibleCount);
   const hasMore = visibleCount < employees.length;
@@ -158,7 +159,10 @@ export const WorkforceRegistry = ({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: (i % 5) * 0.05 }}
-                  onClick={() => router.push(`/ems/team/${emp.id}`)}
+                  onClick={() => {
+                    const basePath = pathname?.startsWith('/demo') ? '/demo' : '/ems/team';
+                    router.push(`${basePath}/${emp.id}`);
+                  }}
                   className="group relative bg-white dark:bg-[#111113] border border-gray-100 dark:border-white/5 rounded-[2rem] p-4 md:p-6 cursor-pointer shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all duration-500 overflow-hidden"
                 >
                   {/* Hover Glow Effect */}
