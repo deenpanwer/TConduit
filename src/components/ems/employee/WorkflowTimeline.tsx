@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Monitor, Keyboard, MousePointer2 } from 'lucide-react';
+import { Monitor, Keyboard, MousePointer2, Coffee } from 'lucide-react';
 import { 
   Tooltip,
   TooltipContent,
@@ -98,6 +98,19 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
                 mouseClicks: data?.metrics?.mouseClicks || data?.mouseClicks || 0,
             });
         }
+
+        const breakSeconds = data?.metrics?.breakSeconds || data?.breakSeconds || 0;
+        if (breakSeconds > 0) {
+            apps.push({
+                name: 'Break',
+                totalSeconds: breakSeconds,
+                activeSeconds: 0,
+                idleSeconds: breakSeconds,
+                keystrokes: 0,
+                mouseClicks: 0,
+                isBreak: true
+            });
+        }
         buckets[hour].push(...apps);
       });
     });
@@ -176,7 +189,15 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
                   <div className="w-full space-y-1.5 min-h-[280px] flex flex-col justify-start">
                     {apps.map((app: any, idx: number) => {
                       const appName = app.name || 'Unknown';
-                      const meta = getAppMeta(appName);
+                      let meta = getAppMeta(appName);
+                      if (app.isBreak) {
+                        meta = {
+                          bg: 'bg-amber-500 dark:bg-amber-600',
+                          domain: '',
+                          cleanName: 'Break',
+                          icon: null
+                        };
+                      }
                       const heightFactor = Math.max(app.totalSeconds / 3600, 0.18); // Minimum size for visibility
                       
                       return (
@@ -196,13 +217,15 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
                                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-white/10 pointer-events-none" />
                                
                                <div className="size-5 rounded-md bg-black/20 flex items-center justify-center overflow-hidden shrink-0">
-                                  {meta.icon ? (
+                                  {app.isBreak ? (
+                                    <Coffee className="size-3.5 text-white/90" />
+                                  ) : meta.icon ? (
                                     <img src={meta.icon} className="size-3.5 object-contain" alt={`${meta.cleanName} icon`} />
                                   ) : (
                                     <Monitor className="size-3 text-white/60" />
                                   )}
                                </div>
-
+ 
                                <div className="flex flex-col min-w-0">
                                   <span className="text-[10px] font-bold text-white truncate leading-tight">
                                     {meta.cleanName}
@@ -213,62 +236,75 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
                                </div>
                             </motion.div>
                           </TooltipTrigger>
-                          <TooltipContent 
-                            side="top" 
-                            collisionPadding={10}
-                            className="p-3 rounded-xl shadow-xl space-y-2.5 min-w-[170px] z-[100] border bg-popover text-popover-foreground"
-                          >
-                             <div className="flex items-center gap-2.5 border-b border-border pb-2">
-                                <div className={cn("size-2.5 rounded-full border", meta.bg)} />
-                                <span className="text-xs font-bold">{meta.cleanName}</span>
-                             </div>
-                             <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                                <div className="space-y-0.5">
-                                    <p className="text-[8px] font-semibold text-muted-foreground">Time Spent</p>
-                                    <p className="text-sm font-bold">{formatTime(app.totalSeconds)}</p>
+                           <TooltipContent 
+                             side="top" 
+                             collisionPadding={10}
+                             className="p-3 rounded-xl shadow-xl space-y-2.5 min-w-[170px] z-[100] border bg-popover text-popover-foreground"
+                           >
+                              <div className="flex items-center gap-2.5 border-b border-border pb-2">
+                                 <div className={cn("size-2.5 rounded-full border", meta.bg)} />
+                                 <span className="text-xs font-bold">{meta.cleanName}</span>
+                              </div>
+                              {app.isBreak ? (
+                                <div className="space-y-1">
+                                  <p className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider">Status</p>
+                                  <p className="text-xs font-black text-amber-500 uppercase">On Rest Break</p>
+                                  <div className="pt-2 border-t border-border mt-2">
+                                    <p className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider">Duration</p>
+                                    <p className="text-sm font-black">{formatTime(app.totalSeconds)}</p>
+                                  </div>
                                 </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[8px] font-semibold text-muted-foreground">Productivity</p>
-                                    <p className={cn("text-sm font-bold", app.totalSeconds > 0 && (app.activeSeconds/app.totalSeconds) > 0.7 ? 'text-emerald-500' : 'text-popover-foreground')}>
-                                        {app.totalSeconds > 0 ? Math.round((app.activeSeconds/app.totalSeconds)*100) : 0}%
-                                    </p>
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[8px] font-semibold text-muted-foreground">Keys</p>
-                                    <p className="text-sm font-bold flex items-center gap-1.5">
-                                        <Keyboard size={11} /> {app.keystrokes || 0}
-                                    </p>
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[8px] font-semibold text-muted-foreground">Clicks</p>
-                                    <p className="text-sm font-bold flex items-center gap-1.5">
-                                        <MousePointer2 size={11} /> {app.mouseClicks || 0}
-                                    </p>
-                                </div>
-                             </div>
+                              ) : (
+                                <>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                                     <div className="space-y-0.5">
+                                         <p className="text-[8px] font-semibold text-muted-foreground">Time Spent</p>
+                                         <p className="text-sm font-bold">{formatTime(app.totalSeconds)}</p>
+                                     </div>
+                                     <div className="space-y-0.5">
+                                         <p className="text-[8px] font-semibold text-muted-foreground">Productivity</p>
+                                         <p className={cn("text-sm font-bold", app.totalSeconds > 0 && (app.activeSeconds/app.totalSeconds) > 0.7 ? 'text-emerald-500' : 'text-popover-foreground')}>
+                                             {app.totalSeconds > 0 ? Math.round((app.activeSeconds/app.totalSeconds)*100) : 0}%
+                                         </p>
+                                     </div>
+                                     <div className="space-y-0.5">
+                                         <p className="text-[8px] font-semibold text-muted-foreground">Keys</p>
+                                         <p className="text-sm font-bold flex items-center gap-1.5">
+                                             <Keyboard size={11} /> {app.keystrokes || 0}
+                                         </p>
+                                     </div>
+                                     <div className="space-y-0.5">
+                                         <p className="text-[8px] font-semibold text-muted-foreground">Clicks</p>
+                                         <p className="text-sm font-bold flex items-center gap-1.5">
+                                             <MousePointer2 size={11} /> {app.mouseClicks || 0}
+                                         </p>
+                                     </div>
+                                  </div>
 
-                             {/* Detailed Window Titles */}
-                             {app.details && Object.keys(app.details).length > 0 && (
-                                <div className="pt-2.5 border-t border-border space-y-1.5">
-                                    <p className="text-[8px] font-semibold text-muted-foreground">Focused On</p>
-                                    <div className="space-y-1.5">
-                                        {Object.entries(app.details)
-                                            .sort(([, a], [, b]) => (b as number) - (a as number))
-                                            .slice(0, 4)
-                                            .map(([title, seconds]) => (
-                                                <div key={title} className="flex items-center justify-between gap-3 min-w-0">
-                                                    <span className="text-[10px] font-medium text-foreground/80 truncate flex-1 leading-tight">
-                                                        {title}
-                                                    </span>
-                                                    <span className="text-[9px] font-bold text-primary shrink-0">
-                                                        {Math.round((seconds as number) / 60)}m
-                                                    </span>
-                                                </div>
-                                            ))}
-                                    </div>
-                                </div>
-                             )}
-                          </TooltipContent>
+                                  {/* Detailed Window Titles */}
+                                  {app.details && Object.keys(app.details).length > 0 && (
+                                     <div className="pt-2.5 border-t border-border space-y-1.5">
+                                         <p className="text-[8px] font-semibold text-muted-foreground">Focused On</p>
+                                         <div className="space-y-1.5">
+                                             {Object.entries(app.details)
+                                                 .sort(([, a], [, b]) => (b as number) - (a as number))
+                                                 .slice(0, 4)
+                                                 .map(([title, seconds]) => (
+                                                     <div key={title} className="flex items-center justify-between gap-3 min-w-0">
+                                                         <span className="text-[10px] font-medium text-foreground/80 truncate flex-1 leading-tight">
+                                                             {title}
+                                                         </span>
+                                                         <span className="text-[9px] font-bold text-primary shrink-0">
+                                                             {Math.round((seconds as number) / 60)}m
+                                                         </span>
+                                                     </div>
+                                                 ))}
+                                         </div>
+                                     </div>
+                                  )}
+                                </>
+                              )}
+                           </TooltipContent>
                         </Tooltip>
                       );
                     })}

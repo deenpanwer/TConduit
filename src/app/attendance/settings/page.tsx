@@ -48,7 +48,8 @@ export default function AttendanceSettingsPage() {
   const [settings, setSettings] = useState({
     payrollCycleStart: "25",
     payrollCycleEnd: "25",
-    offDays: [] as string[]
+    offDays: [] as string[],
+    currency: "PKR"
   });
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
@@ -58,7 +59,8 @@ export default function AttendanceSettingsPage() {
       setSettings({
         payrollCycleStart: attendanceSettings.payrollCycleStart || "25",
         payrollCycleEnd: attendanceSettings.payrollCycleEnd || "25",
-        offDays: initialOffDays || []
+        offDays: initialOffDays || [],
+        currency: attendanceSettings.currency || "PKR"
       });
       setLoading(false);
     }
@@ -72,6 +74,7 @@ export default function AttendanceSettingsPage() {
         attendanceSettings: {
           payrollCycleStart: settings.payrollCycleStart,
           payrollCycleEnd: settings.payrollCycleEnd,
+          currency: settings.currency || "PKR",
         },
         'settings.offDays': settings.offDays
       });
@@ -193,6 +196,25 @@ export default function AttendanceSettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-3 pt-4 border-t border-border/50">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Default Payroll Currency</Label>
+                <Select 
+                  value={settings.currency || "PKR"} 
+                  onValueChange={(v) => setSettings({...settings, currency: v})}
+                >
+                  <SelectTrigger className="h-14 rounded-2xl border-border/50 bg-secondary/20 px-5 font-bold border-2 focus:ring-emerald-500/20">
+                    <SelectValue placeholder="Select Currency" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-border/50 shadow-2xl">
+                    <SelectItem value="PKR" className="rounded-xl font-bold">PKR (₨) - Pakistani Rupee</SelectItem>
+                    <SelectItem value="USD" className="rounded-xl font-bold">USD ($) - US Dollar</SelectItem>
+                    <SelectItem value="INR" className="rounded-xl font-bold">INR (₹) - Indian Rupee</SelectItem>
+                    <SelectItem value="EUR" className="rounded-xl font-bold">EUR (€) - Euro</SelectItem>
+                    <SelectItem value="GBP" className="rounded-xl font-bold">GBP (£) - British Pound</SelectItem>
+                    <SelectItem value="AED" className="rounded-xl font-bold">AED (د.إ) - UAE Dirham</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex items-center justify-center p-4 rounded-2xl border border-dashed border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-600/40">

@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { 
-  X, Plus, Zap, Ban, Save, Sparkles, 
-  Search, ShieldCheck, HelpCircle, ArrowRight,
-  Info, Globe, Monitor, Trash2, CheckCircle2
+  X, Plus, Ban, Globe, Info, Trash2, CheckCircle2, ShieldAlert, Sparkles
 } from "lucide-react";
-import * as Icons from "@icons-pack/react-simple-icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,26 +16,14 @@ import { cn } from "@/lib/utils";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Helper to find icon by name (Lazy matching)
-function BrandIcon({ name, className }: { name: string; className?: string }) {
-  const normalized = name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  const iconKey = Object.keys(Icons).find(key => 
-    key.toLowerCase() === `si${normalized}` || 
-    key.toLowerCase() === normalized
-  );
-
-  if (iconKey) {
-    const IconComponent = (Icons as any)[iconKey];
-    return <IconComponent className={cn("size-4", className)} />;
-  }
-  return <Monitor className={cn("size-4", className)} />;
-}
-
-interface TrackingSettings {
-  primeApps: string[];
-  noiseApps: string[];
+interface BlockedSiteItem {
+  domain: string;
+  blockedBy: string;
+  blockedAt: any;
+  blockedAtLocal?: string;
 }
 
 interface IntelligenceModalProps {
@@ -48,19 +33,28 @@ interface IntelligenceModalProps {
   userName: string;
 }
 
-const DEFAULT_PRIME_APPS = ["Chrome", "Slack", "VS Code", "Figma", "Notion", "Linear", "Zoom", "Excel", "Discord", "Cursor", "Microsoft Teams"];
-const DEFAULT_NOISE_APPS = ["Netflix", "YouTube", "Twitter", "Facebook", "Instagram", "Reddit", "Steam", "Roblox", "Epic Games", "Disney+", "Spotify"];
+const DEFAULT_DISTRACTIONS = [
+  "youtube.com",
+  "facebook.com",
+  "instagram.com",
+  "tiktok.com",
+  "netflix.com",
+  "twitter.com",
+  "reddit.com",
+  "steamcommunity.com"
+];
 
 export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: IntelligenceModalProps) {
-  const [settings, setSettings] = useState<TrackingSettings>({
-    primeApps: [],
-    noiseApps: []
-  });
+  const [blockedSites, setBlockedSites] = useState<BlockedSiteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [newPrimeApp, setNewPrimeApp] = useState("");
-  const [newNoiseApp, setNewNoiseApp] = useState("");
+  const [newDomain, setNewDomain] = useState("");
+  const [inputError, setInputError] = useState("");
+  
   const { toast } = useToast();
+  const { user, userData } = useAuth();
+
+  const adminName = userData?.name || user?.displayName || "Employer / Admin";
 
   useEffect(() => {
     async function fetchUserSettings() {
@@ -70,14 +64,30 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
         const userDoc = await getDoc(doc(db, "users", userId));
         if (userDoc.exists()) {
           const data = userDoc.data();
-          // Support both new 'prime/noise' keys and legacy 'work/distraction' keys
-          setSettings({
-            primeApps: data.trackingSettings?.primeApps || data.trackingSettings?.workApps || [],
-            noiseApps: data.trackingSettings?.noiseApps || data.trackingSettings?.distractionApps || []
+          const rawBlocked = data.blockedSites || [];
+          
+          // Migrate legacy string arrays to rich map objects on the fly
+          const migrated: BlockedSiteItem[] = rawBlocked.map((item: any) => {
+            if (item && typeof item === "object" && item.domain) {
+              return {
+                domain: item.domain,
+                blockedBy: item.blockedBy || "Employer",
+                blockedAt: item.blockedAt,
+                blockedAtLocal: item.blockedAtLocal || (item.blockedAt?.toDate ? item.blockedAt.toDate().toString() : new Date(item.blockedAt).toString())
+              };
+            }
+            return {
+              domain: String(item),
+              blockedBy: "Employer",
+              blockedAt: new Date(),
+              blockedAtLocal: new Date().toString()
+            };
           });
+          
+          setBlockedSites(migrated);
         }
       } catch (err) {
-        console.error("Failed to fetch user tracking settings:", err);
+        console.error("Failed to fetch user blocked sites:", err);
       } finally {
         setLoading(false);
       }
@@ -90,223 +100,232 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
     setIsSaving(true);
     try {
       await updateDoc(doc(db, "users", userId), {
-        trackingSettings: {
-          primeApps: settings.primeApps,
-          noiseApps: settings.noiseApps,
-        },
+        blockedSites: blockedSites.map(item => ({
+          domain: item.domain,
+          blockedBy: item.blockedBy,
+          blockedAt: item.blockedAt || new Date(),
+          blockedAtLocal: item.blockedAtLocal || new Date().toString()
+        })),
         updatedAt: serverTimestamp()
       });
-      toast({ title: "Intelligence Updated", description: `Rules for ${userName} have been updated.` });
+      toast({ 
+        title: "Blocklist Updated", 
+        description: `Blocked websites list for ${userName} has been successfully synced.` 
+      });
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Update Failed:", err);
-      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
+      console.error("Sync Failed:", err);
+      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleAddDomain = () => {
+    setInputError("");
+    const trimmed = newDomain.trim().toLowerCase();
+    if (!trimmed) return;
+
+    // Normalize domain: strip protocols and paths
+    let cleanDomain = trimmed.replace(/^(https?:\/\/)?(www\.)?/, "");
+    cleanDomain = cleanDomain.split("/")[0];
+
+    // Basic domain validation
+    if (!cleanDomain.includes(".") || cleanDomain.length < 4) {
+      setInputError("Please enter a valid domain (e.g. domain.com)");
+      return;
+    }
+
+    // Check duplicate
+    if (blockedSites.some(item => item.domain === cleanDomain)) {
+      setInputError("This website is already blocked.");
+      return;
+    }
+
+    const newItem: BlockedSiteItem = {
+      domain: cleanDomain,
+      blockedBy: adminName,
+      blockedAt: new Date(),
+      blockedAtLocal: new Date().toString()
+    };
+
+    setBlockedSites(prev => [newItem, ...prev]);
+    setNewDomain("");
+  };
+
+  const handleRemoveDomain = (domain: string) => {
+    setBlockedSites(prev => prev.filter(item => item.domain !== domain));
+  };
+
   const suggestDefaults = () => {
-    setSettings({
-      primeApps: Array.from(new Set([...settings.primeApps, ...DEFAULT_PRIME_APPS])),
-      noiseApps: Array.from(new Set([...settings.noiseApps, ...DEFAULT_NOISE_APPS]))
+    const newlyAdded: BlockedSiteItem[] = [];
+    DEFAULT_DISTRACTIONS.forEach(domain => {
+      if (!blockedSites.some(item => item.domain === domain)) {
+        newlyAdded.push({
+          domain,
+          blockedBy: adminName,
+          blockedAt: new Date(),
+          blockedAtLocal: new Date().toString()
+        });
+      }
     });
-    toast({ title: "Rules Suggested", description: "Default industry apps added." });
-  };
 
-  const removeApp = (list: 'primeApps' | 'noiseApps', app: string) => {
-    setSettings(prev => ({
-      ...prev,
-      [list]: prev[list].filter(a => a !== app)
-    }));
-  };
+    if (newlyAdded.length === 0) {
+      toast({ title: "No new blocks", description: "Default distraction websites are already blocked." });
+      return;
+    }
 
-  const addApp = (list: 'primeApps' | 'noiseApps', app: string) => {
-    if (!app.trim()) return;
-    setSettings(prev => ({
-      ...prev,
-      [list]: Array.from(new Set([...prev[list], app.trim()]))
-    }));
-    if (list === 'primeApps') setNewPrimeApp("");
-    else setNewNoiseApp("");
+    setBlockedSites(prev => [...newlyAdded, ...prev]);
+    toast({ title: "Defaults Suggested", description: `${newlyAdded.length} distraction websites added.` });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] md:max-w-4xl max-h-[95vh] md:max-h-[90vh] rounded-[1.5rem] md:rounded-[2.5rem] border-4 border-black dark:border-white bg-card shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] p-0 overflow-hidden flex flex-col outline-none">
-        {/* Top Header Actions - Brutalist Style */}
+      <DialogContent className="w-[95vw] md:max-w-3xl max-h-[95vh] md:max-h-[90vh] rounded-[1.5rem] md:rounded-[2.5rem] border-4 border-black dark:border-white bg-card shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] p-0 overflow-hidden flex flex-col outline-none">
+        
+        {/* Brutalist Top Header Bar */}
         <div className="border-b-4 border-black dark:border-white bg-secondary/30 p-3 md:p-4 flex flex-wrap items-center justify-between gap-2 px-4 md:px-8 shrink-0">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[10px] font-black uppercase tracking-widest order-1 hover:bg-secondary">
-               Cancel
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[10px] font-black uppercase tracking-widest hover:bg-secondary">
+             Cancel
+          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={suggestDefaults}
+              className="bg-primary/10 text-primary hover:bg-primary/20 border-2 border-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest h-9 md:h-10 px-3 md:px-6 gap-2"
+            >
+              <Sparkles size={14} />
+              Suggest Distractions
             </Button>
             <Button 
-                onClick={suggestDefaults}
-                className="bg-primary/10 text-primary hover:bg-primary/20 border-2 border-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest h-9 md:h-10 px-3 md:px-6 gap-2 order-3 sm:order-2 w-full sm:w-auto"
+              onClick={handleSave}
+              disabled={isSaving || loading}
+              className="bg-black text-white dark:bg-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest h-9 md:h-10 px-6 md:px-8 shadow-lg transition-transform hover:scale-105 active:scale-95"
             >
-                <Sparkles size={14} />
-                Auto-Suggest Defaults
+              {isSaving ? "Syncing..." : "Save Blocklist"}
             </Button>
-            <Button 
-                onClick={handleSave}
-                disabled={isSaving}
-                className="bg-black text-white dark:bg-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest h-9 md:h-10 px-6 md:px-8 shadow-lg transition-transform hover:scale-105 active:scale-95 order-2 sm:order-3"
-            >
-                {isSaving ? "Syncing..." : "Save Rules"}
-            </Button>
+          </div>
         </div>
 
-        {/* Main Content Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-12 space-y-8 md:space-y-10 custom-scrollbar">
+        {/* Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 custom-scrollbar">
+          
+          {/* Header Title section */}
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-               <div className="size-10 md:size-14 bg-primary/10 rounded-xl md:rounded-2xl flex items-center justify-center text-primary border-4 border-black dark:border-white shadow-inner shrink-0">
-                  <ShieldCheck size={24} className="md:hidden" />
-                  <ShieldCheck size={32} className="hidden md:block" />
-               </div>
-               <div>
-                  <h2 className="text-xl md:text-3xl font-black uppercase tracking-tighter leading-none mb-1">Intelligence: {userName}</h2>
-                  <p className="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">Custom Tracking Rules</p>
-               </div>
+              <div className="size-10 md:size-14 bg-red-500/10 rounded-xl md:rounded-2xl flex items-center justify-center text-red-500 border-4 border-black dark:border-white shadow-inner shrink-0">
+                <Ban size={24} className="md:hidden" />
+                <Ban size={32} className="hidden md:block" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter leading-none mb-1">
+                  Manage Blocks: {userName}
+                </h2>
+                <p className="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  Real-time Website Blocking Engine
+                </p>
+              </div>
             </div>
             
-            <div className="bg-secondary/50 border-4 border-black dark:border-white p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity hidden md:block">
-                  <HelpCircle size={48} />
-               </div>
-               <p className="text-xs md:text-sm font-bold leading-relaxed max-w-2xl relative z-10">
-                 Identify <span className="text-primary">{userName}'s</span> work-critical applications (Prime Apps) and non-work distractions (Noise Apps) to refine performance tracking.
-               </p>
+            <div className="bg-secondary/50 border-4 border-black dark:border-white p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <p className="text-xs md:text-sm font-bold leading-relaxed max-w-2xl">
+                Add websites below to block them instantly on <span className="text-red-500">{userName}'s</span> company-provided laptop. Once saved, their local client will intercept name resolutions programmatically.
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-             {/* Productive Side */}
-             <div className="space-y-4 md:space-y-6">
-                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="size-8 md:size-10 bg-emerald-500/10 rounded-lg md:rounded-xl flex items-center justify-center text-emerald-500 border-2 border-emerald-500/20">
-                         <Zap size={16} />
+          {/* Add block input area */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+              Add Website to Block
+            </label>
+            <div className="flex gap-2">
+              <Input 
+                placeholder="e.g. facebook.com, youtube.com" 
+                value={newDomain}
+                onChange={(e) => {
+                  setNewDomain(e.target.value);
+                  setInputError("");
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddDomain()}
+                className="h-10 md:h-12 rounded-xl border-4 border-black dark:border-white font-bold text-xs"
+              />
+              <Button 
+                onClick={handleAddDomain} 
+                className="bg-red-500 hover:bg-red-650 text-white rounded-xl text-[10px] font-black uppercase tracking-widest h-10 md:h-12 px-6 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0 gap-2"
+              >
+                <Plus size={16} /> Block Site
+              </Button>
+            </div>
+            {inputError && (
+              <p className="text-[10px] font-black text-red-500 flex items-center gap-1 ml-1 mt-1">
+                <ShieldAlert size={12} /> {inputError}
+              </p>
+            )}
+          </div>
+
+          {/* Blocklist Table / Cards */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                Currently Blocked Sites
+              </span>
+              <span className="text-[9px] md:text-[10px] font-black text-red-500 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20 shadow-inner">
+                {blockedSites.length} Blocks Active
+              </span>
+            </div>
+
+            <div className="min-h-[180px] md:min-h-[220px] max-h-[300px] bg-secondary/20 rounded-2xl md:rounded-3xl p-4 border-4 border-black dark:border-white flex flex-col gap-3 overflow-y-auto custom-scrollbar shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <AnimatePresence>
+                {blockedSites.map((item) => (
+                  <motion.div
+                    key={item.domain}
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border-2 border-black dark:border-white hover:bg-secondary/40 transition-colors p-4 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="size-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20 shrink-0">
+                        <Globe size={16} />
                       </div>
                       <div>
-                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Prime Apps</h3>
-                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Core work tools</p>
+                        <p className="text-xs font-mono font-black break-all">{item.domain}</p>
+                        <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-tight mt-0.5">
+                          Blocked by: {item.blockedBy}
+                        </p>
                       </div>
-                   </div>
-                   <span className="text-[9px] md:text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">{settings.primeApps.length}</span>
-                </div>
+                    </div>
 
-                <div className="min-h-[150px] md:min-h-[250px] bg-secondary/30 rounded-2xl md:rounded-3xl p-3 md:p-4 border-4 border-black dark:border-white flex flex-col gap-2 overflow-y-auto max-h-[250px] md:max-h-[350px] custom-scrollbar shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                   <div className="flex flex-wrap gap-2">
-                      {settings.primeApps.map((app) => (
-                        <AnimatePresence key={app}>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="flex items-center gap-2 bg-card border-2 border-black dark:border-white hover:bg-secondary transition-colors p-2 md:p-2.5 rounded-lg md:rounded-xl group shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                          >
-                             <BrandIcon name={app} className="text-emerald-500" />
-                             <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tight">{app}</span>
-                             <button onClick={() => removeApp('primeApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
-                                <X size={12} />
-                             </button>
-                          </motion.div>
-                        </AnimatePresence>
-                      ))}
-                      {settings.primeApps.length === 0 && (
-                        <div className="w-full h-24 md:h-32 flex flex-col items-center justify-center text-muted-foreground/30">
-                           <Zap size={32} className="mb-2" />
-                           <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">No work apps</p>
-                        </div>
-                      )}
-                   </div>
-                </div>
+                    <button 
+                      onClick={() => handleRemoveDomain(item.domain)}
+                      className="h-8 px-3 rounded-lg border-2 border-transparent text-muted-foreground hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all self-end sm:self-center"
+                    >
+                      <Trash2 size={12} />
+                      Remove
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
 
-                <div className="flex gap-2">
-                   <Input 
-                      placeholder="Add App Name..." 
-                      value={newPrimeApp}
-                      onChange={(e) => setNewPrimeApp(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addApp('primeApps', newPrimeApp)}
-                      className="h-10 md:h-12 rounded-xl border-4 border-black dark:border-white font-bold text-xs"
-                   />
-                   <Button onClick={() => addApp('primeApps', newPrimeApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
-                      <Plus size={20} />
-                   </Button>
+              {blockedSites.length === 0 && (
+                <div className="w-full flex-1 flex flex-col items-center justify-center text-muted-foreground/30 py-8">
+                  <Globe size={40} className="mb-2" />
+                  <p className="text-[9px] font-black uppercase tracking-widest">No Active Blocks</p>
+                  <p className="text-[8px] mt-1 text-center max-w-[200px]">This employee has unrestricted browsing access.</p>
                 </div>
-             </div>
-
-             {/* Distraction Side */}
-             <div className="space-y-4 md:space-y-6">
-                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="size-8 md:size-10 bg-destructive/10 rounded-lg md:rounded-xl flex items-center justify-center text-destructive border-2 border-destructive/20">
-                         <Ban size={16} />
-                      </div>
-                      <div>
-                         <h3 className="text-xs md:text-sm font-black uppercase tracking-widest leading-none">Noise Apps</h3>
-                         <p className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase mt-1">Distractions</p>
-                      </div>
-                   </div>
-                   <span className="text-[9px] md:text-[10px] font-black text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20">{settings.noiseApps.length}</span>
-                </div>
-
-                <div className="min-h-[150px] md:min-h-[250px] bg-secondary/30 rounded-2xl md:rounded-3xl p-3 md:p-4 border-4 border-black dark:border-white flex flex-col gap-2 overflow-y-auto max-h-[250px] md:max-h-[350px] custom-scrollbar shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                   <div className="flex flex-wrap gap-2">
-                      {settings.noiseApps.map((app) => (
-                        <AnimatePresence key={app}>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="flex items-center gap-2 bg-card border-2 border-black dark:border-white hover:bg-secondary transition-colors p-2 md:p-2.5 rounded-lg md:rounded-xl group shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                          >
-                             <BrandIcon name={app} className="text-destructive" />
-                             <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tight">{app}</span>
-                             <button onClick={() => removeApp('noiseApps', app)} className="p-0.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100">
-                                <X size={12} />
-                             </button>
-                          </motion.div>
-                        </AnimatePresence>
-                      ))}
-                      {settings.noiseApps.length === 0 && (
-                        <div className="w-full h-24 md:h-32 flex flex-col items-center justify-center text-muted-foreground/30">
-                           <Ban size={32} className="mb-2" />
-                           <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">No distractions</p>
-                        </div>
-                      )}
-                   </div>
-                </div>
-
-                <div className="flex gap-2">
-                   <Input 
-                      placeholder="Add App Name..." 
-                      value={newNoiseApp}
-                      onChange={(e) => setNewNoiseApp(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addApp('noiseApps', newNoiseApp)}
-                      className="h-10 md:h-12 rounded-xl border-4 border-black dark:border-white font-bold text-xs"
-                   />
-                   <Button onClick={() => addApp('noiseApps', newNoiseApp)} size="icon" className="size-10 md:size-12 rounded-xl bg-destructive hover:bg-destructive/90 border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] shrink-0">
-                      <Plus size={20} />
-                   </Button>
-                </div>
-             </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Footer Info - Brutalist Style */}
-        <div className="bg-black text-white dark:bg-white dark:text-black py-3 md:py-4 px-6 md:px-10 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 border-t-4 border-black dark:border-white">
-           <div className="flex items-center gap-4 md:gap-6">
-              <div className="flex items-center gap-2">
-                 <CheckCircle2 size={12} className="text-emerald-500" />
-                 <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Real-time Sync Active</span>
-              </div>
-              <div className="flex items-center gap-2">
-                 <Info size={12} className="text-primary" />
-                 <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">User Specific Rules</span>
-              </div>
-           </div>
-           <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest opacity-60">TRAC AI Engine v1.2</span>
+        {/* Brutalist Bottom Status Footer */}
+        <div className="bg-black text-white dark:bg-white dark:text-black py-3 px-6 md:px-8 flex items-center justify-center gap-2 shrink-0 border-t-4 border-black dark:border-white">
+          <div className="flex items-center gap-2">
+            <Info size={14} className="text-yellow-500 dark:text-yellow-400" />
+            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] text-center">
+              This may take anywhere from 3-7 minutes to take effect
+            </span>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

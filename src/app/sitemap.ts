@@ -4,31 +4,86 @@ import { legalSections } from '@/lib/legal-data';
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://www.traconomics.com';
 
-  // Static routes
-  const staticRoutes = [
+  // Primary public routes
+  const primaryRoutes = [
     '/',
     '/2',
-    '/legal',
+    '/about',
+    '/contact',
+    '/pricing',
+    '/features',
+    '/changelog',
+    '/partner',
     '/time-tracking',
     '/trac-diary',
     '/hired',
     '/problems',
-    '/search',
+    '/reviews',
     '/thank-you',
-  ].map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: 'monthly' as 'monthly',
-    priority: route === '/' ? 1 : 0.8,
-  }));
+    '/cancellation-refund-policy',
+    '/ownership-statement',
+    '/privacy-policy',
+    '/terms-of-service',
+    '/legal',
+  ];
 
-  // Dynamic legal routes
+  // 19 Public Marketing Apps Routes (Keyword-targeted Gem Landing Pages)
+  const appsRoutes = [
+    '/apps/accounting',
+    '/apps/ats',
+    '/apps/chats',
+    '/apps/crm',
+    '/apps/dashboard',
+    '/apps/email',
+    '/apps/forms',
+    '/apps/hiring',
+    '/apps/inventory',
+    '/apps/lead-hunter',
+    '/apps/leaderboards',
+    '/apps/leads-enrich',
+    '/apps/manufacturing',
+    '/apps/pos',
+    '/apps/procurement',
+    '/apps/sales',
+    '/apps/shifts',
+    '/apps/tasks',
+    '/apps/time-tracking',
+  ];
+
+  // Combine and format static routes
+  const staticRoutes = [...primaryRoutes, ...appsRoutes].map((route) => {
+    let priority = 0.8;
+    let changeFrequency: 'monthly' | 'weekly' | 'daily' | 'yearly' = 'monthly';
+
+    if (route === '/') {
+      priority = 1.0;
+      changeFrequency = 'daily';
+    } else if (route.startsWith('/legal') || route.includes('policy') || route === '/ownership-statement') {
+      priority = 0.4;
+      changeFrequency = 'yearly';
+    } else if (route.startsWith('/apps/')) {
+      priority = 0.7;
+      changeFrequency = 'weekly';
+    } else if (route === '/reviews' || route === '/changelog') {
+      priority = 0.9;
+      changeFrequency = 'weekly';
+    }
+
+    return {
+      url: `${baseUrl}${route}`,
+      lastModified: new Date(),
+      changeFrequency,
+      priority,
+    };
+  });
+
+  // Dynamic legal routes from legal sections
   const legalRoutes = legalSections.flatMap(section => 
     section.items.map((item: any) => ({
       url: `${baseUrl}/legal/${item.id}`,
       lastModified: new Date(),
-      changeFrequency: 'yearly' as 'yearly',
-      priority: 0.5,
+      changeFrequency: 'yearly' as const,
+      priority: 0.4,
     }))
   );
 

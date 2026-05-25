@@ -16,6 +16,7 @@ import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 
 interface TimeEntry {
   id: string;
@@ -59,7 +60,6 @@ export function WorkAuditor({ isOpen, onClose, userId, userName, date, initialTa
   const [screenshotsPage, setScreenshotsPage] = useState(1);
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null);
 
-  // Helper to format AM/PM
   const formatTime = (isoStr: string) => {
     try {
       if (!isoStr) return "--:--";
@@ -69,13 +69,23 @@ export function WorkAuditor({ isOpen, onClose, userId, userName, date, initialTa
     }
   };
 
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return "0m";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
   const fetchEntries = useCallback(async (reset = false) => {
     setEntriesLoading(true);
     const newOffset = reset ? 0 : entriesOffset;
     try {
       const entriesRef = collection(db, "users", userId, "timeEntries");
-      const startDay = `${date}T00:00:00.000Z`;
-      const endDay = `${date}T23:59:59.999Z`;
+      const localStart = new Date(`${date}T00:00:00`);
+      const localEnd = new Date(`${date}T23:59:59.999`);
+      
+      const startDay = localStart.toISOString();
+      const endDay = localEnd.toISOString();
       
       let q = query(
         entriesRef,
@@ -87,8 +97,8 @@ export function WorkAuditor({ isOpen, onClose, userId, userName, date, initialTa
       let snap = await getDocs(q);
       if (snap.empty) {
         // Try as Timestamps
-        const startDate = new Date(startDay);
-        const endDate = new Date(endDay);
+        const startDate = localStart;
+        const endDate = localEnd;
         q = query(
           entriesRef,
           where("startTime", ">=", startDate),
@@ -242,7 +252,7 @@ export function WorkAuditor({ isOpen, onClose, userId, userName, date, initialTa
                         </div>
                         
                         <Badge variant="secondary" className="h-10 rounded-xl px-4 font-black text-xs uppercase bg-background border-border/50">
-                          {(entry.duration / 60).toFixed(1)}m
+                          {formatDuration(entry.duration)}
                         </Badge>
                       </div>
                     </div>
@@ -388,24 +398,4 @@ export function WorkAuditor({ isOpen, onClose, userId, userName, date, initialTa
       </DialogContent>
     </Dialog>
   );
-}
-
-function collection(db: any, ...pathSegments: string[]): any {
-  throw new Error("Function not implemented.");
-}
-
-function query(query: any, ...queryConstraints: any[]): any {
-  throw new Error("Function not implemented.");
-}
-
-function where(fieldPath: string, opStr: string, value: any): any {
-  throw new Error("Function not implemented.");
-}
-
-function orderBy(fieldPath: string, directionStr?: "asc" | "desc"): any {
-  throw new Error("Function not implemented.");
-}
-
-function getDocs(q: any): any {
-  throw new Error("Function not implemented.");
 }

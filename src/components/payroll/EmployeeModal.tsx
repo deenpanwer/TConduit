@@ -17,7 +17,6 @@ import {
   doc,
   setDoc,
   serverTimestamp,
-  DocumentData,
   getDoc,
 } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
@@ -29,6 +28,7 @@ import {
   Briefcase,
   Phone,
   Banknote,
+  Dices,
 } from 'lucide-react';
 
 interface EmployeeModalProps {
@@ -38,8 +38,12 @@ interface EmployeeModalProps {
 }
 
 export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps) {
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
+  const orgId = userData?.ownedOrgId || userData?.orgId;
   const [loading, setLoading] = useState(false);
+  const [orgDepartments, setOrgDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [orgCurrency, setOrgCurrency] = useState("PKR");
+  const [isCustomDept, setIsCustomDept] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     designation: '',
@@ -50,16 +54,49 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
     whatsapp: '',
   });
 
+  // Fetch departments & settings currency if they exist in their org doc
+  useEffect(() => {
+    async function fetchOrgData() {
+      if (isOpen && orgId) {
+        try {
+          const orgRef = doc(db, 'organizations', orgId);
+          const orgDoc = await getDoc(orgRef);
+          if (orgDoc.exists()) {
+            const data = orgDoc.data();
+            if (data?.departments && Array.isArray(data.departments)) {
+              setOrgDepartments(data.departments);
+            } else {
+              setOrgDepartments([]);
+            }
+            if (data?.attendanceSettings?.currency) {
+              setOrgCurrency(data.attendanceSettings.currency);
+            } else if (data?.settings?.currency) {
+              setOrgCurrency(data.settings.currency);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching org data:', err);
+        }
+      }
+    }
+    fetchOrgData();
+  }, [isOpen, orgId]);
+
   useEffect(() => {
     if (employee) {
+      const deptVal = employee.department || '';
+      if (orgDepartments.length > 0) {
+        const inOrgDepts = orgDepartments.some(d => d.id === deptVal);
+        setIsCustomDept(!inOrgDepts && deptVal !== '');
+      }
       setFormData({
         name: employee.name || '',
         designation: employee.designation || '',
-        department: employee.department || '',
-        salary: String(employee.salary || ''),
+        department: deptVal,
+        salary: String(employee.salary || employee.baseSalary || ''),
         email: employee.email || '',
-        password: '••••••••', // Hidden for security
-        whatsapp: employee.whatsapp || '',
+        password: employee.systemPassword || '',
+        whatsapp: employee.whatsapp || employee.whatsappNumber || '',
       });
     } else {
       setFormData({
@@ -71,8 +108,9 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
         password: '',
         whatsapp: '',
       });
+      setIsCustomDept(false);
     }
-  }, [employee, isOpen]);
+  }, [employee, isOpen, orgDepartments]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
@@ -81,6 +119,16 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
         ? `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`
         : '';
     setFormData({ ...formData, name, email });
+  };
+
+  const generateRandomPassword = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+    let pass = "";
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData({ ...formData, password: pass });
+    toast.success("Generated random password!");
   };
 
   const handleSave = async () => {
@@ -94,73 +142,25 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
       const orgId = userData?.ownedOrgId || userData?.orgId;
       if (!orgId) throw new Error('No organization context found.');
 
-      let uid = employee?.id;
-
-      if (!employee) {
-        // 1. Create Auth User via API
-        const authRes = await fetch('/api/admin/create-user', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            displayName: formData.name,
-          }),
-        });
-        const authData = await authRes.json();
-        if (authData.error) throw new Error(authData.error);
-        uid = authData.uid;
-      }
-
-      // 2. Create/Update Firestore Doc
-      const commonFields = {
-        name: formData.name,
-        email: formData.email,
-        designation: formData.designation,
-        department: formData.department,
-        baseSalary: Number(formData.salary),
-        whatsappNumber: formData.whatsapp,
-        systemPassword: formData.password,
-        orgId,
-        role: 'employee',
-        active: true,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (!employee) {
-        // Fetch org invite code for the profile
-        const orgRef = doc(db, 'organizations', orgId);
-        const orgDoc = await getDoc(orgRef);
-        const inviteCode = orgDoc.exists() ? orgDoc.data()?.inviteCode : '';
-
-        // New Employee specific fields (Provenance & Defaults)
-        await setDoc(
-          doc(db, 'users', uid),
-          {
-            ...commonFields,
-            createdAt: serverTimestamp(),
-            attachedAt: serverTimestamp(),
-            onboardedAt: serverTimestamp(),
-            createdBy: userData?.id || 'unknown',
-            creationMode: 'owner-created',
-            onboardingProfile: { inviteCode },
-            // Default tracking & system fields from reference
-            accessLocked: false,
-            autoTrackApps: [],
-            autoTrackOnboardingComplete: false,
-            blurScreenshots: false,
-            disableScreenshots: false,
-            employeeOnboardingV1Complete: false,
-            enableManualTimeTracking: false,
-            orgStatus: 'active',
-            screenshotInterval: 5,
-            shiftSyncInterval: 1,
-          },
-          { merge: true }
-        );
-      } else {
-        // Update existing employee
-        await setDoc(doc(db, 'users', uid), commonFields, { merge: true });
-      }
+      // Call server-side API to create/update employee (Firebase Admin SDK bypasses firestore.rules)
+      const res = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: employee?.id, // If provided, updates existing employee
+          email: formData.email,
+          password: formData.password,
+          displayName: formData.name,
+          designation: formData.designation,
+          department: formData.department,
+          salary: formData.salary,
+          whatsapp: formData.whatsapp,
+          orgId,
+          createdBy: user?.uid || 'unknown',
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
 
       toast.success(
         employee
@@ -238,32 +238,74 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                 Designation
               </Label>
-              <div className="relative group">
-                <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500" />
-                <Input
-                  value={formData.designation}
-                  onChange={e =>
-                    setFormData({ ...formData, designation: e.target.value })
-                  }
-                  placeholder="e.g. Senior Developer"
-                  className="pl-12 h-12 rounded-xl bg-secondary/20 border-none font-bold"
-                />
-              </div>
+                <div className="relative w-full">
+                  <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500 z-10" />
+                  <select
+                    value={formData.designation}
+                    onChange={e => setFormData({ ...formData, designation: e.target.value })}
+                    disabled={isViewMode}
+                    className="w-full pl-12 pr-10 h-12 rounded-xl bg-secondary/20 border-none font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer text-black dark:text-white disabled:opacity-80"
+                  >
+                    <option value="" disabled className="text-black bg-white">Select Designation</option>
+                    <option value="Manager" className="text-black bg-white">Manager</option>
+                    <option value="Employee" className="text-black bg-white">Employee</option>
+                    {/* Handle any existing custom designation value gracefully if loaded */}
+                    {formData.designation && formData.designation !== "Manager" && formData.designation !== "Employee" && (
+                      <option value={formData.designation} className="text-black bg-white">
+                        {formData.designation}
+                      </option>
+                    )}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    </svg>
+                  </div>
+                </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                Department
+                Department <span className="lowercase text-[9px] opacity-60 font-bold">(optional)</span>
               </Label>
               <div className="relative group">
-                <Shield className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500" />
-                <Input
-                  value={formData.department}
-                  onChange={e =>
-                    setFormData({ ...formData, department: e.target.value })
-                  }
-                  placeholder="e.g. Engineering"
-                  className="pl-12 h-12 rounded-xl bg-secondary/20 border-none font-bold"
-                />
+                <Shield className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500 z-10" />
+                
+                {orgDepartments.length > 0 && !isCustomDept ? (
+                  <div className="relative w-full">
+                    <select
+                      value={formData.department}
+                      onChange={e => setFormData({ ...formData, department: e.target.value })}
+                      disabled={isViewMode}
+                      className="w-full pl-12 pr-10 h-12 rounded-xl bg-secondary/20 border-none font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer text-black dark:text-white disabled:opacity-80"
+                    >
+                      <option value="" className="text-black bg-white">Select Department</option>
+                      {orgDepartments.map((dept) => (
+                        <option key={dept.id} value={dept.id} className="text-black bg-white">
+                          {dept.name}
+                        </option>
+                      ))}
+                      {/* Handle existing custom value gracefully */}
+                      {formData.department && !orgDepartments.some(d => d.id === formData.department) && (
+                        <option value={formData.department} className="text-black bg-white">
+                          {formData.department}
+                        </option>
+                      )}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground">
+                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                      </svg>
+                    </div>
+                  </div>
+                ) : (
+                  <Input
+                    value={formData.department}
+                    onChange={e => setFormData({ ...formData, department: e.target.value })}
+                    readOnly={isViewMode}
+                    placeholder="e.g. Engineering"
+                    className="pl-12 h-12 rounded-xl bg-secondary/20 border-none font-bold"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -287,7 +329,7 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
-                Base Salary (Monthly)
+                Base Salary (Monthly) <span className="lowercase text-[9px] opacity-60 font-bold">({orgCurrency})</span>
               </Label>
               <div className="relative group">
                 <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500" />
@@ -302,7 +344,8 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
             </div>
           </div>
 
-          {!isViewMode && (
+          {/* Show System Password block: Always in creation mode, and conditionally in view mode if owner-created */}
+          {(!isViewMode || employee?.systemPassword) && (
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
                 System Password
@@ -310,14 +353,41 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
               <div className="relative group">
                 <Shield className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-emerald-500" />
                 <Input
-                  type="password"
+                  type="text" // Display plain-text to copy easily
                   value={formData.password}
                   onChange={e =>
                     setFormData({ ...formData, password: e.target.value })
                   }
+                  readOnly={isViewMode}
                   placeholder="Set login password"
-                  className="pl-12 h-12 rounded-xl bg-secondary/20 border-none font-bold"
+                  className="pl-12 pr-16 h-12 rounded-xl bg-secondary/20 border-none font-bold"
                 />
+                
+                {/* Random Password Dice Generator inside input container for onboarding */}
+                {!isViewMode && (
+                  <button 
+                    type="button"
+                    onClick={generateRandomPassword}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-500 transition-colors p-1"
+                    title="Generate random password"
+                  >
+                    <Dices size={16} />
+                  </button>
+                )}
+
+                {/* Plain-text Copy button for existing credentials */}
+                {isViewMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(formData.password);
+                      toast.success("Password copied to clipboard!");
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black uppercase text-emerald-500 hover:text-emerald-600 transition-colors p-1"
+                  >
+                    Copy
+                  </button>
+                )}
               </div>
             </div>
           )}

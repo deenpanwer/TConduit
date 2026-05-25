@@ -39,7 +39,7 @@ const marker = Permanent_Marker({
 });
 
 export const metadata: Metadata = {
-  title: 'Trac AI | Software that replaces all software',
+  title: "Trac AI | Finally know who's working and who isn't",
   description: 'The first truly integrated business operating system. Designed for professionals, powered by AI.',
 };
 

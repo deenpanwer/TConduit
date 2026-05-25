@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button-v2";
 import { cn } from "@/lib/utils";
 import { ReactNode } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { Download } from "lucide-react";
 
 export default function HeroSection({ 
   onDownload,
@@ -114,12 +113,17 @@ export default function HeroSection({
                     },
                     ...transitionVariants,
                     }}
-                    className="flex-shrink-0 md:-translate-x-12 md:-translate-y-10"
+                    className="flex-shrink-0 md:ml-auto md:-translate-y-10"
                 >
                     <div key={1} className="bg-foreground/10 rounded-full p-0.5 shadow-lg shadow-foreground/5 dark:shadow-none mb-2">
-                    <Button size="lg" className="rounded-full px-12 h-16 text-xl font-poppins bg-foreground text-background hover:bg-foreground/90 border-none transition-all flex items-center gap-2" onClick={onDownload}>
-                      <Download className="w-7 h-7" />
-                      download {version ? `v${version}` : 'for windows'}
+                    <Button size="lg" className="rounded-full px-12 h-16 text-lg font-poppins bg-foreground text-background hover:bg-foreground/90 border-none transition-all flex items-center gap-3" onClick={onDownload}>
+                      <svg viewBox="0 0 23 23" className="w-6 h-6 shrink-0">
+                        <path fill="#f35325" d="M0 0h11v11H0z"/>
+                        <path fill="#81bc06" d="M12 0h11v11H12z"/>
+                        <path fill="#05a6f0" d="M0 12h11v11H0z"/>
+                        <path fill="#ffba08" d="M12 12h11v11H12z"/>
+                      </svg>
+                      Get it on Microsoft Store
                     </Button>
                     </div>
                 </AnimatedGroup>

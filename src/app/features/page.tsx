@@ -181,8 +181,64 @@ const Header = () => {
 };
 
 export default function FeaturesPage() {
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "serviceType": "Business Software Operating System",
+    "provider": {
+      "@type": "Organization",
+      "name": "TRAC AI (PRIVATE) LIMITED",
+      "logo": "https://www.traconomics.com/trac-ai-logo.png"
+    },
+    "name": "TRAC AI Product Suite",
+    "description": "Unified business operating system consolidating ATS, CRM, Accounting, chats, shift scheduling, POS, time tracking, and inventory.",
+    "hasOfferCatalog": {
+      "@type": "OfferCatalog",
+      "name": "TRAC AI Business Apps",
+      "itemListElement": [
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "TRAC AI Accounting",
+            "description": "Auto-invoicing, bank sync, P&L reporting."
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "TRAC AI CRM",
+            "description": "Lead captures, pipeline management, client tracking."
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "TRAC AI Applicant Tracking System (ATS)",
+            "description": "Job boards, pipelines, hiring onboarding trackers."
+          }
+        },
+        {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "TRAC AI Time Tracking",
+            "description": "Activity timeline logs, remote team tracker synced with payroll."
+          }
+        }
+      ]
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white pt-20">
+      {/* Inject Structured Service Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+      />
       <Header />
       <FeaturesHero />
       <PurposeSection />

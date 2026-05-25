@@ -58,6 +58,9 @@ const nextConfig: NextConfig = {
   devIndicators: {
     position: 'top-right',
   },
+  experimental: {
+    middlewareClientMaxBodySize: 52428800, // Increase client body limit to 50MB to support large resumes
+  },
 };
 
 export default nextConfig;

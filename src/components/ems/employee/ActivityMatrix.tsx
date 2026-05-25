@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { MousePointer2, Keyboard, Move } from "lucide-react";
+import { MousePointer2, Keyboard, Move, ScrollText } from "lucide-react";
 import { format } from "date-fns";
 import { useTeam } from "@/hooks/use-team";
 
@@ -15,9 +15,17 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
   const { selectedDate } = useTeam();
   const dateStr = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
+  // State to toggle lines dynamically
+  const [visibleLines, setVisibleLines] = useState({
+    keys: true,
+    clicks: true,
+    distance: true,
+    scroll: true,
+  });
+
   const { chartData, totals } = useMemo(() => {
     // 1. Initialize 24-hour buckets
-    const hourlyBuckets: Record<string, { time: string; keystrokes: number; clicks: number; distance: number }> = {};
+    const hourlyBuckets: Record<string, { time: string; keystrokes: number; clicks: number; distance: number; scroll: number }> = {};
     
     for (let i = 0; i < 24; i++) {
       const hour = i.toString().padStart(2, "0");
@@ -26,12 +34,14 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
         keystrokes: 0,
         clicks: 0,
         distance: 0,
+        scroll: 0,
       };
     }
 
     let totalKeys = 0;
     let totalClicks = 0;
     let totalDistance = 0;
+    let totalScroll = 0;
 
     // 2. Aggregate data from the selected date's workShifts
     workShifts.forEach((shift) => {
@@ -40,32 +50,61 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
 
       if (shift.hourlyPulse) {
         Object.entries(shift.hourlyPulse).forEach(([hour, data]: [string, any]) => {
-          if (hourlyBuckets[hour]) {
+          // Normalise/Pad the hour string (e.g. "9" -> "09") to ensure it matches the 24h buckets perfectly
+          const normalizedHour = hour.toString().padStart(2, "0");
+          
+          if (hourlyBuckets[normalizedHour]) {
             // SCHEMA NORMALIZATION: Handle Modern (nested metrics) vs Legacy (flat)
             const metrics = data?.metrics || data;
             
             const ks = metrics.keystrokes || 0;
             const mc = metrics.mouseClicks || 0;
             const md = metrics.mouseDistance || 0;
+            const sd = metrics.mouseScrolls || metrics.mouseScroll || metrics.scrollDistance || metrics.scrollAmount || 0;
 
-            hourlyBuckets[hour].keystrokes += ks;
-            hourlyBuckets[hour].clicks += mc;
-            hourlyBuckets[hour].distance += md;
+            hourlyBuckets[normalizedHour].keystrokes += ks;
+            hourlyBuckets[normalizedHour].clicks += mc;
+            hourlyBuckets[normalizedHour].distance += md;
+            hourlyBuckets[normalizedHour].scroll += sd;
 
             totalKeys += ks;
             totalClicks += mc;
             totalDistance += md;
+            totalScroll += sd;
           }
         });
       }
     });
 
+    // 3. Create log-scaled data points to prevent perfect overlap and maintain magnitude visibility
+    const normalizedData = Object.values(hourlyBuckets).map((bucket) => ({
+      time: bucket.time,
+      // Raw/absolute metrics for Tooltip rendering
+      rawKeystrokes: bucket.keystrokes,
+      rawClicks: bucket.clicks,
+      rawDistance: bucket.distance,
+      rawScroll: bucket.scroll,
+      // Log scaled metrics for visual separation
+      keystrokes: bucket.keystrokes > 0 ? Math.log10(bucket.keystrokes + 1) : 0,
+      clicks: bucket.clicks > 0 ? Math.log10(bucket.clicks + 1) : 0,
+      distance: bucket.distance > 0 ? Math.log10(bucket.distance + 1) : 0,
+      scroll: bucket.scroll > 0 ? Math.log10(bucket.scroll + 1) : 0,
+    }));
+
+    console.log("[ActivityMatrix Data Engine]", {
+      totalKeys,
+      totalClicks,
+      totalDistance,
+      totalScroll
+    });
+
     return {
-      chartData: Object.values(hourlyBuckets),
+      chartData: normalizedData,
       totals: {
         keys: totalKeys,
         clicks: totalClicks,
         distance: totalDistance,
+        scroll: totalScroll,
       },
     };
   }, [workShifts, dateStr]);
@@ -90,14 +129,36 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* 24-Hour Activity Intensity Chart */}
       <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
              <div>
                 <h3 className="text-xl font-black uppercase tracking-tighter">Activity Chart</h3>
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Today's Activity Across The Day</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Logarithmic Daily Trendline (Click legend to toggle)</p>
              </div>
-             <div className="flex gap-4">
-                <LegendItem color="bg-primary" label="Keys" />
-                <LegendItem color="bg-purple-500" label="Clicks" />
+             <div className="flex flex-wrap gap-2">
+                <LegendItem 
+                  color="bg-[#3b82f6]" 
+                  label="Keys" 
+                  active={visibleLines.keys}
+                  onClick={() => setVisibleLines(prev => ({ ...prev, keys: !prev.keys }))}
+                />
+                <LegendItem 
+                  color="bg-[#a855f7]" 
+                  label="Clicks" 
+                  active={visibleLines.clicks}
+                  onClick={() => setVisibleLines(prev => ({ ...prev, clicks: !prev.clicks }))}
+                />
+                <LegendItem 
+                  color="bg-[#f59e0b]" 
+                  label="Distance" 
+                  active={visibleLines.distance}
+                  onClick={() => setVisibleLines(prev => ({ ...prev, distance: !prev.distance }))}
+                />
+                <LegendItem 
+                  color="bg-[#10b981]" 
+                  label="Scroll" 
+                  active={visibleLines.scroll}
+                  onClick={() => setVisibleLines(prev => ({ ...prev, scroll: !prev.scroll }))}
+                />
              </div>
         </div>
 
@@ -106,12 +167,20 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
                 <AreaChart data={chartData}>
                     <defs>
                         <linearGradient id="colorKeys" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                         </linearGradient>
                         <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>
+                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.25}/>
                             <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorDistance" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorScroll" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -122,7 +191,36 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
                         tick={{ fontSize: 10, fontWeight: 900, fill: 'hsl(var(--muted-foreground))' }}
                         interval={2} // Shows ticks every 3 hours (00, 03, 06...)
                     />
+                    <YAxis hide={true} domain={[0, 'dataMax + 0.5']} />
                     <Tooltip
+                        formatter={(value: any, name: string, props: any) => {
+                            const rawKeyMap: Record<string, string> = {
+                                keystrokes: "rawKeystrokes",
+                                clicks: "rawClicks",
+                                distance: "rawDistance",
+                                scroll: "rawScroll"
+                            };
+                            const rawName = rawKeyMap[name] || name;
+                            const rawValue = props.payload?.[rawName] ?? value;
+
+                            const displayNames: Record<string, string> = {
+                                keystrokes: "Keystrokes",
+                                clicks: "Clicks & Selects",
+                                distance: "Mouse Distance",
+                                scroll: "Scroll Distance"
+                            };
+                            const displayName = displayNames[name] || name.charAt(0).toUpperCase() + name.slice(1);
+                            
+                            const suffixMap: Record<string, string> = {
+                                keystrokes: " keys",
+                                clicks: " clicks",
+                                distance: " px moved",
+                                scroll: " px scrolled"
+                            };
+                            const suffix = suffixMap[name] || "";
+
+                            return [`${rawValue.toLocaleString()}${suffix}`, displayName];
+                        }}
                         contentStyle={{
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
@@ -132,8 +230,18 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
                             textTransform: 'uppercase'
                         }}
                     />
-                    <Area type="monotone" dataKey="keystrokes" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorKeys)" />
-                    <Area type="monotone" dataKey="clicks" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorClicks)" />
+                    {visibleLines.keys && (
+                        <Area type="monotone" dataKey="keystrokes" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorKeys)" />
+                    )}
+                    {visibleLines.clicks && (
+                        <Area type="monotone" dataKey="clicks" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorClicks)" />
+                    )}
+                    {visibleLines.distance && (
+                        <Area type="monotone" dataKey="distance" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorDistance)" />
+                    )}
+                    {visibleLines.scroll && (
+                        <Area type="monotone" dataKey="scroll" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorScroll)" />
+                    )}
                 </AreaChart>
             </ResponsiveContainer>
         </div>
@@ -146,26 +254,57 @@ export function ActivityMatrix({ workShifts }: ActivityMatrixProps) {
             label="Total Keystrokes"
             value={totals.keys.toLocaleString()}
             sub="Captured Today"
-            color="text-primary"
+            color="text-[#3b82f6]"
         />
         <StatCard
             icon={MousePointer2}
             label="Total Interactions"
             value={totals.clicks.toLocaleString()}
             sub="Clicks & Selects"
-            color="text-purple-500"
+            color="text-[#a855f7]"
+        />
+        <StatCard
+            icon={Move}
+            label="Mouse Distance"
+            value={totals.distance.toLocaleString()}
+            sub="Pixels Moved"
+            color="text-[#f59e0b]"
+        />
+        <StatCard
+            icon={ScrollText}
+            label="Scroll Distance"
+            value={totals.scroll.toLocaleString()}
+            sub="Pixels Scrolled"
+            color="text-[#10b981]"
         />
       </div>
     </div>
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
+function LegendItem({ 
+  color, 
+  label, 
+  active, 
+  onClick 
+}: { 
+  color: string; 
+  label: string; 
+  active: boolean; 
+  onClick: () => void; 
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <div className={`w-3 h-3 rounded-full ${color}`} />
+    <button 
+      onClick={onClick}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-border/40 transition-all duration-300 hover:scale-105 active:scale-95 ${
+        active 
+          ? "bg-muted/80 opacity-100 shadow-sm" 
+          : "bg-transparent opacity-40 hover:opacity-75"
+      }`}
+    >
+      <div className={`w-2.5 h-2.5 rounded-full transition-transform duration-300 ${active ? "scale-100" : "scale-75 bg-muted-foreground"} ${color}`} />
       <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{label}</span>
-    </div>
+    </button>
   );
 }
 

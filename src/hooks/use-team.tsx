@@ -34,8 +34,9 @@ interface TeamContextType {
     totalKeystrokes: number;
     totalMouseClicks: number;
     totalMouseDistance: number;
+    totalMouseScrolls: number;
     totalBreakSeconds: number;
-    hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }>;
+    hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number; mouseDistance: number; mouseScrolls: number }>;
   } | null;
   loading: boolean;
   selectedDate: Date;
@@ -416,8 +417,9 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     let totalKeystrokes = 0;
     let totalMouseClicks = 0;
     let totalMouseDistance = 0;
+    let totalMouseScrolls = 0;
     let totalBreakSeconds = 0;
-    const hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number }> = {};
+    const hourlyActivity: Record<string, { seconds: number; keystrokes: number; mouseClicks: number; mouseDistance: number; mouseScrolls: number }> = {};
 
     Object.values(personnelData).forEach(p => {
       // 1. Live Pulse Tracking (Staleness Checked)
@@ -437,6 +439,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
         totalKeystrokes += (shiftMetrics.keystrokes || s.keystrokes || 0);
         totalMouseClicks += (shiftMetrics.mouseClicks || s.mouseClicks || 0);
         totalMouseDistance += (shiftMetrics.mouseDistance || s.mouseDistance || 0);
+        totalMouseScrolls += (shiftMetrics.mouseScrolls || shiftMetrics.mouseScroll || shiftMetrics.scrollDistance || s.mouseScrolls || s.scrollDistance || 0);
         totalBreakSeconds += (shiftMetrics.breakSeconds || 0);
 
         // Application Breakdown: Handles both number (Legacy) and object (Modern) formats.
@@ -459,11 +462,13 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
         // Hourly Pulse Aggregation (New high-density structure)
         if (s.hourlyPulse) {
           Object.entries(s.hourlyPulse).forEach(([hour, data]: [string, any]) => {
-            if (!hourlyActivity[hour]) hourlyActivity[hour] = { seconds: 0, keystrokes: 0, mouseClicks: 0 };
+            if (!hourlyActivity[hour]) hourlyActivity[hour] = { seconds: 0, keystrokes: 0, mouseClicks: 0, mouseDistance: 0, mouseScrolls: 0 };
             const hMetrics = data.metrics || data;
             hourlyActivity[hour].seconds += (hMetrics.totalSeconds || hMetrics.seconds || 0);
             hourlyActivity[hour].keystrokes += (hMetrics.keystrokes || 0);
             hourlyActivity[hour].mouseClicks += (hMetrics.mouseClicks || 0);
+            hourlyActivity[hour].mouseDistance += (hMetrics.mouseDistance || hMetrics.distance || 0);
+            hourlyActivity[hour].mouseScrolls += (hMetrics.mouseScrolls || hMetrics.mouseScroll || hMetrics.scrollDistance || hMetrics.scrollAmount || 0);
           });
         }
 
@@ -497,6 +502,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       totalKeystrokes,
       totalMouseClicks,
       totalMouseDistance,
+      totalMouseScrolls,
       totalBreakSeconds,
       hourlyActivity
     };

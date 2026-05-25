@@ -211,7 +211,7 @@ export function AttendanceSidebar({
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
             <div className="space-y-1">
               <NavItem icon={LayoutDashboard} label="Overview" href="/attendance" active={pathname === "/attendance"} />
-              {/* <NavItem icon={CreditCard} label="Payroll" href="/attendance/payroll" active={pathname?.startsWith("/attendance/payroll")} /> */}
+              <NavItem icon={CreditCard} label="Payroll" href="/attendance/payroll" active={pathname?.startsWith("/attendance/payroll")} />
               {/* we may remove this its terrible <NavItem icon={ClipboardList} label="Ledger" href="/attendance/ledger" active={pathname?.startsWith("/attendance/ledger")} /> */}
               <NavItem icon={CalendarDays} label="Holidays" href="/attendance/holidays" active={pathname?.startsWith("/attendance/holidays")} />
               <NavItem icon={Settings} label="Settings" href="/attendance/settings" active={pathname === "/attendance/settings"} />

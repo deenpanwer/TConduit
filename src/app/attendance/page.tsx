@@ -16,6 +16,8 @@ import {
   Calendar as CalendarIcon,
   ArrowUpDown,
   ImageIcon,
+  MousePointer2,
+  Move,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,7 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useAttendance, AttendanceLog } from '@/hooks/use-attendance';
+import { useTeam } from '@/hooks/use-team';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { format, parseISO, parse } from 'date-fns';
 import Papa from 'papaparse';
@@ -51,6 +54,7 @@ import { AttendanceExportModal } from '@/components/attendance/AttendanceExportM
 
 export default function AttendanceOverviewPage() {
   const { todayLogs, loading, holidays, fetchForDate, offDays } = useAttendance();
+  const { selectedDate, setSelectedDate } = useTeam();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportTarget, setExportTarget] = useState<{
     employees?: string[];
@@ -59,7 +63,6 @@ export default function AttendanceOverviewPage() {
 
   // Filtering States
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [sortBy, setSortBy] = useState('name');
 
   // Auditor Modal State
@@ -169,7 +172,7 @@ export default function AttendanceOverviewPage() {
     totalStaff > 0 ? Math.round((activeNow / totalStaff) * 100) : 0;
   const totalActiveTime = processedLogs
     .reduce((acc, curr) => acc + curr.activeTime, 0)
-    .toFixed(1);
+    .toFixed(2);
 
   const onLeaveCount = holidays.filter((h: any) => {
     try {
@@ -325,7 +328,7 @@ export default function AttendanceOverviewPage() {
               title="Break Time"
               value={`${processedLogs
                 .reduce((acc, curr) => acc + curr.breakTime, 0)
-                .toFixed(1)}h`}
+                .toFixed(2)}h`}
               subtitle="Recorded Breaks"
               icon={Coffee}
               color="orange"
@@ -334,7 +337,7 @@ export default function AttendanceOverviewPage() {
               title="Idle Time"
               value={`${processedLogs
                 .reduce((acc, curr) => acc + (curr.idleTime || 0), 0)
-                .toFixed(1)}h`}
+                .toFixed(2)}h`}
               subtitle="Recorded Inactivity"
               icon={Clock}
               color="rose"
@@ -565,6 +568,24 @@ export default function AttendanceOverviewPage() {
                                   Clicks:{' '}
                                   <span className="text-foreground">
                                     {log.mouseClicks.toLocaleString()}
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Move className="size-3 text-purple-500" />
+                                <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                                  Distance:{' '}
+                                  <span className="text-foreground">
+                                    {log.mouseDistance.toLocaleString()}
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <MousePointer2 className="size-3 text-emerald-500" />
+                                <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                                  Scrolls:{' '}
+                                  <span className="text-foreground">
+                                    {log.mouseScrolls.toLocaleString()}
                                   </span>
                                 </span>
                               </div>

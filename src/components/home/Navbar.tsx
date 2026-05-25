@@ -77,6 +77,8 @@ export function Navbar() {
             </Link>
 
             <div className="hidden xl:flex items-center gap-10">
+              {/* Desktop links temporarily hidden as requested */}
+              {/*
               <div 
                 className="relative py-2"
                 onMouseEnter={() => setIsAppsOpen(true)}
@@ -140,10 +142,12 @@ export function Navbar() {
 
               <Link href="/features" className="font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">Features</Link>
               <Link href="/pricing" className="font-bold text-[11px] hover:text-primary transition-colors uppercase tracking-[0.25em]">Pricing</Link>
+              */}
             </div>
           </div>
 
           <div className="hidden lg:flex items-center gap-8">
+            {/* 
             <Link href="/ems/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
             <Link 
               href="/ems/signup" 
@@ -151,6 +155,7 @@ export function Navbar() {
             >
               Start Now
             </Link>
+            */}
           </div>
 
           <button 

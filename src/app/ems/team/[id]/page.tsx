@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck, Menu } from "lucide-react";
+import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck, Menu, Ban } from "lucide-react";
 import { EmployeeHeader } from "@/components/ems/employee/EmployeeHeader";
 import { ShiftPulse } from "@/components/ems/employee/ShiftPulse";
 import { RecentEvidence } from "@/components/ems/employee/RecentEvidence";
@@ -81,6 +81,7 @@ export default function EmployeeDetailPage() {
   const [workShifts, setWorkShifts] = useState<any[]>([]);
   const [screenshots, setScreenshots] = useState<any[]>([]);
   const [timeEntries, setTimeEntries] = useState<any[]>([]); 
+  const [firstTimeEntryOfDate, setFirstTimeEntryOfDate] = useState<any>(null);
   
   // --- PAGINATION STATES ---
   const [historyLimit, setHistoryLimit] = useState(5);
@@ -185,10 +186,35 @@ export default function EmployeeDetailPage() {
         setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }); 
 
+    // 5. Very First Time Entry of Selected Date (for actual work start time)
+    const startOfSelectedDay = new Date(selectedDate);
+    startOfSelectedDay.setHours(0, 0, 0, 0);
+    const endOfSelectedDay = new Date(selectedDate);
+    endOfSelectedDay.setHours(23, 59, 59, 999);
+
+    const firstEntryQuery = query(
+      timeRef,
+      where("startTime", ">=", startOfSelectedDay),
+      where("startTime", "<=", endOfSelectedDay),
+      orderBy("startTime", "asc"),
+      limit(1)
+    );
+
+    const unsubFirstEntry = onSnapshot(firstEntryQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        setFirstTimeEntryOfDate({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+      } else {
+        setFirstTimeEntryOfDate(null);
+      }
+    }, (err) => {
+      console.warn("Failed to fetch first time entry of the day:", err);
+    });
+
     return () => {
       unsubShifts();
       unsubTime();
       unsubScreenshots();
+      unsubFirstEntry();
     };
   }, [id, historyLimit, shiftsLimit, selectedDate]);
 
@@ -293,16 +319,14 @@ export default function EmployeeDetailPage() {
     if (!id || !employee) return;
     setLoading(true);
     const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const name = formData.get("name") as string;
     const role = formData.get("role") as string;
 
     try {
       await updateDoc(doc(db, "users", id as string), {
-        name: name,
         role: role,
         updatedAt: new Date(),
       });
-      toast({ title: "Employee Updated", description: `${name}'s profile has been updated.` });
+      toast({ title: "Employee Updated", description: `${employee?.name}'s profile has been updated.` });
       setShowEditEmployeeModal(false);
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
@@ -396,9 +420,9 @@ export default function EmployeeDetailPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowIntelligenceModal(true)} 
-                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-orange-500/20 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 dark:bg-orange-500/20 dark:text-orange-400 dark:hover:bg-orange-500/30"
+                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
             >
-                <ShieldCheck size={14} className="mr-2" /> Define Prime Apps for {employee?.name?.split(' ')[0] || "Member"}
+                <Ban size={14} className="mr-2" /> Manage Site Blocklist for {employee?.name?.split(' ')[0] || "Member"}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
@@ -442,7 +466,7 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <ShiftPulse activeShift={activeShift} employee={employee} />
+                <ShiftPulse workShifts={workShifts} firstTimeEntry={firstTimeEntryOfDate} employee={employee} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -462,7 +486,7 @@ export default function EmployeeDetailPage() {
               </motion.div> */}
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-                <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
+                <ActivityMatrix workShifts={liveEmployee?.workShifts || workShifts} screenshots={screenshots} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -480,6 +504,7 @@ export default function EmployeeDetailPage() {
                   timeEntries={timeEntries} 
                   screenshots={screenshots} 
                   onLoadMore={handleLoadMore}
+                  hasMore={timeEntries.length >= historyLimit}
                 />
               </motion.div>
             </>
@@ -505,27 +530,26 @@ export default function EmployeeDetailPage() {
           </DialogHeader>
           <form onSubmit={handleEditEmployee} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+              <Label className="text-right">
                 Name
               </Label>
-              <Input
-                id="name"
-                defaultValue={employee?.name}
-                className="col-span-3"
-                name="name"
-                readOnly
-              />
+              <div className="col-span-3 font-semibold text-foreground">
+                {employee?.name}
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
                 Role
               </Label>
-              <Input
-                id="role"
-                defaultValue={employee?.role}
-                className="col-span-3"
-                name="role"
-              />
+              <Select defaultValue={employee?.role || "employee"} name="role">
+                <SelectTrigger className="col-span-3" id="role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">employee</SelectItem>
+                  <SelectItem value="manager">manager</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="submit">Save changes</Button>

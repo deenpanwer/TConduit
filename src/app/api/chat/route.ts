@@ -2,6 +2,12 @@ import { createAgentUIStreamResponse } from 'ai';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { getTracAiAgent } from '@/lib/ai/agents/trac-ai';
+import { initLogger } from 'braintrust';
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 // Increase duration for complex tool-calling sequences
 export const maxDuration = 60;
@@ -16,9 +22,18 @@ export async function POST(req: Request) {
 
     const agent = getTracAiAgent(orgId, userId);
 
+    let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+
     const result = await createAgentUIStreamResponse({
       agent,
       uiMessages: messages,
+      onStepFinish: async (step) => {
+        if (step.usage) {
+          totalUsage.promptTokens += step.usage.inputTokens || 0;
+          totalUsage.completionTokens += step.usage.outputTokens || 0;
+          totalUsage.totalTokens += step.usage.totalTokens || 0;
+        }
+      },
       onFinish: async ({ responseMessage }) => {
         if (chatId && userId) {
             try {
@@ -56,6 +71,30 @@ export async function POST(req: Request) {
                     lastMessage: text.substring(0, 100),
                     orgId,
                 }, { merge: true });
+
+                // 3. Log to Braintrust for AI Observability
+                try {
+                    await logger.log({
+                        input: messages,
+                        output: text,
+                        metrics: {
+                            prompt_tokens: totalUsage.promptTokens,
+                            completion_tokens: totalUsage.completionTokens,
+                            tokens: totalUsage.totalTokens
+                        },
+                        metadata: {
+                            userId,
+                            orgId,
+                            chatId,
+                            platform: 'website',
+                            model: 'pixtral-large-2411',
+                            toolInvocations,
+                            toolInvocationsCount: toolInvocations.length
+                        }
+                    });
+                } catch (braintrustError) {
+                    console.error("Error logging to Braintrust:", braintrustError);
+                }
 
             } catch (e) {
                 console.error("Error persisting AI response:", e);

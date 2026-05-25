@@ -32,8 +32,35 @@ export default function TimeTrackingPage() {
   const whatsappNumber = "923178005465"; 
   const whatsappUrl = `https://wa.me/${whatsappNumber}`;
 
+  const timeTrackingSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "TRAC AI Time Tracking",
+    "operatingSystem": "Windows, macOS, Linux, Web",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "TRAC AI (PRIVATE) LIMITED",
+      "logo": "https://www.traconomics.com/trac-ai-logo.png"
+    },
+    "description": "High-performance time tracker and productivity manager, automatically logging activity timelines and syncing with task boards for seamless remote and onsite payroll management.",
+    "sameAs": [
+      "https://www.traconomics.com/time-tracking"
+    ]
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white overflow-x-hidden">
+      {/* Inject Structured Time Tracking Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(timeTrackingSchema) }}
+      />
       {/* Google Tag (gtag.js) */}
       <Script
         src="https://www.googletagmanager.com/gtag/js?id=AW-17668221650"

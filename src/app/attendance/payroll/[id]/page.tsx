@@ -34,10 +34,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { format, parseISO } from "date-fns";
 import { cn, getUserAvatar } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { InlineEditField } from "@/components/crm/shared/InlineEditField";
+import { UploadResumeModal } from "@/components/ems/employee/UploadResumeModal";
+import { storage } from "@/lib/firebase";
 
 export default function EmployeeProfilePage() {
   const { id: employeeId } = useParams() as { id: string };
@@ -48,6 +51,13 @@ export default function EmployeeProfilePage() {
   const [loading, setLoading] = useState(true);
   const [payslips, setPayslips] = useState<any[]>([]);
   const [shifts, setShifts] = useState<any[]>([]);
+  
+  const [editedFields, setEditedFields] = useState<Record<string, any>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadResumeOpen, setIsUploadResumeOpen] = useState(false);
+  
+  // Document upload state
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
   useEffect(() => {
     async function fetchEmployeeData() {
@@ -85,19 +95,63 @@ export default function EmployeeProfilePage() {
     fetchEmployeeData();
   }, [employeeId, userData]);
 
-  const handleSaveField = async (fieldKey: string, value: any) => {
-    if (!employee) return;
+  const handleStageField = async (fieldKey: string, value: any) => {
+    setEditedFields(prev => ({ ...prev, [fieldKey]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    if (!employee || Object.keys(editedFields).length === 0) return;
+    setIsSaving(true);
     try {
       await updateDoc(doc(db, "users", employee.id), {
-        [fieldKey]: value,
+        ...editedFields,
         updatedAt: new Date().toISOString()
       });
-      setEmployee({ ...employee, [fieldKey]: value });
+      setEmployee({ ...employee, ...editedFields });
+      setEditedFields({});
+      toast.success("Profile changes saved successfully");
     } catch (err) {
       console.error(err);
-      throw err; // Let InlineEditField handle the error toast
+      toast.error("Failed to save changes");
+    } finally {
+      setIsSaving(false);
     }
   };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !employee) return;
+
+    setIsUploadingDoc(true);
+    try {
+      const docRef = ref(storage, `personnel/${employee.id}/documents/${Date.now()}_${file.name}`);
+      await uploadBytes(docRef, file);
+      const url = await getDownloadURL(docRef);
+
+      const newDoc = {
+        name: file.name,
+        url,
+        type: file.type,
+        uploadedAt: new Date().toISOString()
+      };
+
+      const updatedDocs = [...(employee.documents || []), newDoc];
+      
+      await updateDoc(doc(db, "users", employee.id), {
+        documents: updatedDocs
+      });
+      
+      setEmployee({ ...employee, documents: updatedDocs });
+      toast.success("Document uploaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload document");
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const displayEmployee = { ...employee, ...editedFields };
 
   if (loading) {
     return (
@@ -135,11 +189,11 @@ export default function EmployeeProfilePage() {
             </Button>
             
             <div className="flex items-center gap-3">
-              <Button size="sm" variant="outline" className="rounded-xl font-black uppercase text-[10px] h-9 border-border/50">
+              <Button onClick={() => setIsUploadResumeOpen(true)} size="sm" variant="outline" className="rounded-xl font-black uppercase text-[10px] h-9 border-border/50">
                 <FileText size={14} className="mr-2" /> Resume
               </Button>
               <Button onClick={() => router.push(`/attendance/payroll/builder?userId=${employee.id}`)} size="sm" className="rounded-xl font-black uppercase text-[10px] h-9 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20">
-                <Banknote size={14} className="mr-2" /> Issue Payslip
+                <Banknote size={14} className="mr-2" /> Issue Invoice
               </Button>
             </div>
           </div>
@@ -171,10 +225,10 @@ export default function EmployeeProfilePage() {
               </div>
               <div className="flex-1 flex flex-col md:flex-row justify-between items-center md:items-end pb-4 w-full text-center md:text-left gap-4">
                 <div className="space-y-1">
-                  <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-foreground drop-shadow-sm">{employee.name}</h1>
+                  <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-foreground drop-shadow-sm">{displayEmployee.name}</h1>
                   <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black text-[10px] uppercase tracking-widest">{employee.designation}</Badge>
-                    <span className="text-muted-foreground font-bold uppercase tracking-[0.2em] text-[10px] opacity-60">• {employee.department || "Unassigned"}</span>
+                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black text-[10px] uppercase tracking-widest">{displayEmployee.designation}</Badge>
+                    <span className="text-muted-foreground font-bold uppercase tracking-[0.2em] text-[10px] opacity-60">• {displayEmployee.department || "Unassigned"}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -205,98 +259,68 @@ export default function EmployeeProfilePage() {
                 <CardContent className="p-8 pt-4 space-y-6">
                   <InlineEditField 
                     label="Full Name" 
-                    value={employee.name} 
-                    onSave={(val) => handleSaveField("name", val)} 
+                    value={displayEmployee.name} 
+                    onSave={(val) => handleStageField("name", val)} 
                   />
                   <InlineEditField 
                     label="Work Email" 
-                    value={employee.email} 
-                    onSave={(val) => handleSaveField("email", val)} 
+                    value={displayEmployee.email} 
+                    onSave={(val) => handleStageField("email", val)} 
                   />
                   <InlineEditField 
                     label="Designation" 
-                    value={employee.designation} 
-                    onSave={(val) => handleSaveField("designation", val)} 
+                    value={displayEmployee.designation} 
+                    onSave={(val) => handleStageField("designation", val)} 
                   />
                   <InlineEditField 
                     label="Department" 
-                    value={employee.department} 
-                    onSave={(val) => handleSaveField("department", val)} 
+                    value={displayEmployee.department} 
+                    onSave={(val) => handleStageField("department", val)} 
                   />
                   <InlineEditField 
                     label="WhatsApp Number" 
-                    value={employee.whatsappNumber} 
-                    onSave={(val) => handleSaveField("whatsappNumber", val)} 
+                    value={displayEmployee.whatsappNumber} 
+                    onSave={(val) => handleStageField("whatsappNumber", val)} 
                   />
                   <InlineEditField 
                     label="Monthly Base Salary" 
                     type="currency"
-                    value={employee.baseSalary} 
-                    onSave={(val) => handleSaveField("baseSalary", Number(val))} 
+                    value={displayEmployee.baseSalary} 
+                    onSave={(val) => handleStageField("baseSalary", Number(val))} 
                   />
                 </CardContent>
               </Card>
 
+              {/* System Control Commented Out
               <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/30 backdrop-blur-sm border-t-4 border-t-rose-500/50">
-                <CardHeader className="p-8 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-500">
-                      <ShieldAlert size={18} />
-                    </div>
-                    <CardTitle className="text-lg font-black uppercase tracking-tight text-rose-600">System Control</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-8 pt-4 space-y-6">
-                  <InlineEditField 
-                    label="Access Status" 
-                    value={employee.accessLocked ? "Locked" : "Active"} 
-                    type="select"
-                    options={[
-                      { label: "Active Access", value: "false" },
-                      { label: "Revoke Access", value: "true" }
-                    ]}
-                    onSave={(val) => handleSaveField("accessLocked", val === "true")} 
-                  />
-                  <InlineEditField 
-                    label="Visual Monitoring" 
-                    value={employee.disableScreenshots ? "Disabled" : "Active"} 
-                    type="select"
-                    options={[
-                      { label: "Enable Screenshots", value: "false" },
-                      { label: "Disable Screenshots", value: "true" }
-                    ]}
-                    onSave={(val) => handleSaveField("disableScreenshots", val === "true")} 
-                  />
-                  <InlineEditField 
-                    label="Screenshot Privacy" 
-                    value={employee.blurScreenshots ? "Blurred" : "Clear"} 
-                    type="select"
-                    options={[
-                      { label: "Clear Vision", value: "false" },
-                      { label: "Privacy Blur", value: "true" }
-                    ]}
-                    onSave={(val) => handleSaveField("blurScreenshots", val === "true")} 
-                  />
-                  <InlineEditField 
-                    label="Screenshot Frequency" 
-                    value={String(employee.screenshotInterval || 5)} 
-                    type="select"
-                    options={[
-                      { label: "High (3 mins)", value: "3" },
-                      { label: "Standard (5 mins)", value: "5" },
-                      { label: "Relaxed (10 mins)", value: "10" }
-                    ]}
-                    onSave={(val) => handleSaveField("screenshotInterval", Number(val))} 
-                  />
-                  {employee.creationMode === 'owner-created' && (
-                    <InlineEditField 
-                      label="System Password" 
-                      value={employee.systemPassword} 
-                      onSave={(val) => handleSaveField("systemPassword", val)} 
-                    />
-                  )}
-                </CardContent>
+                ...
               </Card>
+              */}
+              
+              {displayEmployee.resumeContext && (
+                <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/30 backdrop-blur-sm">
+                  <CardHeader className="p-8 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                        <BadgeCheck size={18} />
+                      </div>
+                      <CardTitle className="text-lg font-black uppercase tracking-tight text-purple-600">AI Context</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-8 pt-4 space-y-4">
+                    <p className="text-sm font-bold text-muted-foreground italic">
+                      "{displayEmployee.resumeContext.brief}"
+                    </p>
+                    {displayEmployee.resumeContext.skills && displayEmployee.resumeContext.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {displayEmployee.resumeContext.skills.map((skill: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[10px] uppercase font-black bg-background">{skill}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Right Column: Activity & History */}
@@ -329,7 +353,7 @@ export default function EmployeeProfilePage() {
                                     {((shift.liveMetrics?.activeSeconds || 0) / 3600).toFixed(1)}h Active
                                  </Badge>
                                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">
-                                   Total: {((shift.totalSeconds || 0) / 3600).toFixed(1)}h
+                                   Total: {((shift.liveMetrics?.totalSeconds || shift.metrics?.totalSeconds || 0) / 3600).toFixed(1)}h
                                  </span>
                               </div>
                            </div>
@@ -378,11 +402,84 @@ export default function EmployeeProfilePage() {
                     )}
                   </div>
                 </TabsContent>
+                <TabsContent value="documents" className="mt-6 space-y-4">
+                  <div className="flex justify-end mb-4">
+                    <Button onClick={() => document.getElementById('doc-upload')?.click()} disabled={isUploadingDoc} className="rounded-xl font-black uppercase text-[10px] h-10 bg-emerald-600 hover:bg-emerald-700">
+                      {isUploadingDoc ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}
+                      Upload File
+                    </Button>
+                    <input type="file" id="doc-upload" className="hidden" onChange={handleDocumentUpload} />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {displayEmployee.documents && displayEmployee.documents.length > 0 ? (
+                      displayEmployee.documents.map((docItem: any, i: number) => (
+                        <div key={i} className="p-6 rounded-[2rem] border border-border/40 bg-card/30 backdrop-blur-sm flex flex-col justify-between group hover:border-emerald-500/30 transition-all">
+                          <div className="flex items-start gap-4 mb-4">
+                             <div className="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-600 shrink-0">
+                                <FileText className="size-5" />
+                             </div>
+                             <div className="space-y-1 overflow-hidden">
+                                <p className="text-sm font-black uppercase tracking-tight truncate">{docItem.name}</p>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                                  {format(parseISO(docItem.uploadedAt), "MMM dd, yyyy")}
+                                </p>
+                             </div>
+                          </div>
+                          <div className="flex gap-2 w-full mt-auto">
+                            <Button variant="outline" size="sm" className="flex-1 rounded-xl font-black uppercase text-[9px] border-border/50" asChild>
+                              <a href={docItem.url} target="_blank" rel="noopener noreferrer">View</a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 rounded-xl font-black uppercase text-[9px] border-border/50" asChild>
+                              <a href={docItem.url} download>Download</a>
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-1 md:col-span-2 h-64 flex flex-col items-center justify-center opacity-30 border-2 border-dashed border-border/50 rounded-[3rem]">
+                        <FileText size={48} />
+                        <p className="text-xs font-black uppercase tracking-[0.2em] mt-4">No documents uploaded yet</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
               </Tabs>
             </div>
           </div>
         </div>
       </ScrollArea>
+
+      {/* Floating Save Button */}
+      {Object.keys(editedFields).length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="bg-background/80 backdrop-blur-xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/20 rounded-[2rem] p-4 flex items-center gap-6">
+            <div className="space-y-0.5">
+              <p className="text-sm font-black uppercase tracking-tight text-emerald-500">Unsaved Changes</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{Object.keys(editedFields).length} fields modified</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setEditedFields({})} className="rounded-xl font-black uppercase text-[10px] tracking-widest">
+                Discard
+              </Button>
+              <Button onClick={handleSaveChanges} disabled={isSaving} className="rounded-xl font-black uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700">
+                {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <BadgeCheck className="mr-2 size-4" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <UploadResumeModal 
+        isOpen={isUploadResumeOpen}
+        onClose={() => setIsUploadResumeOpen(false)}
+        employeeId={employee.id}
+        employeeName={employee.name || employee.displayName || ""}
+        existingContext={employee.resumeContext}
+        onSuccess={(ctx) => setEmployee({ ...employee, resumeContext: ctx })}
+      />
     </div>
   );
 }

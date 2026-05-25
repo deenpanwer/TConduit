@@ -5,6 +5,13 @@ import { getTracAiAgent } from "@/lib/ai/agents/trac-ai";
 import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { generateText } from "ai";
 import { uploadToFirebaseStorage } from "./storage-utils";
+import { initLogger, traced } from "braintrust";
+
+// Initialize Braintrust Observability Logger
+initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || "tracai",
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 /**
  * Singleton instance of the WhatsApp Bot.
@@ -165,24 +172,59 @@ function registerWhatsAppHandlers(bot: Chat) {
                     };
                 }).reverse();
 
+                // Format history to be injected directly into the user message prompt
+                let historyText = "";
                 if (history.length > 0) {
-                    console.log(`[WhatsApp] Passing ${history.length} history messages. First: "${history[0].content.substring(0, 30)}..."`);
+                    historyText = "--- RECENT CONVERSATION HISTORY ---\n";
+                    for (const msg of history) {
+                        const sender = msg.role === "user" ? "User" : "Trac AI";
+                        historyText += `${sender}: ${msg.content}\n`;
+                    }
+                    historyText += "-----------------------------------\n\n";
+                    console.log(`[WhatsApp] Injecting ${history.length} historical messages into prompt:\n${historyText}`);
                 }
 
                 // 3. Construct current message content
                 // Multi-modal content is passed as an array of parts
                 const currentContent: any[] = [];
-                if (message.text) {
-                    currentContent.push({ type: "text", text: message.text });
+                if (historyText || message.text) {
+                    currentContent.push({ 
+                        type: "text", 
+                        text: historyText + (message.text || "") 
+                    });
                 }
                 currentContent.push(...imageParts);
 
-                // 4. Generate AI response (using history + current multimodal content)
-                const result = await agent.generate({
-                    messages: [
-                        ...history,
-                        { role: "user", content: currentContent }
-                    ] as any,
+                // 4. Generate AI response (using history prepended to current message context, tracked by Braintrust)
+                const result = await traced(async (span: any) => {
+                    const genResult = await agent.generate({
+                        messages: [
+                            { role: "user", content: currentContent }
+                        ] as any,
+                    });
+
+                    span.log({
+                        input: historyText + (message.text || (attachmentDocs.length > 0 ? "[Image Sent]" : "")),
+                        output: genResult.text,
+                        metrics: genResult.usage ? {
+                            prompt_tokens: genResult.usage.inputTokens,
+                            completion_tokens: genResult.usage.outputTokens,
+                            tokens: genResult.usage.totalTokens
+                        } : undefined,
+                        metadata: {
+                            userId,
+                            orgId,
+                            chatId,
+                            platform: 'whatsapp',
+                            model: 'pixtral-large-2411',
+                            historyCount: history.length,
+                            attachmentsCount: attachmentDocs.length
+                        }
+                    });
+
+                    return genResult;
+                }, { 
+                    name: "WhatsApp AI Response"
                 });
 
                 // Clean up formatting for WhatsApp

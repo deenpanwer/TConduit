@@ -79,7 +79,7 @@ export function RecentEvidence({ screenshots = [] }: RecentEvidenceProps) {
                 </div>
                 <div className="absolute bottom-3 left-3 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
                   <span className="text-[9px] font-black text-white/90 uppercase tracking-tighter">
-                    {format(getDate(img.timestamp), 'HH:mm:ss')}
+                    {format(getDate(img.timestamp), 'hh:mm:ss a')}
                   </span>
                 </div>
               </motion.div>

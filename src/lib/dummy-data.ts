@@ -68,6 +68,8 @@ export function generateDummyData(orgId: string, count: number = 6) {
             totalSecondsToday * faker.number.float({ min: 0.1, max: 0.5 }),
           mouseDistance:
             totalSecondsToday * faker.number.float({ min: 1, max: 5 }),
+          mouseScrolls:
+            totalSecondsToday * faker.number.float({ min: 0.5, max: 3 }),
         },
         liveBreakdown,
         hourlyPulse: generateHourlyPulse(totalSecondsToday),
@@ -110,6 +112,8 @@ function generateHourlyPulse(totalSeconds: number) {
         totalSeconds: faker.number.int({ min: 1800, max: 3600 }),
         keystrokes: faker.number.int({ min: 500, max: 2000 }),
         mouseClicks: faker.number.int({ min: 100, max: 500 }),
+        mouseDistance: faker.number.int({ min: 1000, max: 5000 }),
+        mouseScrolls: faker.number.int({ min: 500, max: 3000 }),
       },
     };
   }

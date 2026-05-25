@@ -10,8 +10,11 @@ import {
   getDocs,
   where,
   DocumentData,
+  orderBy,
+  startAt,
+  endAt,
 } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
 import { isEmployeeOnline } from '@/lib/utils';
 
 export interface AttendanceLog {
@@ -31,6 +34,8 @@ export interface AttendanceLog {
   assignedTasksCount: number;
   keystrokes: number;
   mouseClicks: number;
+  mouseDistance: number;
+  mouseScrolls: number;
   status: 'online' | 'offline' | 'on-break' | 'away';
   isVerified?: boolean;
   isFlagged?: boolean;
@@ -108,125 +113,179 @@ export function useAttendance() {
 
   const logs = useMemo(() => {
     return teamEmployees.map(emp => {
-      const shifts = emp.workShifts || [];
-
-      let clockIn = null;
-      let clockOut = null;
-
-      if (shifts.length > 0) {
-        const sortedShifts = [...shifts].sort((a: any, b: any) =>
-          a.id.localeCompare(b.id)
-        );
-        const firstShift = sortedShifts[0];
-        const lastShift = sortedShifts[sortedShifts.length - 1];
-
-        clockIn = firstShift.startTime || firstShift.createdAt;
-        if (lastShift.status === 'completed' || lastShift.endTime) {
-          clockOut = lastShift.endTime || lastShift.updatedAt;
-        }
-      }
-
-      let totalSeconds = 0;
-      let activeSeconds = 0;
-      let breakSeconds = 0;
-      let idleSeconds = 0;
-      let keystrokes = 0;
-      let mouseClicks = 0;
-
-      shifts.forEach((s: any) => {
-        const metrics = s.liveMetrics || s.metrics || {};
-        activeSeconds += metrics.activeSeconds || 0;
-        totalSeconds += metrics.totalSeconds || s.totalSeconds || 0;
-        breakSeconds += metrics.breakSeconds || 0;
-        idleSeconds += metrics.idleSeconds || 0;
-        keystrokes += metrics.keystrokes || s.keystrokes || 0;
-        mouseClicks += metrics.mouseClicks || s.mouseClicks || 0;
-      });
-
-      let status: any = 'offline';
-      if (isEmployeeOnline(emp)) {
-        status = 'online';
-        if (shifts.some((s: any) => s.status === 'on-break'))
-          status = 'on-break';
-      }
-
-      let late = '0m';
-      let extraWorked = '0m';
-
-      const shiftDefaults = emp.trackingSettings?.shiftDefaults;
-      if (shiftDefaults && clockIn) {
-        try {
-          const [sHour, sMin] = shiftDefaults.startTime.split(':').map(Number);
-          const shiftStart = new Date(selectedDate);
-          shiftStart.setHours(sHour, sMin, 0, 0);
-
-          const actualIn = new Date(clockIn);
-          if (actualIn > shiftStart) {
-            const diffMins = Math.floor(
-              (actualIn.getTime() - shiftStart.getTime()) / 60000
-            );
-            if (diffMins > 5) {
-              const h = Math.floor(diffMins / 60);
-              const m = diffMins % 60;
-              late = h > 0 ? `${h}h ${m}m` : `${m}m`;
-            }
-          }
-        } catch (e) {}
-      }
-
-      if (shiftDefaults && clockOut) {
-        try {
-          const [eHour, eMin] = shiftDefaults.endTime.split(':').map(Number);
-          const shiftEnd = new Date(selectedDate);
-          shiftEnd.setHours(eHour, eMin, 0, 0);
-
-          const actualOut = new Date(clockOut);
-          if (actualOut > shiftEnd) {
-            const diffMins = Math.floor(
-              (actualOut.getTime() - shiftEnd.getTime()) / 60000
-            );
-            if (diffMins > 0) {
-              const h = Math.floor(diffMins / 60);
-              const m = diffMins % 60;
-              extraWorked = h > 0 ? `${h}h ${m}m` : `${m}m`;
-            }
-          }
-        } catch (e) {}
-      }
-
-      return {
-        userId: emp.id,
-        userName: emp.name || emp.displayName || 'Unknown',
-        avatar: emp.photoUrl || emp.photoURL || null,
-        date: dateStr,
-        shift:
-          emp.trackingSettings?.shiftDefaults
-            ? `${emp.trackingSettings.shiftDefaults.startTime} - ${emp.trackingSettings.shiftDefaults.endTime}`
-            : 'Flexible',
-        clockIn: clockIn || null,
-        clockOut: clockOut || null,
-        late,
-        extraWorked,
-        totalHours: Number((totalSeconds / 3600).toFixed(2)),
-        activeTime: Number((activeSeconds / 3600).toFixed(2)),
-        breakTime: Number((breakSeconds / 3600).toFixed(2)),
-        idleTime: Number((idleSeconds / 3600).toFixed(2)),
-        assignedTasksCount: taskCounts[emp.id] || 0,
-        keystrokes,
-        mouseClicks,
-        status,
-      } as AttendanceLog;
+      return computeDailyLog(emp, emp.workShifts || [], dateStr, selectedDate, taskCounts);
     });
   }, [teamEmployees, taskCounts, selectedDate, dateStr]);
 
   return {
     todayLogs: logs,
     fetchForDate: (date: string) => {},
-    getLogsForRange: async (start: Date, end: Date) => [],
+    getLogsForRange: async (start: Date, end: Date, employeeIds?: string[]) => {
+      const resultLogs: AttendanceLog[] = [];
+      const numDays = differenceInDays(end, start) + 1;
+      const targetEmployees = teamEmployees.filter(emp => !employeeIds || employeeIds.includes(emp.id));
+
+      await Promise.all(targetEmployees.map(async (emp) => {
+        const startStr = format(start, 'yyyy-MM-dd');
+        const endStr = format(end, 'yyyy-MM-dd');
+        
+        const shiftsRef = collection(db, "users", emp.id, "workShifts");
+        const qShifts = query(
+          shiftsRef,
+          orderBy("__name__"),
+          startAt(startStr),
+          endAt(endStr + "\uf8ff")
+        );
+        const shiftSnap = await getDocs(qShifts);
+        const allShifts = shiftSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const shiftsByDate: Record<string, any[]> = {};
+        allShifts.forEach(s => {
+           const datePrefix = s.id.substring(0, 10);
+           if (!shiftsByDate[datePrefix]) shiftsByDate[datePrefix] = [];
+           shiftsByDate[datePrefix].push(s);
+        });
+
+        for (let i = 0; i < numDays; i++) {
+          const currentDay = addDays(start, i);
+          const currentDayStr = format(currentDay, 'yyyy-MM-dd');
+          const shifts = shiftsByDate[currentDayStr] || [];
+          
+          const log = computeDailyLog(emp, shifts, currentDayStr, currentDay, taskCounts);
+          
+          if (shifts.length === 0) {
+             log.clockIn = null;
+             log.clockOut = null;
+          }
+          
+          resultLogs.push(log);
+        }
+      }));
+
+      return resultLogs.sort((a, b) => {
+         if (a.date !== b.date) return a.date.localeCompare(b.date);
+         return a.userName.localeCompare(b.userName);
+      });
+    },
     loading: teamLoading,
     orgData: orgData,
     attendanceSettings: attendanceSettings,
     offDays: offDays,
     holidays: holidays,
   };
+}
+
+export function computeDailyLog(emp: any, shifts: any[], dateStr: string, selectedDate: Date, taskCounts: any): AttendanceLog {
+  let clockIn = null;
+  let clockOut = null;
+
+  if (shifts.length > 0) {
+    const sortedShifts = [...shifts].sort((a: any, b: any) =>
+      a.id.localeCompare(b.id)
+    );
+    const firstShift = sortedShifts[0];
+    const lastShift = sortedShifts[sortedShifts.length - 1];
+
+    clockIn = firstShift.startTime || firstShift.createdAt;
+    if (lastShift.status === 'completed' || lastShift.endTime) {
+      clockOut = lastShift.endTime || lastShift.updatedAt;
+    }
+  }
+
+  let totalSeconds = 0;
+  let activeSeconds = 0;
+  let breakSeconds = 0;
+  let idleSeconds = 0;
+  let keystrokes = 0;
+  let mouseClicks = 0;
+  let mouseDistance = 0;
+  let mouseScrolls = 0;
+
+  shifts.forEach((s: any) => {
+    const metrics = s.liveMetrics || s.metrics || {};
+    activeSeconds += metrics.activeSeconds || 0;
+    totalSeconds += metrics.totalSeconds || s.totalSeconds || 0;
+    breakSeconds += metrics.breakSeconds || 0;
+    idleSeconds += metrics.idleSeconds || 0;
+    keystrokes += metrics.keystrokes || s.keystrokes || 0;
+    mouseClicks += metrics.mouseClicks || s.mouseClicks || 0;
+    mouseDistance += metrics.mouseDistance || s.mouseDistance || 0;
+    mouseScrolls += metrics.mouseScrolls || metrics.mouseScroll || s.mouseScrolls || s.mouseScroll || 0;
+  });
+
+  let status: any = 'offline';
+  if (isEmployeeOnline(emp) && dateStr === format(new Date(), 'yyyy-MM-dd')) {
+    status = 'online';
+    if (shifts.some((s: any) => s.status === 'on-break'))
+      status = 'on-break';
+  }
+
+  let late = '0m';
+  let extraWorked = '0m';
+
+  const shiftDefaults = emp.trackingSettings?.shiftDefaults;
+  if (shiftDefaults && clockIn) {
+    try {
+      const [sHour, sMin] = shiftDefaults.startTime.split(':').map(Number);
+      const shiftStart = new Date(selectedDate);
+      shiftStart.setHours(sHour, sMin, 0, 0);
+
+      const actualIn = new Date(clockIn);
+      if (actualIn > shiftStart) {
+        const diffMins = Math.floor(
+          (actualIn.getTime() - shiftStart.getTime()) / 60000
+        );
+        if (diffMins > 5) {
+          const h = Math.floor(diffMins / 60);
+          const m = diffMins % 60;
+          late = h > 0 ? `${h}h ${m}m` : `${m}m`;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (shiftDefaults && clockOut) {
+    try {
+      const [eHour, eMin] = shiftDefaults.endTime.split(':').map(Number);
+      const shiftEnd = new Date(selectedDate);
+      shiftEnd.setHours(eHour, eMin, 0, 0);
+
+      const actualOut = new Date(clockOut);
+      if (actualOut > shiftEnd) {
+        const diffMins = Math.floor(
+          (actualOut.getTime() - shiftEnd.getTime()) / 60000
+        );
+        if (diffMins > 0) {
+          const h = Math.floor(diffMins / 60);
+          const m = diffMins % 60;
+          extraWorked = h > 0 ? `${h}h ${m}m` : `${m}m`;
+        }
+      }
+    } catch (e) {}
+  }
+
+  return {
+    userId: emp.id,
+    userName: emp.name || emp.displayName || 'Unknown',
+    avatar: emp.photoUrl || emp.photoURL || null,
+    date: dateStr,
+    shift:
+      emp.trackingSettings?.shiftDefaults
+        ? `${emp.trackingSettings.shiftDefaults.startTime} - ${emp.trackingSettings.shiftDefaults.endTime}`
+        : 'Flexible',
+    clockIn: clockIn || null,
+    clockOut: clockOut || null,
+    late,
+    extraWorked,
+    totalHours: Number((totalSeconds / 3600).toFixed(2)),
+    activeTime: Number((activeSeconds / 3600).toFixed(2)),
+    breakTime: Number((breakSeconds / 3600).toFixed(2)),
+    idleTime: Number((idleSeconds / 3600).toFixed(2)),
+    assignedTasksCount: taskCounts[emp.id] || 0,
+    keystrokes,
+    mouseClicks,
+    mouseDistance,
+    mouseScrolls,
+    status,
+  } as AttendanceLog;
 }

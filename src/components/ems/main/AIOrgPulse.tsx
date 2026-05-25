@@ -44,6 +44,7 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
           endTime: s.endTime,
           liveMetrics: s.liveMetrics,
           liveBreakdown: s.liveBreakdown,
+          hourlyPulse: s.hourlyPulse,
           cognitiveReport: s.cognitiveReport,
           velocity: s.velocity,
           productivityScore: s.productivityScore,

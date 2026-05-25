@@ -2,7 +2,7 @@
 
 import React from "react";
 import { 
-  ChevronDown, Sparkles
+  ChevronDown, Sparkles, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -37,12 +37,8 @@ export function ProductSwitcher({
 
   const currentModule = MODULE_CONFIG.find(m => m.id === currentModuleId) || MODULE_CONFIG[0];
   
-  // Show other modules if released OR if they are in the selectedModules list
-  const otherModules = MODULE_CONFIG.filter(m => 
-    m.id !== currentModuleId && 
-    (m.released || selectedModules.includes(m.id)) &&
-    (selectedModules.length === 0 || selectedModules.includes(m.id))
-  );
+  // Show all modules, but visually distinguish unreleased ones
+  const otherModules = MODULE_CONFIG.filter(m => m.id !== currentModuleId);
 
   return (
     <DropdownMenu>
@@ -77,56 +73,81 @@ export function ProductSwitcher({
           {(!isCollapsed || isMobileSidebarOpen) && <ChevronDown size={14} className="text-muted-foreground ml-2" />}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl">
-        <div className="px-2 py-2 mb-2">
+      <DropdownMenuContent align="start" className="w-[calc(100vw-2rem)] sm:w-[400px] md:w-[550px] p-4 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl max-h-[60vh] md:max-h-none overflow-y-auto custom-scrollbar">
+        <div className="px-3 py-2 mb-2">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
         </div>
         
         {/* CURRENT MODULE */}
         <DropdownMenuItem 
           disabled
-          className="flex items-center gap-4 p-3 rounded-xl mb-1 opacity-50 bg-secondary/50 cursor-default"
+          className="flex items-center gap-4 p-4 rounded-2xl mb-3 opacity-50 bg-secondary/50 cursor-default mx-1"
         >
-          <div className={cn("size-10 rounded-xl flex items-center justify-center", currentModule.bg)}>
-            <currentModule.icon className={cn("size-5", currentModule.color)} />
+          <div className={cn("size-12 rounded-2xl flex items-center justify-center shrink-0", currentModule.bg)}>
+            <currentModule.icon className={cn("size-6", currentModule.color)} />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-bold text-sm">{currentModule.shortTitle}</span>
+            <span className="font-bold text-[13px]">{currentModule.shortTitle}</span>
             <span className="text-[10px] text-muted-foreground">Current Product</span>
           </div>
         </DropdownMenuItem>
 
         {/* OTHER MODULES */}
-        {otherModules.map((module) => (
-          <DropdownMenuItem 
-            key={module.id}
-            asChild
-            className="flex items-center gap-4 p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all"
-          >
-            <Link href={module.href}>
-              <div className={cn("size-10 rounded-xl flex items-center justify-center", module.bg)}>
-                <module.icon className={cn("size-5", module.color)} />
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="font-bold text-sm">{module.shortTitle}</span>
-                <span className="text-[10px] text-muted-foreground">{module.description}</span>
-              </div>
-            </Link>
-          </DropdownMenuItem>
-        ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2 px-1">
+        {otherModules.map((module) => {
+          if (!module.released) {
+             return (
+              <DropdownMenuItem 
+                key={module.id}
+                disabled
+                className="flex items-center gap-4 p-3 rounded-2xl cursor-default opacity-50"
+              >
+                <div className={cn("size-11 rounded-2xl flex items-center justify-center shrink-0 grayscale", module.bg)}>
+                  <module.icon className={cn("size-5", module.color)} />
+                </div>
+                <div className="flex flex-col text-left flex-1 min-w-0">
+                  <span className="font-bold text-[13px] break-words">{module.shortTitle}</span>
+                  <span className="text-[10px] text-muted-foreground break-words">{module.description}</span>
+                </div>
+                <div className="bg-secondary px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-muted-foreground shrink-0">
+                  Soon
+                </div>
+              </DropdownMenuItem>
+             );
+          }
 
-        <div className="border-t border-border mt-2 pt-2">
+          return (
+            <DropdownMenuItem 
+              key={module.id}
+              asChild
+              className="flex items-center gap-4 p-3 rounded-2xl cursor-pointer hover:bg-secondary transition-all"
+            >
+              <Link href={module.href}>
+                <div className={cn("size-11 rounded-2xl flex items-center justify-center shrink-0", module.bg)}>
+                  <module.icon className={cn("size-5", module.color)} />
+                </div>
+                <div className="flex flex-col text-left min-w-0">
+                  <span className="font-bold text-[13px] break-words">{module.shortTitle}</span>
+                  <span className="text-[10px] text-muted-foreground break-words">{module.description}</span>
+                </div>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+        </div>
+
+        <div className="border-t border-border mt-3 pt-3 px-1 pb-1">
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
+            className="w-full justify-start gap-4 p-4 h-auto rounded-2xl hover:bg-primary/5 hover:text-primary group"
             onClick={onConfigOpen}
           >
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <div className="size-11 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
               <Sparkles className="size-5 text-primary" />
             </div>
-            <div className="flex flex-col text-left">
-              <span className="font-bold text-sm">Add more apps</span>
-              <span className="text-[10px] text-muted-foreground">Customize workspace</span>
+            <div className="flex flex-col text-left min-w-0">
+              <span className="font-bold text-[13px] truncate">Add more apps</span>
+              <span className="text-[10px] text-muted-foreground truncate">Customize workspace</span>
             </div>
           </Button>
         </div>

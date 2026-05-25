@@ -34,7 +34,7 @@ export function AttendanceExportModal({
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>(initialSelectedEmployees || allEmployees.map(e => e.id));
   const [dateRange, setDateRange] = useState<string>("1day");
   const [loading, setLoading] = useState(false);
-  const { todayLogs } = useAttendance();
+  const { todayLogs, getLogsForRange } = useAttendance();
 
   // Sync format and employees if prop changes (for triggers)
   React.useEffect(() => {
@@ -46,7 +46,20 @@ export function AttendanceExportModal({
     setLoading(true);
     toast.info("Exporting in the background. Please do not close the tab.");
     try {
-      const logsToExport = todayLogs.filter(l => selectedEmployees.includes(l.userId));
+      const end = new Date();
+      const start = new Date();
+      if (dateRange === "1week") start.setDate(end.getDate() - 7);
+      else if (dateRange === "2week") start.setDate(end.getDate() - 14);
+      else if (dateRange === "3week") start.setDate(end.getDate() - 21);
+      else if (dateRange === "1month") start.setMonth(end.getMonth() - 1);
+
+      let logsToExport = [];
+      if (dateRange === "1day") {
+        logsToExport = todayLogs.filter(l => selectedEmployees.includes(l.userId));
+      } else {
+        logsToExport = await getLogsForRange(start, end, selectedEmployees);
+      }
+
       await generateAttendanceFile(logsToExport, formatType, `attendance_export_${new Date().getTime()}`);
       
       toast.success("Export successful.");

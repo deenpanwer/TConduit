@@ -96,12 +96,14 @@ export const generateAttendanceFile = async (
     });
 
     logs.forEach(log => {
-      worksheet.addRow({
+      const isAbsent = !log.clockIn && log.activeTime === 0 && log.totalHours === 0;
+      
+      const row = worksheet.addRow({
         member: log.userName,
         date: log.date,
         shift: formatShiftTime(log.shift),
-        clockIn: log.clockIn ? format(parseISO(log.clockIn), "hh:mm:ss a") : "--:--",
-        clockOut: log.clockOut ? format(parseISO(log.clockOut), "hh:mm:ss a") : "--:--",
+        clockIn: log.clockIn ? format(parseISO(log.clockIn), "hh:mm:ss a") : (isAbsent ? "Absent" : "--:--"),
+        clockOut: log.clockOut ? format(parseISO(log.clockOut), "hh:mm:ss a") : (isAbsent ? "Absent" : "--:--"),
         late: log.late,
         extra: log.extraWorked,
         break: log.breakTime,
@@ -112,6 +114,20 @@ export const generateAttendanceFile = async (
         tasks: log.assignedTasksCount,
         total: log.totalHours,
       });
+
+      if (isAbsent) {
+        row.eachCell((cell) => {
+          cell.fill = { 
+            type: 'pattern', 
+            pattern: 'solid', 
+            fgColor: { argb: 'FFFEE2E2' } // Tailwind red-100
+          };
+          cell.font = { 
+            color: { argb: 'FFDC2626' }, // Tailwind red-600
+            bold: true
+          };
+        });
+      }
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
