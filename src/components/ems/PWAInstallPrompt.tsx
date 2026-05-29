@@ -45,10 +45,21 @@ export function PWAInstallPrompt() {
       return dismissedUntil && new Date().getTime() < parseInt(dismissedUntil);
     };
 
+    // Check if prompt is already captured globally
+    if ((window as any).deferredPWAInstallPrompt) {
+      const globalPrompt = (window as any).deferredPWAInstallPrompt;
+      setDeferredPrompt(globalPrompt);
+      if (!checkSnooze()) {
+        setShowPrompt(true);
+      }
+    }
+
     // 4. Capture Install Event (Android/Chrome)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      (window as any).deferredPWAInstallPrompt = e;
+      window.dispatchEvent(new CustomEvent('pwa-prompt-available', { detail: e }));
       if (!checkSnooze()) {
         setShowPrompt(true);
       }

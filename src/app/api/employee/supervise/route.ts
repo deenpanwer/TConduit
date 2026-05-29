@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 /**
  * SUPERVISE API ROUTE
@@ -45,7 +51,7 @@ export async function POST(req: Request) {
                         {
                             type: "text",
                             text: `
-                            ROLE: You are the Lead Audit Manager for "Trac AI" (the Workforce Intelligence Engine for Traconomics.com and Trac Diary). 
+                            ROLE: You are the Lead Audit Manager for "Trac AI" (the Workforce Intelligence Engine for heytracai.com and Trac Diary). 
                             You have magical, perfect knowledge of work activity.
 
                             TASK: Deduce exactly what ${employeeName} is doing right now on ${date}.
@@ -70,7 +76,28 @@ export async function POST(req: Request) {
             ],
         });
 
-        return new Response(JSON.stringify({ inferredIntent: text.trim().replace(/^"|"$/g, '') }), {
+        const inferredIntent = text.trim().replace(/^"|"$/g, '');
+
+        // Log to Braintrust for AI Observability
+        try {
+            await logger.log({
+                input: {
+                    employeeName,
+                    date,
+                    screenshotMetadata
+                },
+                output: inferredIntent,
+                metadata: {
+                    model: 'ministral-3b-2512',
+                    platform: 'website',
+                    action: 'employee_supervision'
+                }
+            });
+        } catch (braintrustError) {
+            console.error("Error logging to Braintrust:", braintrustError);
+        }
+
+        return new Response(JSON.stringify({ inferredIntent }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         });

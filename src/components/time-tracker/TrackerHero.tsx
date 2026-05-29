@@ -73,6 +73,8 @@ export function TrackerHero({ onBookDemo, whatsappNumber = "923178005465" }: Tra
                     <img 
                       src="/whatsapp-real.svg" 
                       alt="WhatsApp" 
+                      width={20} 
+                      height={20} 
                       className="mr-2 h-5 w-5" 
                     />
                     Chat on WhatsApp

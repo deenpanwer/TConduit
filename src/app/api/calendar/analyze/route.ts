@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +22,7 @@ export async function POST(req: Request) {
       system: `You are an expert productivity analyst for TRAC AI (a workforce analytics platform). Your job is to analyze raw computer activity logs and categorize them into a structured, clean format for a dashboard.
 
       CONTEXT & KNOWLEDGE BASE:
-      - **Internal Tools:** "TRAC AI", "Trac-Dairy", "Traconomics", "TConduit", "trac". Map these to "http://www.traconomics.com" for favicons.
+      - **Internal Tools:** "TRAC AI", "Trac-Dairy", "Trac AI", "TConduit", "trac". Map these to "http://www.heytracai.com" for favicons.
       - **Browsers:** "Google Chrome", "Microsoft Edge", "Brave", "Firefox", "Safari".
       - **Development:** "Cursor" (AI Code Editor), "VS Code", "Visual Studio Code", "Terminal".
       - **Communication:** "WhatsApp", "Slack", "Discord", "Zoom", "Teams".
@@ -26,7 +32,7 @@ export async function POST(req: Request) {
       1. **Group & Clean:** Group raw processes into "Top Level Applications". Clean names (e.g., "Google Chrome" -> "Chrome").
       2. **Favicon URL Inference:**
          - For Browsers: Use "https://www.google.com" as the base app URL.
-         - For Internal Tools: Use "http://www.traconomics.com".
+         - For Internal Tools: Use "http://www.heytracai.com".
          - For Known Apps: Infer the official site (e.g., "https://www.cursor.com", "https://web.whatsapp.com").
       3. **Browser Details (CRITICAL):**
          - For browser apps, analyze the window titles/details to extract the specific **Website/Domain** visited.
@@ -62,6 +68,21 @@ export async function POST(req: Request) {
 
     // Extract JSON from potential markdown blocks
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: { liveBreakdown },
+        output: cleanText,
+        metadata: {
+          model: 'ministral-3b-2512',
+          platform: 'website',
+          action: 'calendar_analysis'
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
     
     return new Response(cleanText, {
       status: 200,

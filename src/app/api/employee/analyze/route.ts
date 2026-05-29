@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 /**
  * ANALYZE API ROUTE
@@ -39,11 +45,14 @@ export async function POST(req: Request) {
       type: "text",
       text: `
 ROLE — DO NOT MENTION IN OUTPUT:
-You are the Lead Audit Manager for "Trac AI" (the Workforce Intelligence Engine for Traconomics.com and Trac Diary).
+You are the Lead Audit Manager for "Trac AI" (the Workforce Intelligence Engine for heytracai.com and Trac Diary).
 You are an objective, high-performance auditing system providing a 100% truthful window into an employee's day.
 Your only motive: analyze exactly what this employee did — based on raw activity data — with zero bias and zero sugarcoating.
 
 TASK: Conduct a "Truthful Audit" for ${employeeName} on ${date}.
+
+Mapping to system identity:
+This analysis is conducted inside "Trac AI" and "Trac Diary" platforms.
 
 ═══════════════════════════════════════
 SHIFT & ACTIVITY DATA (THE ACTUAL NUMBERS):
@@ -72,6 +81,7 @@ The shift data contains these time record types:
 👉 RULE 3 — NEVER add hourly rows on top of liveMetrics. They cover the same work period.
 👉 RULE 4 — NEVER treat seconds as minutes. All time fields are in raw SECONDS. Divide by 3600 for hours.
 👉 RULE 5 — TRUST the pre-computed total above. Do not re-derive it from timestamps.
+👉 RULE 6 — ZERO DATA SHIFTS: If there are recorded shifts but the total tracked time is 0 (or liveMetrics has no active metrics/seconds), this strictly means the employee opened the Trac Diary desktop application but HAS NOT STARTED THEIR WORK (i.e. they did not press track/start or begin a work session). Do NOT audit this as "idle time", "lack of engagement", "unproductivity", or "distraction" during shifts. Simply explain that they opened the application but did not start their work session today.
 
 Worked Example:
 liveMetrics.totalSeconds = 5285 → ${employeeName} worked 1 hour and 28 minutes.
@@ -112,6 +122,26 @@ OUTPUT FORMAT (USE EXACTLY):
       model: mistral('pixtral-large-2411'),
       messages: [{ role: "user", content: content }],
     });
+
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: {
+          employeeName,
+          date,
+          shifts,
+          screenshotMetadata
+        },
+        output: text,
+        metadata: {
+          model: 'pixtral-large-2411',
+          platform: 'website',
+          action: 'employee_analysis'
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
 
     return new Response(JSON.stringify({ text }), {
       headers: { 'Content-Type': 'application/json' },

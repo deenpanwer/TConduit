@@ -1,8 +1,14 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
 import { format, parseISO } from 'date-fns'; // For date parsing
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 // Helper to sort screenshots by timestamp and get the latest 3
 function getLatestScreenshots(screenshotUrls: string[], screenshotMetadata: any[]): { url: string, metadata: any }[] {
@@ -28,7 +34,6 @@ function getLatestScreenshots(screenshotUrls: string[], screenshotMetadata: any[
     return validScreenshots.slice(0, 3); // Return the top 3
 }
 
-
 export async function POST(req: Request) {
     console.log("Analyze Intent API: Request received");
     try {
@@ -48,7 +53,6 @@ export async function POST(req: Request) {
         
         if (latestScreenshots.length === 0) {
             console.warn("Analyze Intent API: No valid screenshots found to analyze intent.");
-            // Depending on desired behavior, might return an empty result or a message
             return new Response(JSON.stringify({ inferredIntent: "No recent activity data available to infer intent." }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
@@ -99,7 +103,29 @@ export async function POST(req: Request) {
         });
         console.log("Analyze Intent API: Received response from Mistral");
 
-        return new Response(JSON.stringify({ inferredIntent: text.trim() }), {
+        const inferredIntent = text.trim();
+
+        // Log to Braintrust for AI Observability
+        try {
+            await logger.log({
+                input: {
+                    employeeName,
+                    date,
+                    shifts,
+                    screenshotMetadata
+                },
+                output: inferredIntent,
+                metadata: {
+                    model: 'pixtral-large-2411',
+                    platform: 'website',
+                    action: 'intent_analysis'
+                }
+            });
+        } catch (braintrustError) {
+            console.error("Error logging to Braintrust:", braintrustError);
+        }
+
+        return new Response(JSON.stringify({ inferredIntent }), {
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (error: any) {

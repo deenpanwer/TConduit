@@ -96,14 +96,16 @@ export function ShiftPulse({ workShifts, firstTimeEntry, employee }: ShiftPulseP
       ? format(parse(`${shiftDateStr} ${scheduledEndTimeStr}`, 'yyyy-MM-dd HH:mm', new Date()), 'hh:mm a')
       : '05:00 PM';
 
-    // 1. Absent Check (No shifts or time entries at all for selected date)
-    if (shiftsForDate.length === 0 && !firstTimeEntry) {
+    // 1. Absent Check (Never Clocked In / No time entries recorded for selected date)
+    if (!firstTimeEntry) {
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       const isPastDay = shiftDateStr < todayStr;
-      
-      if (isPastDay) {
+      const scheduledEndTime = parse(`${shiftDateStr} ${scheduledEndTimeStr}`, 'yyyy-MM-dd HH:mm', new Date());
+      const isPastShiftEnd = isValid(scheduledEndTime) && new Date() > scheduledEndTime;
+
+      if (isPastDay || isPastShiftEnd) {
         status = 'Absent';
-        details = 'No work recorded for this day';
+        details = 'No clock-in recorded';
         color = 'red'; // Strict Red strictly reserved for Absent
       } else {
         status = 'Scheduled';
@@ -122,8 +124,8 @@ export function ShiftPulse({ workShifts, firstTimeEntry, employee }: ShiftPulseP
       };
     }
 
-    // 2. Extract boundaries dynamically using first/last shifts of the day
-    const actualStartTime = firstTimeEntry ? parseShiftDate(firstTimeEntry.startTime) : (firstShift ? parseShiftDate(firstShift.startTime) : null);
+    // 2. Extract boundaries dynamically strictly using first time entry of the day
+    const actualStartTime = parseShiftDate(firstTimeEntry.startTime);
     const actualEndTime = lastShift ? parseShiftDate(lastShift.endTime) : null;
 
     if (actualStartTime) {

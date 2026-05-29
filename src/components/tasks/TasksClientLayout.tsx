@@ -10,6 +10,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, useSidebar } from "@/hooks/use-sidebar";
 import { useRouter, usePathname } from "next/navigation";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 
 function TasksLayoutContent({ children }: { children: React.ReactNode }) {
   const { loading, userData } = useAuth();
@@ -105,6 +106,7 @@ function TasksLayoutContent({ children }: { children: React.ReactNode }) {
           </header>
 
           <main className="flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 bg-background/50">
+            <AnnouncementBanner />
             {children}
           </main>
         </div>

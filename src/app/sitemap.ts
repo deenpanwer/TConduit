@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { legalSections } from '@/lib/legal-data';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://www.traconomics.com';
+  const baseUrl = 'https://www.heytracai.com';
 
   // Primary public routes
   const primaryRoutes = [

@@ -78,7 +78,7 @@ export function Hero() {
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               500+ reviews from
               <span className="flex gap-2">
-                <img src="/feature/ratings1.png" alt="Partner Logos" className="h-6 w-auto dark:invert" />
+                <img src="/feature/ratings1.png" alt="Partner Logos" width={94} height={24} className="h-6 w-auto dark:invert" />
               </span>
             </p>
           </div>
@@ -108,10 +108,11 @@ export function Hero() {
       >
         <div className="relative aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-white/10">
           <Image
-            src="/trac-ai-traconomics-business-dashboard-trac-diary.png"
+            src="/trac-ai-trac-ai-business-dashboard-trac-diary.png"
             alt="Trac AI Platform Dashboard"
             fill
             className="object-cover"
+            sizes="(max-width: 1280px) 100vw, 1200px"
             priority
           />
           {/* Subtle overlay to help it blend with dark theme */}

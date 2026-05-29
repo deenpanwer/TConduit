@@ -7,10 +7,24 @@ import { generateText } from "ai";
 import { uploadToFirebaseStorage } from "./storage-utils";
 import { initLogger, traced } from "braintrust";
 
+// Utility to recursively remove undefined values which crash Firestore
+const removeUndefined = (obj: any): any => {
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(removeUndefined);
+    const newObj: any = {};
+    for (const key in obj) {
+        if (obj[key] !== undefined) {
+            newObj[key] = removeUndefined(obj[key]);
+        }
+    }
+    return newObj;
+};
+
 // Initialize Braintrust Observability Logger
 initLogger({
-  projectName: process.env.BRAINTRUST_PROJECT_NAME || "tracai",
-  apiKey: process.env.BRAINTRUST_API_KEY,
+    projectName: process.env.BRAINTRUST_PROJECT_NAME || "tracai",
+    apiKey: process.env.BRAINTRUST_API_KEY,
 });
 
 /**
@@ -27,7 +41,7 @@ export const getWhatsAppBot = () => {
     const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN!;
     const upstashUrl = process.env.UPSTASH_REDIS_REST_URL!;
     const host = upstashUrl.replace("https://", "");
-    
+
     // Explicitly using the full connection string format for the Redis adapter
     const redisUrl = `rediss://default:${upstashToken}@${host}:6379`;
 
@@ -61,7 +75,7 @@ export const getWhatsAppBot = () => {
 function registerWhatsAppHandlers(bot: Chat) {
     bot.onDirectMessage(async (thread, message) => {
         console.log(`[WhatsApp] Received message from ${message.author.userId}: "${message.text}" (${message.attachments?.length || 0} attachments)`);
-        
+
         // Prevent the bot from responding to its own messages
         if (message.author.isMe) {
             console.log("[WhatsApp] Ignoring self-message");
@@ -103,7 +117,11 @@ function registerWhatsAppHandlers(bot: Chat) {
                 return;
             }
 
-            const agent = getTracAiAgent(orgId, userId);
+            const agent = getTracAiAgent(orgId, userId, {
+                platform: 'whatsapp',
+                userName: userData.name || userData.displayName,
+                userRole: userData.role
+            });
             console.log("[WhatsApp] Agent initialized, processing history and attachments...");
 
             try {
@@ -126,10 +144,10 @@ function registerWhatsAppHandlers(bot: Chat) {
                                 const buffer = await attachment.fetchData();
                                 const timestamp = Date.now();
                                 const fileName = attachment.name || `image_${timestamp}.jpg`;
-                                
+
                                 // Proper path mapping matching Firestore structure: users/{userId}/chats/{chatId}/attachments/{filename}
                                 const storagePath = `users/${userId}/chats/${chatId}/attachments/${timestamp}_${fileName}`;
-                                
+
                                 console.log(`[WhatsApp] Uploading attachment to: ${storagePath}`);
                                 const publicUrl = await uploadToFirebaseStorage(buffer, storagePath, attachment.mimeType);
 
@@ -188,9 +206,9 @@ function registerWhatsAppHandlers(bot: Chat) {
                 // Multi-modal content is passed as an array of parts
                 const currentContent: any[] = [];
                 if (historyText || message.text) {
-                    currentContent.push({ 
-                        type: "text", 
-                        text: historyText + (message.text || "") 
+                    currentContent.push({
+                        type: "text",
+                        text: historyText + (message.text || "")
                     });
                 }
                 currentContent.push(...imageParts);
@@ -203,9 +221,58 @@ function registerWhatsAppHandlers(bot: Chat) {
                         ] as any,
                     });
 
+                    // Extract tool executions if present
+                    let toolExecutionsTrace: any[] = [];
+                    let toolInvocations: any[] = [];
+
+                    const responseMessages = genResult.response?.messages || [];
+                    if (responseMessages.length > 0) {
+                        const lastMsg = responseMessages[responseMessages.length - 1];
+                        const parts = (lastMsg as any).parts || [];
+
+                        toolExecutionsTrace = parts
+                            .filter((p: any) => p.type && p.type.startsWith('tool-'))
+                            .map((p: any) => ({
+                                toolName: p.type.replace('tool-', ''),
+                                input: p.input,
+                                output: p.output
+                            }));
+
+                        toolInvocations = parts
+                            .filter((p: any) => p.toolCallId)
+                            .reduce((acc: any[], p: any) => {
+                                const existing = acc.find(t => t.toolCallId === p.toolCallId);
+                                if (existing) {
+                                    if (p.result || p.output) {
+                                        existing.result = p.result || p.output;
+                                    }
+                                } else {
+                                    acc.push({
+                                        toolCallId: p.toolCallId,
+                                        toolName: p.toolName,
+                                        args: p.args || p.input,
+                                        result: p.result || p.output
+                                    });
+                                }
+                                return acc;
+                            }, []);
+                    }
+
+                    // Prepare comprehensive Braintrust output
+                    let braintrustOutput: any = genResult.text;
+                    if (toolExecutionsTrace.length > 0) {
+                        if (genResult.text) {
+                            braintrustOutput = { text: genResult.text, _toolExecutions: toolExecutionsTrace };
+                        } else {
+                            braintrustOutput = { _toolExecutions: toolExecutionsTrace };
+                        }
+                    } else if (!genResult.text) {
+                        braintrustOutput = "Empty output";
+                    }
+
                     span.log({
                         input: historyText + (message.text || (attachmentDocs.length > 0 ? "[Image Sent]" : "")),
-                        output: genResult.text,
+                        output: braintrustOutput,
                         metrics: genResult.usage ? {
                             prompt_tokens: genResult.usage.inputTokens,
                             completion_tokens: genResult.usage.outputTokens,
@@ -218,12 +285,16 @@ function registerWhatsAppHandlers(bot: Chat) {
                             platform: 'whatsapp',
                             model: 'pixtral-large-2411',
                             historyCount: history.length,
-                            attachmentsCount: attachmentDocs.length
+                            attachmentsCount: attachmentDocs.length,
+                            toolInvocations: toolExecutionsTrace.map(t => t.toolName)
                         }
                     });
 
+                    // Attach the extracted toolInvocations to the result object so we can save it to Firestore
+                    (genResult as any).toolInvocations = toolInvocations;
+
                     return genResult;
-                }, { 
+                }, {
                     name: "WhatsApp AI Response"
                 });
 
@@ -236,34 +307,62 @@ function registerWhatsAppHandlers(bot: Chat) {
                 console.log("[WhatsApp] AI response generated:", cleanResponse);
 
                 // 5. Post response to WhatsApp
-                await thread.post(cleanResponse);
-                console.log("[WhatsApp] Response posted to thread");
+                if (cleanResponse) {
+                    await thread.post(cleanResponse);
+                    console.log("[WhatsApp] Response posted to thread");
+                } else if ((result as any).toolInvocations && (result as any).toolInvocations.length > 0) {
+                    await thread.post("*(I am processing your request. Please check your web dashboard for visual task proposals.)*");
+                    console.log("[WhatsApp] Fallback tool response posted");
+                }
 
                 // 6. Persist BOTH messages to Firestore (User + AI)
-                // User Message (including any attachments)
-                await messagesRef.add({
-                    role: "user",
-                    parts: [
-                        { type: "text", text: message.text || (attachmentDocs.length > 0 ? "[Image Sent]" : "") },
-                        ...attachmentDocs
-                    ],
-                    createdAt: new Date().toISOString()
-                });
+                try {
+                    // User Message (including any attachments)
+                    await messagesRef.add(removeUndefined({
+                        role: "user",
+                        parts: [
+                            { type: "text", text: message.text || (attachmentDocs.length > 0 ? "[Image Sent]" : "") },
+                            ...attachmentDocs
+                        ],
+                        createdAt: new Date().toISOString()
+                    }));
 
-                // AI Response
-                await messagesRef.add({
-                    role: "assistant",
-                    parts: [{ type: "text", text: cleanResponse }],
-                    createdAt: new Date().toISOString()
-                });
+                    // AI Message
+                    const aiParts = [];
+                    if (cleanResponse) {
+                        aiParts.push({ type: "text", text: cleanResponse });
+                    }
 
-                // Update Chat Summary (Metadata)
-                await chatRef.set({
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    lastMessage: cleanResponse.substring(0, 100),
-                    orgId,
-                    title: "WhatsApp Conversation"
-                }, { merge: true });
+                    const aiMessageDoc: any = {
+                        role: "assistant",
+                        parts: aiParts,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    if ((result as any).toolInvocations && (result as any).toolInvocations.length > 0) {
+                        aiMessageDoc.toolInvocations = (result as any).toolInvocations;
+                    }
+
+                    await messagesRef.add(removeUndefined(aiMessageDoc));
+
+                    // 7. Update Chat Summary (Metadata)
+                    let summaryText = cleanResponse ? cleanResponse.substring(0, 100) : "Empty response";
+                    if (!cleanResponse && (result as any).toolInvocations && (result as any).toolInvocations.length > 0) {
+                        const toolNames = (result as any).toolInvocations.map((t: any) => t.toolName.replace(/_/g, ' ')).join(', ');
+                        summaryText = `[AI Action: ${toolNames}]`;
+                    }
+
+                    const safeUpdate = removeUndefined({
+                        lastMessage: "Trac AI: " + summaryText,
+                        orgId: orgId,
+                        title: "WhatsApp Conversation"
+                    });
+                    safeUpdate.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+                    await chatRef.set(safeUpdate, { merge: true });
+                } catch (firestoreError: any) {
+                    console.error("[WhatsApp] Firestore Persistence Error:", firestoreError.message);
+                }
 
             } catch (error) {
                 console.error("[WhatsApp] AI AI Flow Error:", error);

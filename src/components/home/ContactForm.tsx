@@ -64,7 +64,7 @@ export function ContactForm() {
             </h2>
             <div className="space-y-6 text-xl text-muted-foreground font-medium max-w-lg mb-12 leading-relaxed">
               <p>Most remote teams look productive until a client leaves, a deadline breaks, or a key hire quits. By then the damage is done.</p>
-              <p>Traconomics shows you exactly what's moving, what's stuck, and who's responsible — in real time, without micromanaging anyone.</p>
+              <p>Trac AI shows you exactly what's moving, what's stuck, and who's responsible — in real time, without micromanaging anyone.</p>
               <p>Your best people get recognized. Problems surface in days, not months. You stop running your company on status updates and gut feel.</p>
             </div>
           </div>

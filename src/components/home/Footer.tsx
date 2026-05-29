@@ -77,7 +77,7 @@ export function Footer() {
                  <Link href="https://twitter.com" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
                    <Twitter size={24} />
                  </Link>
-                 <Link href="mailto:info@traconomics.com" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+                 <Link href="mailto:info@heytracai.com" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
                    <Mail size={24} />
                  </Link>
               </div>
@@ -128,7 +128,7 @@ export function Footer() {
                 ))}
               </div>
               <div className="flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/5 rounded-full cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors w-fit">
-                <img src="/compliance/choices.png" alt="Privacy Choices" className="h-4 w-auto" />
+                <img src="/compliance/choices.png" alt="Privacy Choices" width={16} height={16} className="h-4 w-auto" />
                 <span className="text-[10px] font-bold text-zinc-900 dark:text-white">Your privacy choices</span>
               </div>
             </div>
@@ -137,15 +137,15 @@ export function Footer() {
           <div className="pt-8 border-t border-zinc-200 dark:border-zinc-800 flex flex-col lg:flex-row items-center justify-between gap-8">
              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-10 gap-y-4">
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
-                  <img src="/compliance/gdpr.png" alt="GDPR" className="h-20 w-auto object-contain dark:invert" />
+                  <img src="/compliance/gdpr.png" alt="GDPR" width={80} height={80} className="h-20 w-auto object-contain dark:invert" />
                   <span className="text-[10px] font-black uppercase tracking-widest">GDPR</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
-                  <img src="/compliance/hipaa.png" alt="HIPAA" className="h-8 w-auto object-contain dark:invert" />
+                  <img src="/compliance/hipaa.png" alt="HIPAA" width={32} height={32} className="h-8 w-auto object-contain dark:invert" />
                   <span className="text-[10px] font-black uppercase tracking-widest">HIPAA</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
-                  <img src="/compliance/LGPD-CCPA.png" alt="LGPD and CCPA" className="h-10 w-auto object-contain dark:invert" />
+                  <img src="/compliance/LGPD-CCPA.png" alt="LGPD and CCPA" width={40} height={40} className="h-10 w-auto object-contain dark:invert" />
                   <span className="text-[10px] font-black uppercase tracking-widest">LGPD and CCPA</span>
                 </div>
              </div>

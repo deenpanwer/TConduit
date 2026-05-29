@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import sitemap from '@/app/sitemap';
 
 const INDEXNOW_KEY = '7e9f3b5a1c0d4e9b8f2a6c8d7e9f3b5a';
-const INDEXNOW_HOST = 'www.traconomics.com';
+const INDEXNOW_HOST = 'www.heytracai.com';
 const INDEXNOW_URL = 'https://api.indexnow.org/IndexNow';
 
 export async function GET(request: Request) {

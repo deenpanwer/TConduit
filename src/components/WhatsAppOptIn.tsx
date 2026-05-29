@@ -18,7 +18,7 @@ export const WhatsAppOptIn: React.FC<WhatsAppOptInProps> = ({ isChecked, onCheck
           htmlFor="terms1"
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
-          I agree to receive {type} updates from Traconomics on WhatsApp.
+          I agree to receive {type} updates from Trac AI on WhatsApp.
         </label>
         <p className="text-sm text-muted-foreground">
           You can view our <Link href="/privacy-policy"><span className="text-blue-500 hover:underline">Privacy Policy</span></Link> for more details.

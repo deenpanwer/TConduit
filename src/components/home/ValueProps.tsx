@@ -9,14 +9,14 @@ const SECTIONS = [
   {
     title: "Real-time visibility into your workforce.",
     description: "Know exactly what's happening across your team with live updates and intelligent summaries. See work as it happens without ever having to ask for a status report.",
-    image: "/trac-ai-employee-management-reports-traconomics.png",
+    image: "/trac-ai-employee-management-reports-trac-ai.png",
     direction: "ltr",
     accent: "blue"
   },
   {
     title: "Streamlined task & work management.",
     description: "Keep projects on track with a powerful yet simple management suite. From quick-add notes to complex subtasks, everything is organized in one unified window.",
-    image: "/traconomics-ai-task-management-trac-diary.png",
+    image: "/trac-ai-ai-task-management-trac-diary.png",
     direction: "rtl",
     accent: "purple"
   },

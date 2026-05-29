@@ -1,16 +1,30 @@
+"use client";
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
-import { cn, getUserAvatar } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { cn, getUserAvatar, isEmployeeOnline } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { MessageSquare, Users, Plus } from "lucide-react";
 
 interface Employee {
   id: string;
   name?: string;
   photoUrl?: string;
   imageUrl?: string;
+  role?: string;
+}
+
+interface GroupChat {
+  id: string;
+  name: string;
+  createdBy: string;
+  members: string[];
+  lastMessage?: string;
+  lastMessageAt?: any;
+  lastMessageSenderId?: string;
 }
 
 interface EmployeeListProps {
@@ -18,66 +32,320 @@ interface EmployeeListProps {
   selectedEmployee: Employee | null;
   onSelectEmployee: (employee: Employee) => void;
   isLoading: boolean;
+  
+  // Group chat props
+  groups?: GroupChat[];
+  selectedGroup?: GroupChat | null;
+  onSelectGroup?: (group: GroupChat) => void;
+  isLeadership?: boolean;
+  onCreateGroupClick?: () => void;
+  activeTab: "direct" | "group";
+  setActiveTab: (tab: "direct" | "group") => void;
+  
+  // Unread badge props
+  directChats?: any[];
+  viewedTimes?: Record<string, number>;
+  currentUserId?: string;
 }
 
-export function EmployeeList({ employees, selectedEmployee, onSelectEmployee, isLoading }: EmployeeListProps) {
+export function EmployeeList({
+  employees,
+  selectedEmployee,
+  onSelectEmployee,
+  isLoading,
+  groups = [],
+  selectedGroup = null,
+  onSelectGroup,
+  isLeadership = false,
+  onCreateGroupClick,
+  activeTab,
+  setActiveTab,
+  directChats = [],
+  viewedTimes = {},
+  currentUserId = "",
+}: EmployeeListProps) {
+  
+  // Format last message preview for groups
+  const getGroupLastMessage = (group: GroupChat) => {
+    if (!group.lastMessage) return "No messages yet";
+    return group.lastMessage;
+  };
+
+  // Format last message preview for direct chats
+  const getDirectChatPreview = (employeeId: string) => {
+    const directChat = directChats.find(chat => 
+      chat.participants?.includes(employeeId) && chat.participants?.includes(currentUserId)
+    );
+    if (!directChat) return null;
+    return directChat.lastMessage || null;
+  };
+
+  const getTimestampMs = (timestamp: any): number => {
+    if (!timestamp) return 0;
+    if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+    if (typeof timestamp.toDate === "function") return timestamp.toDate().getTime();
+    if (typeof timestamp.seconds === "number") return timestamp.seconds * 1000;
+    if (timestamp instanceof Date) return timestamp.getTime();
+    if (typeof timestamp === "string") return new Date(timestamp).getTime();
+    if (typeof timestamp === "number") return timestamp;
+    return 0;
+  };
+
+  const isDirectChatUnread = (employeeId: string) => {
+    const directChat = directChats.find(chat => 
+      chat.participants?.includes(employeeId) && chat.participants?.includes(currentUserId)
+    );
+    if (!directChat) return false;
+
+    // Check if the last message was sent by the current user
+    if (directChat.lastMessageSenderId === currentUserId) return false;
+
+    const lastMsgTime = getTimestampMs(directChat.lastMessageAt);
+    const lastViewed = viewedTimes[directChat.id] || 0;
+    return lastMsgTime > lastViewed;
+  };
+
+  const isGroupChatUnread = (group: GroupChat) => {
+    if (group.lastMessageSenderId === currentUserId) return false;
+
+    const lastMsgTime = getTimestampMs(group.lastMessageAt);
+    const lastViewed = viewedTimes[group.id] || 0;
+    return lastMsgTime > lastViewed;
+  };
+
   return (
-    <div className="flex-1 flex flex-col bg-background">
-      <div className="p-6 border-b border-border/40 bg-secondary/10">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">Team Personnel</h3>
-      </div>
-      <ScrollArea className="flex-1">
-        <nav className="flex flex-col p-3 gap-1">
-          {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3">
-                <Shimmer className="h-9 w-9 rounded-full shrink-0" />
-                <Shimmer className="h-4 w-3/4 rounded-full" />
-              </div>
-            ))
-          ) : employees.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <p className="text-xs font-medium text-muted-foreground/50 italic">No available personnel</p>
-            </div>
-          ) : (
-            employees.map((emp) => (
-              <Button
-                key={emp.id}
-                variant="ghost"
-                className={cn(
-                  "h-14 justify-start gap-4 px-3 rounded-xl transition-all duration-200 group relative border border-transparent",
-                  selectedEmployee?.id === emp.id 
-                    ? "bg-primary/5 border-primary/10 shadow-sm" 
-                    : "hover:bg-secondary/50"
-                )}
-                onClick={() => onSelectEmployee(emp)}
-              >
-                {selectedEmployee?.id === emp.id && (
-                  <motion.div 
-                    layoutId="active-indicator"
-                    className="absolute left-0 w-1 h-6 bg-primary rounded-full" 
-                  />
-                )}
-                <div className="relative">
-                  <Avatar className="h-9 w-9 border border-border/50 transition-transform group-hover:scale-105">
-                    <AvatarImage src={getUserAvatar(emp)} alt={emp.name} />
-                    <AvatarFallback className="text-xs">{emp.name?.charAt(0) || "?"}</AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
-                </div>
-                <div className="flex flex-col items-start overflow-hidden">
-                  <span className={cn(
-                    "text-[13px] font-semibold truncate transition-colors",
-                    selectedEmployee?.id === emp.id ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
-                  )}>
-                    {emp.name || "Unknown"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-tight">Active now</span>
-                </div>
-              </Button>
-            ))
+    <div className="flex-1 flex flex-col bg-background h-full">
+      {/* Sidebar Header & Segmented Tab Switcher */}
+      <div className="p-4 border-b border-border/40 bg-secondary/15 flex flex-col gap-3 shrink-0">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/75">
+            Inbox Hub
+          </h3>
+          {isLeadership && activeTab === "group" && (
+            <Button
+              onClick={onCreateGroupClick}
+              size="icon"
+              className="h-7 w-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow active:scale-95 transition-transform"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           )}
-        </nav>
+        </div>
+
+        {/* Tab Controls */}
+        <div className="relative flex p-1 bg-secondary/30 rounded-xl border border-border/10">
+          <button
+            onClick={() => setActiveTab("direct")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all relative z-10",
+              activeTab === "direct" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Direct
+            {activeTab === "direct" && (
+              <motion.div
+                layoutId="active-sidebar-tab"
+                className="absolute inset-0 bg-primary rounded-lg -z-10 shadow-sm"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("group")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all relative z-10",
+              activeTab === "group" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Users className="h-3.5 w-3.5" />
+            Groups
+            {activeTab === "group" && (
+              <motion.div
+                layoutId="active-sidebar-tab"
+                className="absolute inset-0 bg-primary rounded-lg -z-10 shadow-sm"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable Content Pane */}
+      <ScrollArea className="flex-1">
+        <div className="p-2.5">
+          <AnimatePresence mode="wait">
+            {activeTab === "direct" ? (
+              // DIRECT MESSAGES VIEW
+              <motion.nav
+                key="direct-messages"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col gap-1"
+              >
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3">
+                      <Shimmer className="h-9 w-9 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Shimmer className="h-3 w-1/2 rounded" />
+                        <Shimmer className="h-2 w-3/4 rounded" />
+                      </div>
+                    </div>
+                  ))
+                ) : employees.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <p className="text-xs font-medium text-muted-foreground/60 italic">No available staff members</p>
+                  </div>
+                ) : (
+                  employees.map((emp) => {
+                    const isSelected = selectedEmployee?.id === emp.id;
+                    const previewText = getDirectChatPreview(emp.id);
+                    const isUnread = isDirectChatUnread(emp.id);
+                    return (
+                      <Button
+                        key={emp.id}
+                        variant="ghost"
+                        className={cn(
+                          "h-14 w-full justify-start gap-4 px-3 rounded-xl transition-all duration-200 group relative border border-transparent",
+                          isSelected ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-secondary/40"
+                        )}
+                        onClick={() => onSelectEmployee(emp)}
+                      >
+                        {isSelected && (
+                          <motion.div
+                            layoutId="active-chat-indicator"
+                            className="absolute left-0 w-1.5 h-6 bg-primary rounded-r-full"
+                          />
+                        )}
+                        <div className="relative shrink-0">
+                          <Avatar className="h-9 w-9 border border-border/40 transition-transform group-hover:scale-105">
+                            <AvatarImage src={getUserAvatar(emp)} alt={emp.name} />
+                            <AvatarFallback className="text-xs font-bold">{emp.name?.charAt(0) || "?"}</AvatarFallback>
+                          </Avatar>
+                          <div className={cn(
+                            "absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-background rounded-full",
+                            isEmployeeOnline(emp) ? "bg-green-500" : "bg-zinc-400"
+                          )} />
+                        </div>
+                        <div className="flex-1 flex items-center justify-between min-w-0 text-left">
+                          <div className="flex flex-col items-start overflow-hidden min-w-0 pr-2">
+                            <span className={cn(
+                              "text-[13px] font-bold truncate w-full transition-colors",
+                              isSelected ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
+                            )}>
+                              {emp.name || "Unknown"}
+                            </span>
+                            <span className={cn(
+                              "text-[10px] font-semibold truncate w-full leading-normal mt-0.5",
+                              isUnread ? "text-foreground font-bold" : "text-muted-foreground/60"
+                            )}>
+                              {previewText || emp.role || "Employee"}
+                            </span>
+                          </div>
+                          {isUnread && (
+                            <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
+                            </span>
+                          )}
+                        </div>
+                      </Button>
+                    );
+                  })
+                )}
+              </motion.nav>
+            ) : (
+              // GROUP CHATS VIEW
+              <motion.nav
+                key="group-chats"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col gap-1"
+              >
+                {isLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3">
+                      <Shimmer className="h-9 w-9 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Shimmer className="h-3 w-2/3 rounded" />
+                        <Shimmer className="h-2 w-1/2 rounded" />
+                      </div>
+                    </div>
+                  ))
+                ) : groups.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <p className="text-xs font-medium text-muted-foreground/60 italic">No active groups yet</p>
+                    {isLeadership && (
+                      <Button
+                        onClick={onCreateGroupClick}
+                        variant="link"
+                        className="text-xs font-bold mt-2 text-primary p-0"
+                      >
+                        Create your first group
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  groups.map((group) => {
+                    const isSelected = selectedGroup?.id === group.id;
+                    const isUnread = isGroupChatUnread(group);
+                    return (
+                      <Button
+                        key={group.id}
+                        variant="ghost"
+                        className={cn(
+                          "h-16 w-full justify-start gap-4 px-3 rounded-xl transition-all duration-200 group relative border border-transparent",
+                          isSelected ? "bg-primary/5 border-primary/10 shadow-sm" : "hover:bg-secondary/40"
+                        )}
+                        onClick={() => onSelectGroup?.(group)}
+                      >
+                        {isSelected && (
+                          <motion.div
+                            layoutId="active-chat-indicator"
+                            className="absolute left-0 w-1.5 h-6 bg-primary rounded-r-full"
+                          />
+                        )}
+                        
+                        {/* Overlapping double-avatar look for groups */}
+                        <div className="relative shrink-0 w-9 h-9 flex items-center justify-center bg-primary/10 rounded-xl text-primary font-bold border border-primary/10">
+                          <Users className="h-4.5 w-4.5" />
+                        </div>
+
+                        <div className="flex-1 flex items-center justify-between min-w-0 text-left">
+                          <div className="flex flex-col items-start overflow-hidden min-w-0 pr-2">
+                            <span className={cn(
+                              "text-[13px] font-bold truncate w-full transition-colors",
+                              isSelected ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
+                            )}>
+                              {group.name}
+                            </span>
+                            <span className={cn(
+                              "text-[10px] font-semibold truncate w-full leading-normal mt-0.5",
+                              isUnread ? "text-foreground font-bold" : "text-muted-foreground/60"
+                            )}>
+                              {getGroupLastMessage(group)}
+                            </span>
+                          </div>
+                          {isUnread && (
+                            <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
+                            </span>
+                          )}
+                        </div>
+                      </Button>
+                    );
+                  })
+                )}
+              </motion.nav>
+            )}
+          </AnimatePresence>
+        </div>
       </ScrollArea>
     </div>
   );

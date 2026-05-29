@@ -1,15 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { streamText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const runtime = 'edge';
 
-/**
- * TRAC AI SUPER COPILOT - API ROUTE
- * 
- * Target Path: /api/copilot/chat
- * AI Provider: Mistral Pixtral (12B-2409)
- * SDK: Vercel AI SDK (ai)
- */
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
@@ -73,6 +71,28 @@ export async function POST(req: Request) {
         { role: 'user', content: userContent }
       ],
       temperature: 0.2, // Low temperature for high precision
+      onFinish({ text }) {
+        // Log to Braintrust for AI Observability
+        try {
+          logger.log({
+            input: {
+              messages,
+              taskContext,
+              hasImage: !!image,
+              orgName,
+              userName
+            },
+            output: text,
+            metadata: {
+              model: 'pixtral-12b-2409',
+              platform: 'website',
+              action: 'copilot_chat'
+            }
+          });
+        } catch (braintrustError) {
+          console.error("Error logging to Braintrust:", braintrustError);
+        }
+      }
     });
 
     // Return the stream to the Electron HUD

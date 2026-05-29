@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ZoomIn, Camera, ChevronRight, Plus, Minus, RotateCcw, X } from 'lucide-react';
@@ -15,6 +15,11 @@ export function RecentEvidence({ screenshots = [] }: RecentEvidenceProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(10);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const visibleScreenshots = screenshots.slice(0, visibleCount);
   const hasMore = visibleCount < screenshots.length;
@@ -79,7 +84,7 @@ export function RecentEvidence({ screenshots = [] }: RecentEvidenceProps) {
                 </div>
                 <div className="absolute bottom-3 left-3 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
                   <span className="text-[9px] font-black text-white/90 uppercase tracking-tighter">
-                    {format(getDate(img.timestamp), 'hh:mm:ss a')}
+                    {mounted ? format(getDate(img.timestamp), 'hh:mm:ss a') : ''}
                   </span>
                 </div>
               </motion.div>

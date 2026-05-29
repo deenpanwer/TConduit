@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, memo, useRef } from "react";
+import React, { useState, useEffect, useMemo, memo, useRef } from "react";
 import { format } from "date-fns";
 import { Clock, Hash, ZoomIn, Image as ImageIcon, ChevronDown, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -60,8 +60,13 @@ const SkeletonItem = () => (
 );
 
 const ClusterItem = memo(({ entry, idx, onZoom }: { entry: any, idx: number, onZoom: (url: string) => void }) => {
-  const startTimeStr = entry.startTime.getTime() > 0 ? format(entry.startTime, 'hh:mm a') : '--:--';
-  const endTimeStr = entry.endTime.getTime() > 0 ? format(entry.endTime, 'hh:mm a') : '--:--';
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const startTimeStr = mounted && entry.startTime.getTime() > 0 ? format(entry.startTime, 'hh:mm a') : '--:--';
+  const endTimeStr = mounted && entry.endTime.getTime() > 0 ? format(entry.endTime, 'hh:mm a') : '--:--';
 
   return (
     <motion.div 
@@ -123,7 +128,7 @@ const ClusterItem = memo(({ entry, idx, onZoom }: { entry: any, idx: number, onZ
                           </div>
                           <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
                               <span className="text-[8px] font-black text-white uppercase tracking-tighter">
-                                  {format(getDate(img.timestamp), 'hh:mm a')}
+                                  {mounted ? format(getDate(img.timestamp), 'hh:mm a') : ''}
                               </span>
                           </div>
                       </div>

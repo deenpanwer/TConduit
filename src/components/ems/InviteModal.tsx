@@ -42,7 +42,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
 
   const sendToWhatsApp = () => {
     if (!orgData?.inviteCode) return;
-    const message = `Hey! Here are your detailed instructions to join ${userData?.orgName || 'the team'} on Trac EMS:\n\n*1. Download & Install Trac Diary*\nVisit https://www.traconomics.com/trac-diary and download the app for your operating system.\n\n*2. Account Authentication*\nOpen the app and Login using your registered work email address.\n\n*3. Access Profile*\nNavigate to the Profile section via the sidebar menu within the app.\n\n*4. Connect Organization*\nPaste the code ${orgData.inviteCode} into the "Organization Code" field and click Connect.`;
+    const message = `Hey! Here are your detailed instructions to join ${userData?.orgName || 'the team'} on Trac EMS:\n\n*1. Download & Install Trac Diary*\nVisit https://www.heytracai.com/trac-diary and download the app for your operating system.\n\n*2. Account Authentication*\nOpen the app and Login using your registered work email address.\n\n*3. Access Profile*\nNavigate to the Profile section via the sidebar menu within the app.\n\n*4. Connect Organization*\nPaste the code ${orgData.inviteCode} into the "Organization Code" field and click Connect.`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -52,7 +52,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
   const instructionsMarkdown = `
 ### Quick Setup Guide For Employees
 1. **Download & Install**
-   Visit [https://www.traconomics.com/trac-diary](https://www.traconomics.com/trac-diary) and download the **Trac Diary** app for your operating system.
+   Visit [https://www.heytracai.com/trac-diary](https://www.heytracai.com/trac-diary) and download the **Trac Diary** app for your operating system.
    
 2. **Account Authentication**
    Open the app and **Login** using your registered work email address.

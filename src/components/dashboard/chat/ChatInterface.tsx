@@ -1,6 +1,6 @@
 "use client";
 
-import { useChat } from '@ai-sdk/react'; 
+import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import type { TracAiUIMessage as Message } from '@/lib/ai/agents/trac-ai';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,81 +16,97 @@ import { useChatStore } from '@/store/use-chat-store';
 export function ChatInterface() {
   const params = useParams();
   const routeChatId = params.id as string | undefined;
-  const router = useRouter();
-  const { userData } = useAuth();
-  
-  const orgId = userData?.ownedOrgId || userData?.orgId;
 
-  // Use a stable ID for new chats that doesn't change on every render
+  // Use a stable ID for new chats
   const [newChatId] = useState(() => crypto.randomUUID());
   const sessionChatId = routeChatId || newChatId;
 
-  const { chatMessages, setMessagesForChat } = useChatStore();
-  
-  // Memoize initial messages to prevent useChat from resetting unnecessarily
-  const initialMessages = useMemo(() => 
-    chatMessages[sessionChatId] || [], 
-    [sessionChatId, chatMessages]
-  );
+  // KEY-BASED REMOUNTING:
+  // By providing a unique key to the inner component, we force a 
+  // complete unmount/remount when switching chats. This clears 
+  // all internal state of the useChat hook and other effects.
+  return <ChatContent key={sessionChatId} sessionChatId={sessionChatId} routeChatId={routeChatId} />;
+}
 
-  const { 
-    messages, 
-    setMessages, 
-    sendMessage, 
-    status 
+function ChatContent({ sessionChatId, routeChatId }: { sessionChatId: string, routeChatId?: string }) {
+  const router = useRouter();
+  const { userData } = useAuth();
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+
+  const { setChatMetadata } = useChatStore();
+
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status
   } = useChat<Message>({
     id: sessionChatId,
-    messages: initialMessages,
     transport: new DefaultChatTransport({
-        api: '/api/chat',
+      api: '/api/chat',
     }),
     onFinish: (result) => {
-        // We no longer persist the whole dump here. 
-        // The server-side /api/chat route handles writing the AI response to the sub-collection.
+      // Hydration is handled by Firestore listener
     },
     onError: (error) => {
-        console.error("AI Chat Error:", error);
+      console.error("AI Chat Error:", error);
     }
   });
 
   const isLoading = status === 'submitted' || status === 'streaming';
   const [initialLoading, setInitialLoading] = useState(!!routeChatId);
 
+  // Refs to break dependency cycles in the listener
+  const statusRef = useRef(status);
+  const messagesLengthRef = useRef(messages.length);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    messagesLengthRef.current = messages.length;
+  }, [messages.length]);
+
   // 1. Effect: Real-time Hydration from Firestore Sub-collection
   useEffect(() => {
     const userId = userData?.uid;
     if (userId && routeChatId) {
-        setInitialLoading(true);
-        const messagesRef = collection(db, 'users', userId, 'chats', routeChatId, 'messages');
-        const q = query(messagesRef, orderBy('createdAt', 'asc'));
-        
-        const unsub = onSnapshot(q, (snapshot) => {
-            const loadedMsgs = snapshot.docs.map(d => ({
-                id: d.id,
-                ...d.data(),
-            })) as unknown as Message[];
-            
-            if (loadedMsgs.length > 0) {
-                setMessages(loadedMsgs);
-                setMessagesForChat(routeChatId, loadedMsgs);
-            }
-            setInitialLoading(false);
-        }, (error) => {
-            console.error("History hydration error:", error);
-            setInitialLoading(false);
-        });
-        
-        return () => unsub();
-    } else {
+      setInitialLoading(true);
+      const messagesRef = collection(db, 'users', userId, 'chats', routeChatId, 'messages');
+      const q = query(messagesRef, orderBy('createdAt', 'asc'));
+
+      const unsub = onSnapshot(q, (snapshot) => {
+        const loadedMsgs = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        })) as unknown as Message[];
+
+        const isIdle = statusRef.current === 'ready';
+        const hasCaughtUp = loadedMsgs.length >= messagesLengthRef.current;
+
+        // Only sync from Firestore if we are NOT currently streaming an AI response
+        // AND Firestore has caught up to our optimistic local state.
+        if (loadedMsgs.length > 0 && isIdle && (hasCaughtUp || messagesLengthRef.current === 0)) {
+          setMessages(loadedMsgs);
+        }
         setInitialLoading(false);
+      }, (error) => {
+        console.error("History hydration error:", error);
+        setInitialLoading(false);
+      });
+
+      return () => unsub();
+    } else {
+      setInitialLoading(false);
     }
-  }, [userData?.uid, routeChatId, setMessages, setMessagesForChat]); 
+  }, [userData?.uid, routeChatId, setMessages]); // Removed 'status' to prevent re-subscribing
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
-        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   };
 
@@ -102,42 +118,51 @@ export function ChatInterface() {
     const userId = userData?.uid;
     if (!userId) return;
 
-    // 1. Create the User Message Object
-    const userMsg: any = {
+    // 1. Trigger AI SDK first (Optimistic UI)
+    sendMessage({ text: content }, {
+      body: {
+        chatId: sessionChatId,
+        orgId: orgId || null,
+        userId: userId || null,
+        userName: userData?.name || null,
+        userRole: userData?.role || null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      }
+    });
+
+    // 2. Persist Message to Firestore Sub-collection (Background)
+    try {
+      const userMsg: any = {
         role: 'user',
         parts: [{ type: 'text', text: content }],
-        createdAt: new Date().toISOString() // Client-side timestamp for immediate UI
-    };
+        createdAt: new Date().toISOString()
+      };
 
-    // 2. Persist Message to Firestore Sub-collection (Atomic)
-    try {
-        const messagesRef = collection(db, 'users', userId, 'chats', sessionChatId, 'messages');
-        await addDoc(messagesRef, userMsg);
+      const messagesRef = collection(db, 'users', userId, 'chats', sessionChatId, 'messages');
+      await addDoc(messagesRef, userMsg);
 
-        // 3. Update Chat Summary (Metadata)
-        const chatRef = doc(db, 'users', userId, 'chats', sessionChatId);
-        await setDoc(chatRef, {
-            updatedAt: serverTimestamp(),
-            lastMessage: content.substring(0, 100),
-            orgId: orgId || null,
-            title: messages.length === 0 ? content.substring(0, 40) : undefined
-        }, { merge: true });
+      // 3. Update Chat Summary (Metadata)
+      const chatRef = doc(db, 'users', userId, 'chats', sessionChatId);
+      const chatUpdate: any = {
+        updatedAt: serverTimestamp(),
+        lastMessage: "You: " + content.substring(0, 100),
+        orgId: orgId || null,
+      };
 
-        if (!routeChatId) {
-            router.replace(`/dashboard/c/${sessionChatId}`, { scroll: false });
-        }
+      // Only set title if this is the first message
+      if (messages.length === 0) {
+        chatUpdate.title = content.substring(0, 40);
+      }
+
+      await setDoc(chatRef, chatUpdate, { merge: true });
+      setChatMetadata(sessionChatId, chatUpdate);
+
+      if (!routeChatId) {
+        router.replace(`/dashboard/c/${sessionChatId}`, { scroll: false });
+      }
     } catch (e) {
-        console.error("Error persisting user message:", e);
+      console.error("Error persisting user message:", e);
     }
-
-    // 4. Trigger AI SDK
-    sendMessage({ text: content }, {
-        body: {
-            chatId: sessionChatId,
-            orgId: orgId || null,
-            userId: userId || null
-        }
-    });
   };
 
   // Zero-state condition
@@ -145,23 +170,23 @@ export function ChatInterface() {
 
   return (
     <div className="flex flex-col h-full relative">
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-8 py-8 space-y-6"
       >
         <AnimatePresence mode="wait">
           {initialLoading ? (
-             <motion.div 
-               key="loading-state"
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               className="flex items-center justify-center min-h-[60vh]"
-             >
-                <div className="size-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-             </motion.div>
+            <motion.div
+              key="loading-state"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center min-h-[60vh]"
+            >
+              <div className="size-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            </motion.div>
           ) : showZeroState ? (
-            <motion.div 
+            <motion.div
               key="zero-state"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -181,9 +206,9 @@ export function ChatInterface() {
                 <ChatItem key={msg.id} message={msg} />
               ))}
               {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                <ChatItem 
-                  message={{ id: "loading", role: "assistant", parts: [{ type: 'text', text: '' }] } as unknown as Message} 
-                  isLoading={true} 
+                <ChatItem
+                  message={{ id: "loading", role: "assistant", parts: [{ type: 'text', text: '' }] } as unknown as Message}
+                  isLoading={true}
                 />
               )}
             </div>

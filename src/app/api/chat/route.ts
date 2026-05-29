@@ -1,27 +1,43 @@
 import { createAgentUIStreamResponse } from 'ai';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { getTracAiAgent } from '@/lib/ai/agents/trac-ai';
 import { initLogger } from 'braintrust';
+import { waitUntil } from '@vercel/functions';
 
 const logger = initLogger({
   projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
   apiKey: process.env.BRAINTRUST_API_KEY,
 });
 
-// Increase duration for complex tool-calling sequences
+// Utility to recursively remove undefined values which crash Firestore
+const removeUndefined = (obj: any): any => {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(removeUndefined);
+  const newObj: any = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      newObj[key] = removeUndefined(obj[key]);
+    }
+  }
+  return newObj;
+};
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { messages, chatId, orgId, userId } = await req.json();
+    const body = await req.json();
+    const { messages, chatId, orgId, userId, userName, userRole, timezone } = body;
+    const platform = 'website';
+
+    console.log(`[CHAT_API] Request received: chatId=${chatId}, userId=${userId}`);
 
     if (!orgId || !userId) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
-    const agent = getTracAiAgent(orgId, userId);
-
+    const agent = getTracAiAgent(orgId, userId, { userName, userRole, timezone, platform });
     let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
     const result = await createAgentUIStreamResponse({
@@ -34,88 +50,161 @@ export async function POST(req: Request) {
           totalUsage.totalTokens += step.usage.totalTokens || 0;
         }
       },
-      onFinish: async ({ responseMessage }) => {
-        if (chatId && userId) {
+      onFinish: async ({ messages: finalMessages }) => {
+        console.log(`[CHAT_API] onFinish triggered for chatId=${chatId}`);
+
+        const persistPromise = (async () => {
+          if (chatId && userId) {
             try {
-                const text = responseMessage.parts
-                    .filter((p): p is any => p.type === 'text')
-                    .map(p => p.text)
-                    .join('');
+              // Initialize Admin SDK for robust server-side execution
+              const admin = getFirebaseAdmin();
+              if (!admin) throw new Error("Firebase Admin SDK not initialized");
+              const dbAdmin = admin.firestore();
 
-                const toolInvocations = responseMessage.parts
-                    .filter((p): p is any => p.type.startsWith('tool-') || p.type === 'dynamic-tool')
-                    .map(p => ({
-                        ...p,
-                        toolName: p.type.startsWith('tool-') ? p.type.slice(5) : p.toolName,
-                        args: p.input,
-                        result: p.output
-                    }));
+              const aiMessage = finalMessages[finalMessages.length - 1];
+              const parts = aiMessage.parts || [];
 
-                // 1. Persist the AI response as a NEW document in the sub-collection
-                const messagesRef = collection(db, 'users', userId, 'chats', chatId, 'messages');
-                await addDoc(messagesRef, {
-                    role: 'assistant',
-                    parts: responseMessage.parts,
-                    toolInvocations,
-                    createdAt: new Date().toISOString()
-                });
+              let text = parts
+                .filter((p: any) => p.type === 'text')
+                .map((p: any) => p.text)
+                .join('');
 
-                // Update the chat with any new user message parts (like images) that were passed in
-                // if they haven't been persisted yet. 
-                // The frontend usually adds the user message, but we ensure the structure matches.
+              if (!text && (aiMessage as any).content) {
+                text = (aiMessage as any).content;
+              }
 
-                // 2. Update Chat Summary (Metadata)
-                const chatRef = doc(db, 'users', userId, 'chats', chatId);
-                await setDoc(chatRef, {
-                    updatedAt: serverTimestamp(),
-                    lastMessage: text.substring(0, 100),
-                    orgId,
-                }, { merge: true });
-
-                // 3. Log to Braintrust for AI Observability
-                try {
-                    await logger.log({
-                        input: messages,
-                        output: text,
-                        metrics: {
-                            prompt_tokens: totalUsage.promptTokens,
-                            completion_tokens: totalUsage.completionTokens,
-                            tokens: totalUsage.totalTokens
-                        },
-                        metadata: {
-                            userId,
-                            orgId,
-                            chatId,
-                            platform: 'website',
-                            model: 'pixtral-large-2411',
-                            toolInvocations,
-                            toolInvocationsCount: toolInvocations.length
-                        }
+              const toolInvocations = parts
+                .filter((p: any) => p.toolCallId)
+                .reduce((acc: any[], p: any) => {
+                  const existing = acc.find(t => t.toolCallId === p.toolCallId);
+                  if (existing) {
+                    if (p.result || p.output) {
+                      existing.result = p.result || p.output;
+                    }
+                  } else {
+                    acc.push({
+                      toolCallId: p.toolCallId,
+                      toolName: p.toolName,
+                      args: p.args || p.input,
+                      result: p.result || p.output
                     });
-                } catch (braintrustError) {
-                    console.error("Error logging to Braintrust:", braintrustError);
+                  }
+                  return acc;
+                }, []);
+
+              console.log(`[CHAT_API] Captured ${toolInvocations.length} tool invocations`);
+
+              // Create a descriptive summary for the UI if text is empty but tools were used
+              let summaryText = text.substring(0, 100);
+              if (!summaryText && toolInvocations.length > 0) {
+                const toolNames = toolInvocations.map(t => t.toolName.replace(/_/g, ' ')).join(', ');
+                summaryText = `[AI Action: ${toolNames}]`;
+              } else if (!summaryText) {
+                summaryText = "Empty response";
+              }
+
+              // 1. Persist to Firestore via Admin SDK
+              try {
+                const messagesRef = dbAdmin.collection('users').doc(userId).collection('chats').doc(chatId).collection('messages');
+                await messagesRef.add(removeUndefined({
+                  role: 'assistant',
+                  parts: parts,
+                  toolInvocations,
+                  createdAt: new Date().toISOString()
+                }));
+
+                const chatRef = dbAdmin.collection('users').doc(userId).collection('chats').doc(chatId);
+                const safeUpdate = removeUndefined({
+                  lastMessage: "Trac AI: " + summaryText,
+                  orgId,
+                });
+                safeUpdate.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+                await chatRef.set(safeUpdate, { merge: true });
+
+                console.log(`[CHAT_API] Admin Firestore persistence success`);
+              } catch (firestoreError: any) {
+                console.error("[CHAT_API] Firestore Persistence Error:", firestoreError.message);
+              }
+
+              // 2. Log to Braintrust (Clean Payload)
+              try {
+                console.log(`[CHAT_API] Logging to Braintrust...`);
+                // Strip complex objects for Braintrust schema validation
+                const cleanInputMessages = messages.map((m: any) => ({
+                  role: m.role,
+                  content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || m.parts)
+                }));
+
+                // Extract full tool execution trace (input arguments + output results)
+                const toolExecutionsTrace = parts
+                  .filter((p: any) => p.type && p.type.startsWith('tool-'))
+                  .map((p: any) => ({
+                    toolName: p.type.replace('tool-', ''),
+                    input: p.input,
+                    output: p.output
+                  }));
+
+                // Prepare comprehensive Braintrust output
+                let braintrustOutput: any = text;
+
+                if (toolExecutionsTrace.length > 0) {
+                  if (text) {
+                    // If we have both text and tools, combine them into an object for full observability
+                    braintrustOutput = {
+                      text: text,
+                      _toolExecutions: toolExecutionsTrace
+                    };
+                  } else {
+                    // If only tools were used
+                    braintrustOutput = { _toolExecutions: toolExecutionsTrace };
+                  }
+                } else if (!text) {
+                  braintrustOutput = "Empty output";
                 }
 
-            } catch (e) {
-                console.error("Error persisting AI response:", e);
+                await logger.log({
+                  input: cleanInputMessages, // Pass array directly for native Braintrust Chat UI rendering
+                  output: braintrustOutput,
+                  metrics: {
+                    prompt_tokens: totalUsage.promptTokens,
+                    completion_tokens: totalUsage.completionTokens,
+                    tokens: totalUsage.totalTokens
+                  },
+                  metadata: {
+                    userId,
+                    orgId,
+                    chatId,
+                    model: 'pixtral-large-2411',
+                    platform: 'website',
+                    toolInvocations: toolInvocations.map(t => t.toolName)
+                  }
+                });
+
+                await logger.flush();
+                console.log(`[CHAT_API] Braintrust flush success`);
+              } catch (braintrustError: any) {
+                console.error("[CHAT_API] Braintrust Error:", braintrustError.message);
+              }
+
+            } catch (e: any) {
+              console.error("[CHAT_API] Critical Persistence Error:", e.message);
             }
-        }
+          }
+        })();
+
+        // Explicitly wait for background persistence to finish before Vercel kills the container
+        waitUntil(persistPromise);
       }
     });
 
     return result;
 
   } catch (error: any) {
-    console.error("AI Route Error:", error);
+    console.error("[CHAT_API] Fatal Error:", error.message);
     return new Response(
-      JSON.stringify({ 
-        error: "Failed to process chat request",
-        details: error.message 
-      }), 
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ error: "Internal Server Error", details: error.message }),
+      { status: 500 }
     );
   }
 }

@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
@@ -94,6 +100,21 @@ FORMAT:
       model: mistral('mistral-small-2506'),
       prompt: prompt,
     });
+
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: { orgData, date, orgName },
+        output: text,
+        metadata: {
+          model: 'mistral-small-2506',
+          platform: 'website',
+          action: 'org_analysis'
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
 
     return new Response(JSON.stringify({ text }), {
       headers: { 'Content-Type': 'application/json' },

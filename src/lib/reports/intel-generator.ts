@@ -193,7 +193,7 @@ ${intel.aiSummary}\n\n`;
   
   body += `\n🏆 *BEST LEADER:* ${intel.topPerformer}\n`;
 
-  body += `\nFor a more detailed audit visit: traconomics.com/dashboard`;
+  body += `\nFor a more detailed audit visit: heytracai.com/dashboard`;
 
   return body;
 }

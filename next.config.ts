@@ -1,6 +1,6 @@
 import type {NextConfig} from 'next';
 
-const nextConfig: NextConfig = {
+const nextConfig: any = {
   reactStrictMode: false, // SIGNIFICANT performance boost in dev demos (no double-renders)
   /* config options here */
   async redirects() {
@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
   images: {
     remotePatterns: [

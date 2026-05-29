@@ -1,5 +1,4 @@
 import type {Metadata} from 'next';
-import Script from 'next/script';
 import './globals.css';
 import { Analytics } from "@vercel/analytics/react";
 import { Poppins, Montserrat, Playfair_Display, Permanent_Marker } from 'next/font/google';
@@ -8,13 +7,6 @@ import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from '@/components/theme-provider';
 import { PHProvider } from './providers';
-import { AuthProvider } from '@/hooks/use-auth';
-import { TeamProvider } from '@/hooks/use-team';
-import { TasksProvider } from '@/hooks/useTasks';
-import { CRMProvider } from '@/hooks/use-crm';
-import { PosProvider } from '@/hooks/use-pos';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { UploadProvider } from '@/hooks/useUploadProgress';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -59,39 +51,32 @@ export default function RootLayout({
     <html lang="en" className={cn(poppins.variable, montserrat.variable, playfair.variable, marker.variable)} suppressHydrationWarning>
         <head>
           <meta name="theme-color" content="#000000" />
+          {/* Preconnect and DNS-prefetch to speed up analytics script loading in production */}
+          <link rel="preconnect" href="https://us.posthog.com" />
+          <link rel="preconnect" href="https://us.i.posthog.com" />
+          <link rel="preconnect" href="https://z.clarity.ms" />
+          <link rel="preconnect" href="https://www.clarity.ms" />
+          <link rel="preconnect" href="https://us-assets.i.posthog.com" />
+          <link rel="dns-prefetch" href="https://us.posthog.com" />
+          <link rel="dns-prefetch" href="https://us.i.posthog.com" />
+          <link rel="dns-prefetch" href="https://z.clarity.ms" />
+          <link rel="dns-prefetch" href="https://www.clarity.ms" />
+          <link rel="dns-prefetch" href="https://us-assets.i.posthog.com" />
         </head>
         <body className="font-sans">
           <PHProvider>
-            <AuthProvider>
-              <TeamProvider>
-                <UploadProvider>
-                  <TasksProvider>
-                   <CRMProvider>
-                    <PosProvider>
-                      <TooltipProvider>
-                        <ThemeProvider
-                          attribute="class"
-                          defaultTheme="system"
-                          enableSystem
-                          disableTransitionOnChange
-                        >
-                          {children}
-                          <Toaster />
-                          <SonnerToaster position="bottom-right" expand={false} richColors />
-                          <Analytics />
-                        </ThemeProvider>
-                      </TooltipProvider>
-                    </PosProvider>
-                   </CRMProvider>
-                  </TasksProvider>
-                </UploadProvider>
-              </TeamProvider>
-            </AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+              <SonnerToaster position="bottom-right" expand={false} richColors />
+              <Analytics />
+            </ThemeProvider>
           </PHProvider>
-          <Script id="lemonsqueezy-config" strategy="beforeInteractive">
-            {`window.lemonSqueezyAffiliateConfig = { store: "tracai" };`}
-          </Script>
-          <Script src="https://lmsqueezy.com/affiliate.js" strategy="afterInteractive" />
         </body>
     </html>
   );

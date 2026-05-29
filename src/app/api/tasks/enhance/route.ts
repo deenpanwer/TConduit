@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 export async function POST(req: Request) {
   try {
@@ -20,6 +26,22 @@ export async function POST(req: Request) {
             system: "You are a professional project architect. Generate a concise, high-impact project description (max 3 sentences) based on the title provided. Focus on 'why' and the 'value'. Return ONLY the description text.",
             prompt: `Title: ${text}`,
         });
+
+        // Log to Braintrust for AI Observability
+        try {
+          await logger.log({
+            input: { text, mode },
+            output: description.trim(),
+            metadata: {
+              model: 'ministral-3b-2512',
+              platform: 'website',
+              action: 'task_description_generation'
+            }
+          });
+        } catch (braintrustError) {
+          console.error("Error logging to Braintrust:", braintrustError);
+        }
+
         return new Response(JSON.stringify({ description: description.trim() }), {
             headers: { 'Content-Type': 'application/json' },
         });
@@ -89,6 +111,21 @@ export async function POST(req: Request) {
     // Extract JSON (handling potential markdown code blocks)
     const jsonString = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const result = JSON.parse(jsonString);
+
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: { text, context, mode, userPrompt },
+        output: result,
+        metadata: {
+          model: 'ministral-3b-2512',
+          platform: 'website',
+          action: `task_enhancement_${mode}`
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' },

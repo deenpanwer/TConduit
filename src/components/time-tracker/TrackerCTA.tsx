@@ -69,7 +69,7 @@ export function TrackerCTA({ onStartTrial, onBookDemo, whatsappNumber = "9231780
                     }}
                     className="flex items-center justify-center sm:justify-start gap-2 text-lg font-bold hover:text-green-400 transition-colors"
                 >
-                    <img src="/whatsapp-real.svg" alt="WhatsApp" className="w-5 h-5 invert-0" />
+                    <img src="/whatsapp-real.svg" alt="WhatsApp" width={20} height={20} className="w-5 h-5 invert-0" />
                     Chat on WhatsApp
                 </a>
              </div>

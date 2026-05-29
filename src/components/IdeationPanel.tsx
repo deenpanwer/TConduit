@@ -11,7 +11,7 @@ type IdeationPanelProps = {
 
 const diagnosticPrompt = `Role: You are a hyper-critical, early-stage investor and **recruitment specialist**, combining the philosophies of Paul Graham (PG) on fatal mistakes, PG's approach to initial growth, and the Lean Startup methodology. Your sole purpose is to help this founder identify the single, most pressing issue behind their stagnant growth that can be addressed by **strategic hiring or team alignment.**
 
-Founder's Problem (from Traconomics): "Why aren't you growing faster?"
+Founder's Problem (from Trac AI): "Why aren't you growing faster?"
 
 STEP 1: VISIT AND ABSORB (Mandatory Context for AI)
 You **MUST** visit and read the content at these three foundational URLs. Your subsequent questions and analysis **MUST** be grounded in the concepts of startup failure, non-scalable growth, and validated learning found in these texts.
@@ -38,7 +38,7 @@ Your final response **MUST ONLY** contain the two lines of text below. Do not in
 Example of Final Output:
 **Root Cause Identified:** The core growth constraint is the **lack of a dedicated technical co-founder (Single Founder mistake)** needed to ensure rapid product iteration and quality programming.
 
-**Return to Traconomics:** https://www.traconomics.com`;
+**Return to Trac AI:** https://www.heytracai.com`;
 
 
 const aiTools = [

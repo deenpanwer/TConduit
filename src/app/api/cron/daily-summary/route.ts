@@ -3,12 +3,14 @@ import { getFirebaseAdmin } from "@/lib/firebase-admin";
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
 import webpush from "web-push";
+import { initLogger } from 'braintrust';
 
-/**
- * CONFIGURATION: Increase timeout to 60s for AI processing.
- * Essential for looping through multiple organizations and AI generation.
- */
 export const maxDuration = 60; 
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 // --- Initialize Web Push ---
 if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -21,13 +23,9 @@ if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && proce
 
 // --- AI Summary Logic ---
 async function generateActivitySummary(orgData: any, orgName: string): Promise<{ title: string; body: string }> {
-  /**
-   * CONTEXT: Trac AI | Traconomics | Trac Diary | Trac Dairy
-   * Branding injected to ensure AI understands the software's identity.
-   */
   const prompt = `
   CONTEXT — DO NOT MENTION IN OUTPUT:
-You are the notification engine for "Trac AI" (Traconomics / Trac Diary).
+You are the notification engine for "Trac AI" (Trac AI / Trac Diary).
 You are writing a push notification sent to the founder of ${orgName}.
 Your only goal is to make them tap and open Trac right now.
 
@@ -66,18 +64,30 @@ Example of the WRONG JSON output (and wrong tone):
       prompt: prompt,
     });
     
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: { orgData, orgName },
+        output: text,
+        metadata: {
+          model: 'mistral-small-2506',
+          platform: 'cron',
+          action: 'daily_summary'
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
+
     // AI response should be a clean JSON string.
     try {
       const parsed = JSON.parse(text);
       if (parsed.title && parsed.body) {
         return { title: parsed.title, body: parsed.body };
       }
-      // Handle cases where JSON is valid but lacks keys
       throw new Error("Parsed JSON is missing 'title' or 'body' keys.");
     } catch (e: any) {
        console.error(`[AI Parse Error] Failed to parse JSON for ${orgName}. Error: ${e.message}. Raw AI Output:`, text);
-       // Fallback: try to rescue from a stringified response if possible, but it's unlikely with new prompt.
-       // For safety, we will just go to the final catch block.
        throw new Error(`JSON parsing failed: ${e.message}`);
     }
   } catch (error) {

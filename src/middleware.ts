@@ -9,7 +9,7 @@ export function middleware(request: NextRequest) {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://www.traconomics.com'
+      'https://www.heytracai.com'
     ];
     
     const requestOrigin = request.headers.get('origin');
@@ -51,7 +51,7 @@ export function middleware(request: NextRequest) {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://www.traconomics.com'
+      'https://www.heytracai.com'
     ];
     if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
       response.headers.set('Access-Control-Allow-Origin', requestOrigin);

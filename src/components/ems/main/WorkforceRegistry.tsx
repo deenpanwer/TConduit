@@ -100,10 +100,10 @@ export const WorkforceRegistry = ({
 
     const actualShift = employee.workShifts?.find((s: any) => s.id.startsWith(shiftDateStr));
     
-    // Get actual start time from the first time entry of the day, with shift start time as fallback
+    // Get actual start time strictly from the first time entry of the day
     const actualStartTime = firstTimeEntry 
       ? parseShiftDate(firstTimeEntry.startTime) 
-      : (actualShift ? parseShiftDate(actualShift.startTime) : null);
+      : null;
       
     const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
 

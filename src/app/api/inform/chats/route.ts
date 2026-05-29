@@ -5,7 +5,7 @@ import webPush from 'web-push';
 // Configure VAPID keys
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webPush.setVapidDetails(
-    process.env.VAPID_EMAIL || 'mailto:info@traconomics.com',
+    process.env.VAPID_EMAIL || 'mailto:info@heytracai.com',
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );

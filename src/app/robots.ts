@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://www.traconomics.com';
+  const baseUrl = 'https://www.heytracai.com';
 
   const publicAllowPaths = [
     '/',

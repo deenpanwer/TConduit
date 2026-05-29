@@ -1,7 +1,13 @@
 import { mistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
+import { initLogger } from 'braintrust';
 
 export const maxDuration = 60;
+
+const logger = initLogger({
+  projectName: process.env.BRAINTRUST_PROJECT_NAME || 'tracai',
+  apiKey: process.env.BRAINTRUST_API_KEY,
+});
 
 /**
  * ORG CONTEXT GENERATION API
@@ -74,6 +80,21 @@ export async function POST(req: Request) {
         }
       ]
     });
+
+    // Log to Braintrust for AI Observability
+    try {
+      await logger.log({
+        input: { url, cleanText },
+        output: text,
+        metadata: {
+          model: 'mistral-small-2506',
+          platform: 'website',
+          action: 'org_context_generation'
+        }
+      });
+    } catch (braintrustError) {
+      console.error("Error logging to Braintrust:", braintrustError);
+    }
 
     return new Response(JSON.stringify({ context: text }), {
       headers: { 'Content-Type': 'application/json' }

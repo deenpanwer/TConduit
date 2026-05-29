@@ -106,6 +106,7 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
           blockedAt: item.blockedAt || new Date(),
           blockedAtLocal: item.blockedAtLocal || new Date().toString()
         })),
+        blockedSitesUpdatedAt: new Date().getTime(),
         updatedAt: serverTimestamp()
       });
       toast({ 

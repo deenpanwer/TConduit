@@ -1,26 +1,28 @@
+"use client";
+
 import React, { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageBubble } from "./MessageBubble";
-import { Shimmer } from "@/components/ems/main/shared/Shimmer"; // Assuming Shimmer is here
+import { MessageBubble, ChatMessage } from "./MessageBubble";
+import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { getUserAvatar } from "@/lib/utils";
-
-interface ChatMessage {
-  id?: string;
-  senderId: string;
-  text: string;
-  timestamp: any;
-}
+import { Button } from "@/components/ui/button";
+import { Clock } from "lucide-react";
 
 interface MessageListProps {
   messages: ChatMessage[];
   userUid: string;
-  selectedEmployeePhotoUrl: string | undefined;
-  selectedEmployeeName: string | undefined;
-  ownerPhotoUrl: string | undefined;
-  ownerName: string | undefined;
+  selectedEmployeePhotoUrl?: string;
+  selectedEmployeeName?: string;
+  ownerPhotoUrl?: string;
+  ownerName?: string;
   isLoading: boolean;
-  ownerData: any; // Add ownerData
-  selectedEmployeeData: any; // Add selectedEmployeeData
+  ownerData: any;
+  selectedEmployeeData?: any;
+  employees?: any[]; // Dynamic roster lookup for group messaging
+  
+  // Pagination additions
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function MessageList({
@@ -33,11 +35,21 @@ export function MessageList({
   isLoading,
   ownerData,
   selectedEmployeeData,
+  employees = [],
+  hasMore = false,
+  onLoadMore
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Flag to check if we just loaded more messages to prevent jumping scroll
+  const prevScrollHeightRef = useRef<number>(0);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll to bottom only on first load
+    if (messages.length > 0 && prevScrollHeightRef.current === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   if (isLoading) {
@@ -52,16 +64,49 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="flex-1 px-6 py-4 custom-scrollbar">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 px-6 py-4 custom-scrollbar bg-card">
       <div className="flex flex-col gap-6">
+        
+        {/* PAGINATION TRIGGER BUTTON */}
+        {hasMore && onLoadMore && (
+          <div className="flex justify-center py-2 animate-in fade-in duration-300">
+            <Button
+              onClick={() => {
+                // Record current viewport height to hold scroll state
+                if (scrollAreaRef.current) {
+                  prevScrollHeightRef.current = scrollAreaRef.current.scrollHeight;
+                }
+                onLoadMore();
+              }}
+              variant="outline"
+              size="sm"
+              className="gap-2 text-[10px] uppercase tracking-widest font-bold bg-secondary/30 hover:bg-secondary/60 text-muted-foreground border-border/10 rounded-xl transition-all shadow-sm"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Load Previous Messages
+            </Button>
+          </div>
+        )}
+
         {messages.map((msg, index) => {
           const isCurrentUserSender = msg.senderId === userUid;
           
+          // Resolve sender profile details for group chats
+          const groupSender = !isCurrentUserSender
+            ? employees.find((emp) => emp.id === msg.senderId)
+            : null;
+
           const senderAvatar = isCurrentUserSender
             ? getUserAvatar(ownerData)
-            : getUserAvatar(selectedEmployeeData);
+            : (groupSender
+                ? getUserAvatar(groupSender)
+                : (selectedEmployeeData
+                    ? getUserAvatar(selectedEmployeeData)
+                    : `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${msg.senderName || msg.senderId}`));
 
-          const senderDisplayName = isCurrentUserSender ? ownerName : selectedEmployeeName;
+          const senderDisplayName = isCurrentUserSender 
+            ? ownerName 
+            : (groupSender?.name || msg.senderName || selectedEmployeeName || "Unknown");
 
           return (
             <MessageBubble
