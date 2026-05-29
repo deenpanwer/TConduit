@@ -63,7 +63,7 @@ const FeaturesHero = () => {
     500+ reviews from 
     <span className="flex gap-2">
       {/* Download the image above and update the path here */}
-      <img src="/feature/ratings1.png" alt="Partner Logos" width={94} height={24} className="h-6 w-auto" />
+      <Image src="/feature/ratings1.png" alt="Partner Logos" width={94} height={24} className="h-6 w-auto" />
     </span>
   </p>
 </div>

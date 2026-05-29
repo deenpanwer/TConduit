@@ -48,21 +48,28 @@ const COMPANY_LINKS = [
   { name: 'Partner Program', href: '/partner' },
 ];
 
+const COMPARE_LINKS = [
+  { name: 'vs Hubstaff', href: '/alternative/hubstaff' },
+  { name: 'vs ClickUp', href: '/alternative/clickup' },
+  { name: 'vs Monday.com', href: '/alternative/monday' },
+];
+
 export function Footer() {
   return (
     <footer className="relative w-full h-auto lg:h-screen">
       <Image
         src="/footerimage.png"
         alt="Footer background"
-        layout="fill"
-        objectFit="cover"
-        quality={100}
+        fill
+        sizes="100vw"
+        style={{ objectFit: 'cover' }}
+        quality={75}
         className="hidden lg:block"
       />
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative z-10 flex items-center justify-center h-full py-24 lg:py-0">
         <div className="max-w-7xl w-full mx-auto bg-white dark:bg-zinc-900 rounded-3xl p-8 sm:p-12 lg:p-16 shadow-2xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-16 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-16 mb-16">
             <div className="lg:col-span-2">
               <Link href="/" className="flex items-center gap-2 mb-8 group">
                 <div className="size-10 bg-zinc-900 dark:bg-black rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform duration-300 shadow-lg">
@@ -93,6 +100,21 @@ export function Footer() {
                     className="group flex items-center gap-3 text-[11px] font-black uppercase tracking-widest hover:text-primary transition-colors text-zinc-700 dark:text-zinc-300"
                   >
                     <link.icon size={14} className="text-zinc-400 dark:text-zinc-400 group-hover:text-primary transition-colors" strokeWidth={2.5} />
+                    {link.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-zinc-500 dark:text-zinc-400">Compare</h3>
+              <div className="flex flex-col gap-4">
+                {COMPARE_LINKS.map((link) => (
+                  <Link 
+                    key={link.name} 
+                    href={link.href}
+                    className="text-[11px] font-black uppercase tracking-widest hover:text-primary transition-colors text-zinc-700 dark:text-zinc-300"
+                  >
                     {link.name}
                   </Link>
                 ))}

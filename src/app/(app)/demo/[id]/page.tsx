@@ -92,44 +92,44 @@ export default function DemoEmployeePage() {
   return (
     <main className="flex-1 flex flex-col overflow-hidden relative">
       <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar space-y-12 pb-32">
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <EmployeeHeader 
               employee={{...employee, createdAt: joinedDate}} 
               totalHours={todayTotalHours}
               topApp={topApp}
               joinedDate={joinedDate}
           />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <AIPersonnelPulse 
             employee={employee} 
             workShifts={workShifts} 
             screenshots={screenshots} 
           />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <ShiftPulse workShifts={workShifts} employee={employee} />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <RecentEvidence screenshots={screenshots} />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <AttendanceLedger employee={{...employee, createdAt: joinedDate}} workShifts={workShifts} joinedDate={joinedDate} />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <WorkflowTimeline workShifts={workShifts} />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
+        <div className="space-y-6">
           <ActivityMatrix workShifts={workShifts} screenshots={screenshots} />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <YieldCalculator 
               employeeId={id as string} 
               employeeName={employee?.name || "Member"} 
@@ -137,16 +137,16 @@ export default function DemoEmployeePage() {
               screenshots={screenshots}
               joinedDate={joinedDate}
           />
-        </motion.div>
+        </div>
 
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
+        <div>
           <WorkHistory 
             timeEntries={timeEntries} 
             screenshots={screenshots} 
             onLoadMore={() => {}}
             hasMore={false}
           />
-        </motion.div>
+        </div>
       </div>
     </main>
   );

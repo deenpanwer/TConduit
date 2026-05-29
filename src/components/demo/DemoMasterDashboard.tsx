@@ -159,53 +159,53 @@ export const DemoMasterDashboard = () => {
   return (
     <div className="w-full p-4 md:p-6 space-y-12 pb-24">
       {/* HUB 1: Cockpit */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+      <div>
         <OwnerCockpit 
             orgName={orgData?.name || "Your Organization"} 
             ownerData={ownerData} 
             stats={stats}
             logoUrl={null}
         />
-      </motion.div>
+      </div>
 
       {/* NEW HUB: AI Collective Pulse */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+      <div>
         <AIOrgPulse 
           employees={[...employees, ownerData].filter(Boolean)} 
           selectedDate={selectedDate} 
           orgName={orgData?.name || "Your Organization"}
         />
-      </motion.div>
+      </div>
 
       {/* HUB 3: Performance & Resources */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <PerformanceHorizon data={processedData.performance} />
         </div>
         <ApplicationUsage apps={stats?.topApps} />
-      </motion.div>
+      </div>
 
       {/* HUB 4: Workforce Pulse */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+      <div>
         <EliteWorkforce 
           employees={processedData.workforce} 
           totalHours={stats?.totalHoursToday || "0.0"} 
           isLoading={loading} 
         />
-      </motion.div>
+      </div>
 
       {/* HUB 5: Quality Flow */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants} className="grid grid-cols-1 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         <WorkQualityFlow 
           data={processedData.sankey} 
           isLoading={loading} 
         />
-      </motion.div>
+      </div>
 
       {/* HUB 7: Ledger */}
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+      <div>
         <WorkforceRegistry employees={employees} basePath="/demo" />
-      </motion.div>
+      </div>
     </div>
   );
 };

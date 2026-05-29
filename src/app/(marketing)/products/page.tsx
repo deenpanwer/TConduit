@@ -196,10 +196,10 @@ export default function ProductsPage() {
                   <span className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/40">Replaces</span>
                 </div>
                 <div className="relative inline-block rotate-[-1deg]">
-                  <span className="font-marker text-xl md:text-2xl text-red-500 opacity-80 dark:text-red-400 block line-through decoration-red-500/50 decoration-2">
+                  <span className="font-sans font-bold text-xl md:text-2xl text-red-500 opacity-80 dark:text-red-400 block line-through decoration-red-500/50 decoration-2 uppercase tracking-wide">
                     {product.competitor}
                   </span>
-                  <span className="font-marker text-sm text-red-500/60 dark:text-red-400/60 block text-center mt-[-4px]">
+                  <span className="font-sans font-bold text-xs text-red-500/60 dark:text-red-400/60 block text-center mt-1 uppercase tracking-widest">
                     {product.competitorPrice}
                   </span>
                 </div>

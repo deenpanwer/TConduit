@@ -108,10 +108,10 @@ export function AppGrid() {
                       <div className="hidden md:flex absolute top-full left-0 right-0 mt-6 flex-col items-center text-center pointer-events-none select-none">
                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-1">Replaces</span>
                          <div className="relative rotate-[-2deg] flex flex-col items-center">
-                            <span className="font-marker text-lg text-red-500/80 dark:text-red-400/80 line-through decoration-red-500/40 decoration-2 leading-none">
+                            <span className="font-sans font-bold text-base text-red-500/80 dark:text-red-400/80 line-through decoration-red-500/40 decoration-2 leading-none uppercase tracking-wide">
                                {app.replaces}
                             </span>
-                            <span className="font-marker text-xs text-red-500/60 dark:text-red-400/60 mt-0.5">
+                            <span className="font-sans font-bold text-[10px] text-red-500/60 dark:text-red-400/60 mt-1 uppercase tracking-widest">
                                {app.price}
                             </span>
                          </div>

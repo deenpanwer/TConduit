@@ -23,11 +23,8 @@ export function Hero() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary/15 blur-[120px] rounded-full opacity-60" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-6xl mx-auto relative z-10 text-center"
+      <div
+        className="max-w-6xl mx-auto relative z-10 text-center animate-fade-in-up opacity-0"
       >
         {/* Heading */}
         <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-black leading-[1.05] tracking-tighter mb-8 max-w-4xl mx-auto uppercase italic">
@@ -97,14 +94,11 @@ export function Hero() {
             </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* --- HERO VISUAL --- */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 1 }}
-        className="mt-24 relative z-10 w-full max-w-6xl px-4"
+      <div
+        className="mt-24 relative z-10 w-full max-w-6xl px-4 animate-fade-in-up opacity-0 [animation-delay:200ms]"
       >
         <div className="relative aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-white/10">
           <Image
@@ -118,7 +112,7 @@ export function Hero() {
           {/* Subtle overlay to help it blend with dark theme */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }

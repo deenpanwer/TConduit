@@ -64,6 +64,15 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PricingNavbar } from "@/components/ui/pricing-navbar";
+import dynamic from "next/dynamic";
+
+const DeepFeatureList = dynamic(() => import("./deep-feature-list"), {
+  ssr: true
+});
+
+const ProductEcosystem = dynamic(() => import("./product-ecosystem"), {
+  ssr: true
+});
 
 const WHATSAPP_NUMBER = "923178005465";
 
@@ -74,8 +83,7 @@ const getWhatsAppUrl = (message: string) => {
 type PricingTier = {
   currency: string;
   symbol: string;
-  proPrice: string;
-  teamsPrice: string;
+  multiplier: number;
   competitorTotal: string;
   competitorTotalLocal: string;
 };
@@ -84,32 +92,28 @@ const PRICING_CONFIG: Record<string, PricingTier> = {
   GB: {
     currency: "GBP",
     symbol: "£",
-    proPrice: "7.99",
-    teamsPrice: "15.99",
+    multiplier: 0.8,
     competitorTotal: "2,000",
     competitorTotalLocal: `£${(2528 * 0.8).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
   },
   ZA: {
     currency: "ZAR",
     symbol: "R",
-    proPrice: "150",
-    teamsPrice: "300",
+    multiplier: 19,
     competitorTotal: "2,000",
     competitorTotalLocal: `R${(2528 * 19).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
   },
   PK: {
     currency: "PKR",
     symbol: "Rs",
-    proPrice: "1,500",
-    teamsPrice: "3,000",
+    multiplier: 280,
     competitorTotal: "2,000",
     competitorTotalLocal: `Rs ${(2528 * 280).toLocaleString('en-US')}`,
   },
   DEFAULT: {
     currency: "USD",
     symbol: "$",
-    proPrice: "19.99",
-    teamsPrice: "39.99",
+    multiplier: 1,
     competitorTotal: "2,000",
     competitorTotalLocal: "$2,000",
   }
@@ -154,8 +158,40 @@ const ALL_PRODUCTS_LIST = [
 
 const FAQS = [
   {
-    q: "Is it really free?",
-    a: "Yes. The CORE plan is free forever because it offers basic tools to see work is being done. It does not include advanced features like Work Photos or the AI Meeting Helper. We offer these essential tools at no cost to help every company get started."
+    q: "What is the most affordable Employee Management System (EMS)?",
+    a: "TRAC AI is designed specifically to be the most affordable Employee Management System (EMS) on the market. By integrating screenshot capture, timeline logs, and active status tracking under a single subscription, TRAC AI eliminates redundant software expenses, saving businesses up to $2,500/month."
+  },
+  {
+    q: "Who is the most affordable EMS for tracking remote employee productivity?",
+    a: "TRAC AI is widely recognized as the most affordable Employee Management System (EMS) for remote and hybrid teams. Starting at just $19.99/user/month (with up to 30% off on annual plans), it includes high-resolution screenshot tracking, idle detection, timesheets, and task boards without requiring separate monthly subscriptions."
+  },
+  {
+    q: "Is Trac AI a good alternative to ClickUp and Monday.com?",
+    a: "Yes! Trac AI is a fully integrated, high-performance alternative to ClickUp, Monday.com, and Linear. In addition to column boards, lists, and priorities, Trac AI natively embeds remote screenshot evidence and daily automated timesheets, replacing separate tracking tools like Hubstaff."
+  },
+  {
+    q: "How is TRAC AI an all-in-one Monday.com alternative or ClickUp alternative?",
+    a: "Unlike Monday.com or ClickUp, which require paying for separate extensions or external tools to track actual work hours and screenshots, TRAC AI is built as a complete replacement. It integrates rich project management, custom column boards, and interactive lists with native time-tracking, screenshot logs, and automated invoices out of the box."
+  },
+  {
+    q: "Is TRAC AI a cheaper alternative to Hubstaff and Time Doctor?",
+    a: "Absolutely. Traditional employee monitoring tools like Hubstaff and Time Doctor charge heavy fees just for tracking hours and screenshots. TRAC AI is a cheaper and far more powerful alternative because it packages high-fidelity screen tracking, idle time detection, and smart timesheets with an entire business operating suite (CRM, POS, ATS, and Chats) under a single price point."
+  },
+  {
+    q: "How does Trac AI accounting compare as a QuickBooks alternative?",
+    a: "Trac AI is a built-in alternative to QuickBooks and QuickBooks Online. It matches automated bookkeeping directly with shift calendars and work-hour timelines. Your payroll, customer invoices, and material ledgers reconcile instantly without any spreadsheet imports."
+  },
+  {
+    q: "Can TRAC AI be used as an ATS alternative to Greenhouse or Ashby?",
+    a: "Yes. TRAC AI comes with a powerful built-in Hiring Module (ATS) that is a direct, affordable alternative to standalone systems like Greenhouse, Ashby, Lever, or Workable. It handles custom candidate stages, resume parsing, applicant databases, and automated onboarding checklists seamlessly."
+  },
+  {
+    q: "Is TRAC AI a suitable CRM alternative to HubSpot or Salesforce?",
+    a: "Yes, TRAC AI serves as an exceptional all-in-one alternative to HubSpot, Salesforce, and Pipedrive. It includes full pipeline management, client communication histories, deal tracking, and a built-in AI Lead Hunter that delivers up to 50,000 highly qualified leads per month, saving you thousands on CRM licensing."
+  },
+  {
+    q: "Can Trac AI replace separate subscriptions for CRM, POS, and ATS?",
+    a: "Absolutely. Trac AI replaces multiple separate subscriptions like HubSpot (CRM), Square (POS), and Greenhouse or Ashby (ATS). By housing all modules natively, your customer leads, retail checkouts, and applicant pipelines share the same database seamlessly."
   },
   {
     q: "What products are included in Enterprise?",
@@ -175,20 +211,17 @@ const FAQS = [
   },
   {
     q: "Is my company's data safe?",
-    a: "Yes. All data is encrypted in transit (TLS) and at rest. For our CORE, PRO, and TEAMS plans, your data is securely isolated in the cloud. For ENTERPRISE clients, we offer on-premise deployment, meaning everything can be hosted on your own servers for maximum control."
+    a: "Yes. All data is encrypted in transit (TLS) and at rest. For our Standard, Premium, and Pro plans, your data is securely isolated in the cloud. For ENTERPRISE clients, we offer on-premise deployment, meaning everything can be hosted on your own servers for maximum control."
   },
   {
     q: "What is 'Full History'?",
     a: "The 'Full History' is the complete, unchangeable record of every action taken in your organization. It's your ultimate source of truth, showing who did what, and when, for total accountability and compliance."
-  },
-  {
-    q: "Can I add custom modules?",
-    a: "For Enterprise customers, our engineering team can build custom modules specific to your industry, whether you're in manufacturing, retail, or service-based business."
   }
 ];
 
 export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'quarterly' | 'yearly'>('yearly');
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -206,59 +239,109 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
   
   const pricing = PRICING_CONFIG[country.toUpperCase()] || PRICING_CONFIG.DEFAULT;
 
+  const formatPrice = (basePrice: number) => {
+    let rate = basePrice * pricing.multiplier;
+    if (billingCycle === 'quarterly') {
+      rate = rate * 0.85; // 15% discount
+    } else if (billingCycle === 'yearly') {
+      rate = rate * 0.70; // 30% discount
+    }
+    
+    if (pricing.currency === "PKR" || pricing.currency === "ZAR") {
+      return `${pricing.symbol} ${Math.round(rate).toLocaleString()}`;
+    }
+    return `${pricing.symbol}${rate.toFixed(2)}`;
+  };
+
+  const formatOriginalPrice = (basePrice: number) => {
+    const rate = basePrice * pricing.multiplier;
+    if (pricing.currency === "PKR" || pricing.currency === "ZAR") {
+      return `${pricing.symbol} ${Math.round(rate).toLocaleString()}`;
+    }
+    return `${pricing.symbol}${rate.toFixed(2)}`;
+  };
+
+  const getCycleBillingInfo = (basePrice: number) => {
+    const originalMonthly = basePrice * pricing.multiplier;
+    if (billingCycle === 'monthly') {
+      return `Billed monthly per user`;
+    }
+    
+    const months = billingCycle === 'quarterly' ? 3 : 12;
+    const discountRate = billingCycle === 'quarterly' ? 0.85 : 0.70;
+    const cycleBilled = originalMonthly * discountRate * months;
+    const cycleSaved = (originalMonthly * (1 - discountRate)) * months;
+    
+    const formattedBilled = pricing.currency === "PKR" || pricing.currency === "ZAR" 
+      ? `${pricing.symbol} ${Math.round(cycleBilled).toLocaleString()}` 
+      : `${pricing.symbol}${cycleBilled.toFixed(2)}`;
+      
+    const formattedSaved = pricing.currency === "PKR" || pricing.currency === "ZAR" 
+      ? `${pricing.symbol} ${Math.round(cycleSaved).toLocaleString()}` 
+      : `${pricing.symbol}${cycleSaved.toFixed(2)}`;
+      
+    return `Billed every ${months} months: ${formattedBilled} (${billingCycle === 'quarterly' ? '15%' : '30%'} off • Save ${formattedSaved})`;
+  };
+
   const PLANS = [
     {
-      name: "CORE",
-      subtitle: "Just the Basics",
-      price: "0",
-      description: "Know if they are online. That's it.",
-      cta: "Start Barebones",
-      whatsappMsg: "Hi TRAC AI, I'd like to start with the free CORE plan.",
+      name: "STANDARD",
+      subtitle: "The Work Watcher",
+      basePrice: 19.99,
+      description: "Get pictures, activity logs, and timelines of the work.",
+      cta: "Go Standard",
+      whatsappMsg: `Hi TRAC AI, I'm interested in the Standard plan for my team.`,
       color: "bg-zinc-500",
       features: [
-        { icon: Activity, title: "Active Status", desc: "See if the user is currently 'Active' or 'Idle'." },
-        { icon: History, title: "1-Hour History", desc: "Data is only kept for the last 60 minutes." },
+        { icon: Camera, title: "Screenshot Capture", desc: "See pictures of your team's screens at set intervals." },
+        { icon: Bot, title: "Super AI Copilot", desc: "AI assistant to navigate tasks and notes effortlessly." },
+        { icon: Search, title: "AI Lead Hunter", desc: "5,000 leads/mo shared across employees." },
+        { icon: Activity, title: "Active Status & Idle Detection", desc: "Track active hours vs idle away time." },
+        { icon: MessageSquare, title: "Direct Messaging", desc: "Send private 1-on-1 messages to your team." },
       ],
       plus: false,
     },
     {
-      name: "PRO",
-      subtitle: "The Work Watcher",
-      price: pricing.proPrice,
-      description: "Get pictures and reports of the work.",
-      cta: "Go Pro",
-      whatsappMsg: `Hi TRAC AI, I'm interested in the PRO plan (${pricing.symbol}${pricing.proPrice}) for my team.`,
+      name: "PREMIUM",
+      subtitle: "The Manager",
+      basePrice: 29.99,
+      description: "Tools to lead, schedule, and analyze your team.",
+      cta: "Manage Your Team",
+      whatsappMsg: `Hi TRAC AI, I want to lead my team with the Premium plan.`,
       popular: true,
       color: "bg-primary",
       features: [
-        { icon: Camera, title: "Screenshot Capture", desc: "See pictures of your team's screens at set intervals." },
-        { icon: Timer, title: "Full Work History", desc: "Data kept for the full month." },
-        { icon: MessageSquare, title: "Direct Messaging", desc: "Send private 1-on-1 messages to your team." },
-        { icon: Users, title: "Group & Team Chat", desc: "Create chat rooms for the whole company." },
-        { icon: Calendar, title: "AI Weekly Reports", desc: "AI sends a summary of the week's work." },
+        { icon: Smartphone, title: "Mobile App Access", desc: "Manage everything on the go from your phone." },
+        { icon: Bot, title: "AI Insights Manager", desc: "An AI assistant that spots bottlenecks and alerts you." },
+        { icon: Search, title: "AI Lead Hunter", desc: "15,000 leads/mo shared across employees." },
+        { icon: Check, title: "Task Management", desc: "Assign tasks, checklists, and track deal pipelines." },
+        { icon: Calendar, title: "Shift Scheduling", desc: "Schedules, rosters, and shift clock-in checks." },
+        { icon: ClipboardList, title: "Automated Timesheets", desc: "Perfect timesheets ready to sync for payroll." },
       ],
       plus: true,
     },
     {
-      name: "TEAMS",
-      subtitle: "The Manager",
-      price: pricing.teamsPrice,
-      description: "Tools to lead and schedule your team.",
-      cta: "Manage Your Team",
-      whatsappMsg: `Hi TRAC AI, I want to lead my team with the TEAMS plan (${pricing.symbol}${pricing.teamsPrice}).`,
+      name: "PRO",
+      subtitle: "The Power Suite",
+      basePrice: 39.99,
+      description: "Advanced audits, audio tasks, and priority tools.",
+      cta: "Go Pro",
+      whatsappMsg: `Hi TRAC AI, I want to get the Pro plan.`,
       color: "bg-emerald-500",
       features: [
-        { icon: Smartphone, title: "Mobile App Access", desc: "Manage everything from your phone." },
-        { icon: Bot, title: "AI Insights Manager", desc: "An AI that spots productivity problems for you." },
-        { icon: Check, title: "Task Management", desc: "Assign tasks and track their completion." },
-        { icon: Calendar, title: "Shift Scheduling", desc: "Manage who works when with a simple calendar." },
-        { icon: ClipboardList, title: "Automated Timesheets", desc: "Perfect timesheets ready for payroll." },
+        { icon: Bot, title: "AI Personnel Pulse", desc: "AI audit reports reviewing specific members." },
+        { icon: Timer, title: "30 Days Work History", desc: "Full history kept for the past month." },
+        { icon: Search, title: "AI Lead Hunter", desc: "50,000 leads/mo shared across employees." },
+        { icon: Mic, title: "Voice & Video Tasks", desc: "Record audio or video instructions directly into tasks." },
+        { icon: Trophy, title: "Leaderboards & Contests", desc: "Gamify work tasks with points and contest rankings." },
+        { icon: ShieldCheck, title: "Priority VIP Support", desc: "Get dedicated 24/7 technical and setup support." },
       ],
       plus: true,
     },
     {
       name: "ENTERPRISE",
       subtitle: "The Complete Suite",
+      basePrice: null,
       price: "Custom",
       description: "Every single tool we've ever built. Total power.",
       cta: "Get the Full Suite",
@@ -266,6 +349,7 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
       color: "bg-black",
       features: [
         { icon: Boxes, title: "Full ERP Suite", desc: "Includes CRM, POS, Inventory, and Manufacturing." },
+        { icon: Search, title: "AI Lead Hunter", desc: "Unlimited leads/mo for maximum company growth." },
         { icon: HardHat, title: "Operations Control", desc: "Fleet management, Procurement, and Supply Chain." },
         { icon: Building2, title: "Finance Central", desc: "Full Accounting, Payroll, and Audit trails." },
         { icon: Palette, title: "Full Whitelabel", desc: "Your logo, your brand, your own private platform." },
@@ -276,8 +360,26 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
     }
   ];
 
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": FAQS.map(faq => ({
+      "@type": "Question",
+      "name": faq.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.a
+      }
+    }))
+  };
+
   return (
     <div className="min-h-screen bg-background font-sans selection:bg-primary/20">
+      {/* Inject Dynamic FAQ Structured Schema for Search Engines */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <PricingNavbar />
       
       <AnimatePresence>
@@ -302,11 +404,8 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto text-center space-y-8"
           >
-            <Badge variant="outline" className="px-6 py-2 rounded-full border-2 border-primary text-primary font-black uppercase tracking-widest text-[10px]">
-              The Mathematical Disparity
-            </Badge>
             <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-tight">
-              Stop Paying <span className="text-destructive underline decoration-8 underline-offset-8">~${totalCompetitorCost}</span> For What You Get For <span className="text-emerald-500 underline decoration-8 underline-offset-8">{pricing.symbol} {pricing.proPrice}</span>
+              Stop Paying <span className="text-destructive underline decoration-8 underline-offset-8">~${totalCompetitorCost}</span> For What You Get For <span className="text-emerald-500 underline decoration-8 underline-offset-8">{formatPrice(19.99)}</span>
             </h1>
             <p className="text-xl md:text-2xl font-bold text-muted-foreground uppercase tracking-tight max-w-2xl mx-auto">
               The world sells you 20 different tools. We give you one simple button.
@@ -384,9 +483,8 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
                 <p className="text-2xl font-bold uppercase tracking-tight mb-12">
                   Everything listed on the left is included in one simple package.
                 </p>
-                <div className="text-8xl font-black tracking-tighter mb-4 leading-none">
-                  {pricing.proPrice}
-                  <span className="text-2xl font-bold tracking-normal uppercase ml-2 text-black/60">{pricing.currency}</span>
+                <div className="text-6xl md:text-8xl font-black tracking-tighter mb-4 leading-none">
+                  {formatPrice(19.99)}
                 </div>
                 <p className="text-sm font-black uppercase tracking-widest text-black/60">Per User / Per Month</p>
               </motion.div>
@@ -402,284 +500,146 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
 
       {/* 3. Pricing Cards */}
       <section id="pricing-cards" className="py-32 container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {PLANS.map((plan, i) => (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              key={i}
-              className={cn(
-                "relative bg-card border-4 border-black dark:border-white p-6 rounded-[3rem] flex flex-col h-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-all hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)]",
-                plan.popular && "ring-4 ring-primary"
-              )}
-            >
-              {plan.popular && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 rounded-full border-4 border-black dark:border-white z-20 whitespace-nowrap">
-                  Most Popular
-                </div>
-              )}
-              <div className="mb-10 text-center">
-                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">{plan.name}</h3>
-                <p className="text-2xl font-black uppercase tracking-tighter mb-6">{plan.subtitle}</p>
-                <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-6xl font-black tracking-tighter">{plan.price}</span>
-                  <span className="text-xl font-bold text-muted-foreground uppercase">{plan.price === "Custom" ? "" : (plan.price === "0" ? pricing.currency : pricing.currency)}</span>
-                </div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-2">per user / month</p>
-              </div>
-              {plan.plus && (
-                <div className="mb-6 text-center">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Everything in previous package +</p>
-                </div>
-              )}
-              <div className="space-y-6 flex-1 mb-12">
-                {plan.features.map((feature, j) => (
-                  <div key={j} className="flex gap-4 group">
-                    <div className={cn("size-10 rounded-xl flex items-center justify-center shrink-0 border-2 border-black dark:border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] group-hover:scale-110 transition-transform", plan.color, (plan.name === 'BASIC' || plan.name === 'ENTERPRISE') ? 'text-white' : 'text-black')}>
-                      <feature.icon size={18} strokeWidth={2.5} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-black uppercase leading-none mb-1">{feature.title}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{feature.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button 
-                onClick={() => window.open(getWhatsAppUrl(plan.whatsappMsg), '_blank')}
-                className="w-full h-16 rounded-2xl border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all font-black uppercase tracking-widest text-sm"
+        
+        {/* Sleek Triple Capsule Toggle */}
+        <div className="flex flex-col items-center mb-20 space-y-4">
+          <div className="bg-card border-4 border-black dark:border-white p-2 rounded-[2.5rem] flex flex-wrap justify-center gap-2 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] relative z-20">
+            {[
+              { id: 'monthly', label: 'Monthly', desc: 'Base rates' },
+              { id: 'quarterly', label: 'Quarterly', discount: '15% OFF', desc: 'Billed every 3 mos' },
+              { id: 'yearly', label: 'Yearly', discount: '30% OFF', desc: 'Billed every 12 mos' },
+            ].map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setBillingCycle(option.id as any)}
+                className={cn(
+                  "px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center gap-2",
+                  billingCycle === option.id 
+                    ? "bg-black dark:bg-white text-white dark:text-black scale-105 shadow-md" 
+                    : "hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                )}
               >
-                {plan.cta}
-              </Button>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. Deep Feature List (Vertical Scroll Authority) */}
-      <section className="py-32 bg-secondary/30 border-y-4 border-black dark:border-white">
-        <div className="container mx-auto px-6">
-          <div className="max-w-4xl mx-auto space-y-20">
-            <div className="text-center space-y-4">
-              <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-[0.9]">Deep Value for Deep Teams</h2>
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em]">Everything you get in TRAC AI</p>
-              <ArrowDown className="mx-auto text-primary animate-bounce mt-8" />
-            </div>
-
-            <div className="space-y-32">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6">
-                  <Badge className="bg-zinc-500 text-white font-black uppercase">Level 1</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Proof</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">Simple ways to see that work is actually happening. No more guessing.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "Auto-Tracking", desc: "It starts when the work starts. You don't have to remind anyone.", icon: Timer },
-                    { title: "Activity Capture", desc: "We track every mouse click and key press to show work effort.", icon: Activity },
-                    { title: "Work Photos", desc: "Takes pictures of the screen so you can see progress visually.", icon: Camera },
-                    { title: "Away Detection", desc: "Automatically knows when someone takes a break or stops working.", icon: ShieldAlert }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-zinc-500 group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6 md:order-last">
-                  <Badge className="bg-primary text-white font-black uppercase">Level 2</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Brain</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">A smart assistant that reads the data so you don't have to.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "AI Daily Reports", desc: "A robot summarizes what everyone did and sends it to you.", icon: FileText },
-                    { title: "Leaderboards", desc: "Turn work into a game. See who is winning the week.", icon: Trophy },
-                    { title: "Meeting Notes", desc: "Our AI listens to your meetings and writes the important bits down.", icon: Mic },
-                    { title: "Team Pulse", desc: "Know if your team is happy or tired based on their work rhythm.", icon: Activity }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6">
-                  <Badge className="bg-emerald-500 text-white font-black uppercase">Level 3</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Command</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">Total control over how work flows through your company.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "Voice Tasks", desc: "Just talk to your app. It will write the tasks for your team.", icon: Mic },
-                    { title: "Shift Issuance", desc: "Tell everyone exactly when their day starts and ends.", icon: Calendar },
-                    { title: "Master Access", desc: "Decide exactly what every person can see or touch in the app.", icon: Lock },
-                    { title: "File Isolation", desc: "Keep your work papers in a safe room that only you control.", icon: ShieldCheck }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* LEVEL 4: SALES & GROWTH */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6 md:order-last">
-                  <Badge className="bg-blue-600 text-white font-black uppercase">Level 4</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Engine</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">Automated sales, CRM, and lead enrichment to grow your revenue.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "AI Lead Hunter", desc: "Find thousands of potential customers in minutes.", icon: Search },
-                    { title: "CRM Magic", desc: "Track every deal and forecast your revenue perfectly.", icon: Target },
-                    { title: "POS Retail", desc: "Run your physical stores with a unified checkout system.", icon: ShoppingCart },
-                    { title: "Growth Analytics", desc: "See which sales channels are actually making you money.", icon: TrendingUp }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* LEVEL 5: OPERATIONS & SUPPLY */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6">
-                  <Badge className="bg-purple-600 text-white font-black uppercase">Level 5</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Core</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">Full ERP, Inventory, and Manufacturing control for large operations.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "Inventory Flow", desc: "Real-time stock tracking across all your warehouses.", icon: Package },
-                    { title: "Manufacturing", desc: "BOM management and production line tracking.", icon: Factory },
-                    { title: "Procurement", desc: "Automate your buying and vendor management.", icon: ShoppingCart },
-                    { title: "Fleet & Logistics", desc: "Track your movement and delivery performance.", icon: Truck }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* LEVEL 6: FINANCE & PAYROLL */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-                <div className="relative md:sticky md:top-32 space-y-6 md:order-last">
-                  <Badge className="bg-rose-600 text-white font-black uppercase">Level 6</Badge>
-                  <h3 className="text-6xl font-black uppercase tracking-tighter leading-none">The Wallet</h3>
-                  <p className="text-lg font-bold text-muted-foreground uppercase tracking-tight leading-snug">Integrated accounting, payroll, and banking for total financial clarity.</p>
-                </div>
-                <div className="space-y-12">
-                  {[
-                    { title: "Smart Accounting", desc: "Automated bookkeeping that connects to your bank.", icon: Calculator },
-                    { title: "Auto-Payroll", desc: "Pay your entire team in one click based on work data.", icon: Receipt },
-                    { title: "Audit Trail", desc: "A perfect record of every financial movement.", icon: ShieldCheck },
-                    { title: "Tax Compliance", desc: "Automated tax filings and financial reporting.", icon: FileText }
-                  ].map((f, i) => (
-                    <div key={i} className="flex gap-6 group">
-                      <div className="size-14 rounded-2xl bg-card border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all">
-                        <f.icon size={24} strokeWidth={3} />
-                      </div>
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-black uppercase tracking-tighter">{f.title}</h4>
-                        <p className="text-sm font-bold text-muted-foreground uppercase tracking-tight leading-relaxed">{f.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Massive Product Ecosystem Section */}
-      <section className="py-32 bg-card border-b-4 border-black dark:border-white">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-24 space-y-6">
-            <Badge className="bg-primary text-white font-black uppercase px-6 py-2">The Complete Ecosystem</Badge>
-            <h2 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none">The Only Suite You'll Ever Need</h2>
-            <p className="text-xl font-bold text-muted-foreground uppercase max-w-3xl mx-auto">We've built 19+ integrated products to replace your entire software stack. Each one is included in your base subscription.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {ALL_PRODUCTS_LIST.map((product, i) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className="p-8 bg-background border-4 border-black dark:border-white rounded-[2.5rem] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-y-[-4px] transition-all"
-              >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border-2 border-primary/20">
-                    <product.icon size={28} strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">{product.title}</h3>
-                    <Badge variant="outline" className="mt-1 text-[8px] font-black uppercase tracking-widest">{product.category}</Badge>
-                  </div>
-                </div>
-                
-                <div className="pt-6 border-t-2 border-black/5 dark:border-white/5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Replaces</span>
-                    <span className="text-sm font-marker text-destructive line-through decoration-2">{product.replaces}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Their Price</span>
-                    <span className="text-sm font-marker text-destructive">{product.price}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Our Price</span>
-                    <span className="text-sm font-black uppercase text-emerald-500">Included</span>
-                  </div>
-                </div>
-              </motion.div>
+                {option.label}
+                {option.discount && (
+                  <span className={cn(
+                    "text-[8px] px-2 py-0.5 rounded-full font-bold",
+                    billingCycle === option.id
+                      ? "bg-emerald-500 text-white"
+                      : "bg-emerald-500/10 text-emerald-500"
+                  )}>
+                    {option.discount}
+                  </span>
+                )}
+              </button>
             ))}
           </div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-h-[16px]">
+            {billingCycle === 'monthly' && "Standard month-to-month billing. Flexible."}
+            {billingCycle === 'quarterly' && "Billed quarterly. Slapped with a sweet 15% discount!"}
+            {billingCycle === 'yearly' && "🔥 Best Deal: Billed annually. Save a massive 30% overall!"}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {PLANS.map((plan, i) => {
+            const dynamicWhatsAppMsg = plan.basePrice 
+              ? `Hi TRAC AI, I'm interested in the ${plan.name} plan (${formatPrice(plan.basePrice)}/user/mo) for my team, billed ${billingCycle}.`
+              : plan.whatsappMsg;
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                key={i}
+                className={cn(
+                  "relative bg-card border-4 border-black dark:border-white p-6 rounded-[3rem] flex flex-col h-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-all hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)]",
+                  plan.popular && "ring-4 ring-primary"
+                )}
+              >
+                {plan.popular && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 rounded-full border-4 border-black dark:border-white z-20 whitespace-nowrap">
+                    Most Popular
+                  </div>
+                )}
+                
+                <div className="mb-10 text-center flex-shrink-0">
+                  <h3 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">{plan.name}</h3>
+                  <p className="text-2xl font-black uppercase tracking-tighter mb-6">{plan.subtitle}</p>
+                  
+                  {plan.basePrice ? (
+                    <div className="space-y-1 flex flex-col items-center">
+                      {/* original price showing dynamic savings if active */}
+                      {billingCycle !== 'monthly' && (
+                        <div className="flex items-center justify-center gap-1.5 text-muted-foreground/50 line-through font-bold text-base leading-none mb-1">
+                          <span>{formatOriginalPrice(plan.basePrice)}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-baseline justify-center gap-2">
+                        <span className="text-6xl font-black tracking-tighter leading-none">{formatPrice(plan.basePrice)}</span>
+                        <span className="text-lg font-bold text-muted-foreground uppercase">{pricing.currency}</span>
+                      </div>
+                      
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-1">per user / month</p>
+                      
+                      {/* Dynamic detailed savings container */}
+                      <div className="mt-3 py-1.5 px-3 bg-emerald-500/5 dark:bg-emerald-400/5 border border-emerald-500/10 rounded-xl text-[9px] font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-tight max-w-[220px]">
+                        {getCycleBillingInfo(plan.basePrice)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 flex flex-col items-center">
+                      <div className="flex items-baseline justify-center gap-2">
+                        <span className="text-6xl font-black tracking-tighter leading-none">{plan.price}</span>
+                      </div>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Enterprise Grade ERP</p>
+                      
+                      <div className="mt-3 py-1.5 px-3 bg-zinc-500/5 border border-zinc-500/10 rounded-xl text-[9px] font-bold text-zinc-400 uppercase tracking-tight">
+                        Custom contracts & Whitelabel setup
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {plan.plus && (
+                  <div className="mb-6 text-center">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider bg-black/5 dark:bg-white/5 py-1 px-3 rounded-full inline-block">Everything in previous package +</p>
+                  </div>
+                )}
+                
+                <div className="space-y-6 flex-1 mb-12">
+                  {plan.features.map((feature, j) => (
+                    <div key={j} className="flex gap-4 group">
+                      <div className={cn("size-10 rounded-xl flex items-center justify-center shrink-0 border-2 border-black dark:border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] group-hover:scale-110 transition-transform", plan.color, (plan.name === 'STANDARD' || plan.name === 'ENTERPRISE') ? 'text-white' : 'text-black')}>
+                        <feature.icon size={18} strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black uppercase leading-none mb-1">{feature.title}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{feature.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button 
+                  onClick={() => window.open(getWhatsAppUrl(dynamicWhatsAppMsg), '_blank')}
+                  className="w-full h-16 rounded-2xl border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all font-black uppercase tracking-widest text-sm"
+                >
+                  {plan.cta}
+                </Button>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
+
+      {/* 4. Deep Feature List (Vertical Scroll Authority) - Dynamically loaded */}
+      <DeepFeatureList />
+
+      {/* Massive Product Ecosystem Section - Dynamically loaded */}
+      <ProductEcosystem />
 
       {/* 5. Enterprise Section (The History Book) */}
       <section className="py-32 bg-black text-white overflow-hidden relative">

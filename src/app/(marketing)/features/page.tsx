@@ -2,9 +2,25 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import FeaturesHero from '@/components/features/FeaturesHero';
-import PurposeSection from '@/components/features/PurposeSection';
-import FeatureCardsGrid from '@/components/features/FeatureCardsGrid';
+
+const PurposeSection = dynamic(() => import('@/components/features/PurposeSection'), {
+  ssr: true
+});
+
+const FeatureCardsGrid = dynamic(() => import('@/components/features/FeatureCardsGrid'), {
+  ssr: true
+});
+
+const ContactForm = dynamic(() => import('@/components/home/ContactForm').then((mod) => mod.ContactForm), {
+  ssr: true
+});
+
+const Footer = dynamic(() => import('@/components/home/Footer').then((mod) => mod.Footer), {
+  ssr: true
+});
+
 import { 
   ChevronDown, 
   Menu, 
@@ -68,15 +84,39 @@ const Header = () => {
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
-          <Link href="/" className="text-xl font-black text-[#1a1919] tracking-tighter flex items-center gap-1">
-            TRAC <span className="text-[#7B61FF]">AI</span>
+          <Link href="/" className="flex items-center gap-3">
+            <img 
+              src="/special-triangle-black.svg" 
+              alt="TRAC AI Logo" 
+              className="dark:hidden w-6 h-6 object-contain"
+            />
+            <img 
+              src="/special-triangle.svg" 
+              alt="TRAC AI Logo" 
+              className="hidden dark:block w-6 h-6 object-contain"
+            />
+            <span className="font-poppins font-black text-xl text-foreground tracking-tighter leading-none uppercase">
+              TRAC AI
+            </span>
           </Link>
         </div>
-
+ 
         {/* Desktop: Left Logo & Nav */}
         <div className="hidden lg:flex items-center gap-12">
-          <Link href="/" className="text-2xl font-black text-[#1a1919] tracking-tighter flex items-center gap-2">
-            TRAC <span className="text-[#7B61FF]">AI</span>
+          <Link href="/" className="flex items-center gap-3">
+            <img 
+              src="/special-triangle-black.svg" 
+              alt="TRAC AI Logo" 
+              className="dark:hidden w-8 h-8 object-contain"
+            />
+            <img 
+              src="/special-triangle.svg" 
+              alt="TRAC AI Logo" 
+              className="hidden dark:block w-8 h-8 object-contain"
+            />
+            <span className="font-poppins font-black text-2xl text-foreground tracking-tighter leading-none uppercase">
+              TRAC AI
+            </span>
           </Link>
           <div className="flex items-center gap-8">
             <Link href="/" className="text-sm font-bold text-gray-600 hover:text-black transition-colors">
@@ -325,6 +365,8 @@ export default function FeaturesPage() {
       <FeaturesHero />
       <PurposeSection />
       <FeatureCardsGrid />
+      <ContactForm />
+      <Footer />
     </main>
   );
 }

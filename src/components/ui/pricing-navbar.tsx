@@ -8,8 +8,18 @@ import { motion } from "framer-motion";
 export const PricingNavbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-6 flex justify-between items-center bg-background/80 backdrop-blur-md border-b border-border/10">
-      <Link href="/dashboard">
-        <h1 className="font-poppins font-bold text-2xl text-foreground tracking-tighter">
+      <Link href="/dashboard" className="flex items-center gap-3">
+        <img 
+          src="/special-triangle-black.svg" 
+          alt="TRAC AI Logo" 
+          className="dark:hidden w-8 h-8 object-contain"
+        />
+        <img 
+          src="/special-triangle.svg" 
+          alt="TRAC AI Logo" 
+          className="hidden dark:block w-8 h-8 object-contain"
+        />
+        <h1 className="font-poppins font-bold text-2xl text-foreground tracking-tighter leading-none">
           TRAC AI
         </h1>
       </Link>
