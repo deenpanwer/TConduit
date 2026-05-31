@@ -224,8 +224,8 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      <footer className="py-12 border-t border-black/5 dark:border-white/5 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
-        &copy; 2026 TRAC AI INDUSTRIES • ALL RIGHTS RESERVED
+      <footer className="py-12 border-t border-black/5 dark:border-white/5 text-center text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+        © 2026 TRAC AI (PRIVATE) LIMITED. All rights reserved.
       </footer>
 
     </div>

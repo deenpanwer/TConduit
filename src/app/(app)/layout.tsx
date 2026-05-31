@@ -5,6 +5,8 @@ import { CRMProvider } from '@/hooks/use-crm';
 import { PosProvider } from '@/hooks/use-pos';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { UploadProvider } from '@/hooks/useUploadProgress';
+import { ErrorReportInitializer } from '@/components/error-report-initializer';
+import { ErrorReportModal } from '@/components/ErrorReportModal';
 
 export default function AppLayout({
   children,
@@ -20,6 +22,8 @@ export default function AppLayout({
             <PosProvider>
               <TooltipProvider>
                 {children}
+                <ErrorReportInitializer />
+                <ErrorReportModal />
               </TooltipProvider>
             </PosProvider>
            </CRMProvider>
@@ -29,3 +33,4 @@ export default function AppLayout({
     </AuthProvider>
   );
 }
+

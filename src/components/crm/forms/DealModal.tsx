@@ -21,9 +21,10 @@ interface DealModalProps {
   initialData?: Record<string, any>;
   initialStage?: string;
   onClose?: () => void;
+  onSubmitSuccess?: (entityId: string) => void;
 }
 
-export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initialData, initialStage, onClose }: DealModalProps) {
+export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initialData, initialStage, onClose, onSubmitSuccess }: DealModalProps) {
   const { addEntity, updateEntity, config, updateConfig } = useCRMDeals();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [currentMode, setCurrentMode] = useState(initialMode);
@@ -67,7 +68,10 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
     }
 
     if (currentMode === 'create') {
-      await addEntity({ name: dealName, data: entityData });
+      const createdId = await addEntity({ name: dealName, data: entityData });
+      if (createdId && onSubmitSuccess) {
+        onSubmitSuccess(createdId);
+      }
     } else if (currentMode === 'edit' && deal) {
       await updateEntity(deal.id, { ...entityData, name: dealName });
     }
@@ -238,10 +242,34 @@ export function DealModal({ isOpen, onOpenChange, mode: initialMode, deal, initi
                 availableTemplates={config.fields.filter(f => f.isSystem)}
             />
         ) : (
-            <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
+            <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 {config.fields.sort((a, b) => a.order - b.order).map(renderField)}
               </div>
+
+              {formData.origin && (
+                <div className="pt-6 border-t border-border/10">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground mb-4">Deal Provenance</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4">
+                    <div>
+                      <span className="text-[8px] font-black uppercase tracking-wider text-indigo-400 block mb-1">Origin Source</span>
+                      <span className="text-xs font-black uppercase tracking-wider text-indigo-500">{formData.origin}</span>
+                    </div>
+                    {formData.leadId && (
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-wider text-indigo-400 block mb-1">Lead Reference ID</span>
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{formData.leadId}</span>
+                      </div>
+                    )}
+                    {formData.convertedBy && (
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-wider text-indigo-400 block mb-1">Created By</span>
+                        <span className="text-xs font-bold text-foreground">{formData.convertedBy}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
         )}
         

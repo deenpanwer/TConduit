@@ -73,7 +73,7 @@ export function ProductSwitcher({
           {(!isCollapsed || isMobileSidebarOpen) && <ChevronDown size={14} className="text-muted-foreground ml-2" />}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[calc(100vw-2rem)] sm:w-[400px] md:w-[550px] p-4 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl max-h-[60vh] md:max-h-none overflow-y-auto custom-scrollbar">
+      <DropdownMenuContent align="start" className="w-[calc(100vw-2rem)] sm:w-[500px] lg:w-[680px] p-4 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto custom-scrollbar">
         <div className="px-3 py-2 mb-2">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
         </div>
@@ -93,7 +93,7 @@ export function ProductSwitcher({
         </DropdownMenuItem>
 
         {/* OTHER MODULES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2 px-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2 px-1">
         {otherModules.map((module) => {
           if (!module.released) {
              return (

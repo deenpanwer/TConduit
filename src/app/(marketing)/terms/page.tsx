@@ -8,8 +8,20 @@ const TermsPage = () => {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <Link href="/" className="text-2xl font-black text-[#1a1919] tracking-tighter flex items-center gap-2">
-              TRAC <span className="text-[#7B61FF]">AI</span>
+            <Link href="/" className="flex items-center gap-3">
+              <img 
+                src="/special-triangle-black.svg" 
+                alt="TRAC AI Logo" 
+                className="dark:hidden w-8 h-8 object-contain"
+              />
+              <img 
+                src="/special-triangle.svg" 
+                alt="TRAC AI Logo" 
+                className="hidden dark:block w-8 h-8 object-contain"
+              />
+              <span className="font-poppins font-bold text-2xl text-foreground tracking-tighter leading-none">
+                TRAC AI
+              </span>
             </Link>
             <div className="flex items-center gap-4">
               <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-black transition-colors">

@@ -63,12 +63,12 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
       description: "Tired of expensive, one-dimensional screenshot trackers? Discover why TRAC AI is the best Hubstaff alternative for high-performance teams, consolidating tracking, CRM, ATS, and accounting."
     },
     hero: {
-      painPoint: "Why pay $10/user just to take screenshots?",
+      painPoint: "Why pay $25/user just to take screenshots?",
       headline: "The Premium, Integrated Hubstaff Alternative Built for Founders",
       validation: "Hubstaff is an excellent tool if you *only* want to take screen pictures. But managing a modern business requires more than just tracking clicks. It requires managing sales, hiring team members, handling payroll, and chatting with staff. Instead of gluing 15 different apps together with brittle integrations, TRAC AI gives you everything in a single, blazing-fast operating system."
     },
     primarySpecs: [
-      { label: "Base Monthly Price", competitorValue: "$10.00 / user", tracValue: "$19.99 / user", isWin: false },
+      { label: "Base Monthly Price", competitorValue: "$25.00 / user", tracValue: "$39.00 / user", isWin: false },
       { label: "Replaces External Tools", competitorValue: "No (Requires Slack, HubSpot, QuickBooks, Ashby)", tracValue: "Yes (Replaces 20+ standalone apps)", isWin: true },
       { label: "AI Copilots & Insights", competitorValue: "None", tracValue: "Included (Standard & Premium)", isWin: true },
       { label: "Total Software Costs", competitorValue: "~$2,528 / mo", tracValue: "One Flat Rate", isWin: true }
@@ -137,8 +137,8 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
       }
     ],
     roiCalculator: {
-      competitorBasePrice: 10,
-      tracBasePrice: 19.99,
+      competitorBasePrice: 25,
+      tracBasePrice: 39,
       requiredExternalTools: [
         { name: "Salesforce / HubSpot", replaces: "CRM Module", costPerUserMonth: 150 },
         { name: "Ashby / Greenhouse", replaces: "ATS & Hiring Module", costPerUserMonth: 300 },
@@ -162,7 +162,7 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
       validation: "ClickUp is highly custom, but it runs notoriously slow under heavy load and requires buying separate time-trackers like Hubstaff. TRAC AI is engineered for instant FCP performance, native remote screenshot logs, and a complete ERP ecosystem."
     },
     primarySpecs: [
-      { label: "Base Monthly Price", competitorValue: "$12.00 / user", tracValue: "$19.99 / user", isWin: false },
+      { label: "Base Monthly Price", competitorValue: "$29.00 / user", tracValue: "$39.00 / user", isWin: false },
       { label: "Screenshot & Activity Proof", competitorValue: "No (Requires integration)", tracValue: "Included Natively", isWin: true },
       { label: "FCP / Speed Performance", competitorValue: "Laggy on large datasets", tracValue: "Sub-0.4s Instant Hydration", isWin: true },
       { label: "Full Operations CRM/ATS", competitorValue: "Basic templates only", tracValue: "Included (Full Grade)", isWin: true }
@@ -221,87 +221,8 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
       }
     ],
     roiCalculator: {
-      competitorBasePrice: 12,
-      tracBasePrice: 19.99,
-      requiredExternalTools: [
-        { name: "Hubstaff Track Plan", replaces: "Time Tracking & Screens", costPerUserMonth: 10 },
-        { name: "Salesforce CRM", replaces: "CRM Module", costPerUserMonth: 150 },
-        { name: "Greenhouse Recruiting", replaces: "ATS Module", costPerUserMonth: 300 },
-        { name: "Slack Pro Plan", replaces: "Team Chats Module", costPerUserMonth: 8 },
-        { name: "QuickBooks Online", replaces: "Accounting Module", costPerUserMonth: 30 }
-      ]
-    }
-  },
-  monday: {
-    id: "monday",
-    name: "Monday.com",
-    domain: "monday.com",
-    logo: "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://monday.com&size=128",
-    seo: {
-      title: "TRAC AI vs Monday.com Alternative | Unified Operations OS",
-      description: "Frustrated with Monday.com's high integration licensing costs? Discover why TRAC AI is the best Monday.com alternative for complete business operation and lead tracking."
-    },
-    hero: {
-      painPoint: "Why pay thousands for colorful tables that don't track work?",
-      headline: "The Premium, High-Performance Monday.com Alternative for Fast Teams",
-      validation: "Monday.com has colorful grids, but it behaves as a simple spreadsheet system until you integrate multiple external apps. TRAC AI combines task pipelines and lists with native contractor screen tracking, multi-currency accounting, group chats, and hiring portals out of the box."
-    },
-    primarySpecs: [
-      { label: "Base Monthly Price", competitorValue: "$15.00 / user", tracValue: "$19.99 / user", isWin: false },
-      { label: "Work Provenance Screenshots", competitorValue: "No (Requires integration)", tracValue: "Included Natively", isWin: true },
-      { label: "Built-in Team Messaging", competitorValue: "No (Requires Slack)", tracValue: "Yes (Slack-like channels)", isWin: true },
-      { label: "ERP Accounting & POS", competitorValue: "No", tracValue: "Included (Full Stack)", isWin: true }
-    ],
-    personaStories: [
-      {
-        tabId: "agencies",
-        tabLabel: "For Global Agencies",
-        title: "Ditch the manual spreadsheets and API key puzzles.",
-        description: "Monday.com is great for basic tracking, but managing an agency requires paying for time logs, CRM, and team chats. TRAC AI consolidates all contractor data instantly.",
-        competitorPain: "Paying for Monday.com + Slack + Hubstaff splits contractor attention and leads to invoice errors.",
-        tracGain: "Roster contractors, manage agile projects, track screenshots, and run ledger accounts in one place."
-      },
-      {
-        tabId: "startups",
-        tabLabel: "For Tech Startups",
-        title: "High-velocity pipelines with direct lead lists.",
-        description: "Startups must close deals fast. Running a CRM outside of task management requires paying massive HubSpot fees.",
-        competitorPain: "Integrating HubSpot pipelines with Monday.com tasks is complex and expensive.",
-        tracGain: "Extract qualified warm leads with the AI Lead Hunter and pass them directly to active pipeline columns."
-      }
-    ],
-    switchMatrix: [
-      {
-        painPoint: "High Integration Costs",
-        competitorShortcoming: "Monday.com behaves like a static table unless you buy integrations for Slack, QuickBooks, and Hubstaff, costing thousands.",
-        tracSolution: "TRAC AI hosts CRM, POS, ATS, chats, and accounting natively, saving you up to $2,500/month in separate bills."
-      },
-      {
-        painPoint: "Zero Native Activity Proof",
-        competitorShortcoming: "Monday.com doesn't capture contractor screen proofs, forcing you to rely on trust or complex external extensions.",
-        tracSolution: "Native screenshot capture is integrated directly into the workspace, yielding automated, audit-proof timesheets."
-      }
-    ],
-    featuresComparison: [
-      {
-        category: "Grid & Workspace Management",
-        features: [
-          { name: "Columns & Custom Lists", description: "Customizable columns to track tasks and updates.", tracVal: true, compVal: true, jargonTooltip: "Spreadsheet-like interactive boards." },
-          { name: "Native Screen Evidence", description: "Takes screen captures directly inside task rows.", tracVal: true, compVal: false, jargonTooltip: "Tracks screen state at random intervals." },
-          { name: "AI Lead Hunter Integration", description: "Deliver 5,000 to 50,000 warm leads directly to sales lists.", tracVal: true, compVal: false, jargonTooltip: "AI-driven prospect lead extraction." }
-        ]
-      },
-      {
-        category: "Unified Operations Suite",
-        features: [
-          { name: "Slack-like Chats", description: "Secure real-time group chats and direct messages.", tracVal: true, compVal: false, jargonTooltip: "Real-time communication channels inside the app." },
-          { name: "Global Bookkeeping Suite", description: "Auto-reconciles invoices directly to ledger balances.", tracVal: true, compVal: false, jargonTooltip: "Replaces QuickBooks." }
-        ]
-      }
-    ],
-    roiCalculator: {
-      competitorBasePrice: 15,
-      tracBasePrice: 19.99,
+      competitorBasePrice: 29,
+      tracBasePrice: 39,
       requiredExternalTools: [
         { name: "Hubstaff Track Plan", replaces: "Time Tracking & Screens", costPerUserMonth: 10 },
         { name: "Salesforce CRM", replaces: "CRM Module", costPerUserMonth: 150 },

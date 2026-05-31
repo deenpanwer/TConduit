@@ -9,7 +9,7 @@ import {
   Package, Factory, LayoutDashboard, CalendarClock,
   UserSearch, Users, ClipboardList, Timer,
   Trophy, MessageSquare, MailOpen, Calculator,
-  Briefcase, FileText
+  Briefcase, FileText, Linkedin
 } from 'lucide-react';
 
 const PLATFORM_LINKS = [
@@ -51,7 +51,8 @@ const COMPANY_LINKS = [
 const COMPARE_LINKS = [
   { name: 'vs Hubstaff', href: '/alternative/hubstaff' },
   { name: 'vs ClickUp', href: '/alternative/clickup' },
-  { name: 'vs Monday.com', href: '/alternative/monday' },
+  { name: 'Best EMS Software', href: '/best-ems-software' },
+  { name: 'Best Lead Finder', href: '/best-lead-finder' },
 ];
 
 export function Footer() {
@@ -71,18 +72,30 @@ export function Footer() {
         <div className="max-w-7xl w-full mx-auto bg-white dark:bg-zinc-900 rounded-3xl p-8 sm:p-12 lg:p-16 shadow-2xl">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-16 mb-16">
             <div className="lg:col-span-2">
-              <Link href="/" className="flex items-center gap-2 mb-8 group">
-                <div className="size-10 bg-zinc-900 dark:bg-black rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform duration-300 shadow-lg">
-                  <span className="text-white dark:text-white font-black text-2xl">T</span>
-                </div>
-                <span className="font-poppins font-black text-2xl tracking-tighter uppercase italic text-zinc-900 dark:text-white">Trac AI</span>
+              <Link href="/" className="flex items-center gap-3 mb-8 group">
+                <img 
+                  src="/special-triangle-black.svg" 
+                  alt="TRAC AI Logo" 
+                  className="dark:hidden w-8 h-8 object-contain"
+                />
+                <img 
+                  src="/special-triangle.svg" 
+                  alt="TRAC AI Logo" 
+                  className="hidden dark:block w-8 h-8 object-contain"
+                />
+                <span className="font-poppins font-bold text-2xl text-zinc-900 dark:text-white tracking-tighter uppercase leading-none">
+                  TRAC AI
+                </span>
               </Link>
               <p className="text-zinc-600 dark:text-zinc-400 font-medium max-w-sm mb-12 leading-relaxed">
                 The first truly integrated business operating system. Software that replaces all software.
               </p>
               <div className="flex items-center gap-6">
-                 <Link href="https://twitter.com" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+                 <Link href="https://x.com/trytracai" target="_blank" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
                    <Twitter size={24} />
+                 </Link>
+                 <Link href="https://www.linkedin.com/company/trac-ai/" target="_blank" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+                   <Linkedin size={24} />
                  </Link>
                  <Link href="mailto:info@heytracai.com" className="text-zinc-400 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
                    <Mail size={24} />
@@ -160,15 +173,15 @@ export function Footer() {
              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-10 gap-y-4">
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
                   <img src="/compliance/gdpr.png" alt="GDPR" width={80} height={80} className="h-20 w-auto object-contain dark:invert" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">GDPR</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-100">GDPR</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
                   <img src="/compliance/hipaa.png" alt="HIPAA" width={32} height={32} className="h-8 w-auto object-contain dark:invert" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">HIPAA</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-100">HIPAA</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-60 grayscale hover:grayscale-0 transition-all cursor-default">
                   <img src="/compliance/LGPD-CCPA.png" alt="LGPD and CCPA" width={40} height={40} className="h-10 w-auto object-contain dark:invert" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">LGPD and CCPA</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-100">LGPD and CCPA</span>
                 </div>
              </div>
 

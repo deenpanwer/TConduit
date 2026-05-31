@@ -239,8 +239,18 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
   
   const pricing = PRICING_CONFIG[country.toUpperCase()] || PRICING_CONFIG.DEFAULT;
 
+  const getLocalizedBasePrice = (usdBasePrice: number) => {
+    if (pricing.currency === "PKR") {
+      if (usdBasePrice === 39) return 1500;
+      if (usdBasePrice === 59) return 3000;
+      if (usdBasePrice === 99) return 4500;
+      return 1500; // fallback
+    }
+    return usdBasePrice * pricing.multiplier;
+  };
+
   const formatPrice = (basePrice: number) => {
-    let rate = basePrice * pricing.multiplier;
+    let rate = getLocalizedBasePrice(basePrice);
     if (billingCycle === 'quarterly') {
       rate = rate * 0.85; // 15% discount
     } else if (billingCycle === 'yearly') {
@@ -254,7 +264,7 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
   };
 
   const formatOriginalPrice = (basePrice: number) => {
-    const rate = basePrice * pricing.multiplier;
+    const rate = getLocalizedBasePrice(basePrice);
     if (pricing.currency === "PKR" || pricing.currency === "ZAR") {
       return `${pricing.symbol} ${Math.round(rate).toLocaleString()}`;
     }
@@ -262,7 +272,7 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
   };
 
   const getCycleBillingInfo = (basePrice: number) => {
-    const originalMonthly = basePrice * pricing.multiplier;
+    const originalMonthly = getLocalizedBasePrice(basePrice);
     if (billingCycle === 'monthly') {
       return `Billed monthly per user`;
     }
@@ -285,12 +295,12 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
 
   const PLANS = [
     {
-      name: "STANDARD",
+      name: "MINIMUM",
       subtitle: "The Work Watcher",
-      basePrice: 19.99,
+      basePrice: 39,
       description: "Get pictures, activity logs, and timelines of the work.",
-      cta: "Go Standard",
-      whatsappMsg: `Hi TRAC AI, I'm interested in the Standard plan for my team.`,
+      cta: "Go Minimum",
+      whatsappMsg: `Hi TRAC AI, I'm interested in the Minimum plan for my team.`,
       color: "bg-zinc-500",
       features: [
         { icon: Camera, title: "Screenshot Capture", desc: "See pictures of your team's screens at set intervals." },
@@ -302,12 +312,12 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
       plus: false,
     },
     {
-      name: "PREMIUM",
+      name: "BUSINESS",
       subtitle: "The Manager",
-      basePrice: 29.99,
+      basePrice: 59,
       description: "Tools to lead, schedule, and analyze your team.",
-      cta: "Manage Your Team",
-      whatsappMsg: `Hi TRAC AI, I want to lead my team with the Premium plan.`,
+      cta: "Manage Business",
+      whatsappMsg: `Hi TRAC AI, I want to lead my team with the Business plan.`,
       popular: true,
       color: "bg-primary",
       features: [
@@ -321,12 +331,12 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
       plus: true,
     },
     {
-      name: "PRO",
+      name: "ELITE",
       subtitle: "The Power Suite",
-      basePrice: 39.99,
+      basePrice: 99,
       description: "Advanced audits, audio tasks, and priority tools.",
-      cta: "Go Pro",
-      whatsappMsg: `Hi TRAC AI, I want to get the Pro plan.`,
+      cta: "Go Elite",
+      whatsappMsg: `Hi TRAC AI, I want to get the Elite plan.`,
       color: "bg-emerald-500",
       features: [
         { icon: Bot, title: "AI Personnel Pulse", desc: "AI audit reports reviewing specific members." },
@@ -734,9 +744,14 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
       </motion.a>
 
       <footer className="py-8 border-t-4 border-black dark:border-white text-center">
-        <div className="flex items-center justify-center gap-3 px-6">
-          <ShieldCheck size={18} className="text-emerald-500 shrink-0" />
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Infrastructure Optimized for Global Founders | Global Standards • Local Reliability • 2026</p>
+        <div className="flex flex-col items-center justify-center gap-3 px-6">
+          <div className="flex items-center justify-center gap-3">
+            <ShieldCheck size={18} className="text-emerald-500 shrink-0" />
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Infrastructure Optimized for Global Founders | Global Standards • Local Reliability • 2026</p>
+          </div>
+          <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+            © 2026 TRAC AI (PRIVATE) LIMITED. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

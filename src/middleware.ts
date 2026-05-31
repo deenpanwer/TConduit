@@ -33,7 +33,7 @@ export function middleware(request: NextRequest) {
   // We explicitly EXCLUDE login and signup from protection
   const isAuthPage = pathname.includes('/login') || pathname.includes('/signup') || pathname.includes('/forgot-password') || pathname.startsWith('/api/employee/analyze');  
   const isScannerPage = pathname.includes('/pos/remote-scan');
-  const isProtectedPage = (pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname.startsWith('/attendance') || pathname === '/dashboard') && !isScannerPage;
+  const isProtectedPage = (pathname.startsWith('/ems') || pathname.startsWith('/crm') || pathname.startsWith('/pos') || pathname.startsWith('/tasks') || pathname.startsWith('/attendance') || pathname.startsWith('/lead-finder') || pathname === '/dashboard') && !isScannerPage;
 
   if (isProtectedPage && !isAuthPage) {
     if (!session || !session.value) {
@@ -78,6 +78,7 @@ export const config = {
     '/pos/:path*', 
     '/tasks/:path*', 
     '/attendance/:path*',
+    '/lead-finder/:path*',
     '/dashboard', 
     '/yc'
   ],

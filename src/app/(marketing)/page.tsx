@@ -9,6 +9,12 @@ const Testimonials = dynamic(() => import("@/components/home/Testimonials").then
 const ContactForm = dynamic(() => import("@/components/home/ContactForm").then((mod) => mod.ContactForm));
 const Footer = dynamic(() => import("@/components/home/Footer").then((mod) => mod.Footer));
 
+const RatedG2Section = dynamic(() => import("@/components/home/RatedG2Section").then((mod) => mod.RatedG2Section));
+const UnifiedProductGrid = dynamic(() => import("@/components/home/UnifiedProductGrid").then((mod) => mod.UnifiedProductGrid));
+const CopilotRoiSection = dynamic(() => import("@/components/home/CopilotRoiSection").then((mod) => mod.CopilotRoiSection));
+const EmployeeRoiSection = dynamic(() => import("@/components/home/EmployeeRoiSection").then((mod) => mod.EmployeeRoiSection));
+const ConsolidationStatsSection = dynamic(() => import("@/components/home/ConsolidationStatsSection").then((mod) => mod.ConsolidationStatsSection));
+
 export default function LandingPage() {
   const organizationSchema = {
     "@context": "https://schema.org",
@@ -138,7 +144,12 @@ export default function LandingPage() {
       <Navbar />
       <Hero />
       <AppGrid />
+      <UnifiedProductGrid />
       <ValueProps />
+      <CopilotRoiSection />
+      <RatedG2Section />
+      <EmployeeRoiSection />
+      <ConsolidationStatsSection />
       <Testimonials />
       <ContactForm />
       <Footer />

@@ -69,11 +69,20 @@ export function Navbar() {
       >
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-12">
-            <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <div className="size-10 bg-black dark:bg-white rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-500 shadow-xl group-hover:shadow-primary/20">
-                <span className="text-white dark:text-black font-black text-2xl">T</span>
-              </div>
-              <span className="font-poppins font-black text-2xl tracking-tighter uppercase">Trac AI</span>
+            <Link href="/" className="flex items-center gap-3 group shrink-0">
+              <img 
+                src="/special-triangle-black.svg" 
+                alt="TRAC AI Logo" 
+                className="dark:hidden w-8 h-8 object-contain"
+              />
+              <img 
+                src="/special-triangle.svg" 
+                alt="TRAC AI Logo" 
+                className="hidden dark:block w-8 h-8 object-contain"
+              />
+              <span className="font-poppins font-bold text-2xl text-foreground tracking-tighter uppercase leading-none">
+                TRAC AI
+              </span>
             </Link>
 
             <div className="hidden xl:flex items-center gap-10">

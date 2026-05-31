@@ -82,7 +82,7 @@ export default function LegalLandingPage() {
       {/* Footer */}
       <div className="border-t py-12 bg-white dark:bg-card">
         <div className="max-w-5xl mx-auto px-6 text-center text-muted-foreground text-sm">
-            <p>&copy; {new Date().getFullYear()} Trac AI, Inc. All rights reserved.</p>
+            <p>© 2026 TRAC AI (PRIVATE) LIMITED. All rights reserved.</p>
             <div className="flex justify-center gap-6 mt-4">
                 <Link href="/" className="hover:text-foreground">Home</Link>
                 <Link href="mailto:legal@trac.ai" className="hover:text-foreground">Contact Legal</Link>

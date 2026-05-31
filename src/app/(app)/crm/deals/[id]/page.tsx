@@ -217,6 +217,35 @@ function DealDetailClientPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {deal.data.origin && (
+              <Card className="shadow-sm border-t-4 border-t-indigo-500">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Briefcase size={18} className="text-indigo-500" />
+                    Deal Provenance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center py-2 border-b border-border/20">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Source</div>
+                    <Badge variant="secondary" className="text-[9px] font-black uppercase bg-indigo-500/10 text-indigo-500 border-indigo-500/20">{deal.data.origin}</Badge>
+                  </div>
+                  {deal.data.leadId && (
+                    <div className="flex justify-between items-center py-2 border-b border-border/20">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Lead Ref ID</div>
+                      <span className="text-xs font-mono font-bold text-muted-foreground">{deal.data.leadId}</span>
+                    </div>
+                  )}
+                  {deal.data.convertedBy && (
+                    <div className="flex justify-between items-center py-2">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Converted By</div>
+                      <span className="text-xs font-bold">{deal.data.convertedBy}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="lg:col-span-2">

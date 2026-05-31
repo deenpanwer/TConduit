@@ -75,10 +75,10 @@ export const MODULE_CONFIG = [
     shortTitle: "Lead Finder",
     description: "B2B Prospecting",
     icon: Search,
-    href: "#",
+    href: "/lead-finder",
     color: "text-indigo-500",
     bg: "bg-indigo-500/10",
-    released: false
+    released: true
   },
   {
     id: "sap",
