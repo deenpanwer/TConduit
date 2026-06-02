@@ -33,6 +33,43 @@ function PartnerDashboardContent() {
   const [loadingEmbed, setLoadingEmbed] = useState(false);
   const [embedError, setEmbedError] = useState<string | null>(null);
 
+  // Branding Custom Text State
+  const [headline, setHeadline] = useState("");
+  const [subheadline, setSubheadline] = useState("");
+  const [savingText, setSavingText] = useState(false);
+
+  useEffect(() => {
+    if (partner) {
+      setHeadline(partner.headline || "MAKE YOUR\nTEAM MORE\nPRODUCTIVE.");
+      setSubheadline(partner.subheadline || "See how your people work and help them be their best.");
+    }
+  }, [partner]);
+
+  const saveTextBranding = async () => {
+    setSavingText(true);
+    try {
+      const res = await fetch("/api/partner/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          partnerId: partner.id,
+          updates: { headline, subheadline }
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Save failed");
+      }
+      toast.success("Branding text updated successfully!");
+    } catch (err: any) {
+      toast.error(`Update failed: ${err.message}`);
+    } finally {
+      setSavingText(false);
+    }
+  };
+
   useEffect(() => {
     if (!email) {
       router.replace("/partner");
@@ -133,23 +170,27 @@ function PartnerDashboardContent() {
                 TRAC AI SUBSIDIARY OF {partner.brandName}
               </h1>
               <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1 truncate">
-                Status: Online • Partner: {partner.contactName}
+                Partner: {partner.contactName}
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 shrink-0">
-             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-                <div className="size-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Live Partner Node</span>
-             </div>
-             <div className="size-8 md:size-10 rounded-full bg-secondary border-2 border-border overflow-hidden">
-                <img 
-                  src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${partner.email || 'partner'}`} 
-                  alt="Avatar" 
-                  className="w-full h-full object-cover" 
-                />
-             </div>
+           <div className="flex items-center gap-4 shrink-0">
+              <div className="h-8 max-w-[120px] overflow-hidden shrink-0 flex items-center">
+                {partner.logo || partner.logoUrl ? (
+                  <img 
+                    src={partner.logo || partner.logoUrl} 
+                    alt="Logo" 
+                    className="max-h-full object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]" 
+                  />
+                ) : (
+                  <img 
+                    src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${partner.email || 'partner'}`} 
+                    alt="Avatar" 
+                    className="size-8 md:size-10 rounded-full border-2 border-border object-cover" 
+                  />
+                )}
+              </div>
           </div>
         </div>
       </header>
@@ -185,6 +226,152 @@ function PartnerDashboardContent() {
                     Our Promise: Any users who come with this link are yours to earn money from. Our system tracks them the moment they land.
                 </p>
             </div>
+        </section>
+
+        {/* BRANDING SETTINGS: UPLOAD LOGO */}
+        <section className="bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-10 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden">
+          <h2 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground mb-6 flex items-center gap-3">
+              <div className="h-px w-8 bg-muted-foreground/30" />
+              Company Branding Settings
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
+            {/* Form Fields Column */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Logo Row */}
+              <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-secondary/20 rounded-2xl border border-border">
+                <div className="size-24 rounded-2xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-background shrink-0 p-2">
+                  {partner.logo || partner.logoUrl ? (
+                    <img src={partner.logo || partner.logoUrl} className="max-w-full max-h-full object-contain" alt="Company Logo" />
+                  ) : (
+                    <div className="text-[9px] font-black uppercase text-muted-foreground/40 text-center">No Logo</div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Partner Brand Logo</p>
+                  <div className="flex items-center gap-2">
+                    <label className="h-10 px-4 rounded-xl border hover:bg-secondary transition-all flex items-center justify-center cursor-pointer text-[10px] font-black uppercase tracking-wider bg-background border-border shrink-0">
+                      Upload Logo
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = async (event) => {
+                              const base64 = event.target?.result as string;
+                              try {
+                                const res = await fetch("/api/partner/update", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ partnerId: partner.id, updates: { logo: base64 } }),
+                                });
+                                if (!res.ok) throw new Error("Upload failed");
+                                toast.success("Logo updated successfully!");
+                              } catch (err: any) {
+                                toast.error("Upload failed");
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    {(partner.logo || partner.logoUrl) && (
+                      <Button 
+                        variant="ghost" 
+                        className="h-10 px-4 rounded-xl hover:bg-destructive/10 hover:text-destructive text-[10px] font-black uppercase tracking-wider text-muted-foreground border border-transparent"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch("/api/partner/update", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ partnerId: partner.id, updates: { logo: null, logoUrl: null } }),
+                            });
+                            if (!res.ok) throw new Error("Removal failed");
+                            toast.success("Logo removed!");
+                          } catch (err: any) {
+                            toast.error("Removal failed");
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Text Fields */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest ml-1 text-muted-foreground">Landing Page Headline</label>
+                  <textarea 
+                    placeholder="MAKE YOUR&#10;TEAM MORE&#10;PRODUCTIVE." 
+                    className="w-full min-h-[80px] rounded-xl p-4 bg-background border-2 border-border focus:border-black dark:focus:border-white transition-all font-bold text-xs uppercase" 
+                    value={headline}
+                    onChange={e => setHeadline(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest ml-1 text-muted-foreground">Landing Page Subheadline</label>
+                  <textarea 
+                    placeholder="See how your people work and help them be their best." 
+                    className="w-full min-h-[80px] rounded-xl p-4 bg-background border-2 border-border focus:border-black dark:focus:border-white transition-all font-bold text-xs" 
+                    value={subheadline}
+                    onChange={e => setSubheadline(e.target.value)}
+                  />
+                </div>
+
+                <Button 
+                  onClick={saveTextBranding} 
+                  disabled={savingText}
+                  className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest"
+                >
+                  {savingText ? "Saving Changes..." : "Save Branding Text"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Live Preview Column */}
+            <div className="lg:col-span-5 flex flex-col items-center gap-4">
+              <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.3em] self-start ml-2">Live Landing Page Preview</p>
+              
+              <div className="w-full bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-6 text-center shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] dark:shadow-[10px_10px_0px_0px_rgba(255,255,255,1)] relative flex flex-col justify-between aspect-[1/1.1] max-w-sm shrink-0">
+                <div className="flex justify-center mb-6 h-20 shrink-0">
+                  {partner.logo || partner.logoUrl ? (
+                    <img src={partner.logo || partner.logoUrl} alt={partner.brandName} className="max-h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.1)]" />
+                  ) : (
+                    <div className="flex items-center justify-center text-xl font-black uppercase tracking-widest">{partner.brandName}</div>
+                  )}
+                </div>
+                
+                <h1 className="text-xl md:text-2xl font-black tracking-tighter mb-4 uppercase leading-[0.95] text-foreground shrink-0 whitespace-pre-line">
+                  {headline}
+                </h1>
+
+                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-6 max-w-xs mx-auto leading-tight shrink-0 whitespace-pre-line">
+                  {subheadline}
+                </p>
+
+                <div className="space-y-3 shrink-0">
+                  <Button 
+                    type="button"
+                    className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 pointer-events-none"
+                  >
+                    START NOW
+                  </Button>
+                  
+                  <p className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                    Powered by TRAC AI
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* RECENT CONVERSIONS */}
@@ -379,14 +566,6 @@ function PartnerDashboardContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Global Footer Branding */}
-      <footer className="fixed bottom-0 left-0 right-0 p-8 flex justify-center pointer-events-none">
-          <div className="bg-background/80 backdrop-blur-md border-2 border-border px-6 py-3 rounded-full flex items-center gap-3 opacity-40 shadow-xl">
-            <span className="text-[10px] font-bold uppercase tracking-widest">Safe & Secure</span>
-            <div className="h-3 w-px bg-border" />
-            <span className="text-[10px] font-black tracking-tighter">TRAC AI PARTNER PAGE v1.0</span>
-          </div>
-      </footer>
     </div>
   );
 }

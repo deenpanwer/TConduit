@@ -402,7 +402,8 @@ function OnboardingContent() {
         </div>
         <div className="w-full max-w-2xl bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 text-center backdrop-blur-sm">
           <div className="flex justify-center mb-8">
-            <img src="/logo.svg" alt="Logo" className="w-12 h-12 dark:invert" />
+            <img src="/special-triangle-black.svg" alt="Logo" className="w-12 h-12 block dark:hidden" />
+            <img src="/special-triangle.svg" alt="Logo" className="w-12 h-12 hidden dark:block" />
           </div>
           <h1 className="text-3xl font-bold mb-4 uppercase tracking-tight">How will you be using Trac?</h1>
           <p className="text-muted-foreground mb-8">Choose your role to customize your setup experience.</p>
@@ -440,7 +441,8 @@ function OnboardingContent() {
 
       <div className="w-full max-w-2xl">
         <div className="flex justify-center mb-12">
-          <img src="/logo.svg" alt="Logo" className="w-12 h-12 dark:invert" />
+          <img src="/special-triangle-black.svg" alt="Logo" className="w-12 h-12 block dark:hidden" />
+          <img src="/special-triangle.svg" alt="Logo" className="w-12 h-12 hidden dark:block" />
         </div>
 
         <div className="bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 backdrop-blur-sm relative">

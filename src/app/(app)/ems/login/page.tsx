@@ -17,6 +17,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import { Suspense } from "react";
 
+const PICSUM_IMAGES = [
+  "https://picsum.photos/id/10/1200/800",
+  "https://picsum.photos/id/15/1200/800",
+  "https://picsum.photos/id/16/1200/800",
+  "https://picsum.photos/id/28/1200/800",
+  "https://picsum.photos/id/29/1200/800"
+];
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,10 +37,65 @@ function LoginContent() {
       password: ""
     });
     
-      useEffect(() => {
-        // Force clear session on mount to prevent redirect loops
-        fetch("/api/auth/session", { method: "DELETE" });
-      }, []);
+  const [partnerLogo, setPartnerLogo] = useState<string | null>(null);
+  const [partnerHeadline, setPartnerHeadline] = useState<string | null>(null);
+  const [partnerSubheadline, setPartnerSubheadline] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    // Force clear session on mount to prevent redirect loops
+    fetch("/api/auth/session", { method: "DELETE" });
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % PICSUM_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    async function fetchPartnerLogo() {
+      const partnerQuery = searchParams.get('partner') || searchParams.get('slug') || searchParams.get('partnerSlug');
+      const partnerCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('trac_partner_slug='))
+        ?.split('=')[1];
+      const partnerLocal = typeof window !== "undefined" ? localStorage.getItem("trac_partner_slug") : null;
+
+      const activeSlug = partnerQuery || partnerLocal || partnerCookie;
+      if (!activeSlug) return;
+
+      // Sync back to cookie and local storage
+      document.cookie = `trac_partner_slug=${activeSlug}; path=/; max-age=2592000`;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("trac_partner_slug", activeSlug);
+      }
+
+      try {
+        const { db } = await import("@/lib/firebase");
+        const { collection, query, where, getDocs, limit } = await import("firebase/firestore");
+        const q = query(collection(db, "partners"), where("slug", "==", activeSlug), limit(1));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const logo = data.logo || data.logoUrl;
+          if (logo) {
+            setPartnerLogo(logo);
+          }
+          if (data.headline) {
+            setPartnerHeadline(data.headline);
+          }
+          if (data.subheadline) {
+            setPartnerSubheadline(data.subheadline);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching partner logo:", err);
+      }
+    }
+    fetchPartnerLogo();
+  }, [searchParams]);
     
       const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,10 +109,10 @@ function LoginContent() {
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
-        const partnerSlug = document.cookie
+        const partnerSlug = (document.cookie
           .split('; ')
           .find(row => row.startsWith('trac_partner_slug='))
-          ?.split('=')[1];
+          ?.split('=')[1]) || (typeof window !== "undefined" ? localStorage.getItem("trac_partner_slug") : null) || null;
 
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`; // Fallback name for organization
@@ -129,10 +192,10 @@ function LoginContent() {
       
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
-        const partnerSlug = document.cookie
+        const partnerSlug = (document.cookie
           .split('; ')
           .find(row => row.startsWith('trac_partner_slug='))
-          ?.split('=')[1];
+          ?.split('=')[1]) || (typeof window !== "undefined" ? localStorage.getItem("trac_partner_slug") : null) || null;
 
         const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
         const orgName = `${user.displayName || 'Enterprise'}'s Org`;
@@ -205,20 +268,40 @@ function LoginContent() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background relative overflow-hidden font-poppins">
+    <main className="flex min-h-screen bg-background relative overflow-hidden font-poppins">
       <div className="absolute inset-0 lg:relative lg:w-1/2">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ 
-            backgroundImage: "url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=2000')",
-          }}
-        />
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] lg:bg-black/20" />
+        {PICSUM_IMAGES.map((src, index) => (
+          <motion.div
+            key={src}
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${src})` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: index === currentImageIndex ? 1 : 0 }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
+        {partnerLogo && (
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 z-20 flex items-center justify-center w-full max-w-[200px] lg:max-w-[320px] px-4">
+            <motion.img
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              src={partnerLogo}
+              alt="Partner Logo"
+              width={320}
+              height={140}
+              className="max-w-full max-h-[80px] lg:max-h-[140px] object-contain filter drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            />
+          </div>
+        )}
         <div className="hidden lg:flex absolute inset-0 items-end p-12 text-white">
           <div className="max-w-md">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">Welcome Back</h2>
-            <p className="text-lg font-medium opacity-90">
-              Access your dashboard to manage your engineering operations with precision and clarity.
+            <h2 className="text-4xl font-bold tracking-tight mb-4 whitespace-pre-line leading-tight">
+              {partnerHeadline || "Welcome Back"}
+            </h2>
+            <p className="text-lg font-medium opacity-90 whitespace-pre-line leading-relaxed">
+              {partnerSubheadline || "Access your dashboard to manage your engineering operations with precision and clarity."}
             </p>
           </div>
         </div>
@@ -233,7 +316,8 @@ function LoginContent() {
         >
           <div className="flex flex-col space-y-2 text-center mb-10">
             <div className="flex justify-center mb-6">
-               <img src="/logo.svg" alt="Logo" className="w-14 h-14 dark:invert" />
+               <img src="/special-triangle-black.svg" alt="Logo" width={56} height={56} className="w-14 h-14 block dark:hidden" />
+               <img src="/special-triangle.svg" alt="Logo" width={56} height={56} className="w-14 h-14 hidden dark:block" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Sign In</h1>
             <p className="text-sm text-muted-foreground mt-2">
@@ -270,6 +354,7 @@ function LoginContent() {
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -293,7 +378,7 @@ function LoginContent() {
             disabled={loading}
             className="w-full h-14 rounded-2xl font-bold tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
           >
-            <img src="/google.svg" className="size-5" alt="Google" />
+            <img src="/google.svg" width={20} height={20} className="size-5" alt="Google" />
             Continue with Google
           </Button>
 
@@ -310,7 +395,7 @@ function LoginContent() {
           </div>
         </motion.div>
       </div>
-    </div>
+    </main>
   );
 }
 

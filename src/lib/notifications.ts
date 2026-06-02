@@ -91,8 +91,8 @@ export const sendBrowserNotification = (title: string, options?: NotificationOpt
   if (document.hidden) {
     const notification = new Notification(title, {
       ...options,
-      icon: "/logo.svg",
-      badge: "/logo.svg",
+      icon: "/special-triangle.svg",
+      badge: "/special-triangle.svg",
     });
 
     notification.onclick = () => {

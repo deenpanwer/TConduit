@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     const payload = JSON.stringify({
       title,
       body,
-      icon: icon || "/logo.svg",
-      badge: badge || "/logo.svg",
+      icon: icon || "/special-triangle.svg",
+      badge: badge || "/special-triangle.svg",
       data: data || {}
     });
 

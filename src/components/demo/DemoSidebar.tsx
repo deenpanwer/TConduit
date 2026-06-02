@@ -188,7 +188,8 @@ export function DemoSidebar({
                   isCollapsed && !isMobileSidebarOpen ? "justify-center" : "px-3"
                 )}>
                   <div className="flex items-center gap-3">
-                    <img src="/logo.svg" alt="Logo" className="w-8 h-8 min-w-8 dark:invert shrink-0 transition-transform group-hover:scale-105" />
+                    <img src="/special-triangle-black.svg" alt="Logo" className="w-8 h-8 min-w-8 block dark:hidden shrink-0 transition-transform group-hover:scale-105" />
+                    <img src="/special-triangle.svg" alt="Logo" className="w-8 h-8 min-w-8 hidden dark:block shrink-0 transition-transform group-hover:scale-105" />
                     
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-col items-start min-w-0 text-left">

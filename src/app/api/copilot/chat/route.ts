@@ -11,7 +11,7 @@ const logger = initLogger({
 
 export async function POST(req: Request) {
   try {
-    const { messages, taskContext, image, orgName, userName } = await req.json();
+    const { messages, taskContext, image, images, orgName, userName } = await req.json();
 
     if (!process.env.MISTRAL_API_KEY) {
       return new Response(JSON.stringify({ error: 'Mistral API Key is not set' }), { status: 500 });
@@ -55,7 +55,14 @@ export async function POST(req: Request) {
       { type: 'text', text: lastMessage.content || "Analyze my current progress and provide guidance." }
     ];
 
-    if (image) {
+    if (images && Array.isArray(images)) {
+      images.forEach((img: string) => {
+        userContent.push({
+          type: 'image',
+          image: img,
+        });
+      });
+    } else if (image) {
       userContent.push({
         type: 'image',
         image: image, // The Base64 Cluster Collage from Electron
@@ -63,22 +70,27 @@ export async function POST(req: Request) {
     }
 
     // 4. CALL MISTRAL PIXTRAL
+    const sentMessages = [
+      ...coreMessages,
+      { role: 'user', content: userContent }
+    ];
+
     const result = await streamText({
       model: mistral('pixtral-12b-2409'),
       system: systemPrompt,
-      messages: [
-        ...coreMessages,
-        { role: 'user', content: userContent }
-      ],
+      messages: sentMessages,
       temperature: 0.2, // Low temperature for high precision
-      onFinish({ text }) {
+      onFinish({ text, usage, finishReason }) {
         // Log to Braintrust for AI Observability
         try {
           logger.log({
             input: {
-              messages,
+              systemPrompt,
+              sentMessages,
+              rawMessages: messages,
               taskContext,
-              hasImage: !!image,
+              image: image || null, // Log the full base64 image string!
+              images: images || null,
               orgName,
               userName
             },
@@ -86,7 +98,13 @@ export async function POST(req: Request) {
             metadata: {
               model: 'pixtral-12b-2409',
               platform: 'website',
-              action: 'copilot_chat'
+              action: 'copilot_chat',
+              finishReason: finishReason || null
+            },
+            metrics: {
+              prompt_tokens: usage?.inputTokens,
+              completion_tokens: usage?.outputTokens,
+              total_tokens: usage?.totalTokens
             }
           });
         } catch (braintrustError) {
@@ -102,7 +120,15 @@ export async function POST(req: Request) {
     console.error('[Copilot API Error]:', error);
     return new Response(
       JSON.stringify({ error: 'The Copilot link was interrupted. Please check your connection.', details: error.message }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+        } 
+      }
     );
   }
 }

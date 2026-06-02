@@ -170,7 +170,8 @@ export default function YCPage() {
         />
       </div>
       <div className="absolute top-8 right-8 transform rotate-12">
-        <img src="/logo.svg" alt="Our Logo" className="w-24 h-24 dark:invert" />
+        <img src="/special-triangle-black.svg" alt="Our Logo" className="w-24 h-24 block dark:hidden" />
+        <img src="/special-triangle.svg" alt="Our Logo" className="w-24 h-24 hidden dark:block" />
       </div>
 
       <div className="w-full max-w-7xl mt-32 px-4">

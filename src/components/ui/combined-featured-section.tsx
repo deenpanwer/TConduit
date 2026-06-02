@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 
 export default function CombinedFeaturedSection() {
   const featuredCasestudy = {
-    logo: '/logo.svg',
+    logo: '/special-triangle.svg',
     company: 'Trac AI',
     tags: 'Workforce Optimization',
     title: 'The Best Way to Track Hours',

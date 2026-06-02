@@ -21,6 +21,37 @@ if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && proce
   );
 }
 
+// --- Pushover Helper ---
+const PUSHOVER_USER = 'ugshfubjs4igoqvk1s16o6ycdskoqz';
+const PUSHOVER_TOKEN = 'a1mhx6fgw5qmn3gebsbwi9a1d1wbo8';
+
+async function sendPushoverAlert(title: string, message: string) {
+  try {
+    const truncatedMessage = message.length > 1024
+      ? message.substring(0, 1020) + '\n...'
+      : message;
+
+    const res = await fetch('https://api.pushover.net/1/messages.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token: PUSHOVER_TOKEN,
+        user: PUSHOVER_USER,
+        title,
+        message: truncatedMessage,
+        priority: '0',
+        sound: 'pushover',
+      })
+    });
+
+    if (!res.ok) {
+      console.error('Pushover notification failed:', await res.text());
+    }
+  } catch (err) {
+    console.error('Error sending Pushover alert:', err);
+  }
+}
+
 // --- AI Summary Logic ---
 async function generateActivitySummary(orgData: any, orgName: string): Promise<{ title: string; body: string }> {
   const prompt = `
@@ -216,6 +247,32 @@ export async function GET(req: Request) {
         notificationsSent: sentCount,
         dataSentToAI: activeActivity // Log the shifts data in the final API response
       });
+
+      // F. Send Pushover Alert to Team with full details
+      try {
+        let pushMsg = `📊 ORG: ${orgName} (${orgId})\n`;
+        pushMsg += `👤 OWNER: ${ownerData.name || ownerData.displayName || 'N/A'} (${ownerData.email || 'N/A'})\n`;
+        pushMsg += `📱 SUBSCRIPTIONS: ${subscriptions.length} total, ${sentCount} delivered, ${expiredSubs.length} expired\n\n`;
+
+        pushMsg += `🤖 AI NOTIFICATION SENT:\n`;
+        pushMsg += `• Title: "${summary.title}"\n`;
+        pushMsg += `• Body: "${summary.body}"\n\n`;
+
+        pushMsg += `📋 SHIFT DATA (${activeActivity.length} employees):\n`;
+        for (const emp of activeActivity.slice(0, 8)) {
+          const shift = emp.latestShift;
+          const hrs = shift?.liveMetrics?.totalSeconds ? (shift.liveMetrics.totalSeconds / 3600).toFixed(1) : '0';
+          const active = shift?.liveMetrics?.activePercentage ? `${Math.round(shift.liveMetrics.activePercentage)}%` : 'N/A';
+          pushMsg += `• ${emp.employeeName}: ${hrs}h (${active} active)\n`;
+        }
+        if (activeActivity.length > 8) {
+          pushMsg += `  ...+${activeActivity.length - 8} more\n`;
+        }
+
+        await sendPushoverAlert(`🔔 Daily Summary → ${orgName}`, pushMsg);
+      } catch (pushErr) {
+        console.error('Pushover alert failed:', pushErr);
+      }
     }
 
     const duration = (Date.now() - startTime) / 1000;

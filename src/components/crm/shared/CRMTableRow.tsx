@@ -17,6 +17,7 @@ import {
 import { FieldConfig, useCRM } from "@/hooks/use-crm";
 import { useCRMStore } from "@/store/use-crm-store";
 import { TableCellEditor } from "./TableCellEditor";
+import { CRMPhoneDisplay } from "./CRMPhoneInput";
 
 interface CRMTableRowProps {
   entityId: string; // ONLY pass the ID
@@ -332,6 +333,12 @@ export const CRMTableRow = React.memo(({
                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 italic">
                         {val ? format(new Date(val), "MMM d, h:mm a") : '-'}
                     </span>
+                ) : field.type === 'phone' ? (
+                    <CRMPhoneDisplay 
+                      value={val} 
+                      placeholder={`+ ${field.label}`} 
+                      className={cn("text-xs font-bold text-foreground/80 transition-colors w-full", isSelected && "text-blue-700 dark:text-blue-300")}
+                    />
                 ) : (
                   <span className={cn("text-xs font-bold truncate w-full transition-colors", isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80")}>
                     {field.type === 'date' && val ? format(new Date(val), "PPP") : (val || <span className="text-[9px] font-black uppercase text-muted-foreground italic tracking-widest">+ {field.label}</span>)}

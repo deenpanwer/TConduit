@@ -13,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
+import { CRMPhoneInput } from '../shared/CRMPhoneInput';
+
 interface OrgModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -98,7 +100,20 @@ export function OrgModal({ isOpen, onOpenChange, mode: initialMode, organization
     );
 
     switch (field.type) {
-      case 'text': case 'email': case 'phone': case 'textarea': case 'number': case 'currency':
+      case 'phone':
+        return (
+          <div key={field.key} className="space-y-1">
+            {label}
+            <CRMPhoneInput
+              value={value}
+              onChange={(val) => handleInputChange(field.key, val)}
+              disabled={currentMode === 'preview'}
+              placeholder={`ENTER ${field.label.toUpperCase()}...`}
+              context="modal"
+            />
+          </div>
+        );
+      case 'text': case 'email': case 'textarea': case 'number': case 'currency':
         return (
           <div key={field.key} className="space-y-1">
             {label}

@@ -29,6 +29,8 @@ import { useTeam } from '@/hooks/use-team';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatar, cn } from '@/lib/utils';
 
+import { CRMPhoneInput, CRMPhoneDisplay } from './CRMPhoneInput';
+
 const COMMON_INDUSTRIES = [
     "Technology", "Software", "SaaS", "Hardware", "Healthcare", "Medical Devices", "Pharmaceuticals",
     "Finance", "Banking", "Insurance", "Real Estate", "Education", "E-learning", "Manufacturing",
@@ -164,6 +166,10 @@ export const InlineEditField: React.FC<InlineEditFieldProps> = ({
 
     if (type === 'currency') {
         return `$${Number(currentValue).toLocaleString()}`;
+    }
+
+    if (type === 'phone') {
+        return <CRMPhoneDisplay value={currentValue} placeholder={placeholder} />;
     }
 
     return String(currentValue);
@@ -324,7 +330,7 @@ export const InlineEditField: React.FC<InlineEditFieldProps> = ({
     return (
       <div className="flex flex-col gap-1 w-full relative group">
         <label className="text-[10px] font-bold uppercase text-muted-foreground">{label}</label>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full">
             {type === 'textarea' ? (
             <Textarea
                 ref={inputRef as React.RefObject<HTMLTextAreaElement>}
@@ -334,6 +340,16 @@ export const InlineEditField: React.FC<InlineEditFieldProps> = ({
                 onKeyDown={handleKeyDown}
                 className="text-base min-h-[100px]"
                 disabled={isSaving}
+            />
+            ) : type === 'phone' ? (
+            <CRMPhoneInput
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                value={String(currentValue || '')}
+                onChange={(val) => setCurrentValue(val)}
+                onBlur={() => !isSaving && handleSave()}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                context="inline-edit"
             />
             ) : (
             <div className="relative flex-1">

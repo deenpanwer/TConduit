@@ -5,17 +5,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
+
+const PICSUM_IMAGES = [
+  "https://picsum.photos/id/10/1200/800",
+  "https://picsum.photos/id/15/1200/800",
+  "https://picsum.photos/id/16/1200/800",
+  "https://picsum.photos/id/28/1200/800",
+  "https://picsum.photos/id/29/1200/800"
+];
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [email, setEmail] = useState("");
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % PICSUM_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,15 +57,19 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background relative overflow-hidden font-poppins">
+    <main className="flex min-h-screen bg-background relative overflow-hidden font-poppins">
       <div className="absolute inset-0 lg:relative lg:w-1/2">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ 
-            backgroundImage: "url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=2000')",
-          }}
-        />
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] lg:bg-black/20" />
+        {PICSUM_IMAGES.map((src, index) => (
+          <motion.div
+            key={src}
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${src})` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: index === currentImageIndex ? 1 : 0 }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 relative z-10 lg:bg-background lg:dark:bg-background">
@@ -67,7 +87,8 @@ export default function ForgotPasswordPage() {
 
           <div className="flex flex-col space-y-2 text-center mb-10">
             <div className="flex justify-center mb-6">
-               <img src="/logo.svg" alt="Logo" className="w-14 h-14 dark:invert" />
+               <img src="/special-triangle-black.svg" alt="Logo" width={56} height={56} className="w-14 h-14 block dark:hidden" />
+               <img src="/special-triangle.svg" alt="Logo" width={56} height={56} className="w-14 h-14 hidden dark:block" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Reset Password</h1>
             <p className="text-sm text-muted-foreground mt-2">
@@ -115,6 +136,6 @@ export default function ForgotPasswordPage() {
           )}
         </motion.div>
       </div>
-    </div>
+    </main>
   );
 }

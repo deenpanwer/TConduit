@@ -7,8 +7,69 @@ import { getFirebaseAdmin } from "@/lib/firebase-admin";
  * Logic:
  * 1. Fetch all trialing organizations with active time left.
  * 2. Calculate Metrics for "Today" (Task completion, CRM leads, EMS hours).
+ *    - Tasks completed uses the new flagged/completedDate system from TasksContext.
  * 3. Send WhatsApp Template: ai_manager_daily_update_v1 to the owner.
+ * 4. Send a Pushover notification to the team with full metadata + message details.
  */
+
+// --- Pushover Helper ---
+const PUSHOVER_USER = 'ugshfubjs4igoqvk1s16o6ycdskoqz';
+const PUSHOVER_TOKEN = 'a1mhx6fgw5qmn3gebsbwi9a1d1wbo8';
+
+async function sendPushoverAlert(title: string, message: string) {
+  try {
+    // Pushover has a 1024 char limit on message, truncate if needed
+    const truncatedMessage = message.length > 1024
+      ? message.substring(0, 1020) + '\n...'
+      : message;
+
+    const res = await fetch('https://api.pushover.net/1/messages.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token: PUSHOVER_TOKEN,
+        user: PUSHOVER_USER,
+        title,
+        message: truncatedMessage,
+        priority: '0',
+        sound: 'pushover',
+      })
+    });
+
+    if (!res.ok) {
+      console.error('Pushover notification failed:', await res.text());
+    }
+  } catch (err) {
+    console.error('Error sending Pushover alert:', err);
+  }
+}
+
+// --- Subtask flattener (mirrors TasksContext logic) ---
+interface SubtaskData {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedBy?: string;
+  completedByName?: string;
+  completedAt?: string;
+  completedDate?: string;
+  subtasks?: SubtaskData[];
+  [key: string]: any;
+}
+
+function flattenSubtasks(subs: SubtaskData[]): SubtaskData[] {
+  const result: SubtaskData[] = [];
+  const traverse = (list: SubtaskData[]) => {
+    list.forEach(item => {
+      result.push(item);
+      if (item.subtasks && item.subtasks.length > 0) {
+        traverse(item.subtasks);
+      }
+    });
+  };
+  traverse(subs);
+  return result;
+}
 
 async function executeUpdate() {
   const admin = getFirebaseAdmin();
@@ -26,9 +87,10 @@ async function executeUpdate() {
   // Convert back to UTC for queries
   const startOfTodayUtc = new Date(startOfTodayPkt.getTime() - pktOffset);
   const startOfTodayIso = startOfTodayUtc.toISOString();
+  const todayDateStr = `${pktNow.getUTCFullYear()}-${String(pktNow.getUTCMonth() + 1).padStart(2, '0')}-${String(pktNow.getUTCDate()).padStart(2, '0')}`;
   const startOfTodayTimestamp = admin.firestore.Timestamp.fromDate(startOfTodayUtc);
 
-  console.log(`Cron execution started. PKT: ${pktNow.toISOString()}, Boundary UTC: ${startOfTodayUtc.toISOString()}`);
+  console.log(`Cron execution started. PKT: ${pktNow.toISOString()}, Boundary UTC: ${startOfTodayUtc.toISOString()}, Today: ${todayDateStr}`);
 
   // 2. Fetch all Active Trialing Organizations
   const orgsSnap = await db.collection("organizations")
@@ -63,28 +125,56 @@ async function executeUpdate() {
 
     if (!ownerWhatsapp) continue;
 
-    // 4. Calculate Metrics with Hybrid Data Type Support (Robustness)
-    
-    // A. Tasks Done (Try Timestamp, fallback to String)
+    // 4. Calculate Metrics — NEW SYSTEM using flagged + completedDate/completedAt
+
+    // A. Tasks Completed Today (using the new TasksContext completion system)
     const tasksRef = db.collection("organizations").doc(orgId).collection("tasks");
-    let tasksDoneCount = 0;
-    
-    // Attempt 1: Timestamp Query
-    const tasksTsSnap = await tasksRef
-      .where("status", "==", "done")
-      .where("updatedAt", ">=", startOfTodayTimestamp)
-      .get();
-    
-    if (tasksTsSnap.size > 0) {
-        tasksDoneCount = tasksTsSnap.size;
-    } else {
-        // Attempt 2: ISO String Query (Fallback)
-        const tasksIsoSnap = await tasksRef
-            .where("status", "==", "done")
-            .where("updatedAt", ">=", startOfTodayIso)
-            .get();
-        tasksDoneCount = tasksIsoSnap.size;
+    const allTasksSnap = await tasksRef.get();
+
+    const completedTasksToday: { title: string; completedByName: string; completedAt: string }[] = [];
+    const completedSubtasksToday: { taskTitle: string; subtaskTitle: string; completedByName: string; completedAt: string }[] = [];
+
+    for (const taskDoc of allTasksSnap.docs) {
+      const task = taskDoc.data();
+
+      // Check parent task completion (flagged === true with completedDate matching today)
+      if (task.flagged === true) {
+        const taskCompletedToday = 
+          (task.completedDate && task.completedDate === todayDateStr) ||
+          (task.completedAt && task.completedAt >= startOfTodayIso);
+
+        if (taskCompletedToday) {
+          completedTasksToday.push({
+            title: task.title || 'Untitled Task',
+            completedByName: task.completedByName || 'Unknown',
+            completedAt: task.completedAt || '',
+          });
+        }
+      }
+
+      // Check subtask completions (recursively)
+      if (task.subtasks && Array.isArray(task.subtasks)) {
+        const allSubs = flattenSubtasks(task.subtasks);
+        for (const sub of allSubs) {
+          if (sub.completed === true) {
+            const subCompletedToday =
+              (sub.completedDate && sub.completedDate === todayDateStr) ||
+              (sub.completedAt && sub.completedAt >= startOfTodayIso);
+
+            if (subCompletedToday) {
+              completedSubtasksToday.push({
+                taskTitle: task.title || 'Untitled Task',
+                subtaskTitle: sub.title || 'Untitled Subtask',
+                completedByName: sub.completedByName || 'Unknown',
+                completedAt: sub.completedAt || '',
+              });
+            }
+          }
+        }
+      }
     }
+
+    const tasksDoneCount = completedTasksToday.length;
 
     // B. CRM Leads (Try Timestamp, fallback to String)
     const crmRef = db.collection("organizations").doc(orgId).collection("crm");
@@ -154,6 +244,8 @@ async function executeUpdate() {
         }
     };
 
+    let waStatus: any = null;
+
     try {
         console.log(`Sending WhatsApp to ${cleanPhone} for Org: ${orgData.name}...`);
         console.log(`Payload:`, JSON.stringify(metaPayload, null, 2));
@@ -167,17 +259,57 @@ async function executeUpdate() {
             body: JSON.stringify(metaPayload)
         });
 
-        const waStatus = await whatsappRes.json();
+        waStatus = await whatsappRes.json();
         console.log(`Meta Response:`, JSON.stringify(waStatus, null, 2));
 
         results.push({ 
             org: orgData.name, 
             metrics: { tasksDoneCount, leadsCount, totalHoursToday },
+            completedTasksToday,
+            completedSubtasksToday,
             waStatus 
         });
 
     } catch (waErr: any) {
         console.error(`WhatsApp delivery failed for org ${orgId}:`, waErr);
+    }
+
+    // 6. Send Pushover Alert to Team with full details
+    try {
+      let pushMsg = `📊 ORG: ${orgData.name} (${orgId})\n`;
+      pushMsg += `👤 OWNER: ${ownerData.name || ownerData.displayName || 'N/A'} (${ownerData.email || 'N/A'})\n`;
+      pushMsg += `📱 PHONE: ${cleanPhone}\n\n`;
+
+      pushMsg += `📈 METRICS SENT:\n`;
+      pushMsg += `• Tasks Done: ${tasksDoneCount}\n`;
+      pushMsg += `• Subtasks Done: ${completedSubtasksToday.length}\n`;
+      pushMsg += `• CRM Leads: ${leadsCount}\n`;
+      pushMsg += `• EMS Hours: ${totalHoursToday}h\n\n`;
+
+      if (completedTasksToday.length > 0) {
+        pushMsg += `✅ TASKS COMPLETED:\n`;
+        for (const t of completedTasksToday) {
+          pushMsg += `• "${t.title}" by ${t.completedByName}\n`;
+        }
+        pushMsg += `\n`;
+      }
+
+      if (completedSubtasksToday.length > 0) {
+        pushMsg += `✅ SUBTASKS COMPLETED:\n`;
+        for (const s of completedSubtasksToday.slice(0, 10)) {
+          pushMsg += `• "${s.subtaskTitle}" (${s.taskTitle}) by ${s.completedByName}\n`;
+        }
+        if (completedSubtasksToday.length > 10) {
+          pushMsg += `  ...+${completedSubtasksToday.length - 10} more\n`;
+        }
+        pushMsg += `\n`;
+      }
+
+      pushMsg += `📤 WA STATUS: ${waStatus ? JSON.stringify(waStatus).substring(0, 200) : 'FAILED'}`;
+
+      await sendPushoverAlert(`📋 Daily Update → ${orgData.name}`, pushMsg);
+    } catch (pushErr) {
+      console.error('Pushover alert failed:', pushErr);
     }
   }
 

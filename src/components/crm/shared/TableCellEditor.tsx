@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { CRMPhoneInput } from "./CRMPhoneInput";
 
 interface TableCellEditorProps {
   field: any;
@@ -139,28 +140,48 @@ export const TableCellEditor = ({
       ) : (
         <div className="flex-1 h-full flex items-center relative">
           {field.type === "currency" && <span className="pl-4 text-xs font-black text-blue-500">$</span>}
-          <Input
-            ref={inputRef}
-            type={field.type === "number" || field.type === "currency" ? "number" : field.type === "email" ? "email" : "text"}
-            value={temp}
-            onChange={(e) => {
-                const val = e.target.value;
+          {field.type === "phone" ? (
+            <CRMPhoneInput
+              ref={inputRef}
+              value={temp}
+              onChange={(val) => {
                 setTemp(val);
                 onSave(val); // INSTANT STORE UPDATE
-            }}
-            onBlur={handleBlur}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                handleConfirm();
-              }
-              if (e.key === "Escape") onCancel();
-            }}
-            className={cn(
-                "flex-1 h-full py-0 text-xs font-bold border-none focus-visible:ring-0 bg-transparent rounded-none",
-                field.type === "currency" ? "pl-1" : "px-4"
-            )}
-          />
+              }}
+              onBlur={handleBlur}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  handleConfirm();
+                }
+                if (e.key === "Escape") onCancel();
+              }}
+              context="table-cell"
+            />
+          ) : (
+            <Input
+              ref={inputRef}
+              type={field.type === "number" || field.type === "currency" ? "number" : field.type === "email" ? "email" : "text"}
+              value={temp}
+              onChange={(e) => {
+                  const val = e.target.value;
+                  setTemp(val);
+                  onSave(val); // INSTANT STORE UPDATE
+              }}
+              onBlur={handleBlur}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  handleConfirm();
+                }
+                if (e.key === "Escape") onCancel();
+              }}
+              className={cn(
+                  "flex-1 h-full py-0 text-xs font-bold border-none focus-visible:ring-0 bg-transparent rounded-none",
+                  field.type === "currency" ? "pl-1" : "px-4"
+              )}
+            />
+          )}
         </div>
       )}
     </div>

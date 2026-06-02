@@ -58,6 +58,9 @@ export default function PartnerLandingPage() {
           }
   
           document.cookie = `trac_partner_slug=${slug}; path=/; max-age=2592000`;
+          if (typeof window !== "undefined") {
+            localStorage.setItem("trac_partner_slug", slug);
+          }
         } catch (err) {
           console.error("Error:", err);
           router.replace("/ems/signup");
@@ -84,30 +87,37 @@ export default function PartnerLandingPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-3xl bg-card border-[4px] md:border-[6px] border-black dark:border-white rounded-[2.5rem] md:rounded-[4rem] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] md:shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] dark:shadow-[12px_12px_0px_0px_rgba(255,255,255,1)] md:dark:shadow-[20px_20px_0px_0px_rgba(255,255,255,1)] p-8 md:p-16 text-center relative z-10"
+        className="w-full max-w-2xl bg-card border-4 md:border-[6px] border-black dark:border-white rounded-[2.5rem] md:rounded-[3.5rem] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] p-6 md:p-10 text-center relative z-10 max-h-[90vh] flex flex-col justify-between"
       >
-        <div className="flex justify-center mb-8">
-          <img src="/logo.svg" alt="Logo" className="w-12 h-12 md:w-20 md:h-20 dark:invert" />        </div>
-
-        <h2 className="text-[10px] md:text-sm font-black uppercase tracking-[0.3em] text-foreground mb-6 md:mb-8 flex items-baseline justify-center gap-1.5">
-          TRAC AI SUBSIDIARY OF {partner.brandName}
-        </h2>
+        <div className="flex justify-center mb-6 h-20 md:h-28 shrink-0">
+          {partner.logo || partner.logoUrl ? (
+            <img src={partner.logo || partner.logoUrl} alt={partner.brandName} className="max-h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.1)]" />
+          ) : (
+            <div className="flex items-center justify-center text-2xl md:text-4xl font-black uppercase tracking-widest">{partner.brandName}</div>
+          )}
+        </div>
         
-        <h1 className="text-4xl md:text-7xl font-black tracking-tighter mb-6 md:mb-8 uppercase leading-[0.9] text-foreground">
-          MAKE YOUR <br/> TEAM MORE <br/> PRODUCTIVE.
+        <h1 className="text-2xl md:text-4xl lg:text-5xl font-black tracking-tighter mb-4 uppercase leading-[0.95] text-foreground shrink-0 whitespace-pre-line">
+          {partner.headline || "MAKE YOUR\nTEAM MORE\nPRODUCTIVE."}
         </h1>
 
-        <p className="text-base md:text-xl font-medium text-muted-foreground mb-8 md:mb-12 max-w-md mx-auto leading-tight">
-          See how your people work <br className="hidden sm:block"/> and help them be their best.
+        <p className="text-xs md:text-sm font-medium text-muted-foreground mb-6 max-w-sm mx-auto leading-tight shrink-0 whitespace-pre-line">
+          {partner.subheadline || "See how your people work and help them be their best."}
         </p>
 
-        <Button 
-          onClick={() => router.push("/ems/signup")}
-          className="w-full h-20 md:h-24 rounded-[1.5rem] md:rounded-[2rem] text-xl md:text-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 group active:scale-95 transition-all"
-        >
-          START NOW
-          <ArrowRight className="ml-4 group-hover:translate-x-2 transition-transform size-6 md:size-8" />
-        </Button>
+        <div className="space-y-4 shrink-0">
+          <Button 
+            onClick={() => router.push("/ems/signup")}
+            className="w-full h-14 md:h-18 rounded-[1.25rem] text-lg md:text-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 group active:scale-95 transition-all"
+          >
+            START NOW
+            <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform size-5 md:size-6" />
+          </Button>
+          
+          <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+            Powered by TRAC AI
+          </p>
+        </div>
       </motion.div>
     </div>
   );

@@ -73,7 +73,7 @@ export function RemoteScannerLink({ syncId, isConnected, onRefresh }: RemoteScan
                 level="H" 
                 includeMargin={false}
                 imageSettings={{
-                  src: "/logo.svg",
+                  src: "/special-triangle-black.svg",
                   x: undefined,
                   y: undefined,
                   height: 40,
