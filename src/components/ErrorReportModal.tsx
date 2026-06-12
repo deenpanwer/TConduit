@@ -17,7 +17,7 @@ import { AlertCircle, Cpu, Info, Loader2, ChevronDown, ChevronUp, X } from "luci
 import { toast } from "sonner";
 
 export function ErrorReportModal() {
-  const { isOpen, errorMessage, stackTrace, closeReport } = useErrorReportStore();
+  const { isOpen, errorMessage, stackTrace, userMeta, closeReport } = useErrorReportStore();
   
   // Only the device configuration has a checkbox and can be opted out of
   const [includeDeviceInfo, setIncludeDeviceInfo] = useState(true);
@@ -91,7 +91,8 @@ export function ErrorReportModal() {
         stackTrace: stackTrace || "No trace available",
         additionalContext: additionalContext.trim() || null,
         deviceInfo: includeDeviceInfo ? deviceInfo : null,
-        appContext: appContext
+        appContext: appContext,
+        userMeta: userMeta || null,
       };
 
       const res = await fetch("/api/error-report", {
@@ -199,6 +200,35 @@ export function ErrorReportModal() {
             
             {showTechnicalDetails && (
               <div className="mt-2.5 space-y-2.5">
+                {/* User Info */}
+                {userMeta && (userMeta.name || userMeta.email || userMeta.role || userMeta.uid) && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      👤 User Info
+                    </span>
+                    <div className="rounded-lg border border-border bg-muted/40 p-2.5 font-mono text-[9px] text-muted-foreground space-y-1 leading-normal">
+                      {userMeta.name && (
+                        <div className="flex justify-between"><span>Name</span><span className="font-semibold text-foreground">{userMeta.name}</span></div>
+                      )}
+                      {userMeta.email && (
+                        <div className="flex justify-between"><span>Email</span><span className="font-semibold text-foreground">{userMeta.email}</span></div>
+                      )}
+                      {userMeta.role && (
+                        <div className="flex justify-between"><span>Role</span><span className="font-semibold text-foreground">{userMeta.role}</span></div>
+                      )}
+                      {userMeta.orgId && (
+                        <div className="flex justify-between"><span>Org ID</span><span className="font-semibold text-foreground">{userMeta.orgId}</span></div>
+                      )}
+                      {userMeta.companyName && (
+                        <div className="flex justify-between"><span>Company</span><span className="font-semibold text-foreground">{userMeta.companyName}</span></div>
+                      )}
+                      {userMeta.uid && (
+                        <div className="flex justify-between"><span>UID</span><span className="font-semibold text-foreground truncate max-w-[140px]">{userMeta.uid}</span></div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Stack Trace */}
                 {stackTrace && (
                   <div className="space-y-1">

@@ -32,5 +32,5 @@ export const triggerSmallConfetti = (x?: number, y?: number) => {
         scale: 0.7,
         gravity: 1.2,
         ticks: 100
-    });
+    } as any);
 };

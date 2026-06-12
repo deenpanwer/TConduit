@@ -474,8 +474,7 @@ function TasksPageContent() {
         editingNewTask.voiceNotes || [],
         editingNewTask.nestedDescriptions || [],
         editingNewTask.images || [],
-        undefined, // groupId
-        editingNewTask.dueDate
+        undefined // groupId
       );
 
       if (newId) {

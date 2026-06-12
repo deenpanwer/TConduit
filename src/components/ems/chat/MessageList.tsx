@@ -44,11 +44,33 @@ export function MessageList({
   
   // Flag to check if we just loaded more messages to prevent jumping scroll
   const prevScrollHeightRef = useRef<number>(0);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Scroll to bottom only on first load
-    if (messages.length > 0 && prevScrollHeightRef.current === 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) {
+      lastMessageIdRef.current = null;
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    const lastId = lastMessage.id || (lastMessage.timestamp ? (lastMessage.timestamp.seconds || lastMessage.timestamp) : '') || '';
+
+    const isInitialLoad = !lastMessageIdRef.current;
+    const isNewMessageAppended = lastMessageIdRef.current && lastMessageIdRef.current !== lastId && prevScrollHeightRef.current === 0;
+
+    if (isInitialLoad || isNewMessageAppended) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      lastMessageIdRef.current = lastId;
+    } else if (prevScrollHeightRef.current > 0) {
+      // Hold scroll position on pagination
+      if (scrollAreaRef.current) {
+        const newScrollHeight = scrollAreaRef.current.scrollHeight;
+        const container = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (container) {
+          container.scrollTop = newScrollHeight - prevScrollHeightRef.current;
+        }
+      }
+      prevScrollHeightRef.current = 0;
     }
   }, [messages]);
 
@@ -64,8 +86,8 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 px-6 py-4 custom-scrollbar bg-card">
-      <div className="flex flex-col gap-6">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 px-6 py-4 custom-scrollbar bg-transparent">
+      <div className="flex flex-col gap-2">
         
         {/* PAGINATION TRIGGER BUTTON */}
         {hasMore && onLoadMore && (

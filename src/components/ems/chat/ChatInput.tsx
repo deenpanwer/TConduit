@@ -293,7 +293,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="p-4 bg-background/50 backdrop-blur-xl border-t border-border/40 shrink-0 relative">
+    <div className="p-4 bg-transparent shrink-0 relative">
       
       {/* 1. MENTION AUTOCOMPLETE OVERLAY PANEL */}
       {mentionQuery !== null && filteredMentions.length > 0 && (
@@ -357,7 +357,7 @@ export function ChatInput({
         onUploadSuccess={onUploadSuccess}
       />
 
-      <div className="max-w-4xl mx-auto relative flex items-end gap-2.5 bg-secondary/35 rounded-2xl p-2 px-3 border border-border/10 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+      <div className="max-w-4xl mx-auto relative flex items-end gap-2.5 bg-card/90 dark:bg-slate-900/90 rounded-2xl p-2 px-3 border border-border/40 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         {/* Attachment Toggle */}
         {!isRecording && (
           <Button
@@ -378,7 +378,7 @@ export function ChatInput({
 
         {isRecording ? (
           // RECORDING STATE
-          <div className="flex-1 flex items-center justify-between bg-secondary/35 border border-border/10 p-2 px-4.5 rounded-2xl animate-in fade-in duration-300">
+          <div className="flex-1 flex items-center justify-between bg-card/90 dark:bg-slate-900/90 border border-border/40 p-2 px-4.5 rounded-2xl animate-in fade-in duration-300 shadow-sm">
             <div className="flex items-center gap-3">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>

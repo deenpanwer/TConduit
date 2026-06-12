@@ -31,6 +31,7 @@ export interface GroupChat {
   members: string[];
   lastMessage?: string;
   lastMessageAt?: any;
+  photoUrl?: string;
 }
 
 export function useGroupChat(selectedGroupId: string | null, orgId: string | undefined) {
@@ -44,7 +45,7 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
   const [messageLimit, setMessageLimit] = useState(20);
   const [hasMore, setHasMore] = useState(true);
 
-  // 1. Sync list of groups where current user is a member
+  // 1. Sync list of groups where current user is a member (or all groups for leadership)
   useEffect(() => {
     if (!user?.uid || !orgId) {
       setGroups([]);
@@ -54,7 +55,15 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
 
     setLoadingGroups(true);
     const groupsRef = collection(db, "organizations", orgId, "group_chats");
-    const q = query(groupsRef, where("members", "array-contains", user.uid));
+    
+    const isLeadership = userData?.role?.toLowerCase() === 'owner' || 
+                          userData?.role?.toLowerCase() === 'founder' || 
+                          userData?.role?.toLowerCase() === 'manager' || 
+                          !!userData?.ownedOrgId;
+
+    const q = isLeadership 
+      ? query(groupsRef)
+      : query(groupsRef, where("members", "array-contains", user.uid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const groupList: GroupChat[] = snapshot.docs.map((doc) => ({
@@ -87,7 +96,7 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
     });
 
     return () => unsubscribe();
-  }, [user?.uid, orgId]);
+  }, [user?.uid, orgId, userData]);
 
   // 2. Sync messages for selected group with pagination
   useEffect(() => {
@@ -128,7 +137,7 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
   }, [selectedGroupId]);
 
   // 3. Create a new group
-  const createGroupChat = useCallback(async (name: string, members: string[]): Promise<string> => {
+  const createGroupChat = useCallback(async (name: string, members: string[], photoUrl?: string): Promise<string> => {
     if (!orgId || !user?.uid || !userData) throw new Error("Unauthenticated or missing organization ID");
     
     // Auto-include creator in members if not already present
@@ -153,7 +162,8 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
       updatedAt: serverTimestamp(),
       members: finalMembers,
       lastMessage: "Group created",
-      lastMessageAt: serverTimestamp()
+      lastMessageAt: serverTimestamp(),
+      photoUrl: photoUrl || ""
     };
 
     await setDoc(newGroupDocRef, groupData);

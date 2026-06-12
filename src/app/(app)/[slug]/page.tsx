@@ -17,9 +17,10 @@ export default function PartnerLandingPage() {
   
     useEffect(() => {
       async function fetchPartner() {
-        if (!slug) return;
+        const slugStr = typeof slug === 'string' ? slug : Array.isArray(slug) ? slug[0] : '';
+        if (!slugStr) return;
         try {
-          const q = query(collection(db, "partners"), where("slug", "==", slug), limit(1));
+          const q = query(collection(db, "partners"), where("slug", "==", slugStr), limit(1));
           const snap = await getDocs(q);
   
           if (snap.empty) {
@@ -35,20 +36,20 @@ export default function PartnerLandingPage() {
             if (typeof window !== "undefined" && posthog) {
               if (typeof posthog.register === 'function') {
                 posthog.register({
-                  partner_slug: slug,
+                  partner_slug: slugStr,
                   partner_name: data.brandName,
                   entry_source: 'partner_link'
                 });
               }
               if (posthog.people && typeof posthog.people.set === 'function') {
                 posthog.people.set({
-                  partner_slug: slug,
+                  partner_slug: slugStr,
                   partner_name: data.brandName
                 });
               }
               if (typeof posthog.capture === 'function') {
                 posthog.capture('partner_landing_view', {
-                  partner_slug: slug,
+                  partner_slug: slugStr,
                   brand: data.brandName
                 });
               }
@@ -57,9 +58,9 @@ export default function PartnerLandingPage() {
             console.warn("PostHog skipped:", phError);
           }
   
-          document.cookie = `trac_partner_slug=${slug}; path=/; max-age=2592000`;
+          document.cookie = `trac_partner_slug=${slugStr}; path=/; max-age=2592000`;
           if (typeof window !== "undefined") {
-            localStorage.setItem("trac_partner_slug", slug);
+            localStorage.setItem("trac_partner_slug", slugStr);
           }
         } catch (err) {
           console.error("Error:", err);

@@ -25,6 +25,7 @@ interface GroupChat {
   lastMessage?: string;
   lastMessageAt?: any;
   lastMessageSenderId?: string;
+  photoUrl?: string;
 }
 
 interface EmployeeListProps {
@@ -111,6 +112,43 @@ export function EmployeeList({
     const lastMsgTime = getTimestampMs(group.lastMessageAt);
     const lastViewed = viewedTimes[group.id] || 0;
     return lastMsgTime > lastViewed;
+  };
+
+  const getDirectChatTimestamp = (employeeId: string) => {
+    const directChat = directChats.find(chat => 
+      chat.participants?.includes(employeeId) && chat.participants?.includes(currentUserId)
+    );
+    return directChat ? directChat.lastMessageAt : null;
+  };
+
+  const formatLastMessageDate = (timestamp: any) => {
+    if (!timestamp) return "";
+    const ms = getTimestampMs(timestamp);
+    if (!ms) return "";
+    const date = new Date(ms);
+    const now = new Date();
+    
+    // Check if same day
+    if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Check if Yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    }
+    
+    // Check if within last 7 days
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    }
+    
+    // Older
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -204,6 +242,8 @@ export function EmployeeList({
                     const isSelected = selectedEmployee?.id === emp.id;
                     const previewText = getDirectChatPreview(emp.id);
                     const isUnread = isDirectChatUnread(emp.id);
+                    const lastMsgTimestamp = getDirectChatTimestamp(emp.id);
+                    const lastMsgTimeStr = formatLastMessageDate(lastMsgTimestamp);
                     return (
                       <Button
                         key={emp.id}
@@ -230,27 +270,34 @@ export function EmployeeList({
                             isEmployeeOnline(emp) ? "bg-green-500" : "bg-zinc-400"
                           )} />
                         </div>
-                        <div className="flex-1 flex items-center justify-between min-w-0 text-left">
-                          <div className="flex flex-col items-start overflow-hidden min-w-0 pr-2">
+                        <div className="flex-1 flex flex-col justify-center min-w-0 text-left">
+                          <div className="flex items-baseline justify-between w-full">
                             <span className={cn(
-                              "text-[13px] font-bold truncate w-full transition-colors",
+                              "text-[13px] font-bold truncate transition-colors pr-2 flex-1",
                               isSelected ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
                             )}>
                               {emp.name || "Unknown"}
                             </span>
+                            {lastMsgTimeStr && (
+                              <span className="text-[9px] text-muted-foreground/75 font-semibold shrink-0">
+                                {lastMsgTimeStr}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between w-full mt-0.5">
                             <span className={cn(
-                              "text-[10px] font-semibold truncate w-full leading-normal mt-0.5",
+                              "text-[10px] font-semibold truncate flex-1 leading-normal pr-2",
                               isUnread ? "text-foreground font-bold" : "text-muted-foreground/60"
                             )}>
                               {previewText || emp.role || "Employee"}
                             </span>
+                            {isUnread && (
+                              <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
+                              </span>
+                            )}
                           </div>
-                          {isUnread && (
-                            <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
-                            </span>
-                          )}
                         </div>
                       </Button>
                     );
@@ -294,6 +341,7 @@ export function EmployeeList({
                   groups.map((group) => {
                     const isSelected = selectedGroup?.id === group.id;
                     const isUnread = isGroupChatUnread(group);
+                    const lastMsgTimeStr = formatLastMessageDate(group.lastMessageAt);
                     return (
                       <Button
                         key={group.id}
@@ -311,32 +359,48 @@ export function EmployeeList({
                           />
                         )}
                         
-                        {/* Overlapping double-avatar look for groups */}
-                        <div className="relative shrink-0 w-9 h-9 flex items-center justify-center bg-primary/10 rounded-xl text-primary font-bold border border-primary/10">
-                          <Users className="h-4.5 w-4.5" />
-                        </div>
+                        {/* Overlapping double-avatar look or custom group image */}
+                        {group.photoUrl ? (
+                          <Avatar className="h-9 w-9 border border-border/40 shrink-0 select-none">
+                            <AvatarImage src={group.photoUrl} alt={group.name} className="object-cover" />
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              <Users className="h-4.5 w-4.5" />
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="relative shrink-0 w-9 h-9 flex items-center justify-center bg-primary/10 rounded-xl text-primary font-bold border border-primary/10 select-none">
+                            <Users className="h-4.5 w-4.5" />
+                          </div>
+                        )}
 
-                        <div className="flex-1 flex items-center justify-between min-w-0 text-left">
-                          <div className="flex flex-col items-start overflow-hidden min-w-0 pr-2">
+                        <div className="flex-1 flex flex-col justify-center min-w-0 text-left">
+                          <div className="flex items-baseline justify-between w-full">
                             <span className={cn(
-                              "text-[13px] font-bold truncate w-full transition-colors",
+                              "text-[13px] font-bold truncate transition-colors pr-2 flex-1",
                               isSelected ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
                             )}>
                               {group.name}
                             </span>
+                            {lastMsgTimeStr && (
+                              <span className="text-[9px] text-muted-foreground/75 font-semibold shrink-0">
+                                {lastMsgTimeStr}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between w-full mt-0.5">
                             <span className={cn(
-                              "text-[10px] font-semibold truncate w-full leading-normal mt-0.5",
+                              "text-[10px] font-semibold truncate flex-1 leading-normal pr-2",
                               isUnread ? "text-foreground font-bold" : "text-muted-foreground/60"
                             )}>
                               {getGroupLastMessage(group)}
                             </span>
+                            {isUnread && (
+                              <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
+                              </span>
+                            )}
                           </div>
-                          {isUnread && (
-                            <span className="relative flex h-2 w-2 shrink-0 ml-2 animate-in zoom-in duration-200">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow shadow-red-500/50"></span>
-                            </span>
-                          )}
                         </div>
                       </Button>
                     );

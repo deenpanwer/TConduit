@@ -386,12 +386,40 @@ function ChatPage() {
     setInputText(e.target.value);
   }, []);
 
-  const handleCreateGroup = async (name: string, members: string[]) => {
-    const groupId = await createGroupChat(name, members);
+  const handleCreateGroup = async (name: string, members: string[], imageFile: File | null) => {
+    let photoUrl = "";
+    if (imageFile && targetOrgId) {
+      const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const storagePath = `organizations/${targetOrgId}/group_avatars/${fileId}_${imageFile.name}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadTask = await uploadBytesResumable(storageRef, imageFile);
+      photoUrl = await getDownloadURL(uploadTask.ref);
+    }
+    const groupId = await createGroupChat(name, members, photoUrl);
     const orgGroupRef = doc(db, "organizations", targetOrgId!, "group_chats", groupId);
     const snap = await getDoc(orgGroupRef);
     if (snap.exists()) {
       handleSelectGroup({ id: snap.id, ...snap.data() });
+    }
+  };
+
+  const handleUpdateGroupImage = async (file: File) => {
+    if (!selectedGroup || !targetOrgId) return;
+    try {
+      const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const storagePath = `organizations/${targetOrgId}/group_avatars/${fileId}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadTask = await uploadBytesResumable(storageRef, file);
+      const downloadUrl = await getDownloadURL(uploadTask.ref);
+
+      // Update in Firestore
+      const groupDocRef = doc(db, "organizations", targetOrgId, "group_chats", selectedGroup.id);
+      await setDoc(groupDocRef, { photoUrl: downloadUrl }, { merge: true });
+
+      // Update local state
+      setSelectedGroup((prev: any) => prev ? { ...prev, photoUrl: downloadUrl } : null);
+    } catch (err) {
+      console.error("Failed to update group image:", err);
     }
   };
 
@@ -475,7 +503,7 @@ function ChatPage() {
                 <X size={20} />
               </Button>
             )}
-            <h2 className="font-bold text-sm tracking-widest uppercase">Messages</h2>
+            <h2 className="font-bold text-sm tracking-widest uppercase">Chat</h2>
           </div>
           <div className="flex items-center gap-4">
             <SubscriptionBadge orgData={orgData} userData={userData} />
@@ -519,16 +547,23 @@ function ChatPage() {
               </div>
 
               <div className={cn(
-                "flex-1 flex flex-col h-full bg-card transition-all duration-300 min-w-0",
+                "flex-1 flex flex-col h-full bg-card transition-all duration-300 min-w-0 relative overflow-hidden z-0",
                 !(selectedEmployee || selectedGroup) && isMobile ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
               )}>
                 {((activeTab === "direct" && selectedEmployee) || (activeTab === "group" && selectedGroup)) ? (
                   <>
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center -z-20 transition-all duration-500" 
+                      style={{ backgroundImage: `url(https://picsum.photos/seed/${selectedGroup ? selectedGroup.id : (selectedEmployee ? selectedEmployee.id : 'default')}/1200/800)` }} 
+                    />
+                    <div className="absolute inset-0 bg-[#efeae2]/85 dark:bg-[#0b141a]/90 -z-10 transition-colors duration-300" />
                     <ChatHeader 
                       selectedEmployee={selectedEmployee} 
                       selectedGroup={selectedGroup}
+                      onUpdateGroupImage={handleUpdateGroupImage}
                     />
                     <MessageList
+                      key={selectedGroup ? selectedGroup.id : (selectedEmployee ? selectedEmployee.id : 'empty')}
                       messages={activeMessages}
                       userUid={user.uid}
                       selectedEmployeePhotoUrl={activeAvatar}

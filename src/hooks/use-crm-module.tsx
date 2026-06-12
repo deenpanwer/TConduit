@@ -5,6 +5,7 @@ import { toast } from "sonner";
 // Re-export types from the central use-crm hook for other components to use
 export type { CRMEntity, ModuleConfig, FieldConfig, ViewConfig } from './use-crm'; 
 import { useCRM, CRMConfig, CRMEntity, ModuleConfig } from './use-crm';
+import { DEFAULT_CONFIG } from "@/store/crm-types";
 
 /**
  * GENERIC CRM MODULE HOOK (DEFINITIVE REFACTOR)
@@ -53,9 +54,80 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
   const allEntities = entityMap[type];
   const loading = globalLoading;
 
-  // The module's configuration is derived from the global config.
+  // The module's configuration is derived from the global config with self-healing system fields.
   const config = useMemo(() => {
-    return globalConfig.modules[type] || defaultConfig;
+    let orig = globalConfig.modules[type] || defaultConfig;
+    const defaultModuleConfig = DEFAULT_CONFIG.modules[type];
+    
+    // Self-healing: if config is empty, missing fields, or missing views, use DEFAULT_CONFIG
+    if (!orig || !orig.fields || orig.fields.length === 0 || !orig.views || orig.views.length === 0) {
+      orig = defaultModuleConfig || orig;
+    }
+
+    if (orig && defaultModuleConfig) {
+      const origFields = orig.fields || [];
+      const missingSystemFields = defaultModuleConfig.fields.filter(
+        df => df.isSystem && !origFields.some(of => of.key === df.key)
+      );
+      let newFields = [...origFields];
+      if (missingSystemFields.length > 0) {
+        newFields = [...newFields, ...missingSystemFields];
+      }
+
+      let newViews = orig.views || [];
+      if (defaultModuleConfig.views) {
+        newViews = newViews.map(v => {
+          const defaultView = defaultModuleConfig.views.find(dv => dv.type === v.type);
+          if (defaultView) {
+            const missingVisible = defaultView.visibleFields.filter(
+              id => !v.visibleFields.includes(id)
+            );
+            if (missingVisible.length > 0) {
+              return {
+                ...v,
+                visibleFields: [...v.visibleFields, ...missingVisible]
+              };
+            }
+          }
+          return v;
+        });
+      }
+
+      orig = {
+        ...orig,
+        fields: newFields,
+        views: newViews
+      };
+    }
+    
+    if (!orig) return orig;
+    const fields = orig.fields || [];
+    const modifiedFields = fields.map(f => {
+      if (!f || !f.key) return f;
+      const keyLower = f.key.toLowerCase();
+      const labelLower = (f.label || "").toLowerCase();
+      const isFollowUpDate = (keyLower.includes('followup') || 
+                              labelLower.includes('follow up')) && 
+                             !labelLower.includes('status');
+      if (isFollowUpDate && f.type !== 'date') {
+        return { ...f, type: 'date' as const };
+      }
+      return f;
+    });
+    let finalFields = modifiedFields;
+    let finalViews = orig.views || [];
+    if (type === 'leads') {
+      finalFields = finalFields.filter(f => f && f.id !== 'f_owner' && f.key !== 'assignedTo');
+      finalViews = finalViews.map(v => v ? {
+        ...v,
+        visibleFields: (v.visibleFields || []).filter(id => id !== 'f_owner')
+      } : v);
+    }
+    return { 
+      ...orig, 
+      fields: finalFields,
+      views: finalViews
+    };
   }, [globalConfig, type, defaultConfig]);
 
   /**

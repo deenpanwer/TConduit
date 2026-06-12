@@ -17,13 +17,15 @@ interface CreateGroupModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   employees: any[];
-  onCreateGroup: (name: string, members: string[]) => Promise<void>;
+  onCreateGroup: (name: string, members: string[], imageFile: File | null) => Promise<void>;
 }
 
 export function CreateGroupModal({ isOpen, onOpenChange, employees, onCreateGroup }: CreateGroupModalProps) {
   const [groupName, setGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [groupImageFile, setGroupImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,10 +59,12 @@ export function CreateGroupModal({ isOpen, onOpenChange, employees, onCreateGrou
     setError(null);
 
     try {
-      await onCreateGroup(groupName, selectedMembers);
+      await onCreateGroup(groupName, selectedMembers, groupImageFile);
       // Reset state and close modal
       setGroupName("");
       setSelectedMembers([]);
+      setGroupImageFile(null);
+      setImagePreview(null);
       setSearchQuery("");
       onOpenChange(false);
     } catch (err: any) {
@@ -80,6 +84,13 @@ export function CreateGroupModal({ isOpen, onOpenChange, employees, onCreateGrou
       if (!isSubmitting) {
         onOpenChange(open);
         setError(null);
+        if (!open) {
+          setGroupName("");
+          setSelectedMembers([]);
+          setGroupImageFile(null);
+          setImagePreview(null);
+          setSearchQuery("");
+        }
       }
     }}>
       <DialogContent className="sm:max-w-[460px] bg-card/60 backdrop-blur-2xl border border-border/40 shadow-2xl p-6 rounded-3xl gap-6 overflow-hidden">
@@ -96,6 +107,61 @@ export function CreateGroupModal({ isOpen, onOpenChange, employees, onCreateGrou
         </DialogHeader>
 
         <div className="space-y-4 my-2">
+          {/* Group Avatar Upload */}
+          <div className="flex flex-col items-center gap-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground self-start">Group Avatar (Optional)</label>
+            <div className="flex items-center gap-4 w-full bg-secondary/10 border border-border/10 p-3 rounded-2xl">
+              <Avatar className="h-14 w-14 border border-border/40 shrink-0">
+                {imagePreview ? (
+                  <AvatarImage src={imagePreview} className="object-cover" />
+                ) : (
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    <Users className="h-7 w-7" />
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <div className="flex-1 text-left">
+                <input
+                  id="modal-group-avatar"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setGroupImageFile(file);
+                      setImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                  disabled={isSubmitting}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("modal-group-avatar")?.click()}
+                  className="text-xs rounded-xl h-9 font-semibold bg-background hover:bg-secondary/30"
+                  disabled={isSubmitting}
+                >
+                  Choose Group Image
+                </Button>
+                {groupImageFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroupImageFile(null);
+                      setImagePreview(null);
+                    }}
+                    className="text-[10px] text-destructive font-bold uppercase tracking-wider block mt-1 hover:underline ml-1"
+                    disabled={isSubmitting}
+                  >
+                    Remove Image
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Group Name input */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Group Name</label>

@@ -7,7 +7,7 @@ import { useCRMCalls } from "@/hooks/use-crm-calls";
 import { 
   LayoutGrid, List as ListIcon, Plus, Search, 
   Filter, Download, ArrowUpDown, Loader2,
-  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText
+  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,10 +26,13 @@ import { NoteModal } from "@/components/crm/forms/NoteModal";
 import { CRMEntity } from "@/hooks/use-crm-module";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useTeam } from "@/hooks/use-team";
+import { LeadImportDrawer } from "@/components/crm/shared/LeadImportDrawer";
 import { Suspense } from "react";
 
 function LeadsPageContent() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
+  const { employees } = useTeam();
   const { 
     entities: leads, 
     config, 
@@ -61,6 +64,14 @@ function LeadsPageContent() {
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'preview'>('create');
   const [selectedLead, setSelectedLead] = useState<CRMEntity | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showImportDrawer, setShowImportDrawer] = useState(false);
+
+  const isManager = useMemo(() => {
+    const u = userData as any;
+    if (!u) return false;
+    const role = u.role?.toLowerCase();
+    return role !== "employee" || !!u.ownedOrgId;
+  }, [userData]);
 
   const [initialStage, setInitialStage] = useState<string | undefined>(undefined);
 
@@ -221,6 +232,15 @@ function LeadsPageContent() {
             <Button variant={activeView === "list" ? "secondary" : "ghost"} size="sm" className="h-9 px-4 text-[10px] font-black uppercase rounded-xl transition-all" onClick={() => setView("list")}><ListIcon size={14} className="mr-2" /> List View</Button>
             <Button variant={activeView === "kanban" ? "secondary" : "ghost"} size="sm" className="h-9 px-4 text-[10px] font-black uppercase rounded-xl transition-all" onClick={() => setView("kanban")}><LayoutGrid size={14} className="mr-2" /> Kanban</Button>
           </div>
+          {isManager && (
+            <Button 
+              onClick={() => setShowImportDrawer(true)} 
+              variant="outline"
+              className="h-12 px-6 font-black text-[10px] uppercase tracking-[0.1em] border-border/40 rounded-2xl shadow-sm hover:bg-muted text-foreground"
+            >
+              <Upload size={14} className="mr-2 text-blue-500" /> Import CSV
+            </Button>
+          )}
           <Button 
             onClick={() => { setSelectedLead(null); setModalMode('create'); setShowLeadModal(true); }} 
             className="h-12 px-8 font-black text-[10px] uppercase tracking-[0.1em] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 group">
@@ -303,6 +323,17 @@ function LeadsPageContent() {
             <div className="flex items-center gap-2 px-4 border-r border-border/20 mr-2"><span className="bg-blue-600 text-white size-7 rounded-full flex items-center justify-center text-[10px] font-black">{selectedIds.length}</span><span className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">Selected</span></div>
             <div className="flex items-center gap-3"><Button variant="outline" size="sm" onClick={async () => { if (confirm(`Delete items?`)) { await Promise.all(selectedIds.map(id => deleteEntity(id))); setSelectedIds([]); }}} className="h-10 rounded-2xl text-red-500 hover:bg-red-500/10 border-red-500/20 font-black text-[10px] uppercase px-6">Delete</Button><Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-10 rounded-2xl font-black text-[10px] uppercase px-6">Cancel</Button></div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showImportDrawer && (
+          <LeadImportDrawer 
+            onClose={() => setShowImportDrawer(false)}
+            config={config}
+            addEntity={(payload) => addEntity(payload)}
+            employees={employees}
+          />
         )}
       </AnimatePresence>
     </div>

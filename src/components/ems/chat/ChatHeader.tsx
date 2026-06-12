@@ -16,17 +16,19 @@ interface GroupChat {
   id: string;
   name: string;
   members: string[];
+  photoUrl?: string;
 }
 
 interface ChatHeaderProps {
   selectedEmployee: Employee | null;
   selectedGroup?: GroupChat | null;
+  onUpdateGroupImage?: (file: File) => Promise<void>;
 }
 
-export function ChatHeader({ selectedEmployee, selectedGroup = null }: ChatHeaderProps) {
+export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGroupImage }: ChatHeaderProps) {
   if (!selectedEmployee && !selectedGroup) {
     return (
-      <div className="flex items-center gap-4 p-5 border-b border-border/40 bg-card/50 backdrop-blur-md">
+      <div className="flex items-center gap-4 py-2.5 px-5 border-b border-border/20 bg-background/70 dark:bg-slate-950/70 backdrop-blur-md">
         <div className="h-10 w-10 rounded-full bg-secondary animate-pulse" />
         <div className="h-4 w-32 bg-secondary animate-pulse rounded-full" />
       </div>
@@ -34,14 +36,36 @@ export function ChatHeader({ selectedEmployee, selectedGroup = null }: ChatHeade
   }
 
   return (
-    <div className="flex items-center justify-between p-5 border-b border-border/40 bg-card/50 backdrop-blur-md sticky top-0 z-10 shrink-0">
+    <div className="flex items-center justify-between py-2.5 px-5 border-b border-border/20 bg-background/70 dark:bg-slate-950/70 backdrop-blur-md sticky top-0 z-10 shrink-0">
       <div className="flex items-center gap-4">
         {selectedGroup ? (
           // GROUP CHAT HEADER LAYOUT
           <>
-            <div className="relative shrink-0 w-10 h-10 flex items-center justify-center bg-primary/10 rounded-2xl text-primary font-bold border border-primary/20 shadow-sm">
-              <Users className="h-5 w-5" />
+            <div 
+              onClick={() => onUpdateGroupImage && document.getElementById("group-avatar-upload")?.click()}
+              className={cn(
+                "relative shrink-0 w-10 h-10 flex items-center justify-center bg-primary/10 rounded-2xl text-primary font-bold border border-primary/20 shadow-sm overflow-hidden select-none",
+                onUpdateGroupImage ? "cursor-pointer hover:opacity-85 transition-opacity" : ""
+              )}
+            >
+              {selectedGroup.photoUrl ? (
+                <img src={selectedGroup.photoUrl} alt={selectedGroup.name} className="w-full h-full object-cover" />
+              ) : (
+                <Users className="h-5 w-5" />
+              )}
             </div>
+            {onUpdateGroupImage && (
+              <input 
+                id="group-avatar-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onUpdateGroupImage(file);
+                }}
+              />
+            )}
             <div className="flex flex-col text-left">
               <h3 className="font-bold text-[15px] leading-none tracking-tight">{selectedGroup.name}</h3>
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1.5 flex items-center gap-1.5">

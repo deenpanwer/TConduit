@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useErrorReportStore } from "@/store/use-error-report-store";
+import { useAuth } from "@/hooks/use-auth";
 import { shouldShowReportButton } from "@/lib/error-filter";
 
 export function ErrorReportInitializer() {
   const { openReport } = useErrorReportStore();
+  const { user, userData } = useAuth();
+
+  // Use refs so the patched toast closure always reads the latest auth state
+  const userRef = useRef(user);
+  const userDataRef = useRef(userData);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { userDataRef.current = userData; }, [userData]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !(toast as any).__isPatched) {
@@ -61,7 +69,15 @@ export function ErrorReportInitializer() {
             toastOptions.action = options?.action || {
               label: "Report",
               onClick: () => {
-                openReport(msgString, errorStack);
+                const userMeta = {
+                  uid: userRef.current?.uid,
+                  name: userDataRef.current?.name || userRef.current?.displayName || undefined,
+                  email: userDataRef.current?.email || userRef.current?.email || undefined,
+                  role: userDataRef.current?.role,
+                  orgId: userDataRef.current?.ownedOrgId || userDataRef.current?.orgId,
+                  companyName: userDataRef.current?.companyName,
+                };
+                openReport(msgString, errorStack, userMeta);
               },
             };
           }

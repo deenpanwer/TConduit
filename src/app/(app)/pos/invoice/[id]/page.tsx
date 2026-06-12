@@ -114,7 +114,7 @@ export default function InvoicePage() {
     setIsAddingCustomer(true);
     try {
         const newCustomerId = await addCustomer({ name: quickCustomer.name, phoneNumber: quickCustomer.phone });
-        if (newCustomerId && isProForma) {
+        if (newCustomerId && isProForma && saleId) {
             await linkCustomerToTicket(saleId, newCustomerId);
             const result = await getEntityForInvoice(invoiceId); // Refresh data
             setEntityData(result);
@@ -190,7 +190,7 @@ export default function InvoicePage() {
 
                 {/* --- TRANSACTION INFO --- */}
                 <div className="text-[12px] space-y-1.5 mb-6 font-bold uppercase tracking-tight">
-                    <div className="flex justify-between"><span className="text-gray-500">Date:</span><span>{new Date(saleCreatedAt).toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Date:</span><span>{saleCreatedAt ? new Date(saleCreatedAt).toLocaleString() : 'N/A'}</span></div>
                     <div className="flex justify-between"><span className="text-gray-500">Order ID:</span><span>#{saleId?.toUpperCase()}</span></div>
                     <div className="flex justify-between"><span className="text-gray-500">Cashier:</span><span>{cashierName || 'N/A'}</span></div>
                     {table && <div className="flex justify-between"><span className="text-gray-500">Table:</span><span>{table.number} ({table.floor})</span></div>}

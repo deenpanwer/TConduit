@@ -82,6 +82,7 @@ export async function POST(req: Request) {
           autoTrackOnboardingComplete: false,
           blurScreenshots: false,
           disableScreenshots: false,
+          webBlockerEnabled: false,
           employeeOnboardingV1Complete: false,
           enableManualTimeTracking: false,
           orgStatus: 'active',

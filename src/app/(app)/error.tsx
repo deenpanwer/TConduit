@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useErrorReportStore } from "@/store/use-error-report-store";
+import { useAuth } from "@/hooks/use-auth";
 import { AlertCircle, RotateCcw, Send } from "lucide-react";
 
 export default function AppErrorBoundary({
@@ -13,6 +14,7 @@ export default function AppErrorBoundary({
   reset: () => void;
 }) {
   const { openReport } = useErrorReportStore();
+  const { user, userData } = useAuth();
 
   useEffect(() => {
     // Log the error to console for local developer debugging
@@ -52,7 +54,17 @@ export default function AppErrorBoundary({
             Try again
           </Button>
           <Button
-            onClick={() => openReport(error.message, error.stack)}
+            onClick={() => {
+              const userMeta = {
+                uid: user?.uid,
+                name: userData?.name || user?.displayName || undefined,
+                email: userData?.email || user?.email || undefined,
+                role: userData?.role,
+                orgId: userData?.ownedOrgId || userData?.orgId,
+                companyName: userData?.companyName,
+              };
+              openReport(error.message, error.stack, userMeta);
+            }}
             className="flex-1 rounded-xl font-semibold py-5 text-sm flex items-center justify-center gap-2"
           >
             <Send className="w-3.5 h-3.5" />

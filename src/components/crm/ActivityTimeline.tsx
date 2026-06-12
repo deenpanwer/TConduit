@@ -8,7 +8,7 @@ import {
   History, AlertCircle, Info, Clock, ArrowUpRight, ArrowDownRight,
   UserPlus, UserMinus, Edit, Trash2, PlusCircle
 } from "lucide-react";
-import { EntityHistory } from "@/hooks/use-crm-module";
+import { EntityHistory } from "@/hooks/use-crm";
 import { cn, getUserAvatar } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

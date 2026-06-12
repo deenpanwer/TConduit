@@ -201,7 +201,7 @@ export function CRMKanban({
     stages.forEach(s => groups[s.value] = []);
 
     entities.forEach(entity => {
-      const stageValue = optimisticMoves[entity.id] || entity.status || entity.data[kanbanField.key] || '__blank__';
+      const stageValue = optimisticMoves[entity.id] || (entity as any).status || entity.data[kanbanField.key] || '__blank__';
       const finalStage = stageValue === null ? '__blank__' : stageValue;
       if (!groups[finalStage]) groups[finalStage] = [];
       groups[finalStage].push(entity);
@@ -316,7 +316,7 @@ export function CRMKanban({
                               {...provided.draggableProps}
                               style={{
                                 ...provided.draggableProps.style,
-                                width: snapshot.isDragging ? '300px' : provided.draggableProps.style?.width,
+                                width: snapshot.isDragging ? '300px' : (provided.draggableProps.style as any)?.width,
                               }}
                               className={cn(
                                 "group relative bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:shadow-md transition-all select-none",

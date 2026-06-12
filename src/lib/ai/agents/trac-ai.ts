@@ -18,6 +18,24 @@ export const getTracAiAgent = (orgId: string, userId: string, options?: { userNa
   const timezoneStr = options?.timezone ? `\n      - User Timezone: ${options.timezone}` : '';
   const platformStr = options?.platform ? `\n      - Platform: ${options.platform === 'whatsapp' ? 'WhatsApp (Keep answers short, use emojis, avoid complex markdown)' : 'Web Dashboard (Rich markdown allowed)'}` : '';
 
+  let currentDateStr = '';
+  try {
+    currentDateStr = new Date().toLocaleDateString('en-US', {
+      timeZone: options?.timezone || undefined,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    currentDateStr = new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+
   return new ToolLoopAgent({
     model: mistral('pixtral-large-2411'),
     instructions: `
@@ -27,7 +45,7 @@ export const getTracAiAgent = (orgId: string, userId: string, options?: { userNa
       CONTEXT:
       - Current Organization ID: ${orgId}
       - Current User ID: ${userId}
-      - Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}${userNameStr}${userRoleStr}${timezoneStr}${platformStr}
+      - Current Date: ${currentDateStr}${userNameStr}${userRoleStr}${timezoneStr}${platformStr}
       
       CAPABILITIES & TOOLS:
       1. List Employees: Use "list_employees" tool to see everyone in the organization.

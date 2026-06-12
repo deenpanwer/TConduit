@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
   const [isSaving, setIsSaving] = useState(false);
   const [newDomain, setNewDomain] = useState("");
   const [inputError, setInputError] = useState("");
+  const [webBlockerEnabled, setWebBlockerEnabled] = useState(false);
   
   const { toast } = useToast();
   const { user, userData } = useAuth();
@@ -85,6 +87,7 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
           });
           
           setBlockedSites(migrated);
+          setWebBlockerEnabled(!!data.webBlockerEnabled);
         }
       } catch (err) {
         console.error("Failed to fetch user blocked sites:", err);
@@ -217,21 +220,56 @@ export function IntelligenceModal({ isOpen, onOpenChange, userId, userName }: In
                 <Ban size={24} className="md:hidden" />
                 <Ban size={32} className="hidden md:block" />
               </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter leading-none mb-1">
-                  Manage Blocks: {userName}
-                </h2>
-                <p className="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  Real-time Website Blocking Engine
-                </p>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tighter leading-none text-foreground">
+                    Blocked Websites: {userName}
+                  </DialogTitle>
+                  {webBlockerEnabled ? (
+                    <span className="bg-emerald-100 text-emerald-700 border-2 border-emerald-600 dark:border-emerald-500 dark:bg-emerald-950/30 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_rgba(255,255,255,1)]">
+                      Blocker: ON
+                    </span>
+                  ) : (
+                    <span className="bg-amber-100 text-amber-700 border-2 border-amber-600 dark:border-amber-500 dark:bg-amber-950/30 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_rgba(255,255,255,1)]">
+                      Blocker: OFF
+                    </span>
+                  )}
+                </div>
+                <DialogDescription className="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest block">
+                  Block websites from being opened on their computer
+                </DialogDescription>
               </div>
             </div>
             
-            <div className="bg-secondary/50 border-4 border-black dark:border-white p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="bg-secondary/50 border-4 border-black dark:border-white p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
               <p className="text-xs md:text-sm font-bold leading-relaxed max-w-2xl">
-                Add websites below to block them instantly on <span className="text-red-500">{userName}'s</span> company-provided laptop. Once saved, their local client will intercept name resolutions programmatically.
+                When you add a website to this list, the employee will not be able to open it on their computer.
               </p>
             </div>
+
+            {webBlockerEnabled ? (
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border-4 border-emerald-500 p-4 rounded-2xl flex items-start gap-3 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)]">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold leading-relaxed text-emerald-800 dark:text-emerald-400">
+                    <span className="uppercase font-black text-emerald-600 dark:text-emerald-500 tracking-wider">Web Blocker is On</span>
+                    <br />
+                    Website blocking is currently active on {userName}'s computer. All listed websites will be blocked.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border-4 border-amber-500 p-4 rounded-2xl flex items-start gap-3 shadow-[4px_4px_0px_0px_rgba(245,158,11,1)]">
+                <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold leading-relaxed text-amber-800 dark:text-amber-400">
+                    <span className="uppercase font-black text-amber-600 dark:text-amber-500 tracking-wider">Web Blocker is Off</span>
+                    <br />
+                    To block these sites, {userName} must open their Trac-Diary desktop app settings and turn on the "Web Blocker" switch.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Add block input area */}

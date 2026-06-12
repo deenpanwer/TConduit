@@ -143,7 +143,7 @@ export default function LandingPage() {
 
       <Navbar />
       <Hero />
-      <AppGrid />
+      {/* <AppGrid /> */}
       <UnifiedProductGrid />
       <ValueProps />
       <CopilotRoiSection />

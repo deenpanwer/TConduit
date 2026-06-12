@@ -81,8 +81,7 @@ export function FieldEditor({ fields, onFieldsChange, availableTemplates = [] }:
             {...provided.draggableProps}
             style={{
               ...provided.draggableProps.style,
-              // If dragging, we might need to adjust width if it's in a portal
-              width: snapshot.isDragging ? '450px' : provided.draggableProps.style?.width,
+              width: snapshot.isDragging ? '450px' : (provided.draggableProps.style as any)?.width,
             }}
             className={cn(
                 "transition-shadow",

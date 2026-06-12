@@ -264,7 +264,7 @@ export function DashboardSidebar({
                 <NavItem icon={Bell} label="Notifications" onClick={() => setIsNotificationsOpen(true)} active={isNotificationsOpen} count={pendingCount} />
                 <NavItem icon={CalendarRange} label="Shifts" href="/ems/shifts" active={pathname === "/ems/shifts"} />
                 <NavItem icon={CalendarDays} label="Calendar" href="/ems/calendar" active={pathname === "/ems/calendar"} />
-                <NavItem icon={MessageSquare} label="Messages" href="/ems/chat" active={pathname === "/ems/chat"} />
+                <NavItem icon={MessageSquare} label="Chat" href="/ems/chat" active={pathname === "/ems/chat"} />
             </div>
 
             <div className="space-y-1">

@@ -856,12 +856,12 @@ function SettingsPageContent() {
                                         <ShieldCheck size={32} />
                                     </div>
                                     <div>
-                                        <h3 className='text-2xl font-black uppercase tracking-tighter'>Tracking Intelligence</h3>
-                                        <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest'>Employee-Specific Work Rules</p>
+                                        <h3 className='text-2xl font-black uppercase tracking-tighter'>Website Blocker</h3>
+                                        <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest'>Employee Website Restrictions</p>
                                     </div>
                                 </div>
                                 <p className='text-sm font-bold leading-relaxed max-w-xl text-muted-foreground'>
-                                    Set custom 'Work Powerhouses' and 'Focus Killers' for each team member to refine their productivity reports.
+                                    Block distracting websites (like social media) for each employee to help them stay focused.
                                 </p>
                             </div>
                         </div>

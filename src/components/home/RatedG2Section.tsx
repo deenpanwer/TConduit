@@ -23,7 +23,7 @@ const BADGES_COL_2 = [
 
 export function RatedG2Section() {
   return (
-    <section className="py-24 bg-white text-zinc-900 overflow-hidden relative border-t border-zinc-100">
+    <section className="py-24 bg-white dark:bg-[#050505] text-zinc-900 dark:text-zinc-100 overflow-hidden relative border-t border-zinc-100 dark:border-zinc-800/80">
       {/* Dynamic encapsulated marquee styles */}
       <style>{`
         @keyframes marquee-up {
@@ -54,15 +54,15 @@ export function RatedG2Section() {
               <Star size={12} className="fill-indigo-600 stroke-none" />
               RATED 4.9/5 FROM 500+ G2 REVIEWS
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-none uppercase">
+            <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tight leading-none uppercase">
               #1 most referenced company on G2 reports
             </h2>
-            <p className="text-base font-semibold text-zinc-500 uppercase tracking-wide leading-relaxed">
+            <p className="text-base font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide leading-relaxed">
               Founders, remote teams, and managers rate TRAC AI at the top of G2 reports for workflow consolidation, time logs, and AI efficiency.
             </p>
             <div className="pt-2">
               <Link href="/reviews">
-                <Button className="h-12 px-6 rounded-xl bg-black hover:bg-zinc-800 text-white font-extrabold uppercase tracking-widest text-xs transition-colors shadow-sm">
+                <Button className="h-12 px-6 rounded-xl bg-black hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black font-extrabold uppercase tracking-widest text-xs transition-colors shadow-sm">
                   Read customer stories
                 </Button>
               </Link>
@@ -70,10 +70,10 @@ export function RatedG2Section() {
           </div>
 
           {/* Right Column: Dynamic vertical marquee of CSS-rendered G2 badges */}
-          <div className="lg:col-span-7 h-[450px] relative overflow-hidden grid grid-cols-2 gap-6 bg-gradient-to-r from-zinc-50/20 to-zinc-50/80 p-4 rounded-3xl border border-zinc-100/50">
+          <div className="lg:col-span-7 h-[450px] relative overflow-hidden grid grid-cols-2 gap-6 bg-gradient-to-r from-zinc-50/20 to-zinc-50/80 dark:from-zinc-900/10 dark:to-zinc-900/40 p-4 rounded-3xl border border-zinc-100/50 dark:border-zinc-800/50">
             {/* Overlay mask gradients for smooth fade out at top/bottom */}
-            <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-white to-transparent z-20 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-white to-transparent z-20 pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-white to-transparent dark:from-[#050505] z-20 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-white to-transparent dark:from-[#050505] z-20 pointer-events-none" />
 
             {/* Column 1: Scrolls UP */}
             <div className="flex flex-col gap-6 h-full relative overflow-hidden">
@@ -81,24 +81,24 @@ export function RatedG2Section() {
                 {[...BADGES_COL_1, ...BADGES_COL_1].map((badge, idx) => (
                   <div 
                     key={idx} 
-                    className="bg-white border border-zinc-200/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
+                    className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
                   >
                     {/* Top Ribbon */}
                     <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${badge.color}`} />
                     
                     {/* SVG G2-like Logo */}
-                    <div className="size-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
+                    <div className="size-10 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
                       <svg viewBox="0 0 24 24" className="size-5 fill-[#ff4b2b]" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
                       </svg>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">{badge.label}</span>
-                      <h4 className="text-sm font-black uppercase text-zinc-800 tracking-tight leading-snug">{badge.title}</h4>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-500 block">{badge.label}</span>
+                      <h4 className="text-sm font-black uppercase text-zinc-800 dark:text-zinc-100 tracking-tight leading-snug">{badge.title}</h4>
                     </div>
                     
-                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-2 block">WINTER 2026</span>
+                    <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-2 block">WINTER 2026</span>
                   </div>
                 ))}
               </div>
@@ -110,24 +110,24 @@ export function RatedG2Section() {
                 {[...BADGES_COL_2, ...BADGES_COL_2].map((badge, idx) => (
                   <div 
                     key={idx} 
-                    className="bg-white border border-zinc-200/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
+                    className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
                   >
                     {/* Top Ribbon */}
                     <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${badge.color}`} />
                     
                     {/* SVG G2-like Logo */}
-                    <div className="size-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
+                    <div className="size-10 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
                       <svg viewBox="0 0 24 24" className="size-5 fill-[#ff4b2b]" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
                       </svg>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">{badge.label}</span>
-                      <h4 className="text-sm font-black uppercase text-zinc-800 tracking-tight leading-snug">{badge.title}</h4>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-500 block">{badge.label}</span>
+                      <h4 className="text-sm font-black uppercase text-zinc-800 dark:text-zinc-100 tracking-tight leading-snug">{badge.title}</h4>
                     </div>
                     
-                    <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-2 block">WINTER 2026</span>
+                    <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-2 block">WINTER 2026</span>
                   </div>
                 ))}
               </div>

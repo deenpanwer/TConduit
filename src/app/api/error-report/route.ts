@@ -9,7 +9,8 @@ export async function POST(req: Request) {
       stackTrace,
       additionalContext,
       deviceInfo,
-      appContext
+      appContext,
+      userMeta
     } = body;
 
     const admin = getFirebaseAdmin();
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
       additionalContext: additionalContext || null,
       deviceInfo: deviceInfo || null,
       appContext: appContext || null,
+      userMeta: userMeta || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {
         userAgent: req.headers.get('user-agent'),
@@ -43,13 +45,33 @@ export async function POST(req: Request) {
       const PUSHOVER_USER = 'ugshfubjs4igoqvk1s16o6ycdskoqz';
       const PUSHOVER_TOKEN = 'a1mhx6fgw5qmn3gebsbwi9a1d1wbo8';
 
-      // Build structured notification body
-      let messageContent = `💥 ERROR: ${errorMessage || 'Unknown Error'}\n\n`;
+      // Build structured notification body with high priority fields at the top
+      let messageContent = '';
 
+      // 1. User Identification (highest priority)
+      if (userMeta) {
+        messageContent += `👤 USER: ${userMeta.name || 'Unknown'} (${userMeta.email || 'No Email'})\n`;
+        messageContent += `• UID: ${userMeta.uid || 'N/A'}\n`;
+        if (userMeta.role) messageContent += `• Role: ${userMeta.role}\n`;
+        messageContent += `\n`;
+      } else {
+        messageContent += `👤 USER: Unknown User\n\n`;
+      }
+
+      // 2. Error Location
+      if (appContext && appContext.url) {
+        messageContent += `📍 LOCATION: ${appContext.url}\n\n`;
+      }
+
+      // 3. Error Details
+      messageContent += `💥 ERROR: ${errorMessage || 'Unknown Error'}\n\n`;
+
+      // 4. User Feedback / Comments
       if (additionalContext && additionalContext.trim()) {
         messageContent += `📝 USER FEEDBACK:\n"${additionalContext.trim()}"\n\n`;
       }
 
+      // 5. Device Information
       if (deviceInfo) {
         messageContent += `📱 DEVICE INFORMATION:\n`;
         if (deviceInfo.device) messageContent += `• Device: ${deviceInfo.device}\n`;
@@ -61,14 +83,7 @@ export async function POST(req: Request) {
         messageContent += `\n`;
       }
 
-      if (appContext) {
-        messageContent += `🌐 APP CONTEXT:\n`;
-        if (appContext.url) messageContent += `• URL: ${appContext.url}\n`;
-        if (appContext.online) messageContent += `• Network: ${appContext.online}\n`;
-        if (appContext.timestamp) messageContent += `• Time: ${appContext.timestamp}\n`;
-        messageContent += `\n`;
-      }
-
+      // 6. Call Stack Trace
       if (stackTrace) {
         // Truncate stack trace to not exceed Pushover message limit (5120 chars total)
         const maxStackLength = 1500;
