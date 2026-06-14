@@ -25,8 +25,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Trac AI | Finally know who's working and who isn't",
-  description: 'The first truly integrated business operating system. Designed for professionals, powered by AI.',
+  title: "Trac AI | Finally Know Who Is Working and Who Isn't",
+  description: 'Trac AI is the ultimate integrated business operating system. Streamline your team workflows, CRM, POS, ATS, chats, time tracking, and accounting in one platform.',
 };
 
 export const viewport = {

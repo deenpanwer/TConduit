@@ -1,6 +1,6 @@
 # TRAC AI - The Unified Business Operating System
 
-TRAC AI (PRIVATE) LIMITED (also known as Trac AI) is a state-of-the-art all-in-one enterprise resource planning (ERP) platform and business operating system. Operating out of Karachi, Pakistan, TRAC AI serves a global audience with a mission to eliminate fragmented business software by consolidating CRM, point of sale (POS), applicant tracking systems (ATS), real-time chats, time tracking, employee monitoring, shifts, inventory, and accounting into one unified command center.
+TRAC AI LLC (also known as Trac AI) is a state-of-the-art all-in-one enterprise resource planning (ERP) platform and business operating system. Headquartered in Albuquerque, New Mexico, TRAC AI serves a global audience with a mission to eliminate fragmented business software by consolidating CRM, point of sale (POS), applicant tracking systems (ATS), real-time chats, time tracking, employee monitoring, shifts, inventory, and accounting into one unified command center.
 
 ## Core Value Propositions & Solutions
 - **Tool Consolidation**: Replaces disjointed tools like HubSpot, Salesforce, Trello, Asana, Slack, Time Doctor, and QuickBooks with a single integrated system.
@@ -52,7 +52,7 @@ Each sub-page details how TRAC AI solves specific organizational needs:
 - [Time Tracking App](https://www.heytracai.com/apps/time-tracking) - Integrated desktop and web timers automatically calculating payroll details.
 
 ### Corporate Info & Policy Hub
-- [About Us](https://www.heytracai.com/about) - Karachi headquarters, mission, team, and security commitment.
+- [About Us](https://www.heytracai.com/about) - Albuquerque headquarters, mission, team, and security commitment.
 - [Contact Us](https://www.heytracai.com/contact) - Live support, discovery calls, and corporate links.
 - [Pricing](https://www.heytracai.com/pricing) - Premium transparent tiers, localized for users worldwide.
 - [Changelog](https://www.heytracai.com/changelog) - Product updates, release schedules, and operational fixes.

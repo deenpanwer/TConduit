@@ -6,6 +6,8 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Scale, ShieldCheck, FileText, Globe, Cookie, Lock } from "lucide-react";
 import { motion } from "framer-motion";
+import { Navbar } from "@/components/home/Navbar";
+import { Footer } from "@/components/home/Footer";
 
 // Helper to get an icon based on section title or ID
 const getIcon = (title: string, id: string) => {
@@ -20,6 +22,7 @@ const getIcon = (title: string, id: string) => {
 export default function LegalLandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background font-poppins">
+      <Navbar />
       {/* Hero Section */}
       <div className="bg-background border-b pt-20 pb-16 px-6">
         <div className="max-w-5xl mx-auto text-center">
@@ -78,17 +81,7 @@ export default function LegalLandingPage() {
             ))}
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="border-t py-12 bg-white dark:bg-card">
-        <div className="max-w-5xl mx-auto px-6 text-center text-muted-foreground text-sm">
-            <p>© 2026 TRAC AI (PRIVATE) LIMITED. All rights reserved.</p>
-            <div className="flex justify-center gap-6 mt-4">
-                <Link href="/" className="hover:text-foreground">Home</Link>
-                <Link href="mailto:legal@trac.ai" className="hover:text-foreground">Contact Legal</Link>
-            </div>
-        </div>
-      </div>
+      <Footer />
     </div>
   );
 }

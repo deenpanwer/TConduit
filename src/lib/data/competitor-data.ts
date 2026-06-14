@@ -231,5 +231,190 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
         { name: "QuickBooks Online", replaces: "Accounting Module", costPerUserMonth: 30 }
       ]
     }
+  },
+  "hubstaff-pakistan": {
+    id: "hubstaff-pakistan",
+    name: "Hubstaff (Pakistan)",
+    domain: "hubstaff.com",
+    logo: "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://hubstaff.com&size=128",
+    seo: {
+      title: "Best Hubstaff Alternative in Pakistan with PKR Pricing | Trac AI",
+      description: "Tired of paying Hubstaff in USD? Discover Trac AI, the best Hubstaff alternative in Pakistan with screenshots, timesheets, and local bank transfers."
+    },
+    hero: {
+      painPoint: "Stop paying $25 USD/user when you can pay in PKR.",
+      headline: "The Best Hubstaff Alternative in Pakistan with PKR Local Billing",
+      validation: "Paying international subscriptions in USD from Pakistan has become a nightmare due to strict banking limits, card blockages, and volatile exchange rates. TRAC AI solves this by offering dedicated local PKR pricing starting at just Rs 1,500/user/month, payable via direct local bank transfer (HBL, Meezan, Alfalah, etc.). You get screenshots, timesheets, CRM, ATS, and chats in a single platform, saving over 80% on software bills."
+    },
+    primarySpecs: [
+      { label: "Base Monthly Price", competitorValue: "$25.00 / user (Rs 7,000+)", tracValue: "Rs 1,500 / user", isWin: true },
+      { label: "Local Bank Payments (PKR)", competitorValue: "No (Requires USD credit cards)", tracValue: "Yes (HBL, Meezan, Alfalah, etc.)", isWin: true },
+      { label: "State Bank Card Limits", competitorValue: "Blocked/Subject to international limits", tracValue: "Zero Limits (Direct PKR invoicing)", isWin: true },
+      { label: "All-in-One CRM, ATS, Bookkeeping", competitorValue: "No (Requires additional external apps)", tracValue: "Included Natively", isWin: true }
+    ],
+    personaStories: [
+      {
+        tabId: "softwarehouses",
+        tabLabel: "For Pakistani Software Houses",
+        title: "Scale your remote team without card payment blockages.",
+        description: "Software houses in Lahore, Karachi, and Islamabad face card transaction failures when paying USD subscription bills. Plus, the high exchange rate drains rupee profitability.",
+        competitorPain: "Hubstaff forces you to pay in USD on foreign credit cards, which frequently fail bank compliance blocks and cost over Rs 7,000 per seat.",
+        tracGain: "Pay locally in PKR, get tax-compliant invoices, and track remote developers with native screenshots, task boards, and automated client timesheets."
+      },
+      {
+        tabId: "bpos",
+        tabLabel: "For BPO & Call Centers",
+        title: "Complete agent tracking and shift rosters in PKR.",
+        description: "BPO agencies running remote campaigns require 24/7 accountability. Paying separate fees for time tracking, schedules, and chats is unsustainable under local margins.",
+        competitorPain: "Hubstaff adds massive overheads for call center agents, forcing you to purchase separate platforms for rosters and chat communication.",
+        tracGain: "Set shift schedules, track agent active screens, monitor client KPIs, and chat with team members in a single PKR plan."
+      }
+    ],
+    switchMatrix: [
+      {
+        painPoint: "USD Exchange Rate Fluctuations",
+        competitorShortcoming: "Your software costs go up every time the PKR depreciates against the USD. Budgeting becomes impossible.",
+        tracSolution: "TRAC AI guarantees flat, localized PKR pricing that remains stable, allowing you to project margins accurately."
+      },
+      {
+        painPoint: "International Transaction Card Blocks",
+        competitorShortcoming: "State Bank of Pakistan's strict policies on commercial cards cause payment declines on global sites.",
+        tracSolution: "Pay with local bank transfers or local card processing with direct tax-compliant local invoicing."
+      }
+    ],
+    featuresComparison: [
+      {
+        category: "Tracking & Local Compliance",
+        features: [
+          { name: "Screenshot Capture", description: "Automated random capture of agent screens.", tracVal: true, compVal: true },
+          { name: "Idle Time & Attendance", description: "Tracks active time vs away intervals.", tracVal: true, compVal: true },
+          { name: "PKR Bank Payments", description: "Accepts direct local bank transfers.", tracVal: true, compVal: false },
+          { name: "Tax Invoice (FBR)", description: "Local tax-compliant invoices for tax returns.", tracVal: true, compVal: false }
+        ]
+      }
+    ],
+    roiCalculator: {
+      competitorBasePrice: 25,
+      tracBasePrice: 5.35,
+      requiredExternalTools: [
+        { name: "HubSpot CRM", replaces: "CRM Module", costPerUserMonth: 150 },
+        { name: "Greenhouse / Ashby", replaces: "ATS Module", costPerUserMonth: 300 },
+        { name: "Slack Pro Plan", replaces: "Chats Module", costPerUserMonth: 8 }
+      ]
+    }
+  },
+  "hubstaff-india": {
+    id: "hubstaff-india",
+    name: "Hubstaff (India)",
+    domain: "hubstaff.com",
+    logo: "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://hubstaff.com&size=128",
+    seo: {
+      title: "Best Hubstaff Alternative in India with INR Pricing & GST | Trac AI",
+      description: "Tired of paying Hubstaff in USD? Discover Trac AI, the best Hubstaff alternative in India with screenshots, GST invoices, UPI, and local net banking."
+    },
+    hero: {
+      painPoint: "Stop paying $25 USD/user when you can pay in INR.",
+      headline: "The Best Hubstaff Alternative in India with INR localized Billing",
+      validation: "Indian IT companies, agencies, and software developers lose substantial margins to USD-to-INR conversion fees and international card processing charges. TRAC AI solves this by offering flat INR pricing starting at just ₹450/user/month, payable via local payment modes (UPI, Net Banking, credit/debit cards) with full GST tax compliance invoices. You get screenshot tracking, task boards, chats, CRM, ATS, and bookkeeping in a single flat rate, reducing overall SaaS tool costs by 80%."
+    },
+    primarySpecs: [
+      { label: "Base Monthly Price", competitorValue: "$25.00 / user (₹2,100+)", tracValue: "₹450 / user", isWin: true },
+      { label: "Local UPI/Net Banking (INR)", competitorValue: "No (Requires USD credit cards)", tracValue: "Yes (UPI, GPay, local banks)", isWin: true },
+      { label: "GST Tax Invoicing", competitorValue: "No", tracValue: "Yes (Full 18% GST invoice)", isWin: true },
+      { label: "All-in-One CRM, ATS, Bookkeeping", competitorValue: "No (Requires additional external apps)", tracValue: "Included Natively", isWin: true }
+    ],
+    personaStories: [
+      {
+        tabId: "softwarehouses",
+        tabLabel: "For Indian Software Houses",
+        title: "Scale your software agency with local INR invoicing.",
+        description: "IT exporters in Bangalore, Noida, Pune, and Hyderabad need tax compliance. Paying foreign subscriptions in USD makes GST reconciliation difficult.",
+        competitorPain: "Hubstaff charges in USD without localized Indian GST billing, leading to complex tax reconciliation issues.",
+        tracGain: "Receive standard Indian tax-compliant GST invoices, pay via local net banking, and track developers with native timesheets and screen captures."
+      }
+    ],
+    switchMatrix: [
+      {
+        painPoint: "High Subscription Costs & GST Reclaim",
+        competitorShortcoming: "Paying Hubstaff in USD means you cannot claim Input Tax Credit (ITC) easily since they don't supply localized GST invoices.",
+        tracSolution: "TRAC AI provides local Indian billing with full GST invoices, enabling simple ITC claims and tax compliance."
+      }
+    ],
+    featuresComparison: [
+      {
+        category: "Tracking & Local Compliance",
+        features: [
+          { name: "Screenshot Capture", description: "Automated random capture of agent screens.", tracVal: true, compVal: true },
+          { name: "Idle Time & Attendance", description: "Tracks active time vs away intervals.", tracVal: true, compVal: true },
+          { name: "UPI & Net Banking", description: "Accepts direct local Indian payments.", tracVal: true, compVal: false },
+          { name: "GST Invoice", description: "Local tax-compliant invoices for tax filings.", tracVal: true, compVal: false }
+        ]
+      }
+    ],
+    roiCalculator: {
+      competitorBasePrice: 25,
+      tracBasePrice: 5.40,
+      requiredExternalTools: [
+        { name: "HubSpot CRM", replaces: "CRM Module", costPerUserMonth: 150 },
+        { name: "Greenhouse / Ashby", replaces: "ATS Module", costPerUserMonth: 300 },
+        { name: "Slack Pro Plan", replaces: "Chats Module", costPerUserMonth: 8 }
+      ]
+    }
+  },
+  "hubstaff-uae": {
+    id: "hubstaff-uae",
+    name: "Hubstaff (UAE)",
+    domain: "hubstaff.com",
+    logo: "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://hubstaff.com&size=128",
+    seo: {
+      title: "Best Hubstaff Alternative in UAE with AED Pricing | Trac AI",
+      description: "Discover Trac AI, the best Hubstaff alternative in the UAE with screenshots, AED corporate billing, and local currency transfers."
+    },
+    hero: {
+      painPoint: "Stop paying $25 USD/user when you can pay in AED.",
+      headline: "The Best Hubstaff Alternative in the UAE with AED localized Billing",
+      validation: "Agencies and remote hubs operating in Dubai and Abu Dhabi benefit from localized pricing. TRAC AI offers dedicated local AED billing starting at just 20 AED/user/month, payable via direct local transfers or credit cards. You get high-fidelity screenshots, timesheets, CRM, ATS, and chats in a single flat rate, reducing overall SaaS tool costs by 80%."
+    },
+    primarySpecs: [
+      { label: "Base Monthly Price", competitorValue: "$25.00 / user (92 AED)", tracValue: "20 AED / user", isWin: true },
+      { label: "Local Corporate Transfer (AED)", competitorValue: "No (Requires USD credit cards)", tracValue: "Yes (AED local bank transfers)", isWin: true },
+      { label: "All-in-One CRM, ATS, Bookkeeping", competitorValue: "No (Requires additional external apps)", tracValue: "Included Natively", isWin: true }
+    ],
+    personaStories: [
+      {
+        tabId: "softwarehouses",
+        tabLabel: "For UAE Remote Teams",
+        title: "Scale your remote team in UAE with AED invoicing.",
+        description: "Companies in Dubai need tax compliance. Trac AI allows paying in AED, keeping payments aligned with local accounting procedures.",
+        competitorPain: "Hubstaff forces payment in USD, resulting in additional foreign exchange conversion fees.",
+        tracGain: "Invoiced directly in AED, allowing simple local accounting reconciliations and lower fees."
+      }
+    ],
+    switchMatrix: [
+      {
+        painPoint: "FX Conversion Fees",
+        competitorShortcoming: "Foreign card transactions incur up to 3% conversion markup on top of USD subscription costs.",
+        tracSolution: "TRAC AI bills flat in AED, eliminating all currency exchange surcharges and simplifying corporate audits."
+      }
+    ],
+    featuresComparison: [
+      {
+        category: "Tracking & Local Compliance",
+        features: [
+          { name: "Screenshot Capture", description: "Automated random capture of agent screens.", tracVal: true, compVal: true },
+          { name: "Idle Time & Attendance", description: "Tracks active time vs away intervals.", tracVal: true, compVal: true },
+          { name: "AED Card & Transfers", description: "Accepts direct local UAE payments.", tracVal: true, compVal: false }
+        ]
+      }
+    ],
+    roiCalculator: {
+      competitorBasePrice: 25,
+      tracBasePrice: 5.45,
+      requiredExternalTools: [
+        { name: "HubSpot CRM", replaces: "CRM Module", costPerUserMonth: 150 },
+        { name: "Greenhouse / Ashby", replaces: "ATS Module", costPerUserMonth: 300 },
+        { name: "Slack Pro Plan", replaces: "Chats Module", costPerUserMonth: 8 }
+      ]
+    }
   }
 };

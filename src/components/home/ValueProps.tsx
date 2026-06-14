@@ -45,10 +45,10 @@ export function ValueProps() {
             section.direction === "rtl" ? "md:flex-row-reverse" : ""
           )}>
             <div className="w-full md:w-[40%] shrink-0">
-              <h2 className="text-4xl md:text-7xl font-black tracking-tighter mb-8 leading-[0.9] italic uppercase">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tighter mb-8 leading-[0.9] italic uppercase break-words">
                 {section.title}
               </h2>
-              <p className="text-xl md:text-2xl text-muted-foreground font-medium max-w-xl leading-relaxed">
+              <p className="text-lg md:text-xl xl:text-2xl text-muted-foreground font-medium max-w-xl leading-relaxed">
                 {section.description}
               </p>
             </div>

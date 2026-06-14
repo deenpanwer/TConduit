@@ -135,7 +135,7 @@ export default function ReviewsPage() {
       },
       "publisher": {
         "@type": "Organization",
-        "name": "TRAC AI (PRIVATE) LIMITED"
+        "name": "TRAC AI LLC"
       }
     }))
   };

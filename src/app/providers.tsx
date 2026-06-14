@@ -42,7 +42,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
 
     if (isProd) {
       import('@microsoft/clarity').then(({ default: cl }) => {
-        cl.init('twaztmnjmm');
+        cl.init('x6jl3vpqzd');
       });
     }
   }, []);

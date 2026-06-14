@@ -1,9 +1,12 @@
 import React from 'react';
+import { Navbar } from '@/components/home/Navbar';
+import { Footer } from '@/components/home/Footer';
 
 const OwnershipStatementPage = () => {
   return (
     <div className="bg-background min-h-screen">
-      <div className="container mx-auto px-4 py-8">
+      <Navbar />
+      <div className="container mx-auto px-4 py-20">
         <h1 className="text-3xl font-bold mb-4 text-foreground">Ownership Statement</h1>
         <p className="text-muted-foreground mb-8">Last Updated: April 26, 2026</p>
 
@@ -22,6 +25,7 @@ const OwnershipStatementPage = () => {
           </p>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
     // Send Emergency Pushover Notification
     try {
-      const PUSHOVER_USER = 'uj9fnutvd6k69fjmc3h86kqta1rck3';
-      const PUSHOVER_TOKEN = 'airu99cyutatoy28gm1mtmt6atjmfx';
+      const PUSHOVER_USER = 'usb39vmu32jukckmqt2bt1xeszag19';
+      const PUSHOVER_TOKEN = 'avt1wocu8nramykb9v3bq287v4xyhe';
 
       const pushoverRes = await fetch('https://api.pushover.net/1/messages.json', {
         method: 'POST',

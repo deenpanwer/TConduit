@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { PricingNavbar } from '@/components/ui/pricing-navbar';
 
 // Simplified schema: Everything is optional, no regex
 const contactSchema = z.object({
@@ -27,6 +28,7 @@ const contactSchema = z.object({
   company: z.string().optional(),
   subject: z.string().optional(),
   message: z.string().optional(),
+  smsConsent: z.boolean().optional(),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -68,13 +70,15 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-poppins overflow-hidden">
+      <PricingNavbar />
+      
       {/* Subtle Background Elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
       </div>
 
-      <div className="container mx-auto px-4 py-12 md:py-24 relative z-10">
+      <div className="container mx-auto px-4 pt-36 pb-12 md:pt-44 md:pb-24 relative z-10">
         {/* Navigation */}
         <motion.div 
           initial={{ opacity: 0, x: -10 }}
@@ -132,8 +136,8 @@ export default function ContactPage() {
                   { 
                     icon: MapPin, 
                     label: 'Office', 
-                    value: 'Gulshan-e-Hadeed, Karachi', 
-                    href: '#' 
+                    value: 'Louisiana Blvd NE, Albuquerque, NM', 
+                    href: 'https://www.google.com/maps/place/Traconomics/@36.1228082,-86.7917479,17z/data=!3m1!4b1!4m6!3m5!1s0x886465000efe04e9:0x3a2317f60aeee3d0!8m2!3d36.1228039!4d-86.789173!16s%2Fg%2F11mkg7ynh4?entry=ttu&g_ep=EgoyMDI2MDYxMC4wIKXMDSoASAFQAw%3D%3D' 
                   }
                 ].map((item, idx) => (
                   <motion.div
@@ -253,6 +257,23 @@ export default function ContactPage() {
                             />
                           </div>
 
+                          <div className="flex items-start gap-3 bg-muted/20 p-4 rounded-2xl border border-border/20">
+                            <input 
+                              type="checkbox" 
+                              id="smsConsent"
+                              {...register('smsConsent')}
+                              className="mt-1 size-4 rounded border-border/60 text-primary focus:ring-primary/50 cursor-pointer"
+                            />
+                            <div className="space-y-1">
+                              <Label htmlFor="smsConsent" className="text-xs font-bold uppercase tracking-wider cursor-pointer">
+                                Opt-in to SMS Notifications
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                By checking this box and submitting this form, you consent to receive automated SMS/text messages from TRAC AI LLC regarding your inquiry and support. Message frequency varies. Msg & data rates may apply. Reply STOP to opt-out. See our <Link href="/privacy-policy" className="underline hover:text-primary">Privacy Policy</Link> and <Link href="/terms-of-service" className="underline hover:text-primary">Terms of Service</Link>.
+                              </p>
+                            </div>
+                          </div>
+
                           <Button 
                             type="submit" 
                             disabled={isSubmitting}
@@ -305,10 +326,10 @@ export default function ContactPage() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 opacity-60 text-[10px] font-bold uppercase tracking-widest">
           <div className="flex items-center gap-2">
             <Building2 size={16} />
-            <span>TRAC AI (PRIVATE) LIMITED</span>
+            <span>TRAC AI LLC</span>
           </div>
           <div className="flex gap-8">
-            <span>Karachi</span>
+            <span>New Mexico</span>
             <span>London</span>
             <span>New York</span>
           </div>

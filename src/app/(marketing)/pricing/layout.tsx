@@ -9,8 +9,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Pricing | TRAC AI',
-  description: 'Simple, transparent pricing for your team.',
+  title: 'Pricing & Plans | TRAC AI Business Operating System',
+  description: 'View simple and transparent pricing plans for Trac AI. Find the perfect tier for your team to unlock CRM, POS, ATS, and advanced workforce management.',
 };
 
 export default function PricingLayout({

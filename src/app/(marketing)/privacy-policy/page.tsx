@@ -1,10 +1,19 @@
 import React from 'react';
 import Link from 'next/link';
+import { Metadata } from 'next';
 import { Shield, Lock, Eye, Server, UserCheck, ChevronLeft } from 'lucide-react';
+import { Navbar } from '@/components/home/Navbar';
+import { Footer } from '@/components/home/Footer';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy | TRAC AI Data Security & Protection',
+  description: 'Read the Trac AI Privacy Policy to understand how we collect, use, store, and protect your personal data and business information in our operating system.',
+};
 
 const PrivacyPolicyPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground font-poppins">
+      <Navbar />
       {/* Header */}
       <header className="relative py-24 bg-secondary/30 overflow-hidden border-b border-border/50">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-50">
@@ -53,10 +62,13 @@ const PrivacyPolicyPage = () => {
             
             <h2>1. Introduction</h2>
             <p>
-              a. This privacy policy ("Privacy Policy") applies to the collection and processing of personal data ("Personal Data") by <strong>TRAC AI (PRIVATE) LIMITED</strong> in connection with our website. This Privacy Policy will help you understand how we collect and use your Personal Data and what we do with it.
+              a. This privacy policy ("Privacy Policy") applies to the collection and processing of personal data ("Personal Data") by <strong>TRAC AI LLC</strong> in connection with our website. This Privacy Policy will help you understand how we collect and use your Personal Data and what we do with it.
             </p>
             <p>
               b. By visiting our website and/ or purchasing something from us, you agree to us handling your Personal Data in accordance with this Privacy Policy.
+            </p>
+            <p>
+              c. <strong>Mobile Sharing Disclaimer:</strong> Mobile phone numbers collected for SMS/text messaging purposes and consent will not be shared with third parties or affiliates for marketing or promotional purposes. All of the sharing categories below exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.
             </p>
 
             <h2>2. Personal data that we collect</h2>
@@ -157,6 +169,7 @@ const PrivacyPolicyPage = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

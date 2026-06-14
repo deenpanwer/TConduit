@@ -227,7 +227,7 @@ export default function FeaturesPage() {
     "serviceType": "Business Software Operating System",
     "provider": {
       "@type": "Organization",
-      "name": "TRAC AI (PRIVATE) LIMITED",
+      "name": "TRAC AI LLC",
       "logo": "https://www.heytracai.com/trac-ai-logo.png"
     },
     "name": "TRAC AI Product Suite",
@@ -306,7 +306,7 @@ export default function FeaturesPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       },
       {
@@ -325,7 +325,7 @@ export default function FeaturesPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       },
       {
@@ -344,7 +344,7 @@ export default function FeaturesPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       }
     ]

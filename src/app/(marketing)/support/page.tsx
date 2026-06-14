@@ -1,20 +1,13 @@
 import React from 'react';
-import { ArrowLeft, Search, LifeBuoy, Users, CheckSquare, MessageSquare, Clock, ShoppingCart } from 'lucide-react';
+import { Search, LifeBuoy, Users, CheckSquare, MessageSquare, Clock, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { Navbar } from '@/components/home/Navbar';
+import { Footer } from '@/components/home/Footer';
 
 const SupportPage = () => {
   return (
     <div className="bg-background text-foreground min-h-screen">
-      <header className="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b border-border">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft size={16} />
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
         {/* Hero Section */}
@@ -137,6 +130,7 @@ const SupportPage = () => {
         </section>
 
       </main>
+      <Footer />
     </div>
   );
 };

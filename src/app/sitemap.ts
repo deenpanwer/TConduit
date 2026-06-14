@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { legalSections } from '@/lib/legal-data';
+import { COMPETITORS_CONFIG } from '@/lib/data/competitor-data';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://www.heytracai.com';
@@ -25,6 +26,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/privacy-policy',
     '/terms-of-service',
     '/legal',
+    '/best-employee-monitoring-software-pakistan',
+    '/best-employee-monitoring-software-india',
+    '/best-employee-productivity-tracking-dubai',
+    '/alternative',
+    '/best-ems-software',
+    '/best-lead-finder',
   ];
 
   // 19 Public Marketing Apps Routes (Keyword-targeted Gem Landing Pages)
@@ -87,8 +94,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }))
   );
 
+  // Dynamic competitor alternative routes
+  const competitorRoutes = Object.keys(COMPETITORS_CONFIG).map((competitor) => ({
+    url: `${baseUrl}/alternative/${competitor}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }));
+
   return [
     ...staticRoutes,
+    ...competitorRoutes,
     ...legalRoutes,
   ];
 }

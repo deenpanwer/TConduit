@@ -120,7 +120,12 @@ export function Footer() {
             </div>
 
             <div>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-zinc-500 dark:text-zinc-400">Compare</h3>
+              <Link 
+                href="/alternative" 
+                className="group flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-zinc-500 dark:text-zinc-400 hover:text-primary transition-colors"
+              >
+                Compare <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
+              </Link>
               <div className="flex flex-col gap-4">
                 {COMPARE_LINKS.map((link) => (
                   <Link 
@@ -141,7 +146,11 @@ export function Footer() {
                   <Link 
                     key={link.name} 
                     href={link.href}
-                    className="text-[11px] font-black uppercase tracking-widest hover:text-primary transition-colors text-zinc-700 dark:text-zinc-300"
+                    className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
+                      link.name === 'Contact Us' 
+                        ? 'text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300' 
+                        : 'text-zinc-700 dark:text-zinc-300 hover:text-primary'
+                    }`}
                   >
                     {link.name}
                   </Link>
@@ -187,7 +196,7 @@ export function Footer() {
 
              <div className="flex items-center gap-6">
                 <span className="text-[11px] font-bold tracking-tight text-zinc-500 dark:text-zinc-400">
-                  &copy; 2026 <span className="text-zinc-900 dark:text-white font-black">TRAC AI (PRIVATE) LIMITED</span>. All rights reserved.
+                  &copy; 2026 <span className="text-zinc-900 dark:text-white font-black">TRAC AI LLC</span>. All rights reserved.
                 </span>
              </div>
           </div>

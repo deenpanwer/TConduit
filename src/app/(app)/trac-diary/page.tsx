@@ -109,7 +109,7 @@ export default function TracDiaryDownloadPage() {
     "softwareVersion": version,
     "publisher": {
       "@type": "Organization",
-      "name": "TRAC AI (PRIVATE) LIMITED",
+      "name": "TRAC AI LLC",
       "logo": "https://www.heytracai.com/trac-ai-logo.png"
     },
     "sameAs": [

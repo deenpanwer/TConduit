@@ -750,7 +750,7 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Infrastructure Optimized for Global Founders | Global Standards • Local Reliability • 2026</p>
           </div>
           <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-            © 2026 TRAC AI (PRIVATE) LIMITED. All rights reserved.
+            © 2026 TRAC AI LLC. All rights reserved.
           </p>
         </div>
       </footer>

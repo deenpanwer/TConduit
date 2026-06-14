@@ -1,10 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { FileText, Shield, MapPin, Phone, Mail, Scale } from 'lucide-react';
+import { Navbar } from '@/components/home/Navbar';
+import { Footer } from '@/components/home/Footer';
 
 const TermsOfServicePage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
       {/* Header */}
       <header className="relative py-24 bg-secondary/30 overflow-hidden border-b border-border/50">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-50">
@@ -32,7 +35,11 @@ const TermsOfServicePage = () => {
                 <MapPin className="text-primary" size={24} />
               </div>
               <h3 className="text-xs font-black uppercase tracking-widest mb-2">Registered Office</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <a href="https://www.google.com/maps/place/Traconomics/@36.1228082,-86.7917479,17z/data=!3m1!4b1!4m6!3m5!1s0x886465000efe04e9:0x3a2317f60aeee3d0!8m2!3d36.1228039!4d-86.789173!16s%2Fg%2F11mkg7ynh4?entry=ttu&g_ep=EgoyMDI2MDYxMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113
+                </a>
+              </p>
             </div>
             <div className="bg-card border border-border/60 p-6 rounded-2xl flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
               <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -59,7 +66,7 @@ const TermsOfServicePage = () => {
             
             <h2>1. Introduction</h2>
             <p>
-              a. This website is owned and operated by <strong>TRAC AI (PRIVATE) LIMITED</strong> (hereinafter and throughout this website referred to as "we", "us" and "our"). Our registered office is at A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan. Our principal place of business is located at A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan.
+              a. This website is owned and operated by <strong>TRAC AI LLC</strong> (hereinafter and throughout this website referred to as "we", "us" and "our"). Our registered office is at Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113. Our principal place of business is located at Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113.
             </p>
             <p>
               b. We offer this website, including all information, tools, products and services available from this website to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.
@@ -98,7 +105,7 @@ const TermsOfServicePage = () => {
 
             <h2>4. Intellectual Property</h2>
             <p>
-              This website and its related software and content (including images and designs) are the intellectual property of and is exclusively owned by us. The structure, organization, and code of the website and its related software contain valuable trade secrets and confidential information of <strong>TRAC AI (PRIVATE) LIMITED</strong>. Except as expressly stated herein, these terms and conditions do not grant you any intellectual property rights whatsoever in the website and its related software and all rights are reserved by <strong>TRAC AI (PRIVATE) LIMITED</strong>.
+              This website and its related software and content (including images and designs) are the intellectual property of and is exclusively owned by us. The structure, organization, and code of the website and its related software contain valuable trade secrets and confidential information of <strong>TRAC AI LLC</strong>. Except as expressly stated herein, these terms and conditions do not grant you any intellectual property rights whatsoever in the website and its related software and all rights are reserved by <strong>TRAC AI LLC</strong>.
             </p>
 
             <h2>5. Indemnity and Limitation of Liability</h2>
@@ -136,7 +143,7 @@ const TermsOfServicePage = () => {
 
             <h2>8. Governing Law</h2>
             <p>
-              Our Terms and Conditions are governed by the laws of the Islamic Republic of Pakistan and you agree that the courts of <strong>Karachi</strong> (including any consumer court) will have exclusive jurisdiction in any dispute that you have with us.
+              Our Terms and Conditions are governed by the laws of the State of New Mexico, United States and you agree that the courts of <strong>Albuquerque, New Mexico</strong> will have exclusive jurisdiction in any dispute that you have with us.
             </p>
 
             <h2>9. WhatsApp Messaging Terms</h2>
@@ -173,6 +180,7 @@ const TermsOfServicePage = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

@@ -45,7 +45,7 @@ export default function TimeTrackingPage() {
     },
     "publisher": {
       "@type": "Organization",
-      "name": "TRAC AI (PRIVATE) LIMITED",
+      "name": "TRAC AI LLC",
       "logo": "https://www.heytracai.com/trac-ai-logo.png"
     },
     "description": "High-performance time tracker and productivity manager, automatically logging activity timelines and syncing with task boards for seamless remote and onsite payroll management.",

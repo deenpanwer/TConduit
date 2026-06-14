@@ -1,10 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { RefreshCcw, XCircle, CreditCard, Mail, Phone, ChevronLeft } from 'lucide-react';
+import { Navbar } from '@/components/home/Navbar';
+import { Footer } from '@/components/home/Footer';
 
 const CancellationRefundPolicyPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground font-poppins">
+      <Navbar />
       {/* Header */}
       <header className="relative py-24 bg-secondary/30 overflow-hidden border-b border-border/50">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-50">
@@ -86,7 +89,7 @@ const CancellationRefundPolicyPage = () => {
             <ul>
               <li><strong>Email:</strong> info@heytracai.com</li>
               <li><strong>Phone:</strong> +923178005465</li>
-              <li><strong>Address:</strong> A-1877, Phase 2, Gulshan-e-Hadeed, Karachi, Sindh, Pakistan</li>
+              <li><strong>Address:</strong> <a href="https://www.google.com/maps/place/Traconomics/@36.1228082,-86.7917479,17z/data=!3m1!4b1!4m6!3m5!1s0x886465000efe04e9:0x3a2317f60aeee3d0!8m2!3d36.1228039!4d-86.789173!16s%2Fg%2F11mkg7ynh4?entry=ttu&g_ep=EgoyMDI2MDYxMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" className="hover:underline">Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113</a></li>
             </ul>
           </div>
           
@@ -98,6 +101,7 @@ const CancellationRefundPolicyPage = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

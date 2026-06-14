@@ -19,14 +19,16 @@ export default function LandingPage() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "TRAC AI (PRIVATE) LIMITED",
+    "name": "TRAC AI LLC",
     "alternateName": ["TRAC AI", "Trac AI"],
     "url": "https://www.heytracai.com",
     "logo": "https://www.heytracai.com/trac-ai-logo.png",
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": "Karachi",
-      "addressCountry": "PK"
+      "addressLocality": "Albuquerque",
+      "addressRegion": "NM",
+      "postalCode": "87113",
+      "addressCountry": "US"
     },
     "brand": {
       "@type": "Brand",
@@ -81,7 +83,7 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       },
       {
@@ -100,7 +102,7 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       },
       {
@@ -119,7 +121,7 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI (PRIVATE) LIMITED"
+          "name": "TRAC AI LLC"
         }
       }
     ]
