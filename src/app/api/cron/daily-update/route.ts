@@ -176,23 +176,31 @@ async function executeUpdate() {
 
     const tasksDoneCount = completedTasksToday.length;
 
-    // B. CRM Leads (Try Timestamp, fallback to String)
-    const crmRef = db.collection("organizations").doc(orgId).collection("crm");
-    let leadsCount = 0;
+    // B. CRM Deals Created Today (Try Timestamp, fallback to String, with createdDate fallback)
+    const crmRef = db.collection("organizations").doc(orgId).collection("crm_entities");
+    let dealsCount = 0;
 
-    const leadsTsSnap = await crmRef
-      .where("type", "==", "lead")
+    const dealsTsSnap = await crmRef
+      .where("type", "==", "deal")
       .where("createdAt", ">=", startOfTodayTimestamp)
       .get();
     
-    if (leadsTsSnap.size > 0) {
-        leadsCount = leadsTsSnap.size;
+    if (dealsTsSnap.size > 0) {
+        dealsCount = dealsTsSnap.size;
     } else {
-        const leadsIsoSnap = await crmRef
-            .where("type", "==", "lead")
+        const dealsIsoSnap = await crmRef
+            .where("type", "==", "deal")
             .where("createdAt", ">=", startOfTodayIso)
             .get();
-        leadsCount = leadsIsoSnap.size;
+        dealsCount = dealsIsoSnap.size;
+    }
+
+    if (dealsCount === 0) {
+        const dealsDateSnap = await crmRef
+            .where("type", "==", "deal")
+            .where("createdDate", "==", todayDateStr)
+            .get();
+        dealsCount = dealsDateSnap.size;
     }
 
     // C. EMS Total Hours (ISO String startTime is the standard here)
@@ -236,7 +244,7 @@ async function executeUpdate() {
                     type: "body",
                     parameters: [
                         { type: "text", text: String(tasksDoneCount) },
-                        { type: "text", text: String(leadsCount) },
+                        { type: "text", text: String(dealsCount) },
                         { type: "text", text: String(totalHoursToday) }
                     ]
                 }
@@ -264,7 +272,7 @@ async function executeUpdate() {
 
         results.push({ 
             org: orgData.name, 
-            metrics: { tasksDoneCount, leadsCount, totalHoursToday },
+            metrics: { tasksDoneCount, dealsCount: dealsCount, totalHoursToday },
             completedTasksToday,
             completedSubtasksToday,
             waStatus 
@@ -283,7 +291,7 @@ async function executeUpdate() {
       pushMsg += `📈 METRICS SENT:\n`;
       pushMsg += `• Tasks Done: ${tasksDoneCount}\n`;
       pushMsg += `• Subtasks Done: ${completedSubtasksToday.length}\n`;
-      pushMsg += `• CRM Leads: ${leadsCount}\n`;
+      pushMsg += `• CRM Deals Created: ${dealsCount}\n`;
       pushMsg += `• EMS Hours: ${totalHoursToday}h\n\n`;
 
       if (completedTasksToday.length > 0) {

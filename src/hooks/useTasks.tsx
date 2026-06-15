@@ -29,7 +29,7 @@ import {
 import { useAuth } from "./use-auth";
 import { requestNotificationPermission, sendBrowserNotification, subscribeUserToPush } from "@/lib/notifications";
 import { toast } from "sonner";
-import { getISOWeek, getYear } from "date-fns";
+import { getISOWeek, getYear, format } from "date-fns";
 
 // --- 1. Types & Constants ---
 
@@ -77,6 +77,9 @@ export interface Subtask {
   title: string;
   completed: boolean;
   completedBy?: string | null; 
+  completedByName?: string | null;
+  completedAt?: string | null;
+  completedDate?: string | null;
   pointsAwarded?: number; // The exact points given for this subtask
   descriptions?: NestedDescription[];
   resources?: Resource[];
@@ -160,6 +163,10 @@ export interface Task {
   leaderPoints?: number; // Total points for this task
   deadlineHours?: number; // Estimated hours to complete
   flaggedPointsAwarded?: number; // Points given for final completion
+  completedBy?: string | null;
+  completedByName?: string | null;
+  completedAt?: string | null;
+  completedDate?: string | null;
   createdAt: any;
   updatedAt: any;
 }
@@ -784,46 +791,72 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       // --- Point Awarding Logic (Keep this but maybe it needs to be careful with debouncing) ---
       // For now, we'll keep it as is, but it will be part of the pending update.
-      if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
-        if (updates.subtasks && JSON.stringify(updates.subtasks) !== JSON.stringify(currentTask.subtasks)) {
-            const oldSubs = currentTask.subtasks || [];
-            const newSubs = [...updates.subtasks];
-            const pointsPerSub = currentTask.leaderPoints / (oldSubs.length || 1);
-            
-            newSubs.forEach((sub, idx) => {
-                const oldSub = oldSubs.find((s: Subtask) => s.id === sub.id);
-                if (oldSub) {
-                    if (!oldSub.completed && sub.completed) {
-                        sub.pointsAwarded = pointsPerSub;
-                        sub.completedBy = user.uid;
-                        awardPointsToUser(user.uid, pointsPerSub, taskId, currentTask.title, `Completed subtask: ${sub.title}`, 'subtask');
-                    } else if (oldSub.completed && !sub.completed) {
-                        const earner = oldSub.completedBy || user.uid;
-                        const deduction = oldSub.pointsAwarded || pointsPerSub;
-                        awardPointsToUser(earner, -deduction, taskId, currentTask.title, `Unchecked subtask: ${sub.title}`, 'subtask');
-                        sub.pointsAwarded = 0;
-                        sub.completedBy = null;
-                    }
-                }
-            });
-            cleanUpdates.subtasks = newSubs;
+      // 1. Completion metadata for parent task completion
+      if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
+        if (updates.flagged === true) {
+          cleanUpdates.completedBy = user.uid;
+          cleanUpdates.completedByName = userData?.name || user.displayName || user.email || 'Employee';
+          cleanUpdates.completedAt = new Date().toISOString();
+          cleanUpdates.completedDate = format(new Date(), 'yyyy-MM-dd');
+        } else {
+          cleanUpdates.completedBy = null;
+          cleanUpdates.completedByName = null;
+          cleanUpdates.completedAt = null;
+          cleanUpdates.completedDate = null;
         }
+      }
 
-        if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
-            if (updates.flagged === true) {
-                const awardedSoFar = (currentTask.subtasks || []).reduce((acc: number, s: Subtask) => acc + (s.pointsAwarded || 0), 0);
-                const remainingPoints = Math.max(0, currentTask.leaderPoints - awardedSoFar);
-                if (remainingPoints > 0) {
-                    awardPointsToUser(user.uid, remainingPoints, taskId, currentTask.title, `Marked task as complete`, 'full_completion');
-                    (cleanUpdates as any).flaggedPointsAwarded = remainingPoints;
-                }
-            } else if (updates.flagged === false) {
-                const deduction = currentTask.flaggedPointsAwarded || 0;
-                if (deduction > 0) {
-                    awardPointsToUser(user.uid, -deduction, taskId, currentTask.title, `Unmarked task as complete`, 'full_completion');
-                    (cleanUpdates as any).flaggedPointsAwarded = 0;
-                }
+      // 2. Point Awarding Logic & Subtask metadata
+      if (updates.subtasks && JSON.stringify(updates.subtasks) !== JSON.stringify(currentTask.subtasks)) {
+        const oldSubs = currentTask.subtasks || [];
+        const newSubs = [...updates.subtasks];
+        const pointsPerSub = (currentTask.leaderPoints || 0) / (oldSubs.length || 1);
+        
+        newSubs.forEach((sub, idx) => {
+          const oldSub = oldSubs.find((s: Subtask) => s.id === sub.id);
+          if (oldSub) {
+            if (!oldSub.completed && sub.completed) {
+              if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
+                sub.pointsAwarded = pointsPerSub;
+                awardPointsToUser(user.uid, pointsPerSub, taskId, currentTask.title, `Completed subtask: ${sub.title}`, 'subtask');
+              }
+              sub.completedBy = user.uid;
+              sub.completedByName = userData?.name || user.displayName || user.email || 'Employee';
+              sub.completedAt = new Date().toISOString();
+              sub.completedDate = format(new Date(), 'yyyy-MM-dd');
+            } else if (oldSub.completed && !sub.completed) {
+              if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
+                const earner = oldSub.completedBy || user.uid;
+                const deduction = oldSub.pointsAwarded || pointsPerSub;
+                awardPointsToUser(earner, -deduction, taskId, currentTask.title, `Unchecked subtask: ${sub.title}`, 'subtask');
+                sub.pointsAwarded = 0;
+              }
+              sub.completedBy = null;
+              sub.completedByName = null;
+              sub.completedAt = null;
+              sub.completedDate = null;
             }
+          }
+        });
+        cleanUpdates.subtasks = newSubs;
+      }
+
+      if (currentTask.leaderPoints && currentTask.leaderPoints > 0) {
+        if (updates.flagged !== undefined && updates.flagged !== currentTask.flagged) {
+          if (updates.flagged === true) {
+            const awardedSoFar = (currentTask.subtasks || []).reduce((acc: number, s: Subtask) => acc + (s.pointsAwarded || 0), 0);
+            const remainingPoints = Math.max(0, currentTask.leaderPoints - awardedSoFar);
+            if (remainingPoints > 0) {
+              awardPointsToUser(user.uid, remainingPoints, taskId, currentTask.title, `Marked task as complete`, 'full_completion');
+              (cleanUpdates as any).flaggedPointsAwarded = remainingPoints;
+            }
+          } else if (updates.flagged === false) {
+            const deduction = currentTask.flaggedPointsAwarded || 0;
+            if (deduction > 0) {
+              awardPointsToUser(user.uid, -deduction, taskId, currentTask.title, `Unmarked task as complete`, 'full_completion');
+              (cleanUpdates as any).flaggedPointsAwarded = 0;
+            }
+          }
         }
       }
 

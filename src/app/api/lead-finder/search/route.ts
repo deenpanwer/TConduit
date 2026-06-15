@@ -8,6 +8,20 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const corsHeaders = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const { orgId, pullState, pullIndustry, pullKeyword, pullCount, existingIds } = await req.json();
@@ -15,7 +29,7 @@ export async function POST(req: Request) {
     if (!orgId) {
       return new Response(JSON.stringify({ error: "Missing Organization ID" }), {
         status: 400,
-        headers: { "Content-Type": "application/json" }
+        headers: corsHeaders,
       });
     }
 
@@ -23,7 +37,7 @@ export async function POST(req: Request) {
     if (!admin) {
       return new Response(JSON.stringify({ error: "Firebase Admin configuration missing" }), {
         status: 500,
-        headers: { "Content-Type": "application/json" }
+        headers: corsHeaders,
       });
     }
 
@@ -34,7 +48,7 @@ export async function POST(req: Request) {
     if (!orgSnap.exists) {
       return new Response(JSON.stringify({ error: "Organization not found" }), {
         status: 404,
-        headers: { "Content-Type": "application/json" }
+        headers: corsHeaders,
       });
     }
 
@@ -47,10 +61,22 @@ export async function POST(req: Request) {
     const leadFinderConfig = orgData.leadFinder || {};
     const customLimit = leadFinderConfig.customLimit;
 
-    // Track active usage counts
-    const leadsUsed = orgData.leadFinderLeadsUsed !== undefined 
-      ? orgData.leadFinderLeadsUsed 
-      : (leadFinderConfig.leadsUsed || 0);
+    // Resolve monthly usage tracking subcollection document (Option B)
+    const currentMonthKey = new Date().toISOString().slice(0, 7); // e.g. "2026-06"
+    const usageDocRef = orgDocRef.collection("leadFinderUsage").doc(currentMonthKey);
+    const usageSnap = await usageDocRef.get();
+
+    let leadsUsed = 0;
+    if (usageSnap.exists) {
+      leadsUsed = usageSnap.data()?.leadsUsed || 0;
+    } else {
+      // DEPRECATED BACKWARD COMPATIBILITY BLOCK
+      // TODO: Remove this block after the current month ends (e.g. July 2026).
+      // Fallback to reading the old global organization document properties if monthly doc does not exist yet.
+      leadsUsed = orgData.leadFinderLeadsUsed !== undefined 
+        ? orgData.leadFinderLeadsUsed 
+        : (leadFinderConfig.leadsUsed || 0);
+    }
 
     // Calculate active quota limit
     let quotaLimit = 1500; // Freemium Limit
@@ -74,7 +100,7 @@ export async function POST(req: Request) {
         }), 
         {
           status: 403,
-          headers: { "Content-Type": "application/json" }
+          headers: corsHeaders,
         }
       );
     }
@@ -177,11 +203,20 @@ export async function POST(req: Request) {
 
     if (pulledLeads.length > 0) {
       const FieldValue = admin.firestore.FieldValue;
+      
+      // Update monthly subcollection doc (Option B)
+      await usageDocRef.set({
+        leadsUsed: FieldValue.increment(pulledLeads.length),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // DEPRECATED BACKWARD COMPATIBILITY BLOCK
+      // TODO: Remove this block after the current month ends.
+      // Update the old global org fields to keep counts aligned during the migration phase
       const updateData: Record<string, any> = {
         leadFinderLeadsUsed: FieldValue.increment(pulledLeads.length),
         "leadFinder.leadsUsed": FieldValue.increment(pulledLeads.length)
       };
-      
       await orgDocRef.update(updateData);
     }
 
@@ -195,14 +230,14 @@ export async function POST(req: Request) {
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: corsHeaders,
       }
     );
   } catch (error: any) {
     console.error("[Lead Finder API Error]:", error);
     return new Response(JSON.stringify({ error: "Failed to search B2B prospects", details: error.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: corsHeaders,
     });
   }
 }

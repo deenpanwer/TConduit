@@ -252,7 +252,7 @@ function SuperviseFeedItem({
               {currentError ? (
                 <p className="text-[10px] text-red-400 truncate">{currentError}</p>
               ) : (
-                <p className="text-[10px] text-white/80">
+                <p className="text-[10px] text-foreground/80">
                   {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected today." : "No history available.") : "")}
                 </p>
               )}

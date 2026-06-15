@@ -14,6 +14,7 @@ import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useLeadFinderStore, LeadFinderLead } from "@/store/use-lead-finder-store";
 import { DealModal } from "@/components/crm/forms/DealModal";
+import { OutreachSetupModal } from "@/components/OutreachSetupModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,33 +50,92 @@ const US_STATES = [
   { value: "DE", label: "DE - Delaware" },
   { value: "FL", label: "FL - Florida" },
   { value: "GA", label: "GA - Georgia" },
+  { value: "HI", label: "HI - Hawaii" },
+  { value: "ID", label: "ID - Idaho" },
   { value: "IL", label: "IL - Illinois" },
   { value: "IN", label: "IN - Indiana" },
-  { value: "MA", label: "MA - Georgia" },
+  { value: "IA", label: "IA - Iowa" },
+  { value: "KS", label: "KS - Kansas" },
+  { value: "KY", label: "KY - Kentucky" },
+  { value: "LA", label: "LA - Louisiana" },
+  { value: "ME", label: "ME - Maine" },
+  { value: "MD", label: "MD - Maryland" },
+  { value: "MA", label: "MA - Massachusetts" },
   { value: "MI", label: "MI - Michigan" },
   { value: "MN", label: "MN - Minnesota" },
+  { value: "MS", label: "MS - Mississippi" },
+  { value: "MO", label: "MO - Missouri" },
+  { value: "MT", label: "MT - Montana" },
+  { value: "NE", label: "NE - Nebraska" },
+  { value: "NV", label: "NV - Nevada" },
+  { value: "NH", label: "NH - New Hampshire" },
   { value: "NJ", label: "NJ - New Jersey" },
+  { value: "NM", label: "NM - New Mexico" },
   { value: "NY", label: "NY - New York" },
   { value: "NC", label: "NC - North Carolina" },
+  { value: "ND", label: "ND - North Dakota" },
   { value: "OH", label: "OH - Ohio" },
+  { value: "OK", label: "OK - Oklahoma" },
+  { value: "OR", label: "OR - Oregon" },
   { value: "PA", label: "PA - Pennsylvania" },
+  { value: "RI", label: "RI - Rhode Island" },
+  { value: "SC", label: "SC - South Carolina" },
+  { value: "SD", label: "SD - South Dakota" },
+  { value: "TN", label: "TN - Tennessee" },
   { value: "TX", label: "TX - Texas" },
+  { value: "UT", label: "UT - Utah" },
+  { value: "VT", label: "VT - Vermont" },
   { value: "VA", label: "VA - Virginia" },
   { value: "WA", label: "WA - Washington" },
+  { value: "WV", label: "WV - West Virginia" },
+  { value: "WI", label: "WI - Wisconsin" },
+  { value: "WY", label: "WY - Wyoming" },
+  { value: "DC", label: "DC - Washington D.C." },
+  { value: "AS", label: "AS - American Samoa" },
+  { value: "GU", label: "GU - Guam" },
+  { value: "PR", label: "PR - Puerto Rico" },
+  { value: "VI", label: "VI - Virgin Islands" },
+  { value: "AB", label: "AB - Alberta (Canada)" },
+  { value: "BC", label: "BC - British Columbia (Canada)" },
+  { value: "MB", label: "MB - Manitoba (Canada)" },
+  { value: "NB", label: "NB - New Brunswick (Canada)" },
+  { value: "NL", label: "NL - Newfoundland (Canada)" },
+  { value: "NS", label: "NS - Nova Scotia (Canada)" },
+  { value: "NT", label: "NT - NW Territories (Canada)" },
+  { value: "ON", label: "ON - Ontario (Canada)" },
+  { value: "PE", label: "PE - Prince Edward Island" },
+  { value: "QC", label: "QC - Quebec (Canada)" },
+  { value: "SK", label: "SK - Saskatchewan (Canada)" },
+  { value: "YT", label: "YT - Yukon (Canada)" },
 ];
 
 const INDUSTRIES = [
-  "Technology",
-  "Staffing & Recruiting",
-  "Marketing & Advertising",
+  "Agriculture & Mining",
+  "Business Services",
+  "Computers & Electronics",
+  "Conglomerates",
+  "Consumer Services",
+  "Education",
+  "Energy & Utilities",
   "Financial Services",
-  "Healthcare & Hospital",
-  "Construction",
-  "Real Estate",
+  "Food & Beverage",
+  "Government",
+  "Healthcare",
+  "Manufacturing",
+  "Media & Entertainment",
+  "Non-Profit",
+  "Other",
+  "Real Estate & Construction",
+  "Recreation & Leisure",
   "Retail",
-  "Management Consulting",
-  "Information Technology",
+  "Retail & Wholesale",
+  "Services (Miscellaneous)",
+  "Software & Internet",
   "Telecommunications",
+  "Transportation & Storage",
+  "Travel & Accommodation",
+  "Travel, Recreation, and Leisure",
+  "Wholesale & Distribution",
 ];
 
 const PULL_LIMITS = [50, 100, 200, 500];
@@ -126,12 +186,44 @@ export default function LeadFinderPage() {
   const [selectedLeadForDeal, setSelectedLeadForDeal] = useState<LeadFinderLead | null>(null);
 
   // Outreach Template config
-  const [emailSubject, setEmailSubject] = useState("Quick question re: {Company Name}");
-  const [emailBody, setEmailBody] = useState(
-    "Hi {First Name},\n\nI was doing some research on {Company Name} and noticed you lead the {Industry} team.\n\nAre you currently taking on new clients, or is your plate full for this quarter?\n\nBest,\n{User Name}"
-  );
+  const [emailSubject, setEmailSubject] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_email_subject") || "Quick question re: {Company Name}" : "Quick question re: {Company Name}";
+  });
+  const [emailBody, setEmailBody] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_email_body") || 
+      "Hi {First Name},\n\nI was doing some research on {Company Name} and noticed you lead the {Industry} team.\n\nAre you currently taking on new clients, or is your plate full for this quarter?\n\nBest,\n{User Name}" : "Hi {First Name},\n\nI was doing some research on {Company Name} and noticed you lead the {Industry} team.\n\nAre you currently taking on new clients, or is your plate full for this quarter?\n\nBest,\n{User Name}";
+  });
+  const [callScript, setCallScript] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_call_script") || 
+      "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?" : "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?";
+  });
+
+  const [callMethod, setCallMethod] = useState<"system" | "google-voice">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("lead_finder_call_method") as "system" | "google-voice") || "system";
+    }
+    return "system";
+  });
+
+  const handleSetCallMethod = (method: "system" | "google-voice") => {
+    setCallMethod(method);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_call_method", method);
+    }
+  };
+
+  // Keep templates saved locally
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_email_subject", emailSubject);
+      localStorage.setItem("lead_finder_email_body", emailBody);
+      localStorage.setItem("lead_finder_call_script", callScript);
+    }
+  }, [emailSubject, emailBody, callScript]);
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
+
+  const [monthlyUsageData, setMonthlyUsageData] = useState<any>(null);
 
   // Real-time listener for org data to sync billing plans (isPremium/isStandard/customLimit)
   useEffect(() => {
@@ -145,6 +237,26 @@ export default function LeadFinderPage() {
       },
       (error) => {
         console.error("Firestore organizations listener error:", error);
+      }
+    );
+    return () => unsub();
+  }, [orgId]);
+
+  // Real-time listener for monthly usage data (Option B)
+  useEffect(() => {
+    if (!orgId) return;
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const unsub = onSnapshot(
+      doc(db, "organizations", orgId, "leadFinderUsage", currentMonthKey),
+      (snap) => {
+        if (snap.exists()) {
+          setMonthlyUsageData(snap.data());
+        } else {
+          setMonthlyUsageData(null);
+        }
+      },
+      (error) => {
+        console.error("Firestore monthly usage listener error:", error);
       }
     );
     return () => unsub();
@@ -171,9 +283,17 @@ export default function LeadFinderPage() {
     quotaLimit = 5000;
   }
 
-  const leadsUsed = orgData?.leadFinderLeadsUsed !== undefined 
-    ? orgData?.leadFinderLeadsUsed 
-    : (orgData?.leadFinder?.leadsUsed || 0);
+  // Calculate leadsUsed with Option B and backward compatibility fallback
+  let leadsUsed = 0;
+  if (monthlyUsageData) {
+    leadsUsed = monthlyUsageData.leadsUsed || 0;
+  } else {
+    // DEPRECATED BACKWARD COMPATIBILITY BLOCK
+    // TODO: Remove this block after current month ends (e.g. July 2026).
+    leadsUsed = orgData?.leadFinderLeadsUsed !== undefined 
+      ? orgData?.leadFinderLeadsUsed 
+      : (orgData?.leadFinder?.leadsUsed || 0);
+  }
 
   const leadsLeft = Math.max(0, quotaLimit - leadsUsed);
 
@@ -246,6 +366,25 @@ export default function LeadFinderPage() {
     }
   };
 
+  // Helper to resolve outreach templates, stripping optional backticks
+  const resolveTemplate = (template: string, lead: LeadFinderLead) => {
+    const userName = userData?.name || "Admin";
+    const replacements: Record<string, string> = {
+      "First Name": lead["First Name"] || "there",
+      "Last Name": lead["Last Name"] || "",
+      "Company Name": lead["Company Name"] || "your company",
+      "Industry": lead.Industry || "your industry",
+      "User Name": userName,
+    };
+
+    let result = template;
+    for (const [key, val] of Object.entries(replacements)) {
+      const regex = new RegExp(`\\\`?{${key}}\\\`?`, "g");
+      result = result.replace(regex, val);
+    }
+    return result;
+  };
+
   // Click-to-Email outreach composition with dynamic tags
   const handleSendEmail = (lead: LeadFinderLead) => {
     if (!lead.Email) {
@@ -253,34 +392,54 @@ export default function LeadFinderPage() {
       return;
     }
 
-    const userName = userData?.name || "Admin";
-    const firstName = lead["First Name"] || "there";
-    const lastName = lead["Last Name"] || "";
-    const company = lead["Company Name"] || "your company";
-    const industry = lead.Industry || "your industry";
-
-    const resolvedSubject = emailSubject
-      .replace(/{First Name}/g, firstName)
-      .replace(/{Last Name}/g, lastName)
-      .replace(/{Company Name}/g, company)
-      .replace(/{Industry}/g, industry)
-      .replace(/{User Name}/g, userName);
-
-    const resolvedBody = emailBody
-      .replace(/{First Name}/g, firstName)
-      .replace(/{Last Name}/g, lastName)
-      .replace(/{Company Name}/g, company)
-      .replace(/{Industry}/g, industry)
-      .replace(/{User Name}/g, userName);
+    const resolvedSubject = resolveTemplate(emailSubject, lead);
+    const resolvedBody = resolveTemplate(emailBody, lead);
 
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
       lead.Email
     )}&su=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
 
     window.open(gmailUrl, "_blank");
-    toast.success(`Launching pre-filled email for ${firstName}`);
+    toast.success(`Launching pre-filled email for ${lead["First Name"] || "Lead"}`);
     
     // Globally sync that this lead has been contacted by this team member
+    toggleCallStatus(lead.id, true, userData?.name || "Team Member", orgId);
+  };
+
+  // Launch phone call outreach
+  const handlePhoneCall = (lead: LeadFinderLead) => {
+    if (!lead.Phone) {
+      toast.error("Lead does not have a phone number registered.");
+      return;
+    }
+
+    let cleanPhone = lead.Phone.replace(/[^\d+]/g, "");
+    if (cleanPhone.startsWith("1") && !cleanPhone.startsWith("+")) {
+      cleanPhone = "+" + cleanPhone;
+    } else if (!cleanPhone.startsWith("+")) {
+      if (cleanPhone.length === 10) {
+        cleanPhone = "+1" + cleanPhone;
+      }
+    }
+
+    // Resolve call script and copy to clipboard
+    const resolvedScript = resolveTemplate(callScript, lead);
+    navigator.clipboard.writeText(resolvedScript).then(() => {
+      toast.success("Call script copied to clipboard!");
+    }).catch((err) => {
+      console.error("Clipboard copy failed:", err);
+    });
+
+    if (callMethod === "google-voice") {
+      const gvUrl = `https://voice.google.com/u/0/calls?a=nc,${encodeURIComponent(cleanPhone)}`;
+      window.open(gvUrl, "_blank");
+      toast.success(`Opening Google Voice for ${lead["First Name"] || "Lead"}`);
+    } else {
+      const telUrl = `tel:${cleanPhone}`;
+      window.open(telUrl);
+      toast.success(`Launching dialer for ${lead["First Name"] || "Lead"}`);
+    }
+
     toggleCallStatus(lead.id, true, userData?.name || "Team Member", orgId);
   };
 
@@ -675,13 +834,13 @@ export default function LeadFinderPage() {
                       <td className="p-4">
                         <div className="flex justify-center items-center gap-2">
                           {lead.Phone ? (
-                            <a
-                              href={`tel:${lead.Phone}`}
+                            <button
+                              onClick={() => handlePhoneCall(lead)}
                               className="size-8 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 flex items-center justify-center transition-all shadow-sm border border-emerald-500/20 active:scale-95"
-                              title={`Dial: ${lead.Phone}`}
+                              title={`Call: ${lead.Phone}`}
                             >
                               <Phone className="size-3.5" />
-                            </a>
+                            </button>
                           ) : (
                             <span className="size-8 rounded-xl bg-secondary/50 text-muted-foreground/20 flex items-center justify-center border border-border/10 cursor-not-allowed">
                               <Phone className="size-3.5 grayscale" />
@@ -809,7 +968,7 @@ export default function LeadFinderPage() {
           <div className="space-y-4 py-4">
             
             <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground px-1">Search Keyword</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground px-1">Search Keyword (Optional)</label>
               <Input
                 placeholder="E.G. TECH, OUTREACH, FORBES..."
                 value={pullKeyword}
@@ -892,50 +1051,15 @@ export default function LeadFinderPage() {
       </Dialog>
 
       {/* DIALOG 2: Outreach Template customizer Modal */}
-      <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
-        <DialogContent className="sm:max-w-[550px] bg-card/95 backdrop-blur-2xl border-border/40 rounded-[2rem] p-6 shadow-3xl">
-          <DialogHeader className="pb-4 border-b border-border/10">
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Outreach Setup</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-            <p>
-              Write standard B2B outreach copies. Double-click to insert tags: <code className="text-indigo-500 bg-indigo-500/5 px-1 rounded font-poppins">{`{First Name}`}</code>, <code className="text-indigo-500 bg-indigo-500/5 px-1 rounded font-poppins">{`{Company Name}`}</code>, <code className="text-indigo-500 bg-indigo-500/5 px-1 rounded font-poppins">{`{Industry}`}</code>, <code className="text-indigo-500 bg-indigo-500/5 px-1 rounded font-poppins">{`{User Name}`}</code>.
-            </p>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground px-1">Outreach Subject Line</label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  className="h-11 rounded-xl bg-secondary/5 border-border/20 text-[11px] font-bold"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground px-1">Campaign Body Content</label>
-                <textarea
-                  rows={6}
-                  value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  className="w-full p-4 rounded-xl bg-secondary/5 border border-border/20 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/15"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-4 border-t border-border/10">
-            <Button
-              type="button"
-              className="rounded-xl font-black text-[10px] uppercase tracking-widest h-11 px-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-500/20 active:scale-95 transition-all"
-              onClick={() => setIsTemplateModalOpen(false)}
-            >
-              Save Template Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OutreachSetupModal
+        isOpen={isTemplateModalOpen}
+        onOpenChange={setIsTemplateModalOpen}
+        emailSubject={emailSubject}
+        emailBody={emailBody}
+        callScript={callScript}
+        callMethod={callMethod}
+        setCallMethod={handleSetCallMethod}
+      />
 
       {/* DIALOG 3: High-Converting Apple-Style Quota Upgrade Modal */}
       <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>

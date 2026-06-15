@@ -212,6 +212,9 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (!orgId || !user) return null;
 
     const tempId = crypto.randomUUID();
+    const d = new Date();
+    const createdDateVal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
     const newEntity: CRMEntity = {
       id: tempId,
       orgId,
@@ -221,6 +224,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       isDeleted: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      createdDate: type === 'deal' ? createdDateVal : undefined,
       lastEditedBy: user.uid,
       history: []
     };

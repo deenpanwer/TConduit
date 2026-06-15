@@ -72,7 +72,21 @@ function SettingsPageContent() {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get('tab') || 'identity';
 
+  const isAllowedRole = useMemo(() => {
+    return userData?.role && ['owner', 'founder', 'hr'].includes(userData.role.toLowerCase());
+  }, [userData]);
+
   const [orgData, setOrgData] = useState<any>(null);
+  const [orgNameInput, setOrgNameInput] = useState('');
+  const [orgLogoInput, setOrgLogoInput] = useState('');
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+
+  useEffect(() => {
+    if (orgData) {
+      setOrgNameInput(orgData.name || '');
+      setOrgLogoInput(orgData.logoUrl || '');
+    }
+  }, [orgData]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [selectedUserForIntelligence, setSelectedUserForIntelligence] = useState<{id: string, name: string} | null>(null);
@@ -379,6 +393,58 @@ function SettingsPageContent() {
     }
   };
 
+  const handleSaveCompanyDetails = async () => {
+    if (!user || !orgData) return;
+    setIsSavingCompany(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      const orgRef = doc(db, 'organizations', targetOrgId);
+      
+      // Update organization doc
+      await updateDoc(orgRef, {
+        name: orgNameInput,
+        logoUrl: orgLogoInput,
+        updatedAt: serverTimestamp()
+      });
+
+      // Update user doc
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        orgName: orgNameInput
+      });
+
+      // Update local state
+      setOrgData((prev: any) => ({
+        ...prev,
+        name: orgNameInput,
+        logoUrl: orgLogoInput
+      }));
+
+      await refreshUserData();
+      toast({ title: 'Company Details Saved', description: 'Organization details updated successfully.' });
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
+
+  const handleToggleVisibility = async (key: string, value: boolean) => {
+    if (!user || !orgData) return;
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      const orgRef = doc(db, 'organizations', targetOrgId);
+      await updateDoc(orgRef, {
+        [key]: value,
+        updatedAt: serverTimestamp()
+      });
+      setOrgData((prev: any) => ({ ...prev, [key]: value }));
+      toast({ title: 'Visibility Updated', description: 'Sidebar visibility setting updated successfully.' });
+    } catch (error: any) {
+      toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleNotificationPermission = () => {
     Notification.requestPermission().then(permission => {
       setNotificationPermission(permission);
@@ -511,13 +577,19 @@ function SettingsPageContent() {
             onValueChange={(value) => router.push(`/ems/settings?tab=${value}`)} 
             className="w-full space-y-8"
           >
-            <TabsList className="w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 md:grid-cols-6 gap-1">
+            <TabsList className={cn(
+              "w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 gap-1",
+              isAllowedRole ? "md:grid-cols-7" : "md:grid-cols-6"
+            )}>
               <TabsTrigger value="identity" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Identity</TabsTrigger>
               <TabsTrigger value="company" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Company</TabsTrigger>
               <TabsTrigger value="structure" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Structure</TabsTrigger>
               <TabsTrigger value="intelligence" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Intelligence</TabsTrigger>
               <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger>
               <TabsTrigger value="operations" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
+              {isAllowedRole && (
+                <TabsTrigger value="visibility" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">App Visibility</TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="identity" className="space-y-8">
@@ -637,30 +709,32 @@ function SettingsPageContent() {
                 </section>
 
                 {/* Termination Protocol (Moved from Advanced) */}
-                <section className='p-8 border-2 border-destructive/10 rounded-3xl bg-destructive/5'>
-                     <h3 className='text-sm font-black uppercase tracking-widest text-destructive mb-2'>Danger Zone</h3>
-                     <p className='text-xs font-medium text-muted-foreground mb-6'>Permanently delete your organization and all associated employee data.</p>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant='destructive' className='rounded-xl font-black uppercase tracking-widest text-[10px]'>
-                                Delete Organization
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action will archive your organization's data, but you will no longer have access to it. You will be logged out and will need to create a new organization to continue using the app.
-                                    This action cannot be undone.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteOrganization}>Continue</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                     </AlertDialog>
-                </section>
+                {isAllowedRole && (
+                  <section className='p-8 border-2 border-destructive/10 rounded-3xl bg-destructive/5'>
+                       <h3 className='text-sm font-black uppercase tracking-widest text-destructive mb-2'>Danger Zone</h3>
+                       <p className='text-xs font-medium text-muted-foreground mb-6'>Permanently delete your organization and all associated employee data.</p>
+                       <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                              <Button variant='destructive' className='rounded-xl font-black uppercase tracking-widest text-[10px]'>
+                                  Delete Organization
+                              </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                              <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      This action will archive your organization's data, but you will no longer have access to it. You will be logged out and will need to create a new organization to continue using the app.
+                                      This action cannot be undone.
+                                  </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteOrganization}>Continue</AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                       </AlertDialog>
+                  </section>
+                )}
             </TabsContent>
 
             <TabsContent value="company" className="space-y-8">
@@ -677,10 +751,43 @@ function SettingsPageContent() {
                     </div>
 
                     <div className='space-y-6'>
-                        <div className='space-y-2'>
-                            <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Name</Label>
-                            <Input value={userData?.orgName || ''} readOnly className='h-12 rounded-xl font-bold' />
-                        </div>
+                        {isAllowedRole ? (
+                            <div className='space-y-4'>
+                                <div className='space-y-2'>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Name</Label>
+                                    <Input 
+                                        value={orgNameInput} 
+                                        onChange={(e) => setOrgNameInput(e.target.value)} 
+                                        className='h-12 rounded-xl font-bold' 
+                                        placeholder='Enter Organization Name'
+                                    />
+                                </div>
+                                <div className='space-y-2'>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Logo URL</Label>
+                                    <Input 
+                                        value={orgLogoInput} 
+                                        onChange={(e) => setOrgLogoInput(e.target.value)} 
+                                        className='h-12 rounded-xl font-bold' 
+                                        placeholder='Enter Logo Image URL (e.g. https://domain.com/logo.png)'
+                                    />
+                                </div>
+                                <div className='pt-2'>
+                                    <Button 
+                                        onClick={handleSaveCompanyDetails} 
+                                        disabled={isSavingCompany}
+                                        className='rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-6'
+                                    >
+                                        {isSavingCompany ? <Loader2 className='size-3 mr-2 animate-spin' /> : <Save className='size-3 mr-2' />}
+                                        {isSavingCompany ? 'Saving...' : 'Save Company Details'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className='space-y-2'>
+                                <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Name</Label>
+                                <Input value={userData?.orgName || ''} readOnly className='h-12 rounded-xl font-bold bg-secondary/50' />
+                            </div>
+                        )}
 
                         <div className='p-6 rounded-2xl bg-secondary/30 border-2 border-dashed border-border'>
                             <div className='flex items-center justify-between'>
@@ -1264,6 +1371,70 @@ function SettingsPageContent() {
                     </div>
                 </section>
             </TabsContent>
+
+            {isAllowedRole && (
+              <TabsContent value="visibility" className="space-y-8">
+                <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
+                  <div className='flex items-center gap-4 mb-8'>
+                    <div className='size-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500'>
+                      <Eye size={24} />
+                    </div>
+                    <div>
+                      <h3 className='text-lg font-black uppercase tracking-tighter'>App Visibility</h3>
+                      <p className='text-xs font-medium text-muted-foreground uppercase tracking-tight'>Control which modules are visible to employees in the Electron Sidebar</p>
+                    </div>
+                  </div>
+
+                  <div className='space-y-6 max-w-2xl'>
+                    <div className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50'>
+                      <div>
+                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide Leaderboard</h4>
+                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the Leaderboard module from the desktop client sidebar.</p>
+                      </div>
+                      <Switch 
+                        checked={!!orgData?.disableLeaderboard}
+                        onCheckedChange={(checked) => handleToggleVisibility('disableLeaderboard', checked)}
+                      />
+                    </div>
+
+                    <div className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50'>
+                      <div>
+                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide CRM</h4>
+                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the CRM (Leads, Deals, Organizations, Contacts, Call Logs, Notes) from the desktop client sidebar.</p>
+                      </div>
+                      <Switch 
+                        checked={!!orgData?.disableCrm}
+                        onCheckedChange={(checked) => handleToggleVisibility('disableCrm', checked)}
+                      />
+                    </div>
+
+                    <div className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50'>
+                      <div>
+                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide Tasks</h4>
+                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the Tasks module from the desktop client sidebar.</p>
+                      </div>
+                      <Switch 
+                        checked={!!orgData?.disableTasks}
+                        onCheckedChange={(checked) => handleToggleVisibility('disableTasks', checked)}
+                      />
+                    </div>
+
+                    {/*
+                    <div className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50'>
+                      <div>
+                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide USA CEO Leads</h4>
+                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the USA CEO Leads tool from the desktop client sidebar.</p>
+                      </div>
+                      <Switch 
+                        checked={!!orgData?.disableCeoLeads}
+                        onCheckedChange={(checked) => handleToggleVisibility('disableCeoLeads', checked)}
+                      />
+                    </div>
+                    */}
+                  </div>
+                </section>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </main>

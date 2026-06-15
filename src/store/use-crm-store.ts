@@ -13,6 +13,7 @@ export interface CRMEntity {
   createdAt: string;
   updatedAt: string;
   lastEditedBy: string;
+  createdDate?: string;
 }
 
 interface CRMStore {
