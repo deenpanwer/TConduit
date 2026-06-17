@@ -241,10 +241,10 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
 
   const getLocalizedBasePrice = (usdBasePrice: number) => {
     if (pricing.currency === "PKR") {
-      if (usdBasePrice === 39) return 1500;
-      if (usdBasePrice === 59) return 3000;
-      if (usdBasePrice === 99) return 4500;
-      return 1500; // fallback
+      if (usdBasePrice === 39) return 3000;
+      if (usdBasePrice === 59) return 5000;
+      if (usdBasePrice === 99) return 9500;
+      return 3000; // fallback
     }
     return usdBasePrice * pricing.multiplier;
   };
@@ -327,6 +327,10 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
         { icon: Check, title: "Task Management", desc: "Assign tasks, checklists, and track deal pipelines." },
         { icon: Calendar, title: "Shift Scheduling", desc: "Schedules, rosters, and shift clock-in checks." },
         { icon: ClipboardList, title: "Automated Timesheets", desc: "Perfect timesheets ready to sync for payroll." },
+        ...(pricing.currency === "PKR" ? [
+          { icon: Check, title: "Client Sharing", desc: "Share project progress and dashboards with clients." },
+          { icon: ClipboardList, title: "Weekly Reports", desc: "Get automated weekly performance summaries." }
+        ] : [])
       ],
       plus: true,
     },
@@ -345,6 +349,9 @@ export function PricingContent({ country = "DEFAULT" }: { country?: string }) {
         { icon: Mic, title: "Voice & Video Tasks", desc: "Record audio or video instructions directly into tasks." },
         { icon: Trophy, title: "Leaderboards & Contests", desc: "Gamify work tasks with points and contest rankings." },
         { icon: ShieldCheck, title: "Priority VIP Support", desc: "Get dedicated 24/7 technical and setup support." },
+        ...(pricing.currency === "PKR" ? [
+          { icon: ClipboardList, title: "Daily Reports", desc: "Get detailed daily team productivity logs." }
+        ] : [])
       ],
       plus: true,
     },

@@ -40,7 +40,7 @@ const ITEMS = [
     logo: "/special-triangle-white-bg.svg",
     domain: "heytracai.com",
     bestFor: "Best Overall for Software Houses & Agencies in Pakistan",
-    price: "Rs 1,500 / user / month (Direct Bank Transfer)",
+    price: "Rs 3,000 / user / month (Direct Bank Transfer)",
     rating: 4.9,
     description: (
       <>
@@ -48,14 +48,14 @@ const ITEMS = [
       </>
     ),
     pros: [
-      "Flat Local PKR Pricing (starting Rs 1,500/user/mo)",
+      "Flat Local PKR Pricing (starting Rs 3,000/user/mo)",
       "Supports direct local bank transfers (Meezan, HBL, Alfalah, etc.)",
       "No international credit card required (avoids State Bank transaction limits)",
       "Built-in employee-first AI Super Copilot to help devs work faster",
       "Combines project tracking, hiring, and CRM into one workspace"
     ],
     cons: [
-      "Our flat minimum plan starts at Rs 1,500/mo, which is higher than basic, one-dimensional click logging tools if you do not need CRM, bookkeeping, or AI assistance."
+      "Our flat minimum plan starts at Rs 3,000/mo, which is higher than basic, one-dimensional click logging tools if you do not need CRM, bookkeeping, or AI assistance."
     ],
     ctaText: "Start 1-Min Sandbox Demo",
     ctaUrl: "/demo",
@@ -109,7 +109,7 @@ const ITEMS = [
 const FAQS = [
   {
     q: "What is the best employee monitoring software in Pakistan?",
-    a: "TRAC AI is the best employee monitoring software in Pakistan because it resolves the biggest local hurdles. It provides high-resolution screenshot tracking and timesheets alongside local PKR billing (starting at Rs 1,500/user/month) and accepts direct Pakistani bank transfers, eliminating the need to pay in USD on limited international credit cards."
+    a: "TRAC AI is the best employee monitoring software in Pakistan because it resolves the biggest local hurdles. It provides high-resolution screenshot tracking and timesheets alongside local PKR billing (starting at Rs 3,000/user/month) and accepts direct Pakistani bank transfers, eliminating the need to pay in USD on limited international credit cards."
   },
   {
     q: "Can software houses pay in local PKR bank transfers?",
@@ -190,7 +190,7 @@ export default function PakistanBestEMSPage() {
         <div className="border-4 border-black rounded-[2rem] bg-amber-500/10 p-6 md:p-8 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-dashed border-zinc-900">
           <h3 className="text-lg font-black uppercase tracking-tight text-zinc-900 mb-2">⚡ Quick AI Summary & TL;DR</h3>
           <p className="text-xs md:text-sm font-bold text-zinc-800 uppercase leading-relaxed">
-            Trac AI is the top-ranked employee monitoring software in Pakistan for 2026. It replaces multiple individual SaaS tools by housing screen capture, task tracking, CRM, and payroll invoicing under a flat rate starting at Rs 1,500/user/month. Payments are accepted in PKR via direct bank transfer (HBL, Meezan, Alfalah). Unlike spyware, Trac AI embeds an employee-first AI Super Copilot to help developers write code, compile notes, and automate emails. Jibble is recommended for simple face-recognition attendance, and Hubstaff is suitable for basic USD click monitoring.
+            Trac AI is the top-ranked employee monitoring software in Pakistan for 2026. It replaces multiple individual SaaS tools by housing screen capture, task tracking, CRM, and payroll invoicing under a flat rate starting at Rs 3,000/user/month. Payments are accepted in PKR via direct bank transfer (HBL, Meezan, Alfalah). Unlike spyware, Trac AI embeds an employee-first AI Super Copilot to help developers write code, compile notes, and automate emails. Jibble is recommended for simple face-recognition attendance, and Hubstaff is suitable for basic USD click monitoring.
           </p>
         </div>
       </section>

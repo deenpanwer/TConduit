@@ -244,10 +244,10 @@ export const COMPETITORS_CONFIG: Record<string, CompetitorData> = {
     hero: {
       painPoint: "Stop paying $25 USD/user when you can pay in PKR.",
       headline: "The Best Hubstaff Alternative in Pakistan with PKR Local Billing",
-      validation: "Paying international subscriptions in USD from Pakistan has become a nightmare due to strict banking limits, card blockages, and volatile exchange rates. TRAC AI solves this by offering dedicated local PKR pricing starting at just Rs 1,500/user/month, payable via direct local bank transfer (HBL, Meezan, Alfalah, etc.). You get screenshots, timesheets, CRM, ATS, and chats in a single platform, saving over 80% on software bills."
+      validation: "Paying international subscriptions in USD from Pakistan has become a nightmare due to strict banking limits, card blockages, and volatile exchange rates. TRAC AI solves this by offering dedicated local PKR pricing starting at just Rs 3,000/user/month, payable via direct local bank transfer (HBL, Meezan, Alfalah, etc.). You get screenshots, timesheets, CRM, ATS, and chats in a single platform, saving over 80% on software bills."
     },
     primarySpecs: [
-      { label: "Base Monthly Price", competitorValue: "$25.00 / user (Rs 7,000+)", tracValue: "Rs 1,500 / user", isWin: true },
+      { label: "Base Monthly Price", competitorValue: "$25.00 / user (Rs 7,000+)", tracValue: "Rs 3,000 / user", isWin: true },
       { label: "Local Bank Payments (PKR)", competitorValue: "No (Requires USD credit cards)", tracValue: "Yes (HBL, Meezan, Alfalah, etc.)", isWin: true },
       { label: "State Bank Card Limits", competitorValue: "Blocked/Subject to international limits", tracValue: "Zero Limits (Direct PKR invoicing)", isWin: true },
       { label: "All-in-One CRM, ATS, Bookkeeping", competitorValue: "No (Requires additional external apps)", tracValue: "Included Natively", isWin: true }
