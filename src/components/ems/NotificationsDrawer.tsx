@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   X, Bell, Coffee, UserPlus, Check, 
@@ -16,6 +16,9 @@ import { format, parseISO, formatDistance } from "date-fns";
 import { useShift, LeaveRequest, ShiftClaim } from "@/hooks/use-shift";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { toast } from "sonner";
 
 interface NotificationsDrawerProps {
   isOpen: boolean;
@@ -44,7 +47,75 @@ export function NotificationsDrawer({ isOpen, onClose }: NotificationsDrawerProp
     denyLeave
   } = useShift(new Date(), orgId, shiftUser, employees);
 
-  const totalNotifications = allPendingLeaves.length + allPendingClaims.length;
+  const [crmNotifications, setCrmNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "users", user.uid, "notifications"),
+      where("type", "==", "crm_missed_followup"),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      list.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
+      });
+      setCrmNotifications(list.slice(0, 50));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const totalNotifications = allPendingLeaves.length + allPendingClaims.length + crmNotifications.length;
+
+  const handleCrmNotificationAcknowledge = async (notif: any) => {
+    const reason = prompt(`Please enter the explanation/reason for missing the follow-up with ${notif.leadName || "this lead"}:`);
+    if (reason === null) return; // cancelled
+    if (!reason.trim()) {
+      alert("A reason is required to acknowledge this notification.");
+      return;
+    }
+
+    try {
+      // Add comment or note history entry to the CRM Entity's history
+      const leadRef = doc(db, "organizations", notif.orgId, "crm_entities", notif.leadId);
+      const leadSnap = await getDoc(leadRef);
+      if (leadSnap.exists()) {
+        const leadData = leadSnap.data();
+        const newHistoryLog = {
+          id: crypto.randomUUID(),
+          type: 'System',
+          action: 'MISSED_FOLLOWUP_REASON',
+          content: `Missed follow-up reason submitted: "${reason}"`,
+          userId: user?.uid || notif.recipientId,
+          userName: user?.displayName || user?.email || 'User',
+          timestamp: new Date().toISOString()
+        };
+        const currentHistory = leadData.history || [];
+        const updatedHistory = [newHistoryLog, ...currentHistory].slice(0, 50); // limit to 50 items
+        
+        await updateDoc(leadRef, {
+          history: updatedHistory,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      // Mark notification as acknowledged under users/{userId}/notifications
+      const notifRef = doc(db, "users", user!.uid, "notifications", notif.id);
+      await updateDoc(notifRef, {
+        status: 'acknowledged',
+        acknowledgedAt: serverTimestamp(),
+        reason: reason // Save reason to the notification document
+      });
+
+      toast.success("Missed follow-up documented successfully");
+    } catch (err: any) {
+      console.error("Error acknowledging crm notification:", err);
+      toast.error(`Failed to acknowledge: ${err.message}`);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -94,6 +165,22 @@ export function NotificationsDrawer({ isOpen, onClose }: NotificationsDrawerProp
               </div>
             ) : (
               <>
+                {/* CRM Missed Followups */}
+                {crmNotifications.map((notif) => (
+                  <NotificationItem 
+                    key={notif.id}
+                    type="crm_missed"
+                    title="Missed CRM Follow-up"
+                    userName={notif.leadName || "CRM Lead"}
+                    userId={notif.leadId}
+                    details={notif.body || "Follow-up was missed. Click to document reason."}
+                    timestamp={notif.createdAt}
+                    onApprove={() => handleCrmNotificationAcknowledge(notif)}
+                    onDeny={() => {}} // Not used
+                    onView={() => { window.location.href = `/crm/leads/${notif.leadId}`; onClose(); }}
+                  />
+                ))}
+
                 {/* Leave Requests */}
                 {allPendingLeaves.map((req) => (
                   <NotificationItem 
@@ -144,8 +231,12 @@ export function NotificationsDrawer({ isOpen, onClose }: NotificationsDrawerProp
 }
 
 function NotificationItem({ type, title, userName, userId, details, timestamp, onApprove, onDeny, onView }: any) {
-  const Icon = type === 'leave' ? Coffee : UserPlus;
-  const colorClass = type === 'leave' ? 'text-rose-500 bg-rose-500/10 border-rose-500/20' : 'text-amber-600 bg-amber-500/10 border-amber-500/20';
+  const Icon = type === 'leave' ? Coffee : (type === 'crm_missed' ? AlertCircle : UserPlus);
+  const colorClass = type === 'leave' 
+    ? 'text-rose-500 bg-rose-500/10 border-rose-500/20' 
+    : (type === 'crm_missed' 
+        ? 'text-red-500 bg-red-500/10 border-red-500/20' 
+        : 'text-amber-600 bg-amber-500/10 border-amber-500/20');
 
   return (
     <motion.div 
@@ -170,21 +261,33 @@ function NotificationItem({ type, title, userName, userId, details, timestamp, o
       </div>
 
       <div className="flex gap-2">
-        <Button 
-          onClick={onApprove}
-          size="sm"
-          className="flex-1 h-9 rounded-xl font-black uppercase text-[10px] bg-emerald-500 hover:bg-emerald-600 border-2 border-black/10 text-white"
-        >
-          Approve
-        </Button>
-        <Button 
-          onClick={onDeny}
-          size="sm"
-          variant="outline"
-          className="flex-1 h-9 rounded-xl font-black uppercase text-[10px] text-red-500 border-2 border-red-500/10 hover:bg-red-500/5"
-        >
-          Deny
-        </Button>
+        {type === 'crm_missed' ? (
+          <Button 
+            onClick={onApprove}
+            size="sm"
+            className="flex-1 h-9 rounded-xl font-black uppercase text-[10px] bg-red-600 hover:bg-red-700 border-2 border-black/10 text-white"
+          >
+            Submit Reason
+          </Button>
+        ) : (
+          <>
+            <Button 
+              onClick={onApprove}
+              size="sm"
+              className="flex-1 h-9 rounded-xl font-black uppercase text-[10px] bg-emerald-500 hover:bg-emerald-600 border-2 border-black/10 text-white"
+            >
+              Approve
+            </Button>
+            <Button 
+              onClick={onDeny}
+              size="sm"
+              variant="outline"
+              className="flex-1 h-9 rounded-xl font-black uppercase text-[10px] text-red-500 border-2 border-red-500/10 hover:bg-red-500/5"
+            >
+              Deny
+            </Button>
+          </>
+        )}
         <Button 
           onClick={onView}
           size="sm"

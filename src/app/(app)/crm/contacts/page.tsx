@@ -117,7 +117,7 @@ function ContactsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
       <ContactModal 
         isOpen={showContactModal} 
         onOpenChange={setShowContactModal} 
@@ -182,7 +182,6 @@ function ContactsPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            autoFocus
             placeholder="SEARCH BY NAME, EMAIL, OR ORGANIZATION..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -203,7 +202,7 @@ function ContactsPageContent() {
       </div>
 
       <div className="flex-1 min-h-0">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col min-h-0">
           <CRMTable 
             entities={filteredContacts} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity} updateConfig={updateConfig} 
             onEntityClick={(c) => router.push(`/crm/contacts/${c.id}`)} selectedIds={selectedIds} onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSelectAll={setSelectedIds} 

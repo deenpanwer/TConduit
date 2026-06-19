@@ -76,7 +76,7 @@ function InvoicesPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase font-poppins">Invoices <span className="text-blue-600 italic">Ledger</span></h1>
@@ -96,7 +96,6 @@ function InvoicesPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            autoFocus
             placeholder="SEARCH BY INVOICE # OR CLIENT..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -127,7 +126,7 @@ function InvoicesPageContent() {
         </div>
       </div>
 
-      <div className="flex-1 bg-card/40 backdrop-blur-xl rounded-[2rem] border border-border/40 overflow-hidden shadow-2xl">
+      <div className="flex-1 bg-card/40 backdrop-blur-xl rounded-[2rem] border border-border/40 overflow-y-auto shadow-2xl custom-scrollbar">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow className="hover:bg-transparent border-b border-border/40">

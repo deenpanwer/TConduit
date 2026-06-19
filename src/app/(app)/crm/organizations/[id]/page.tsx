@@ -177,7 +177,7 @@ function OrganizationDetailClientPage() {
         initialStage={orgNameValue} // Assuming this sets the company name
       />
 
-      <div className="p-4 md:p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8 flex-1 overflow-y-auto custom-scrollbar">
         <div className="mb-6 flex justify-between items-center">
           <Button
             variant="ghost"

@@ -155,7 +155,7 @@ function DealsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
       <DealModal 
         isOpen={showDealModal} 
         onOpenChange={setShowDealModal} 
@@ -209,7 +209,6 @@ function DealsPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            autoFocus
             placeholder="SEARCH BY NAME, ORGANIZATION..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -240,7 +239,7 @@ function DealsPageContent() {
 
       <AnimatePresence mode="wait">
         {activeView === "list" ? (
-          <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1">
+          <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col min-h-0 h-full">
             <CRMTable 
               entities={filteredDeals} 
               config={config} 
@@ -261,7 +260,7 @@ function DealsPageContent() {
             />
           </motion.div>
         ) : (
-          <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1">
+          <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col min-h-0 h-full">
             <CRMKanban 
               entities={filteredDeals} 
               config={config} 

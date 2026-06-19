@@ -34,7 +34,7 @@ export default function CRMPage() {
   const currentLeads = leads.filter(l => new Date(l.createdAt) >= sevenDaysAgo).length;
 
   return (
-    <div className="min-h-screen bg-background/50">
+    <div className="h-full overflow-y-auto bg-background/50">
       <header className="sticky top-0 z-30 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
         <div className="w-full px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">

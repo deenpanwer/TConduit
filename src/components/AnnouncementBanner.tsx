@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v2";
+const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v3";
 
 export function AnnouncementBanner() {
   const [mounted, setMounted] = useState(false);
@@ -56,7 +56,7 @@ export function AnnouncementBanner() {
 
         {/* Banner Content */}
         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          We've added <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">unproductive website blocking</span> for employers, and completely overhauled the <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">messaging system</span> to support file sharing and group creation.
+          We've added <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">Excel (.xlsx) upload support</span> for CRM Leads imports, plus several <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">quality of life improvements</span> including inline draft rows, faster syncing, and bug fixes.
         </p>
       </motion.div>
     </AnimatePresence>

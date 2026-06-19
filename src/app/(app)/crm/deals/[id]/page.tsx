@@ -125,7 +125,7 @@ function DealDetailClientPage() {
         initialData={{ relatedTo: deal.id }}
       />
 
-      <div className="p-4 md:p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8 flex-1 overflow-y-auto custom-scrollbar">
         <div className="mb-6">
           <Button
             variant="ghost"

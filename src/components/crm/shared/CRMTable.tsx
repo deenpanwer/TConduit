@@ -12,6 +12,8 @@ import { useCRMStore } from "@/store/use-crm-store";
 // Sub-components
 import { CRMTableHeader } from "./CRMTableHeader";
 import { CRMTableRow } from "./CRMTableRow";
+import { CRMSimpleDraftRow } from "./CRMSimpleDraftRow";
+import { useAuth } from "@/hooks/use-auth";
 
 const STRIP_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'
@@ -49,7 +51,9 @@ export function CRMTable({
   pageSize, setPageSize, actions
 }: CRMTableProps) {
   const { employees } = useTeam();
-  const { organizations } = useCRM();
+  const { organizations, contacts } = useCRM();
+  const { user } = useAuth();
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const UI_PAGE_SIZE = 50;
 
@@ -61,12 +65,95 @@ export function CRMTable({
   useEffect(() => {
     setCurrentPage(1);
   }, [entities.length]);
+
+  // Keyboard layout scrolling listener (velocity-based requestAnimationFrame scroller)
+  useEffect(() => {
+    const activeKeys = new Set<string>();
+    let animationFrameId: number | null = null;
+
+    const scrollLoop = () => {
+      const container = tableContainerRef.current;
+      if (!container) {
+        activeKeys.clear();
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        return;
+      }
+
+      let dx = 0;
+      let dy = 0;
+      const speed = 10; // pixels per frame
+
+      if (activeKeys.has("ArrowRight")) dx += speed;
+      if (activeKeys.has("ArrowLeft")) dx -= speed;
+      if (activeKeys.has("ArrowDown")) dy += speed;
+      if (activeKeys.has("ArrowUp")) dy -= speed;
+
+      if (dx !== 0 || dy !== 0) {
+        container.scrollBy({ left: dx, top: dy });
+        animationFrameId = requestAnimationFrame(scrollLoop);
+      } else {
+        animationFrameId = null;
+      }
+    };
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (!tableContainerRef.current) {
+        return;
+      }
+
+      // Exit immediately for non-arrow keys to avoid any DOM query overhead
+      if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
+        return;
+      }
+
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      e.preventDefault(); // Prevent default page scrolling
+      activeKeys.add(e.key);
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(scrollLoop);
+      }
+    };
+
+    const handleGlobalKeyUp = (e: KeyboardEvent) => {
+      if (!tableContainerRef.current) {
+        return;
+      }
+
+      if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
+        activeKeys.delete(e.key);
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    window.addEventListener("keyup", handleGlobalKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+      window.removeEventListener("keyup", handleGlobalKeyUp);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, []);
   
   const [editingCell, setEditingCell] = useState<{ id: string, fieldKey: string } | null>(null);
   const [renamingFieldId, setRenamingFieldId] = useState<string | null>(null);
   const [editingDescriptionFieldId, setEditingDescriptionFieldId] = useState<string | null>(null);
   const [descriptionValue, setDescriptionValue] = useState("");
   const [quickAddValue, setQuickAddValue] = useState("");
+  const [draftRow, setDraftRow] = useState<any | null>(null);
 
   const [tableColor] = useState(() => STRIP_COLORS[Math.floor(Math.random() * STRIP_COLORS.length)]);
   const lightTableColor = useMemo(() => lightenHexColor(tableColor, 75), [tableColor]);
@@ -111,12 +198,15 @@ export function CRMTable({
   const isCreatingRef = useRef(false);
 
   const handleQuickAddChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    
-    if (val.length > 0 && !isCreatingRef.current) {
+    setQuickAddValue(e.target.value);
+  };
+
+  const handleQuickAddKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && quickAddValue.trim().length > 0 && !isCreatingRef.current) {
       isCreatingRef.current = true;
       const firstField = displayFields[0];
       const singularType = config.name.toLowerCase().endsWith('s') ? config.name.toLowerCase().slice(0, -1) : config.name.toLowerCase();
+      const val = quickAddValue.trim();
       
       setQuickAddValue("");
 
@@ -132,8 +222,43 @@ export function CRMTable({
       }).catch(() => {
           isCreatingRef.current = false;
       });
-    } else {
-      setQuickAddValue(val);
+    }
+  };
+
+  const handleAddDraft = () => {
+    if (draftRow) return; // Only one draft at a time
+    const singularType = config.name.toLowerCase().endsWith('s') ? config.name.toLowerCase().slice(0, -1) : config.name.toLowerCase();
+    setDraftRow({
+      _isDraft: true,
+      name: "",
+      type: singularType,
+      data: {}
+    });
+  };
+
+  const handleSaveDraft = async (draft: any) => {
+    if (isCreatingRef.current) return;
+    const firstField = displayFields[0];
+    const nameVal = draft.name || draft.data?.[firstField?.key] || "";
+    if (!nameVal.trim()) {
+      toast.error("Please fill in at least the first field before saving.");
+      return;
+    }
+    isCreatingRef.current = true;
+    try {
+      const id = await addEntity({
+        name: nameVal.trim(),
+        type: draft.type,
+        data: { ...draft.data, [firstField.key]: nameVal.trim() }
+      });
+      if (id) {
+        toast.success("Item added successfully");
+      }
+      setDraftRow(null);
+    } catch (err) {
+      toast.error("Failed to add item");
+    } finally {
+      isCreatingRef.current = false;
     }
   };
 
@@ -234,8 +359,8 @@ export function CRMTable({
 
   return (
     <TooltipProvider>
-      <div className="space-y-0">
-        <div className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto custom-scrollbar relative">
+      <div className="space-y-0 text-foreground bg-background h-full flex flex-col overflow-hidden">
+        <div ref={tableContainerRef} className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto overflow-y-auto flex-1 min-h-0 custom-scrollbar relative">
           <table className="w-full text-left text-sm min-w-full border-collapse">
             <CRMTableHeader 
               displayFields={displayFields}
@@ -283,7 +408,22 @@ export function CRMTable({
                   actions={actions}
                 />
               ))}
-              <tr className="h-[52px] border-b border-border/20 bg-muted/5 group/new">
+              {draftRow && (
+                <CRMSimpleDraftRow
+                  draft={draftRow}
+                  onChange={setDraftRow}
+                  onSave={handleSaveDraft}
+                  onDelete={() => setDraftRow(null)}
+                  displayFields={displayFields}
+                  tableColor={tableColor}
+                  employees={employees}
+                  organizations={organizations}
+                  contacts={contacts || []}
+                  currentUser={user}
+                  configName={config.name}
+                />
+              )}
+              <tr className="h-[52px] border-b border-border/20 bg-muted/5 group/new cursor-pointer" onClick={handleAddDraft}>
                   <td className="w-24 p-0 border-r border-border/20 sticky left-0 z-20 bg-card group-hover/new:bg-blue-500/[0.03] transition-colors">
                     <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: lightTableColor}} />
                     <div className="flex items-center justify-center h-full pl-3 opacity-30 group-hover/new:opacity-100 transition-opacity">
@@ -292,13 +432,7 @@ export function CRMTable({
                   </td>
                   <td colSpan={displayFields.length} className="p-0 border-r border-border/20 relative group-hover/new:bg-blue-500/[0.03] transition-colors">
                     <div className="px-4 flex items-center h-full w-full">
-                      <input 
-                        autoFocus
-                        className="w-full h-full bg-transparent border-none outline-none text-[10px] font-black uppercase text-muted-foreground/30 focus:text-blue-500 placeholder:text-muted-foreground/30 transition-colors"
-                        placeholder="Add Item"
-                        value={quickAddValue}
-                        onChange={handleQuickAddChange}
-                      />
+                      <span className="text-[10px] font-black uppercase text-muted-foreground/30 group-hover/new:text-blue-500 transition-colors tracking-widest">+ Add Item</span>
                     </div>
                   </td>
                   <td className="bg-card/90 group-hover/new:bg-blue-500/[0.03] transition-colors"></td>

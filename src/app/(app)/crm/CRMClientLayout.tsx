@@ -112,7 +112,7 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 bg-background/50">
+        <main className="flex-1 overflow-hidden flex flex-col transition-all duration-300 bg-background/50">
           <AnnouncementBanner />
           {children}
         </main>

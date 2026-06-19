@@ -6,17 +6,19 @@ import { useCRMNotes } from "@/hooks/use-crm-notes";
 import { useCRMCalls } from "@/hooks/use-crm-calls";
 import { 
   LayoutGrid, List as ListIcon, Plus, Search, 
-  Filter, Download, ArrowUpDown, Loader2,
-  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText, Upload
+  Filter, Download, ArrowUpDown, Loader2, Check,
+  ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText, Upload, SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
   DropdownMenuTrigger, DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CRMTable } from "@/components/crm/shared/CRMTable";
 import { CRMKanban } from "@/components/crm/shared/CRMKanban";
 import { LeadModal } from "@/components/crm/forms/LeadModal";
@@ -28,7 +30,9 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { LeadImportDrawer } from "@/components/crm/shared/LeadImportDrawer";
+import { OutreachSetupModal } from "@/components/OutreachSetupModal";
 import { Suspense } from "react";
+import { useCrmFollowups } from "@/hooks/use-crm-followups";
 
 function LeadsPageContent() {
   const { user, userData } = useAuth();
@@ -44,6 +48,9 @@ function LeadsPageContent() {
     addEntity, 
     loading
   } = useCRMLeads();
+
+  const orgId = userData?.ownedOrgId || userData?.orgId;
+  useCrmFollowups(leads, user, orgId, config.fields);
   const { addEntity: addNote } = useCRMNotes();
   const { addEntity: addCall } = useCRMCalls();
   const router = useRouter();
@@ -52,9 +59,9 @@ function LeadsPageContent() {
   
   const [activeView, setActiveView] = useState<"list" | "kanban">("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "value" | "updated">("updated");
-  const [filterPriority, setFilterPriority] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "value" | "updated" | "follow-asc" | "follow-desc">("updated");
   const [filterStage, setFilterStage] = useState<string | null>(null);
+  const [filterAssignedToMe, setFilterAssignedToMe] = useState(false);
   
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showDealModal, setShowDealModal] = useState(false);
@@ -65,6 +72,53 @@ function LeadsPageContent() {
   const [selectedLead, setSelectedLead] = useState<CRMEntity | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showImportDrawer, setShowImportDrawer] = useState(false);
+
+  // Outreach Setup states
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_email_subject") || "Quick question re: {Company Name}" : "Quick question re: {Company Name}";
+  });
+  const [emailBody, setEmailBody] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_email_body") || 
+      "Hi {First Name},\n\nI was doing some research on {Company Name} and noticed you lead the {Industry} team.\n\nAre you currently taking on new clients, or is your plate full for this quarter?\n\nBest,\n{User Name}" : "Hi {First Name},\n\nI was doing some research on {Company Name} and noticed you lead the {Industry} team.\n\nAre you currently taking on new clients, or is your plate full for this quarter?\n\nBest,\n{User Name}";
+  });
+  const [callScript, setCallScript] = useState<string>(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("lead_finder_call_script") || 
+      "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?" : "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?";
+  });
+  const [callMethod, setCallMethod] = useState<"system" | "google-voice" | "justcall" | "ringcentral">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("lead_finder_call_method") as "system" | "google-voice" | "justcall" | "ringcentral") || "system";
+    }
+    return "system";
+  });
+  const [emailMethod, setEmailMethod] = useState<"gmail" | "outlook" | "yahoo">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("lead_finder_email_method") as "gmail" | "outlook" | "yahoo") || "gmail";
+    }
+    return "gmail";
+  });
+
+  const handleSetCallMethod = (method: "system" | "google-voice" | "justcall" | "ringcentral") => {
+    setCallMethod(method);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_call_method", method);
+    }
+  };
+  const handleSetEmailMethod = (method: "gmail" | "outlook" | "yahoo") => {
+    setEmailMethod(method);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_email_method", method);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_email_subject", emailSubject);
+      localStorage.setItem("lead_finder_email_body", emailBody);
+      localStorage.setItem("lead_finder_call_script", callScript);
+    }
+  }, [emailSubject, emailBody, callScript]);
 
   const isManager = useMemo(() => {
     const u = userData as any;
@@ -102,26 +156,53 @@ function LeadsPageContent() {
       });
     }
 
-    if (filterPriority) {
-      result = result.filter(l => l.data?.priority === filterPriority);
-    }
-
     if (filterStage) {
       result = result.filter(l => l.data?.status === filterStage);
     }
-    
+
+    if (filterAssignedToMe && user) {
+      result = result.filter(l => l.data?.assignedTo === user.uid || (l as any).assignedTo === user.uid);
+    }
+
+    const followUpField = config.fields.find(f => 
+      (f.label.toLowerCase().includes("follow") || f.key.toLowerCase().includes("follow")) &&
+      f.type === "date"
+    );
+    const followUpKey = followUpField ? followUpField.key : "lastInteraction";
+
     result.sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "value") return (Number(b.data?.value) || 0) - (Number(a.data?.value) || 0);
-      if (sortBy === "updated") {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : Date.now();
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : Date.now();
+      const valA = a.data?.[followUpKey] || (a as any)[followUpKey] || "";
+      const valB = b.data?.[followUpKey] || (b as any)[followUpKey] || "";
+
+      // We always sort according to how close the next follow-up is
+      // Missed/past/delayed follow-ups at the top, ranked nearest to today first
+      // Upcoming follow-ups next, ranked nearest to today first
+      // No follow-up date at the bottom
+      const now = new Date().getTime();
+      const timeA = valA ? new Date(valA).getTime() : null;
+      const timeB = valB ? new Date(valB).getTime() : null;
+
+      if (timeA === null && timeB === null) return 0;
+      if (timeA === null) return 1;
+      if (timeB === null) return -1;
+
+      const isOverdueA = timeA < now;
+      const isOverdueB = timeB < now;
+
+      if (isOverdueA && !isOverdueB) return -1;
+      if (!isOverdueA && isOverdueB) return 1;
+
+      if (isOverdueA && isOverdueB) {
+        // Both overdue: sort closest to today first (which means larger timestamp first, i.e., timeB - timeA)
+        // Actually, closest to today means the latest date (e.g. yesterday vs last week. Yesterday is larger timestamp).
         return timeB - timeA;
       }
-      return 0;
+
+      // Both upcoming: sort closest to today first (which means smaller timestamp first, i.e., timeA - timeB)
+      return timeA - timeB;
     });
     return result;
-  }, [leads, searchQuery, sortBy, filterPriority, filterStage]);
+  }, [leads, searchQuery, sortBy, filterStage, filterAssignedToMe, user, config.fields]);
 
   const handleLaunchDeal = (lead: CRMEntity) => { setSelectedLead(lead); setShowDealModal(true); };
   const handleLogCall = (lead: CRMEntity) => { setSelectedLead(lead); setShowCallModal(true); };
@@ -176,7 +257,7 @@ function LeadsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
       <LeadModal 
         isOpen={showLeadModal} 
         onOpenChange={setShowLeadModal} 
@@ -223,6 +304,18 @@ function LeadsPageContent() {
         }}
       />
       
+      <OutreachSetupModal
+        isOpen={isTemplateModalOpen}
+        onOpenChange={setIsTemplateModalOpen}
+        emailSubject={emailSubject}
+        emailBody={emailBody}
+        callScript={callScript}
+        callMethod={callMethod}
+        setCallMethod={handleSetCallMethod}
+        emailMethod={emailMethod}
+        setEmailMethod={handleSetEmailMethod}
+      />
+      
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase font-poppins">Leads <span className="text-blue-600 italic">Hub</span></h1>
@@ -236,15 +329,22 @@ function LeadsPageContent() {
             <Button 
               onClick={() => setShowImportDrawer(true)} 
               variant="outline"
-              className="h-12 px-6 font-black text-[10px] uppercase tracking-[0.1em] border-border/40 rounded-2xl shadow-sm hover:bg-muted text-foreground"
+              className="h-9 px-4 font-black text-[10px] uppercase tracking-[0.1em] border-border/40 rounded-xl shadow-sm hover:bg-muted text-foreground"
             >
               <Upload size={14} className="mr-2 text-blue-500" /> Import CSV
             </Button>
           )}
           <Button 
+            onClick={() => setIsTemplateModalOpen(true)} 
+            variant="outline"
+            className="h-9 px-4 font-black text-[10px] uppercase tracking-[0.1em] border-border/40 rounded-xl shadow-sm hover:bg-muted text-foreground"
+          >
+            <SlidersHorizontal size={14} className="mr-2 text-purple-500" /> Outreach
+          </Button>
+          <Button 
             onClick={() => { setSelectedLead(null); setModalMode('create'); setShowLeadModal(true); }} 
-            className="h-12 px-8 font-black text-[10px] uppercase tracking-[0.1em] bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 group">
-            <Plus size={18} className="mr-2 group-hover:rotate-90 transition-transform" /> New Lead
+            className="h-9 px-5 font-black text-[10px] uppercase tracking-[0.1em] bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xl shadow-blue-500/20 active:scale-95 group">
+            <Plus size={16} className="mr-2 group-hover:rotate-90 transition-transform" /> New Lead
           </Button>
         </div>
       </div>
@@ -253,7 +353,6 @@ function LeadsPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            autoFocus
             placeholder="SEARCH BY NAME, EMAIL, OR ORGANIZATION..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -262,11 +361,13 @@ function LeadsPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy === "follow-asc" ? "Follow Asc" : sortBy === "follow-desc" ? "Follow Desc" : sortBy}</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("value")}>Sort by Value</DropdownMenuItem>
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updated")}>Sort by Updated</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("follow-asc")}>Follow Date: Ascending</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("follow-desc")}>Follow Date: Descending</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -280,15 +381,18 @@ function LeadsPageContent() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><Filter size={14} className="mr-2 text-blue-500" /> Urgency: {filterPriority || 'All'}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setFilterPriority(null)}>All Priorities</DropdownMenuItem>
-              {config.fields.find(f => f.key === 'priority')?.options?.map(p => (
-                <DropdownMenuItem key={p.value} className="text-[10px] font-bold uppercase" onClick={() => setFilterPriority(p.value)}>{p.label}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            variant={filterAssignedToMe ? "secondary" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterAssignedToMe(!filterAssignedToMe)}
+            className={cn(
+              "h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm flex items-center",
+              filterAssignedToMe && "border-blue-500/30 text-blue-500 bg-blue-500/5 hover:bg-blue-500/10"
+            )}
+          >
+            <Check size={14} className={cn("mr-2 text-blue-500 opacity-30", filterAssignedToMe && "opacity-100")} /> 
+            Assigned to me
+          </Button>
           <Button variant="outline" size="sm" disabled className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest opacity-40 px-6 shadow-sm"><Download size={14} className="mr-2 text-blue-500" /> Export</Button>
         </div>
       </div>
@@ -296,7 +400,7 @@ function LeadsPageContent() {
       <div className="flex-1 min-h-0">
         <AnimatePresence mode="wait">
           {activeView === "list" ? (
-            <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
+            <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full flex flex-col min-h-0">
               <CRMTable 
                 entities={filteredLeads} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity} updateConfig={updateConfig} 
                 onEntityClick={(l) => router.push(`/crm/leads/${l.id}?from=${activeView}`)} selectedIds={selectedIds} onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSelectAll={setSelectedIds} 
@@ -304,7 +408,7 @@ function LeadsPageContent() {
               />
             </motion.div>
           ) : (
-            <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="h-full">
+            <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="h-full flex flex-col min-h-0">
               <CRMKanban 
                   entities={filteredLeads} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity}
                   updateConfig={updateConfig} onEntityClick={(l) => router.push(`/crm/leads/${l.id}?from=${activeView}`)}
@@ -321,7 +425,38 @@ function LeadsPageContent() {
         {selectedIds.length > 0 && (
           <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-card border-2 border-blue-500/20 shadow-2xl rounded-[2rem] p-4 flex items-center gap-6 backdrop-blur-xl">
             <div className="flex items-center gap-2 px-4 border-r border-border/20 mr-2"><span className="bg-blue-600 text-white size-7 rounded-full flex items-center justify-center text-[10px] font-black">{selectedIds.length}</span><span className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground">Selected</span></div>
-            <div className="flex items-center gap-3"><Button variant="outline" size="sm" onClick={async () => { if (confirm(`Delete items?`)) { await Promise.all(selectedIds.map(id => deleteEntity(id))); setSelectedIds([]); }}} className="h-10 rounded-2xl text-red-500 hover:bg-red-500/10 border-red-500/20 font-black text-[10px] uppercase px-6">Delete</Button><Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-10 rounded-2xl font-black text-[10px] uppercase px-6">Cancel</Button></div>
+            <div className="flex items-center gap-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10 rounded-2xl text-blue-500 hover:bg-blue-500/10 border-blue-500/20 font-black text-[10px] uppercase px-6">Assign</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl p-2">
+                  <>
+                    <DropdownMenuItem onClick={async () => {
+                      await Promise.all(selectedIds.map(id => updateEntity(id, { assignedTo: "" })));
+                      setSelectedIds([]);
+                      toast.success("Unassigned selected leads");
+                    }} className="text-[10px] font-black uppercase py-2 cursor-pointer">Unassigned</DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1 bg-border/20" />
+                    {employees.map(emp => (
+                      <DropdownMenuItem key={emp.id} onClick={async () => {
+                        await Promise.all(selectedIds.map(id => updateEntity(id, { assignedTo: emp.id })));
+                        setSelectedIds([]);
+                        toast.success(`Assigned selected leads to ${emp.name}`);
+                      }} className="flex items-center gap-2 text-[10px] font-bold uppercase py-2 cursor-pointer">
+                        <Avatar className="size-5">
+                          <AvatarImage src={`https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${emp.email || emp.name || emp.id}`} />
+                          <AvatarFallback className="text-[8px]">{emp.name?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        {emp.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" size="sm" onClick={async () => { if (confirm(`Delete items?`)) { await Promise.all(selectedIds.map(id => deleteEntity(id))); setSelectedIds([]); }}} className="h-10 rounded-2xl text-red-500 hover:bg-red-500/10 border-red-500/20 font-black text-[10px] uppercase px-6">Delete</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-10 rounded-2xl font-black text-[10px] uppercase px-6">Cancel</Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -333,6 +468,7 @@ function LeadsPageContent() {
             config={config}
             addEntity={(payload) => addEntity(payload)}
             employees={employees}
+            existingLeads={leads}
           />
         )}
       </AnimatePresence>

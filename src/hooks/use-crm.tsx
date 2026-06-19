@@ -167,8 +167,22 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [getOrgId, pageSize, setStoreEntities]);
+    // Handle client-side optimistic UI updates for import
+    const handleOptimisticImport = (e: Event) => {
+      const customEvent = e as CustomEvent<{ leads: CRMEntity[] }>;
+      if (customEvent.detail?.leads) {
+        customEvent.detail.leads.forEach(lead => {
+          addStoreEntity(lead);
+        });
+      }
+    };
+    window.addEventListener("crm:optimistic-import", handleOptimisticImport);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("crm:optimistic-import", handleOptimisticImport);
+    };
+  }, [getOrgId, pageSize, setStoreEntities, addStoreEntity]);
 
   const syncingIdsRef = useRef<Set<string>>(new Set());
 

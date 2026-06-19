@@ -103,7 +103,7 @@ function NotesPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full">
+    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
       <NoteModal 
         isOpen={showNoteModal} 
         onOpenChange={setShowNoteModal} 
@@ -134,7 +134,6 @@ function NotesPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            autoFocus
             placeholder="SEARCH BY TITLE, CONTENT, OR RELATION..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -160,7 +159,7 @@ function NotesPageContent() {
             <motion.div 
               key="grid" 
               initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full overflow-y-auto pr-2 pb-6 custom-scrollbar"
             >
               {filteredNotes.map(note => (
                 <Card 
@@ -196,7 +195,7 @@ function NotesPageContent() {
               ))}
             </motion.div>
           ) : (
-            <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
+            <motion.div key="list" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full flex flex-col min-h-0">
               <CRMTable 
                 entities={filteredNotes} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity} updateConfig={updateConfig} 
                 onEntityClick={handleOpenNote} selectedIds={selectedIds} onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSelectAll={setSelectedIds} 

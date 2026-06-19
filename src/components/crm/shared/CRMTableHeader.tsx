@@ -52,7 +52,7 @@ export const CRMTableHeader = ({
   return (
     <thead>
       <tr className="h-12 bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
-        <th className="w-24 p-0 border-r border-border/50 sticky left-0 z-[60] bg-slate-100 dark:bg-slate-800">
+        <th className="w-24 p-0 border-r border-border/50 sticky left-0 top-0 z-[60] bg-slate-100 dark:bg-slate-800">
           <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
           <div className="flex items-center justify-center h-full pl-3">
             <input
@@ -64,7 +64,7 @@ export const CRMTableHeader = ({
           </div>
         </th>
         {displayFields.map((field) => (
-          <th key={field.id} className="p-0 border-r border-border/50 relative group/th h-12 min-w-[150px]">
+          <th key={field.id} className="p-0 border-r border-border/50 sticky top-0 z-30 bg-slate-100 dark:bg-slate-800 group/th h-12 min-w-[150px]">
             <div className="flex items-center justify-between px-4 h-full">
               {renamingFieldId === field.id ? (
                 <Input 
@@ -120,7 +120,7 @@ export const CRMTableHeader = ({
             </div>
           </th>
         ))}
-        <th className="w-12 bg-secondary/10 border-l border-border/50 text-center relative">
+        <th className="w-12 border-l border-border/50 text-center sticky right-0 top-0 z-[60] bg-slate-100 dark:bg-slate-800">
           <ColumnPicker 
               onSelect={handleAddColumn}
               availableTemplates={availableTemplates}

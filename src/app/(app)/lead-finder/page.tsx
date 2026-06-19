@@ -15,6 +15,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useLeadFinderStore, LeadFinderLead } from "@/store/use-lead-finder-store";
 import { DealModal } from "@/components/crm/forms/DealModal";
 import { OutreachSetupModal } from "@/components/OutreachSetupModal";
+import { TierStatusModal } from "@/components/crm/shared/TierStatusModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -163,6 +164,7 @@ export default function LeadFinderPage() {
   const [isPullModalOpen, setIsPullModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isTierModalOpen, setIsTierModalOpen] = useState(false);
 
   // Prospect pulling parameters
   const [pullState, setPullState] = useState<string>("all");
@@ -197,22 +199,35 @@ export default function LeadFinderPage() {
     return typeof window !== "undefined" ? localStorage.getItem("lead_finder_call_script") || 
       "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?" : "Hello {First Name},\n\nI know I'm calling you completely out of the blue. Do you have 30 seconds for me to tell you why I called, and you can decide if it makes sense to keep talking?\n\n(Wait for agreement)\n\nGreat. I noticed that {Company Name} is active in {Industry}. We help organizations in your sector optimize workflow efficiency.\n\nHow are you currently handling that bottleneck, and are you seeing the results you expected, or is that becoming a challenge for your team?\n\n(Listen to response)\n\nI'm not suggesting we make any changes today, but I'd love to share how peers in your industry are benchmarking this. Do you have 15 minutes later this week to compare notes?";
   });
-
-  const [callMethod, setCallMethod] = useState<"system" | "google-voice">(() => {
+ 
+  const [callMethod, setCallMethod] = useState<"system" | "google-voice" | "justcall" | "ringcentral">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("lead_finder_call_method") as "system" | "google-voice") || "system";
+      return (localStorage.getItem("lead_finder_call_method") as "system" | "google-voice" | "justcall" | "ringcentral") || "system";
     }
     return "system";
   });
 
-  const handleSetCallMethod = (method: "system" | "google-voice") => {
+  const handleSetCallMethod = (method: "system" | "google-voice" | "justcall" | "ringcentral") => {
     setCallMethod(method);
     if (typeof window !== "undefined") {
       localStorage.setItem("lead_finder_call_method", method);
     }
   };
 
-  // Keep templates saved locally
+  const [emailMethod, setEmailMethod] = useState<"gmail" | "outlook" | "yahoo">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("lead_finder_email_method") as "gmail" | "outlook" | "yahoo") || "gmail";
+    }
+    return "gmail";
+  });
+
+  const handleSetEmailMethod = (method: "gmail" | "outlook" | "yahoo") => {
+    setEmailMethod(method);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lead_finder_email_method", method);
+    }
+  };
+ 
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("lead_finder_email_subject", emailSubject);
@@ -384,7 +399,6 @@ export default function LeadFinderPage() {
     }
     return result;
   };
-
   // Click-to-Email outreach composition with dynamic tags
   const handleSendEmail = (lead: LeadFinderLead) => {
     if (!lead.Email) {
@@ -395,11 +409,16 @@ export default function LeadFinderPage() {
     const resolvedSubject = resolveTemplate(emailSubject, lead);
     const resolvedBody = resolveTemplate(emailBody, lead);
 
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
-      lead.Email
-    )}&su=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    let mailUrl = "";
+    if (emailMethod === "outlook") {
+      mailUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(lead.Email)}&subject=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    } else if (emailMethod === "yahoo") {
+      mailUrl = `https://compose.mail.yahoo.com/?to=${encodeURIComponent(lead.Email)}&subj=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    } else {
+      mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(lead.Email)}&su=${encodeURIComponent(resolvedSubject)}&body=${encodeURIComponent(resolvedBody)}`;
+    }
 
-    window.open(gmailUrl, "_blank");
+    window.open(mailUrl, "_blank");
     toast.success(`Launching pre-filled email for ${lead["First Name"] || "Lead"}`);
     
     // Globally sync that this lead has been contacted by this team member
@@ -434,6 +453,14 @@ export default function LeadFinderPage() {
       const gvUrl = `https://voice.google.com/u/0/calls?a=nc,${encodeURIComponent(cleanPhone)}`;
       window.open(gvUrl, "_blank");
       toast.success(`Opening Google Voice for ${lead["First Name"] || "Lead"}`);
+    } else if (callMethod === "justcall") {
+      const jcUrl = `https://app.justcall.io/dialer?numbers=${encodeURIComponent(cleanPhone)}`;
+      window.open(jcUrl, "newWin", "width=385,height=665,location=no,status=no,menubar=no,toolbar=no");
+      toast.success(`Opening JustCall for ${lead["First Name"] || "Lead"}`);
+    } else if (callMethod === "ringcentral") {
+      const rcUrl = `rcmobile://call?number=${encodeURIComponent(cleanPhone)}`;
+      window.open(rcUrl);
+      toast.success(`Opening RingCentral for ${lead["First Name"] || "Lead"}`);
     } else {
       const telUrl = `tel:${cleanPhone}`;
       window.open(telUrl);
@@ -442,7 +469,6 @@ export default function LeadFinderPage() {
 
     toggleCallStatus(lead.id, true, userData?.name || "Team Member", orgId);
   };
-
   // Convert Prospect to active CRM Pipeline Deal
   const handleConvertToDeal = (lead: LeadFinderLead) => {
     setSelectedLeadForDeal(lead);
@@ -577,15 +603,26 @@ export default function LeadFinderPage() {
         />
       )}
 
+      <TierStatusModal
+        isOpen={isTierModalOpen}
+        onClose={() => setIsTierModalOpen(false)}
+        tier={isPremium ? 'Premium' : (isStandard ? 'Standard' : 'Free')}
+        leadsUsed={leadsUsed}
+        quotaLimit={quotaLimit}
+      />
+
       {/* Header bar: Minimalist, clean Apple design with subtle limit badge */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/10 pb-5">
         <div className="space-y-1">
           <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-foreground uppercase font-poppins flex flex-wrap items-center gap-3">
             Lead Finder
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/70 text-[9px] font-black uppercase tracking-wider text-muted-foreground border border-border/20 shadow-sm shrink-0">
-              <span className={`size-1.5 rounded-full ${leadsLeft <= 0 ? "bg-destructive animate-pulse" : "bg-indigo-500 animate-pulse"}`} />
-              {leadsLeft.toLocaleString()} / {quotaLimit.toLocaleString()} remaining
-            </span>
+            <button 
+              onClick={() => setIsTierModalOpen(true)}
+              className="group flex items-center gap-1.5 font-mono text-[9px] text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-bold transition-all cursor-pointer shadow-sm hover:shadow shrink-0 align-middle"
+            >
+              <Database size={11} className="text-purple-500 group-hover:scale-110 transition-transform" />
+              <span>{leadsLeft.toLocaleString()} / {quotaLimit.toLocaleString()} REMAINING</span>
+            </button>
           </h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
             Collaborative Executive CEO Database & Outreach Hub
@@ -1050,8 +1087,7 @@ export default function LeadFinderPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 2: Outreach Template customizer Modal */}
-      <OutreachSetupModal
+      {/* DIALOG 2: Outreach Template customizer Modal */}      <OutreachSetupModal
         isOpen={isTemplateModalOpen}
         onOpenChange={setIsTemplateModalOpen}
         emailSubject={emailSubject}
@@ -1059,8 +1095,9 @@ export default function LeadFinderPage() {
         callScript={callScript}
         callMethod={callMethod}
         setCallMethod={handleSetCallMethod}
+        emailMethod={emailMethod}
+        setEmailMethod={handleSetEmailMethod}
       />
-
       {/* DIALOG 3: High-Converting Apple-Style Quota Upgrade Modal */}
       <Dialog open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen}>
         <DialogContent className="max-w-md border border-border/40 rounded-3xl p-8 bg-card/95 backdrop-blur-2xl text-foreground font-sans shadow-2xl">

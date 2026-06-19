@@ -28,7 +28,7 @@ import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 import { ProductSwitcher } from "./shared/ProductSwitcher";
 
 import { db } from "@/lib/firebase";
-import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
+import { getDocs, collection, query, where, limit, doc, getDoc, onSnapshot } from "firebase/firestore";
 
 interface DashboardSidebarProps {
   isCollapsed: boolean;
@@ -59,6 +59,8 @@ export function DashboardSidebar({
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
+  const [crmNotificationsCount, setCrmNotificationsCount] = useState<number>(0);
+
   const shiftUser = useMemo(() => {
     if (!userData && !user) return null;
     return {
@@ -68,8 +70,22 @@ export function DashboardSidebar({
   }, [userData, user]);
 
   const orgId = userData?.ownedOrgId || userData?.orgId;
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "users", user.uid, "notifications"),
+      where("type", "==", "crm_missed_followup"),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCrmNotificationsCount(snapshot.size);
+    });
+    return () => unsubscribe();
+  }, [orgId, user]);
+
   const { allPendingLeaves, allPendingClaims } = useShift(new Date(), orgId, shiftUser, employees);
-  const pendingCount = allPendingLeaves.length + allPendingClaims.length;
+  const pendingCount = allPendingLeaves.length + allPendingClaims.length + crmNotificationsCount;
 
   // Swipe logic refs
   const touchStartX = useRef<number | null>(null);

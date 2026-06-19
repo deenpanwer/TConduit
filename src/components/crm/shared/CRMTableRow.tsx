@@ -3,7 +3,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { 
-  MoreHorizontal, Eye, Trash, Check, Link as LinkIcon, FileText, Clock, Search as SearchIcon, Plus
+  MoreHorizontal, Eye, Trash, Check, Link as LinkIcon, FileText, Clock, Search as SearchIcon, Plus, Mail, Phone, UserPlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FieldConfig, useCRM } from "@/hooks/use-crm";
 import { useCRMStore } from "@/store/use-crm-store";
+import { useAuth } from "@/hooks/use-auth";
 import { TableCellEditor } from "./TableCellEditor";
 import { CRMPhoneDisplay } from "./CRMPhoneInput";
+
+const getEmployeeAvatarUrl = (emp: any) => {
+  if (!emp) return 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=anonymous';
+  const photo = emp.photoURL || emp.photoUrl || emp.imageUrl || emp.image;
+  if (photo) return photo;
+  const seed = emp.email || emp.name || emp.id || 'anonymous';
+  return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${seed}`;
+};
 
 interface CRMTableRowProps {
   entityId: string; // ONLY pass the ID
@@ -72,23 +81,262 @@ export const CRMTableRow = React.memo(({
 }: CRMTableRowProps) => {
   // ATOMIC SUBSCRIPTION: This row ONLY re-renders if its specific entity changes
   const entity = useCRMStore(state => state.entities[entityId]);
-  
-  if (!entity) return null;
+  const { user } = useAuth();
+  const [assigneeOpen, setAssigneeOpen] = React.useState(false);
 
   const getFieldValue = (fieldKey: string) => {
+    if (!entity) return "";
     if (fieldKey in entity) return (entity as any)[fieldKey];
     return entity.data?.[fieldKey];
   };
 
+  // Resolve Follow-up info
+  const followUpField = displayFields.find(f => 
+    (f.label.toLowerCase().includes("follow") || f.key.toLowerCase().includes("follow")) &&
+    f.type === "date"
+  );
+  const followUpKey = followUpField ? followUpField.key : null;
+  const followUpValue = followUpKey ? getFieldValue(followUpKey) : null;
+  
+  let isMissed = false;
+  let isTomorrow = false;
+  if (followUpValue) {
+    let fDate: Date | null = null;
+    if (typeof followUpValue.toDate === 'function') {
+      fDate = followUpValue.toDate();
+    } else if (followUpValue.seconds !== undefined) {
+      fDate = new Date(followUpValue.seconds * 1000);
+    } else {
+      const cleanVal = typeof followUpValue === 'string' ? followUpValue.replace(/(\d+)(st|nd|rd|th)/gi, '$1') : followUpValue;
+      const parsed = new Date(cleanVal);
+      if (!isNaN(parsed.getTime())) {
+        fDate = parsed;
+      }
+    }
+
+    if (fDate) {
+      const now = new Date();
+      if (fDate.getTime() < now.getTime()) {
+        isMissed = true;
+      } else {
+        // Check if tomorrow (exactly 1 day left)
+        const diffTime = fDate.getTime() - now.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays > 0 && diffDays <= 1) {
+          isTomorrow = true;
+        }
+      }
+    }
+  }
+
+  const assignedToVal = getFieldValue("assignedTo");
+  const assignedByVal = getFieldValue("assignedBy");
+  const isAcknowledged = getFieldValue("acknowledged");
+
+  const handleEmailClick = (email: string) => {
+    const emailMethod = (localStorage.getItem("lead_finder_email_method") as "gmail" | "outlook" | "yahoo") || "gmail";
+    const subject = encodeURIComponent("CRM Follow Up");
+    const body = encodeURIComponent("Hi,\n\nI wanted to follow up on our recent conversation.\n\nBest regards,\n");
+
+    let mailUrl = "";
+    if (emailMethod === "outlook") {
+      mailUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(email)}&subject=${subject}&body=${body}`;
+    } else if (emailMethod === "yahoo") {
+      mailUrl = `https://compose.mail.yahoo.com/?to=${encodeURIComponent(email)}&subj=${subject}&body=${body}`;
+    } else {
+      mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${subject}&body=${body}`;
+    }
+
+    window.open(mailUrl, "_blank");
+  };
+
+  const handlePhoneClick = (phone: string) => {
+    const callMethod = (localStorage.getItem("lead_finder_call_method") as "system" | "google-voice" | "justcall" | "ringcentral") || "system";
+    let cleanPhone = phone.replace(/[^\d+]/g, "");
+    if (cleanPhone.startsWith("1") && !cleanPhone.startsWith("+")) {
+      cleanPhone = "+" + cleanPhone;
+    } else if (!cleanPhone.startsWith("+")) {
+      if (cleanPhone.length === 10) {
+        cleanPhone = "+1" + cleanPhone;
+      }
+    }
+
+    if (callMethod === "google-voice") {
+      const gvUrl = `https://voice.google.com/u/0/calls?a=nc,${encodeURIComponent(cleanPhone)}`;
+      window.open(gvUrl, "_blank");
+    } else if (callMethod === "justcall") {
+      const jcUrl = `https://app.justcall.io/dialer?numbers=${encodeURIComponent(cleanPhone)}`;
+      window.open(jcUrl, "newWin", "width=385,height=665,location=no,status=no,menubar=no,toolbar=no");
+    } else if (callMethod === "ringcentral") {
+      const rcUrl = `rcmobile://call?number=${encodeURIComponent(cleanPhone)}`;
+      window.open(rcUrl);
+    } else {
+      const telUrl = `tel:${cleanPhone}`;
+      window.open(telUrl);
+    }
+  };
+
+  if (!entity) return null;
+
   return (
     <tr className={cn(
       "border-b border-border/20 transition-all group h-[52px]", 
-      isSelected ? "bg-blue-600/[0.12] hover:bg-blue-600/[0.18]" : "hover:bg-blue-500/[0.03]"
+      isSelected 
+        ? "bg-blue-50 dark:bg-[#0c1e3b] hover:bg-blue-100 dark:hover:bg-[#112547]" 
+        : (isMissed 
+            ? "bg-rose-500/10 dark:bg-rose-950/20 border-rose-500/20 hover:bg-rose-500/15" 
+            : "hover:bg-blue-500/[0.03]")
     )}>
-      <td className={cn("w-24 p-0 border-r border-border/20 sticky left-0 z-20 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)]", isSelected ? "bg-blue-600/[0.05]" : "bg-card group-hover:bg-muted")}>
+      <td className={cn(
+        "w-24 p-0 border-r border-border/20 sticky left-0 z-20 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)] h-[52px]", 
+        isSelected 
+          ? "bg-blue-50 dark:bg-[#0c1e3b]" 
+          : (isMissed 
+              ? "bg-rose-100/40 dark:bg-[#251016]" 
+              : "bg-card group-hover:bg-muted")
+      )}>
         <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
-        <div className="flex items-center justify-center h-full pl-6 pr-3">
-            <input type="checkbox" className="rounded-sm border-border bg-background cursor-pointer accent-blue-600 h-4 w-4" checked={isSelected} onChange={() => onSelect(entity.id)} />
+        <div className="flex items-center justify-start gap-3 h-full pl-6">
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <input type="checkbox" className="rounded-sm border-border bg-background cursor-pointer accent-blue-600 h-4 w-4" checked={isSelected} onChange={() => onSelect(entity.id)} />
+            </div>
+            
+            {/* Self-Assign / Acknowledgment / Manager Assign Dropdown */}
+            <div className="w-6 h-6 shrink-0 flex items-center justify-center">
+              {user && (
+                <DropdownMenu open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+                  <DropdownMenuTrigger asChild>
+                    {assignedToVal ? (
+                      (() => {
+                        const isMe = assignedToVal === user.uid;
+                        const assignedEmployee = isMe 
+                          ? { name: user.displayName || "Me", photoURL: user.photoURL || (user as any).imageUrl, email: user.email }
+                          : employees.find(e => e.id === assignedToVal || e.name === assignedToVal || e.uid === assignedToVal);
+                        
+                        const assigner = employees.find(e => e.id === assignedByVal || e.uid === assignedByVal);
+                        const assignerName = assignedByVal === user.uid ? "Me" : (assigner?.name || "System");
+                        
+                        const employeeName = assignedEmployee?.name || "Unknown";
+                        
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "relative h-6 w-6 rounded-md shrink-0 shadow-sm flex items-center justify-center border cursor-pointer p-0",
+                              isMe 
+                                ? (assignedByVal === user.uid 
+                                    ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20" 
+                                    : "text-indigo-500 bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/20")
+                                : "border-border/40 hover:bg-secondary/50"
+                            )}
+                            title={isMe 
+                              ? (assignedByVal === user.uid 
+                                  ? `Self-Assigned to ${employeeName} (Click to change)` 
+                                  : `Assigned to ${employeeName} by ${assignerName} (${isAcknowledged ? 'Working on it' : 'Pending Acknowledgment'}) (Click to change)`)
+                              : `Assigned to ${employeeName} by ${assignerName} (${isAcknowledged ? 'Working on it' : 'Pending Acknowledgment'}) (Click to change)`
+                            }
+                          >
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={getEmployeeAvatarUrl(assignedEmployee)} />
+                              <AvatarFallback className="text-[8px] font-black">{String(employeeName).charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          </Button>
+                        );
+                      })()
+                    ) : (
+                      // Unassigned
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 rounded-md shrink-0 opacity-30 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer p-0"
+                        title="Unassigned (Click to assign)"
+                      >
+                        <UserPlus size={14} />
+                      </Button>
+                    )}
+                  </DropdownMenuTrigger>
+                  
+                  <DropdownMenuContent align="start" className="w-56 border-border/40 bg-card/95 backdrop-blur-xl z-[100] rounded-xl shadow-2xl p-2">
+                    <>
+                      {/* Acknowledge Action if assigned to me and pending */}
+                      {assignedToVal === user.uid && !isAcknowledged && (
+                        <>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCellSave(entity.id, "acknowledged", true);
+                            }} 
+                            className="text-[10px] font-bold text-amber-500 uppercase py-2 cursor-pointer"
+                          >
+                            Acknowledge Assignment
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1 bg-border/20" />
+                        </>
+                      )}
+
+                      {/* Self-Assign / Unassign options */}
+                      {assignedToVal === user.uid ? (
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellSave(entity.id, "assignedTo", "");
+                          }} 
+                          className="text-[10px] font-bold text-red-500 uppercase py-2 cursor-pointer"
+                        >
+                          Unassign Self
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellSave(entity.id, "assignedTo", user.uid);
+                          }} 
+                          className="text-[10px] font-bold uppercase py-2 cursor-pointer"
+                        >
+                          Assign to Me (Self-Assign)
+                        </DropdownMenuItem>
+                      )}
+
+                      {assignedToVal && assignedToVal !== user.uid && (
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellSave(entity.id, "assignedTo", "");
+                          }} 
+                          className="text-[10px] font-bold text-red-500 uppercase py-2 cursor-pointer"
+                        >
+                          Unassign Lead
+                        </DropdownMenuItem>
+                      )}
+
+                      <DropdownMenuSeparator className="my-1 bg-border/20" />
+                      <div className="px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">Assign to Team</div>
+                      
+                      <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                        {employees.map((emp) => (
+                          <DropdownMenuItem 
+                            key={emp.id} 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCellSave(entity.id, "assignedTo", emp.id);
+                            }} 
+                            className="flex items-center gap-2 text-[10px] font-bold uppercase py-2 cursor-pointer"
+                          >
+                            <Avatar className="size-5">
+                              <AvatarImage src={getEmployeeAvatarUrl(emp)} />
+                              <AvatarFallback className="text-[8px]">{emp.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate flex-1">{emp.name}</span>
+                            {assignedToVal === emp.id && <Check size={12} className="text-blue-500 shrink-0" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </div>
+                    </>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
         </div>
       </td>
       {displayFields.map((field) => {
@@ -334,13 +582,47 @@ export const CRMTableRow = React.memo(({
                         {val ? format(new Date(val), "MMM d, h:mm a") : '-'}
                     </span>
                 ) : field.type === 'phone' ? (
-                    <CRMPhoneDisplay 
-                      value={val} 
-                      placeholder={`+ ${field.label}`} 
-                      className={cn("text-xs font-bold text-foreground/80 transition-colors w-full", isSelected && "text-blue-700 dark:text-blue-300")}
-                    />
+                    <div className="flex items-center justify-between w-full pr-1">
+                      <CRMPhoneDisplay 
+                        value={val} 
+                        placeholder={`+ ${field.label}`} 
+                        className={cn("text-xs font-bold text-foreground/80 transition-colors w-full", isSelected && "text-blue-700 dark:text-blue-300")}
+                      />
+                      {val && (
+                        <button 
+                          className="text-slate-400 hover:text-green-500 transition-colors p-1 shrink-0 ml-1.5 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePhoneClick(val);
+                          }}
+                          title="Call Number"
+                        >
+                          <Phone className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                ) : field.type === 'email' && val ? (
+                    <div className="flex items-center justify-between w-full pr-1">
+                      <span className={cn("text-xs font-bold truncate transition-colors", isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80")}>
+                        {val}
+                      </span>
+                      <button 
+                        className="text-slate-400 hover:text-blue-500 transition-colors p-1 shrink-0 ml-1.5 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEmailClick(val);
+                        }}
+                        title="Send Email"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                 ) : (
-                  <span className={cn("text-xs font-bold truncate w-full transition-colors", isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80")}>
+                  <span className={cn(
+                    "text-xs font-bold truncate w-full transition-colors", 
+                    isSelected ? "text-blue-700 dark:text-blue-300" : "text-foreground/80",
+                    (field.key === followUpKey && isTomorrow) && "text-rose-600 dark:text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded bg-rose-500/10 font-black animate-pulse"
+                  )}>
                     {field.type === 'date' && val ? format(new Date(val), "PPP") : (val || <span className="text-[9px] font-black uppercase text-muted-foreground italic tracking-widest">+ {field.label}</span>)}
                   </span>
                 )}
