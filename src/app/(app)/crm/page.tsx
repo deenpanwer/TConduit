@@ -1,15 +1,20 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useCRM } from "@/hooks/use-crm";
 import { useAuth } from "@/hooks/use-auth";
+import { CRMNotificationsDrawer } from "@/components/crm/CRMNotificationsDrawer";
+import { AnimatePresence } from "framer-motion";
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { 
   History, 
   Bell, 
   Sparkles,
   Phone,
   StickyNote,
-  Zap
+  Zap,
+  FileText
 } from "lucide-react";
 import { 
   Sheet, 
@@ -24,14 +29,32 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { CRMOverviewContent } from "@/components/crm/CRMOverviewContent";
+import { CRMReportsModal } from "@/components/crm/CRMReportsModal";
 
 export default function CRMPage() {
   const { user } = useAuth();
-  const { entities, leads } = useCRM();
+  const { entities } = useCRM();
+  
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [crmNotificationsCount, setCrmNotificationsCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "users", user.uid, "notifications"),
+      where("type", "==", "crm_missed_followup"),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCrmNotificationsCount(snapshot.size);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const pendingCount = crmNotificationsCount;
+
   const allHistory = entities.flatMap(e => e.history.map(h => ({ ...h, entityName: e.name })));
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const currentLeads = leads.filter(l => new Date(l.createdAt) >= sevenDaysAgo).length;
 
   return (
     <div className="h-full overflow-y-auto bg-background/50">
@@ -44,6 +67,17 @@ export default function CRMPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* 
+            <Button 
+              onClick={() => setIsReportsModalOpen(true)}
+              variant="destructive" 
+              size="icon" 
+              className="rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/10"
+            >
+              <FileText size={20} />
+            </Button>
+            */}
+
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary">
@@ -78,29 +112,17 @@ export default function CRMPage() {
               </SheetContent>
             </Sheet>
 
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary relative">
-                  <Bell size={20} className="text-muted-foreground" />
-                  {currentLeads > 0 && <span className="absolute top-2 right-2 size-2 bg-blue-500 rounded-full border-2 border-background" />}
-                </Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle className="text-2xl font-black tracking-tighter text-blue-500">Updates</SheetTitle>
-                  <SheetDescription>What's new while you were away.</SheetDescription>
-                </SheetHeader>
-                <div className="mt-8 flex flex-col items-center justify-center text-center p-12 space-y-4">
-                  <div className="size-20 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <Sparkles className="text-blue-500" size={40} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-foreground">You're all caught up!</h3>
-                    <p className="text-xs text-muted-foreground mt-1 italic">We'll let you know when something important happens.</p>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+            <Button 
+              onClick={() => setIsNotificationsOpen(true)}
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full hover:bg-secondary relative"
+            >
+              <Bell size={20} className="text-muted-foreground" />
+              {pendingCount > 0 && (
+                <span className="absolute top-2 right-2 size-2 bg-blue-500 rounded-full border-2 border-background" />
+              )}
+            </Button>
 
             <div className="h-6 w-px bg-border/50 mx-2" />
 
@@ -112,6 +134,18 @@ export default function CRMPage() {
         </div>
       </header>
       <CRMOverviewContent />
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <CRMNotificationsDrawer 
+            isOpen={isNotificationsOpen} 
+            onClose={() => setIsNotificationsOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
+      <CRMReportsModal 
+        isOpen={isReportsModalOpen} 
+        onClose={() => setIsReportsModalOpen(false)} 
+      />
     </div>
   );
 }

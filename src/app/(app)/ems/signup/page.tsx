@@ -34,7 +34,6 @@ function SignupContent() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isEmployee, setIsEmployee] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     orgName: "",
@@ -103,7 +102,7 @@ function SignupContent() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!isEmployee && !formData.orgName) || !formData.email || !formData.password || !formData.fullName) {
+    if (!formData.orgName || !formData.email || !formData.password || !formData.fullName) {
       toast({ title: "Required fields missing", description: "Please fill in all the details to create your account.", variant: "destructive" });
       return;
     }
@@ -119,62 +118,49 @@ function SignupContent() {
       const user = userCredential.user;
       await updateProfile(user, { displayName: formData.fullName });
 
-      if (!isEmployee) {
-        const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
-        const trialExpiry = new Date();
-        trialExpiry.setDate(trialExpiry.getDate() + 7);
+      const orgId = `org_${Math.random().toString(36).substr(2, 9)}`;
+      const trialExpiry = new Date();
+      trialExpiry.setDate(trialExpiry.getDate() + 7);
 
-        // 1. Create Organization
-        await setDoc(doc(db, "organizations", orgId), {
-          name: formData.orgName,
-          ownerId: user.uid,
-          inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
-          subscriptionStatus: "trialing",
-          subscriptionExpiry: trialExpiry,
-          partnerSlug: partnerSlug || null,
-          createdAt: serverTimestamp()
-        });
+      // 1. Create Organization
+      await setDoc(doc(db, "organizations", orgId), {
+        name: formData.orgName,
+        ownerId: user.uid,
+        inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
+        subscriptionStatus: "trialing",
+        subscriptionExpiry: trialExpiry,
+        partnerSlug: partnerSlug || null,
+        createdAt: serverTimestamp()
+      });
 
-        // 2. Create User Profile WITH ownedOrgId
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          name: formData.fullName,
-          role: "owner",
-          orgName: formData.orgName,
-          ownedOrgId: orgId,
-          uid: user.uid,
-          onboardingCompleted: false,
-          partnerSlug: partnerSlug || null,
-          createdAt: serverTimestamp()
-        });
+      // 2. Create User Profile WITH ownedOrgId
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        name: formData.fullName,
+        role: "owner",
+        orgName: formData.orgName,
+        ownedOrgId: orgId,
+        uid: user.uid,
+        onboardingCompleted: false,
+        partnerSlug: partnerSlug || null,
+        createdAt: serverTimestamp()
+      });
 
-        if (partnerSlug) {
-          (async () => {
-            try {
-              const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
-              const partnerSnap = await getDocs(partnerQ);
-              if (!partnerSnap.empty) {
-                const partnerDoc = partnerSnap.docs[0];
-                await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
-                  orgName: formData.orgName,
-                  clientEmail: formData.email,
-                  createdAt: serverTimestamp(),
-                });
-              }
-            } catch (e) {}
-          })();
-        }
-      } else {
-        // Employee path: No org creation here, will join in onboarding
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          name: formData.fullName,
-          role: "employee",
-          uid: user.uid,
-          onboardingCompleted: false,
-          partnerSlug: partnerSlug || null,
-          createdAt: serverTimestamp()
-        });
+      if (partnerSlug) {
+        (async () => {
+          try {
+            const partnerQ = query(collection(db, "partners"), where("slug", "==", partnerSlug), limit(1));
+            const partnerSnap = await getDocs(partnerQ);
+            if (!partnerSnap.empty) {
+              const partnerDoc = partnerSnap.docs[0];
+              await setDoc(doc(db, "partners", partnerDoc.id, "signups", orgId), {
+                orgName: formData.orgName,
+                clientEmail: formData.email,
+                createdAt: serverTimestamp(),
+              });
+            }
+          } catch (e) {}
+        })();
       }
 
       toast({ title: "Account created", description: "Welcome to the network. Let's finish your setup." });
@@ -273,10 +259,10 @@ function SignupContent() {
                <img src="/special-triangle.svg" alt="Logo" width={48} height={48} className="w-12 h-12 hidden dark:block" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight leading-none">
-              {isEmployee ? "Employee Signup" : "Create Account"}
+              Create Account
             </h1>
             <p className="text-sm text-muted-foreground mt-2">
-              {isEmployee ? "Join your organization's workspace" : "Set up your organization and start collaborating"}
+              Set up your organization and start collaborating
             </p>
           </div>
 
@@ -291,18 +277,16 @@ function SignupContent() {
                 className="bg-background/50 border-border h-12 rounded-xl px-5"
               />
             </div>
-            {!isEmployee && (
-              <div className="space-y-1.5">
-                <Label htmlFor="orgName" className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
-                <Input 
-                  id="orgName" 
-                  value={formData.orgName}
-                  onChange={(e) => setFormData({...formData, orgName: e.target.value})}
-                  placeholder="Company Name" 
-                  className="bg-background/50 border-border h-12 rounded-xl px-5"
-                />
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="orgName" className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+              <Input 
+                id="orgName" 
+                value={formData.orgName}
+                onChange={(e) => setFormData({...formData, orgName: e.target.value})}
+                placeholder="Company Name" 
+                className="bg-background/50 border-border h-12 rounded-xl px-5"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider ml-1">Email</Label>
               <Input 
@@ -359,16 +343,6 @@ function SignupContent() {
           </Button>
 
           <div className="mt-8 text-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {isEmployee ? "Starting an organization?" : "Sent by your employer?"}{" "}
-              <button 
-                type="button"
-                onClick={() => setIsEmployee(!isEmployee)}
-                className="text-yellow-500 font-bold hover:underline"
-              >
-                Click here
-              </button>
-            </p>
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link 

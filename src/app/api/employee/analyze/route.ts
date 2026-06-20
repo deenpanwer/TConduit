@@ -74,11 +74,11 @@ The shift data contains these time record types:
 
 - "liveMetrics" (also seen as "live_metrics"): The SINGLE SOURCE OF TRUTH for how long ${employeeName} worked. Use ONLY liveMetrics.totalSeconds for total session time. Nothing else. The pre-computed total above is already calculated from these fields.
 - "liveBreakdown" (also seen as "live_breakdown"): Per-app time breakdown (activeSeconds, idleSeconds, totalSeconds per app). These are ALREADY included inside liveMetrics.totalSeconds — do NOT add them on top.
-- "hourlyPulse" or "hourlyMetrics": A row-by-row breakdown of each hour worked. Already reflected in liveMetrics. Do NOT add hourly rows on top of liveMetrics. If liveMetrics is missing, sum hourly rows exactly once.
+- "hourlyPulse": A row-by-row hourly breakdown of the exact same data. Do NOT add hourly rows on top of liveMetrics or liveBreakdown. They are identical datasets.
 
-👉 RULE 1 — NEVER use "startTime" and "endTime" to calculate duration. The gap between those timestamps includes offline time, idle periods, and time outside the tracked session. They are clock timestamps, NOT a stopwatch.
+👉 RULE 1 — NEVER use "startTime" or "endTime" (or their Local equivalents) to calculate duration. The gap between those timestamps includes offline time, idle periods, and time outside the tracked session. They are clock timestamps, NOT a stopwatch. You may mention their local timezone.
 👉 RULE 2 — NEVER sum liveBreakdown app totals for an overall total. They are already inside liveMetrics.totalSeconds.
-👉 RULE 3 — NEVER add hourly rows on top of liveMetrics. They cover the same work period.
+👉 RULE 3 — NEVER add hourlyPulse rows on top of liveMetrics. If you add hourlyPulse to liveMetrics, you will artificially double the employee's tracked time. NEVER DO THIS.
 👉 RULE 4 — NEVER treat seconds as minutes. All time fields are in raw SECONDS. Divide by 3600 for hours.
 👉 RULE 5 — TRUST the pre-computed total above. Do not re-derive it from timestamps.
 👉 RULE 6 — ZERO DATA SHIFTS: If there are recorded shifts but the total tracked time is 0 (or liveMetrics has no active metrics/seconds), this strictly means the employee opened the Trac Diary desktop application but HAS NOT STARTED THEIR WORK (i.e. they did not press track/start or begin a work session). Do NOT audit this as "idle time", "lack of engagement", "unproductivity", or "distraction" during shifts. Simply explain that they opened the application but did not start their work session today.

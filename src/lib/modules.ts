@@ -50,7 +50,7 @@ export const MODULE_CONFIG = [
   {
     id: "attendance",
     title: "Human Resource",
-    shortTitle: "Attendance",
+    shortTitle: "HR",
     description: "Human Resource & Reporting",
     icon: CalendarDays,
     href: "/attendance",

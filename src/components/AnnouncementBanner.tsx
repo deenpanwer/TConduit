@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v3";
+const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v4";
 
 export function AnnouncementBanner() {
   const [mounted, setMounted] = useState(false);
@@ -56,7 +56,7 @@ export function AnnouncementBanner() {
 
         {/* Banner Content */}
         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          We've added <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">Excel (.xlsx) upload support</span> for CRM Leads imports, plus several <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">quality of life improvements</span> including inline draft rows, faster syncing, and bug fixes.
+          We've optimized our core <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">authentication handshake protocols</span> and integrated advanced <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">client-side session caching</span> for seamless resilience, alongside a secure new <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">manager invitation flow</span>.
         </p>
       </motion.div>
     </AnimatePresence>

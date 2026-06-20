@@ -47,7 +47,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (!loading && user && userData?.onboardingCompleted) {
+    if (!loading && user && (userData?.onboardingCompleted || userData?.employeeOnboardingV1Complete)) {
       fetchOrgDetails();
     }
   }, [user, userData, loading]);

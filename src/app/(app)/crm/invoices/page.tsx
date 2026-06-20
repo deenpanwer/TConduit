@@ -17,6 +17,14 @@ import {
   DropdownMenuTrigger, DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
 import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { 
     Table, 
     TableBody, 
     TableCell, 
@@ -30,7 +38,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 function InvoicesPageContent() {
-  const { entities: invoices, deleteEntity, loading } = useCRMInvoices();
+  const { entities: invoices, deleteEntity, updateEntity, loading } = useCRMInvoices();
   const router = useRouter();
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -169,16 +177,38 @@ function InvoicesPageContent() {
                         <span className="text-[9px] font-bold text-muted-foreground uppercase italic">{invoice.data?.items?.length || 0} Line Items</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Badge className={cn(
-                        "text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full",
-                        invoice.data?.status === 'paid' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 
-                        invoice.data?.status === 'sent' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                        invoice.data?.status === 'overdue' ? 'bg-red-500/10 text-red-600 border-red-500/20' :
-                        'bg-gray-500/10 text-gray-600 border-gray-500/20'
-                    )}>
-                        {invoice.data?.status || 'Draft'}
-                    </Badge>
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      value={invoice.data?.status || 'draft'}
+                      onValueChange={async (newStatus) => {
+                        try {
+                          await updateEntity(invoice.id, {
+                            status: newStatus
+                          });
+                          toast.success(`Invoice status updated to ${newStatus}`);
+                        } catch (err: any) {
+                          toast.error(`Failed to update status: ${err.message || err}`);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className={cn(
+                        "h-7 w-28 text-[9px] font-black uppercase tracking-wider rounded-full border px-2 py-0 mx-auto transition-all bg-transparent",
+                        invoice.data?.status === 'paid' ? 'text-green-600 border-green-500/20 hover:bg-green-500/10' : 
+                        invoice.data?.status === 'sent' ? 'text-blue-600 border-blue-500/20 hover:bg-blue-500/10' :
+                        invoice.data?.status === 'rejected' ? 'text-red-600 border-red-500/20 hover:bg-red-500/10' :
+                        invoice.data?.status === 'overdue' ? 'text-orange-600 border-orange-500/20 hover:bg-orange-500/10' :
+                        'text-gray-500/20 border-gray-500/20 hover:bg-gray-500/10'
+                      )}>
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card/95 border-border/40 backdrop-blur-xl">
+                        <SelectItem value="draft" className="text-[10px] font-bold uppercase tracking-wider">Draft</SelectItem>
+                        <SelectItem value="sent" className="text-[10px] font-bold uppercase tracking-wider">Sent</SelectItem>
+                        <SelectItem value="paid" className="text-[10px] font-bold uppercase tracking-wider">Paid</SelectItem>
+                        <SelectItem value="rejected" className="text-[10px] font-bold uppercase tracking-wider">Rejected</SelectItem>
+                        <SelectItem value="overdue" className="text-[10px] font-bold uppercase tracking-wider">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">

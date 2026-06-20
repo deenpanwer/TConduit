@@ -318,23 +318,7 @@ export function LeadImportDrawer({
     let successCount = 0;
     let failCount = 0;
 
-    // Optimistic client-side insert: Add items to current CRM view right away
-    if (typeof window !== 'undefined') {
-      const optimisticLeads = payloadsToImport.map((p, idx) => ({
-        id: `optimistic-${Date.now()}-${idx}`,
-        name: p.name,
-        data: {
-          ...p.data,
-          _isImported: true,
-          _isSyncing: true // Visual cue
-        },
-        createdAt: new Date().toISOString()
-      }));
-      
-      // Dispatch custom event to notify parent components to render optimistically
-      const event = new CustomEvent("crm:optimistic-import", { detail: { leads: optimisticLeads } });
-      window.dispatchEvent(event);
-    }
+
 
     // Inform user that sync is happening in background and they shouldn't close the tab
     const syncToastId = toast.loading("Syncing imported leads with backend database. Please do not close this tab... 0%", {

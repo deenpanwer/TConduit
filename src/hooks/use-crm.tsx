@@ -91,8 +91,9 @@ interface CRMContextType {
 
 const CRMContext = createContext<CRMContextType | undefined>(undefined);
 
-export function CRMProvider({ children }: { children: React.ReactNode }) {
+export function CRMProvider({ children, overrideOrgId }: { children: React.ReactNode; overrideOrgId?: string }) {
   const { user, userData } = useAuth();
+  const isClient = !!overrideOrgId;
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(1000);
   
@@ -109,7 +110,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const updateModuleConfigLocal = useCRMStore(state => state.updateModuleConfigLocal);
   const setGlobalConfig = useCRMStore(state => state.setGlobalConfig);
 
-  const getOrgId = useCallback(() => userData?.ownedOrgId || userData?.orgId, [userData]);
+  const getOrgId = useCallback(() => overrideOrgId || userData?.ownedOrgId || userData?.orgId, [overrideOrgId, userData]);
 
   const allEntities = useMemo(() => {
     return Object.values(entitiesMap)
@@ -189,7 +190,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   // Sync Entities to Firestore
   useEffect(() => {
     const orgId = getOrgId();
-    if (!orgId || !user || dirtyIds.size === 0) return;
+    if (isClient || !orgId || !user || dirtyIds.size === 0) return;
 
     const timer = setTimeout(async () => {
       const idsToSync = Array.from(dirtyIds).filter(id => !syncingIdsRef.current.has(id));
@@ -222,6 +223,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   }, [dirtyIds, entitiesMap, getOrgId, user, markSynced, deleteStoreEntity, addStoreEntity]);
 
   const addEntity = async (type: StoreEntity['type'], data: Record<string, any>) => {
+    if (isClient) return null;
     const orgId = getOrgId();
     if (!orgId || !user) return null;
 
@@ -248,15 +250,18 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateEntity = async (id: string, updates: Record<string, any>) => {
+    if (isClient) return;
     const isDataUpdate = !('name' in updates || 'isDeleted' in updates);
     updateStoreEntity(id, isDataUpdate ? { data: updates } : updates);
   };
 
   const deleteEntity = async (id: string) => {
+    if (isClient) return;
     updateStoreEntity(id, { isDeleted: true });
   };
 
   const updateModuleConfig = async (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => {
+    if (isClient) return;
     const orgId = getOrgId();
     if (!orgId) return;
 

@@ -52,7 +52,9 @@ export function CRMTable({
 }: CRMTableProps) {
   const { employees } = useTeam();
   const { organizations, contacts } = useCRM();
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
+  const userRole = userData?.role || 'employee';
+  const canManageColumns = userRole === 'owner' || userRole === 'manager';
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const UI_PAGE_SIZE = 50;
@@ -378,6 +380,7 @@ export function CRMTable({
               handleDeleteColumn={handleDeleteColumn}
               handleAddColumn={handleAddColumn}
               availableTemplates={config.fields.filter(f => f.isSystem && !view.visibleFields.includes(f.id))}
+              canManageColumns={canManageColumns}
             />
             <tbody>
               {paginatedEntities.map((entity) => (
@@ -443,8 +446,8 @@ export function CRMTable({
 
         {/* Pagination Action Bar */}
         {entities.length > UI_PAGE_SIZE && (
-          <div className="flex items-center justify-between px-6 py-3.5 bg-card/60 border-t border-border/20 shrink-0 select-none">
-            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center justify-between px-6 py-1.5 bg-card/60 border-t border-border/20 shrink-0 select-none">
+            <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
               Showing {Math.min((currentPage - 1) * UI_PAGE_SIZE + 1, entities.length)} - {Math.min(currentPage * UI_PAGE_SIZE, entities.length)} of {entities.length} items
             </span>
             <div className="flex items-center gap-3">
@@ -452,18 +455,18 @@ export function CRMTable({
                 type="button"
                 onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                 disabled={currentPage === 1}
-                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                className="h-7 rounded-xl text-[9px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
               >
                 Previous
               </button>
-              <span className="text-[10px] font-black uppercase tracking-widest text-foreground">
+              <span className="text-[9px] font-black uppercase tracking-widest text-foreground">
                 Page {currentPage} of {Math.ceil(entities.length / UI_PAGE_SIZE)}
               </span>
               <button
                 type="button"
                 onClick={() => setCurrentPage(p => Math.min(p + 1, Math.ceil(entities.length / UI_PAGE_SIZE)))}
                 disabled={currentPage >= Math.ceil(entities.length / UI_PAGE_SIZE)}
-                className="h-8 rounded-xl text-[10px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                className="h-7 rounded-xl text-[9px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
               >
                 Next
               </button>

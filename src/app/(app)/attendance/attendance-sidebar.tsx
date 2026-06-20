@@ -29,6 +29,7 @@ import { db } from "@/lib/firebase";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 import { MODULE_CONFIG } from "@/lib/modules";
+import { ProductSwitcher } from "@/components/ems/shared/ProductSwitcher";
 
 interface AttendanceSidebarProps {
   isCollapsed: boolean;
@@ -125,64 +126,14 @@ export function AttendanceSidebar({
         <div className="p-4 flex flex-col h-full relative">
           
           <div className="mb-8 pt-4 lg:pt-0 shrink-0 min-h-8">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className={cn("flex items-center justify-between w-full p-2 rounded-xl hover:bg-secondary transition-all group", (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3")}>
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className={cn("size-6 shrink-0 transition-transform group-hover:scale-105", currentModule.color)} />
-                    {(!isCollapsed || isMobileSidebarOpen) && (
-                      <div className="flex flex-col items-start min-w-0 text-left">
-                        <span className="font-poppins font-black text-lg tracking-tighter uppercase leading-none">{currentModule.shortTitle}</span>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-60">Human Resource</span>
-                      </div>
-                    )}
-                  </div>
-                  {(!isCollapsed || isMobileSidebarOpen) && <ChevronDown size={14} className="text-muted-foreground ml-2" />}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl shadow-2xl border-border bg-card/95 backdrop-blur-xl">
-                <div className="px-2 py-2 mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Switch Product</span>
-                </div>
-
-                <DropdownMenuItem disabled className="opacity-50 bg-secondary/50 cursor-default p-3 rounded-xl mb-1">
-                  <div className={cn("size-10 rounded-xl flex items-center justify-center", currentModule.bg)}>
-                    <currentModule.icon className={cn("size-5", currentModule.color)} />
-                  </div>
-                  <div className="flex flex-col text-left ml-4">
-                    <span className="font-bold text-sm">{currentModule.shortTitle}</span>
-                    <span className="text-[10px] text-muted-foreground">Current Product</span>
-                  </div>
-                </DropdownMenuItem>
-                {otherModules.map((m) => (
-                  <DropdownMenuItem key={m.id} onClick={() => router.push(m.href)} className="p-3 rounded-xl mb-1 cursor-pointer hover:bg-secondary transition-all">
-                    <div className={cn("size-10 rounded-xl flex items-center justify-center", m.bg)}>
-                      <m.icon className={cn("size-5", m.color)} />
-                    </div>
-                    <div className="flex flex-col text-left ml-4">
-                      <span className="font-bold text-sm">{m.shortTitle}</span>
-                      <span className="text-[10px] text-muted-foreground">{m.description}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-
-                <div className="border-t border-border mt-2 pt-2">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start gap-4 p-3 rounded-xl hover:bg-primary/5 hover:text-primary group"
-                    onClick={() => setIsConfigOpen(true)}
-                  >
-                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Sparkles className="size-5 text-primary" />
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold text-sm">Add more apps</span>
-                      <span className="text-[10px] text-muted-foreground">Customize workspace</span>
-                    </div>
-                  </Button>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ProductSwitcher 
+              currentModuleId="attendance"
+              isCollapsed={isCollapsed}
+              isMobileSidebarOpen={isMobileSidebarOpen}
+              selectedModules={selectedModules}
+              partnerBrand={partnerBrand}
+              onConfigOpen={() => setIsConfigOpen(true)}
+            />
           </div>
 
           {/* Invite Button */}

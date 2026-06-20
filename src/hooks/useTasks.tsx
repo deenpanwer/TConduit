@@ -266,7 +266,7 @@ const TasksContext = createContext<TasksContextType>({
 const SYNC_STORAGE_KEY = 'trac_pending_task_syncs';
 const DRAFTS_STORAGE_KEY = 'trac_ghost_drafts';
 
-export function TasksProvider({ children }: { children: ReactNode }) {
+export function TasksProvider({ children, overrideOrgId }: { children: ReactNode; overrideOrgId?: string }) {
   const { user, userData, loading: authLoading } = useAuth();
   const [remoteTasks, dispatch] = useReducer(taskReducer, []);
   const [groups, setGroups] = useState<TaskGroup[]>([]);
@@ -298,9 +298,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     };
   }, [remoteTasks, pendingUpdates]);
 
-  const orgId = userData?.ownedOrgId || userData?.orgId;
+  const orgId = overrideOrgId || userData?.ownedOrgId || userData?.orgId;
   const userRole = userData?.role?.toLowerCase();
-  const canManageTasks = !!(userData?.ownedOrgId) || userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops';
+  const canManageTasks = overrideOrgId ? false : (!!(userData?.ownedOrgId) || userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops');
 
   // Load drafts and pending updates from localStorage
   useEffect(() => {

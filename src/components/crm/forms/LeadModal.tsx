@@ -81,8 +81,14 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
   };
 
   const handleConfigSave = async () => {
-    // Corrected: Call the 'updateConfig' function
-    await updateConfig({ fields: editedFields });
+    const listView = config.views.find(v => v.type === 'list') || config.views[0];
+    const updatedViews = config.views.map(v => {
+       if (v.id === listView?.id) {
+           return { ...v, visibleFields: editedFields.filter(f => f.isVisible).map(f => f.id) };
+       }
+       return v;
+    });
+    await updateConfig({ fields: editedFields, views: updatedViews });
     console.log("New lead field configuration saved!");
     setCurrentMode(previousMode);
   }
@@ -237,9 +243,6 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
                 </Button>
             )}
             <div>
-                <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">Lead Intelligence</span>
-                </div>
                 <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{getTitle()}</DialogTitle>
             </div>
           </div>
@@ -263,7 +266,15 @@ export function LeadModal({ isOpen, onOpenChange, mode: initialMode, lead, initi
         ) : (
             <div className="p-8 overflow-y-auto max-h-[60vh] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                {config.fields.sort((a, b) => a.order - b.order).map(renderField)}
+                {config.fields.sort((a, b) => {
+                  const listView = config.views.find(v => v.type === 'list') || config.views[0];
+                  const idxA = listView?.visibleFields.indexOf(a.id) ?? -1;
+                  const idxB = listView?.visibleFields.indexOf(b.id) ?? -1;
+                  if (idxA === -1 && idxB === -1) return a.order - b.order;
+                  if (idxA === -1) return 1;
+                  if (idxB === -1) return -1;
+                  return idxA - idxB;
+                }).map(renderField)}
               </div>
             </div>
         )}

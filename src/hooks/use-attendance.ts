@@ -175,6 +175,16 @@ export function useAttendance() {
   };
 }
 
+// Helper to safely convert Firestore Timestamps, Dates, or strings to ISO strings
+function toISOString(val: any): string | null {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (typeof val?.toDate === 'function') return val.toDate().toISOString(); // Firestore Timestamp
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val?.seconds === 'number') return new Date(val.seconds * 1000).toISOString(); // Raw Timestamp-like
+  return String(val);
+}
+
 export function computeDailyLog(emp: any, shifts: any[], dateStr: string, selectedDate: Date, taskCounts: any): AttendanceLog {
   let clockIn = null;
   let clockOut = null;
@@ -186,9 +196,9 @@ export function computeDailyLog(emp: any, shifts: any[], dateStr: string, select
     const firstShift = sortedShifts[0];
     const lastShift = sortedShifts[sortedShifts.length - 1];
 
-    clockIn = firstShift.startTime || firstShift.createdAt;
+    clockIn = toISOString(firstShift.startTime || firstShift.createdAt);
     if (lastShift.status === 'completed' || lastShift.endTime) {
-      clockOut = lastShift.endTime || lastShift.updatedAt;
+      clockOut = toISOString(lastShift.endTime || lastShift.updatedAt);
     }
   }
 

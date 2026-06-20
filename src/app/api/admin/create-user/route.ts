@@ -19,7 +19,8 @@ export async function POST(req: Request) {
       salary, 
       whatsapp, 
       orgId, 
-      createdBy 
+      createdBy,
+      role
     } = body;
 
     let uid = existingUid;
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
       whatsappNumber: whatsapp || '',
       systemPassword: password || '',
       orgId,
-      role: 'employee',
+      role: role || 'employee',
       active: true,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
           blurScreenshots: false,
           disableScreenshots: false,
           webBlockerEnabled: false,
-          employeeOnboardingV1Complete: false,
+          employeeOnboardingV1Complete: true, // Now website onboarding is marked complete
           enableManualTimeTracking: false,
           orgStatus: 'active',
           screenshotInterval: 5,

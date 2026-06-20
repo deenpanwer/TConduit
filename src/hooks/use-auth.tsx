@@ -3,10 +3,11 @@
 import { createContext, useContext, useEffect, useState, useRef, Suspense } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import posthog from 'posthog-js';
 import { getPageLoadTime, getDeviceCapabilities, getPushSubscription } from "@/lib/performance";
+import { useAuthStore } from "@/store/use-auth-store";
 
 interface AuthContextType {
   user: User | null;
@@ -71,6 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (userDoc.exists()) {
       const data = userDoc.data();
       setUserData(data);
+
+      useAuthStore.getState().saveUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        name: firebaseUser.displayName || null,
+        photoUrl: firebaseUser.photoURL || null,
+        authType: firebaseUser.providerData.some(p => p.providerId === 'google.com') ? 'google' : 'password'
+      });
       
       // --- Log Session Start (New, More Robust Logic) ---
       // This block runs ONLY ONCE per user session.
@@ -161,17 +170,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const sessionDocRef = doc(db, "users", user.uid, "sessions", sessionId.current!);
       
       try {
-        await updateDoc(sessionDocRef, {
+        await setDoc(sessionDocRef, {
           lastSeen: serverTimestamp(),
           durationSeconds: durationSeconds
-        });
+        }, { merge: true });
         
-        // Also update the main user doc with a "live" heartbeat
-        const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, {
-          "heartbeat.lastActive": serverTimestamp(),
-          "heartbeat.isCurrentlyRunning": true
-        });
+        // Also update the live heartbeat doc, NOT the main user doc (prevents flickering)
+        const hbDocRef = doc(db, "users", user.uid, "live", "heartbeat");
+        await setDoc(hbDocRef, {
+          lastActive: serverTimestamp(),
+          isCurrentlyRunning: true
+        }, { merge: true });
       } catch (e) {
         console.error("Heartbeat update failed:", e);
       }
@@ -290,7 +299,7 @@ function AuthRedirectHandler({ user, userData, loading, pathname, router }: any)
         const loginUrl = new URL("/ems/login", window.location.origin);
         loginUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(loginUrl.pathname + loginUrl.search);
-      } else if (userData && !userData.onboardingCompleted) {
+      } else if (userData && !userData.onboardingCompleted && !userData.employeeOnboardingV1Complete) {
         const onboardingUrl = new URL("/ems/onboarding", window.location.origin);
         onboardingUrl.searchParams.set("callbackUrl", fullUrl);
         router.push(onboardingUrl.pathname + onboardingUrl.search);

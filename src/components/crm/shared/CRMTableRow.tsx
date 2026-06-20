@@ -168,8 +168,8 @@ export const CRMTableRow = React.memo(({
       const jcUrl = `https://app.justcall.io/dialer?numbers=${encodeURIComponent(cleanPhone)}`;
       window.open(jcUrl, "newWin", "width=385,height=665,location=no,status=no,menubar=no,toolbar=no");
     } else if (callMethod === "ringcentral") {
-      const rcUrl = `rcmobile://call?number=${encodeURIComponent(cleanPhone)}`;
-      window.open(rcUrl);
+      const rcUrl = `https://app.ringcentral.com/dialer?number=${encodeURIComponent(cleanPhone)}`;
+      window.open(rcUrl, "_blank");
     } else {
       const telUrl = `tel:${cleanPhone}`;
       window.open(telUrl);
@@ -184,16 +184,11 @@ export const CRMTableRow = React.memo(({
       isSelected 
         ? "bg-blue-50 dark:bg-[#0c1e3b] hover:bg-blue-100 dark:hover:bg-[#112547]" 
         : (isMissed 
-            ? "bg-rose-500/10 dark:bg-rose-950/20 border-rose-500/20 hover:bg-rose-500/15" 
-            : "hover:bg-blue-500/[0.03]")
+            ? "bg-rose-50 dark:bg-[#251016] border-rose-200 dark:border-rose-900/50 hover:bg-rose-100/80 dark:hover:bg-rose-950/50" 
+            : "bg-card dark:bg-card hover:bg-muted/50 dark:hover:bg-muted/50")
     )}>
       <td className={cn(
-        "w-24 p-0 border-r border-border/20 sticky left-0 z-20 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)] h-[52px]", 
-        isSelected 
-          ? "bg-blue-50 dark:bg-[#0c1e3b]" 
-          : (isMissed 
-              ? "bg-rose-100/40 dark:bg-[#251016]" 
-              : "bg-card group-hover:bg-muted")
+        "w-24 p-0 border-r border-border/20 sticky left-0 z-20 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)] h-[52px] bg-inherit"
       )}>
         <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
         <div className="flex items-center justify-start gap-3 h-full pl-6">

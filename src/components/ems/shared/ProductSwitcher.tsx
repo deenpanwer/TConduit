@@ -23,6 +23,8 @@ interface ProductSwitcherProps {
   selectedModules: string[];
   partnerBrand?: string | null;
   onConfigOpen: () => void;
+  isClient?: boolean;
+  allowedScopes?: string[];
 }
 
 export function ProductSwitcher({
@@ -31,14 +33,22 @@ export function ProductSwitcher({
   isMobileSidebarOpen,
   selectedModules,
   partnerBrand,
-  onConfigOpen
+  onConfigOpen,
+  isClient,
+  allowedScopes
 }: ProductSwitcherProps) {
   const router = useRouter();
 
   const currentModule = MODULE_CONFIG.find(m => m.id === currentModuleId) || MODULE_CONFIG[0];
   
   // Show all modules, but visually distinguish unreleased ones
-  const otherModules = MODULE_CONFIG.filter(m => m.id !== currentModuleId);
+  const otherModules = MODULE_CONFIG.filter(m => {
+    if (m.id === currentModuleId) return false;
+    if (isClient && allowedScopes) {
+      return allowedScopes.includes(m.id);
+    }
+    return true;
+  });
 
   return (
     <DropdownMenu>
@@ -136,21 +146,25 @@ export function ProductSwitcher({
         })}
         </div>
 
-        <div className="border-t border-border mt-3 pt-3 px-1 pb-1">
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start gap-4 p-4 h-auto rounded-2xl hover:bg-primary/5 hover:text-primary group"
-            onClick={onConfigOpen}
-          >
-            <div className="size-11 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
-              <Sparkles className="size-5 text-primary" />
-            </div>
-            <div className="flex flex-col text-left min-w-0">
-              <span className="font-bold text-[13px] truncate">Add more apps</span>
-              <span className="text-[10px] text-muted-foreground truncate">Customize workspace</span>
-            </div>
-          </Button>
-        </div>
+        {/* Add more apps - commented out
+        {!isClient && (
+          <div className="border-t border-border mt-3 pt-3 px-1 pb-1">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start gap-4 p-4 h-auto rounded-2xl hover:bg-primary/5 hover:text-primary group"
+              onClick={onConfigOpen}
+            >
+              <div className="size-11 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
+                <Sparkles className="size-5 text-primary" />
+              </div>
+              <div className="flex flex-col text-left min-w-0">
+                <span className="font-bold text-[13px] truncate">Add more apps</span>
+                <span className="text-[10px] text-muted-foreground truncate">Customize workspace</span>
+              </div>
+            </Button>
+          </div>
+        )}
+        */}
       </DropdownMenuContent>
     </DropdownMenu>
   );

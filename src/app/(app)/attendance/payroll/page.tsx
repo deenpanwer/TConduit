@@ -44,6 +44,19 @@ export default function PayrollPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("addUser") === "true") {
+        setSelectedEmployee(null);
+        setIsEmployeeModalOpen(true);
+        // Clean up the URL query parameter without reloading page
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, []);
+
   const fetchHistory = async (emp: PayrollEmployee) => {
     setHistoryEmployee(emp);
     setHistoryLoading(true);

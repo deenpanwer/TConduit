@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, createContext, useContext, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, Suspense, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt, getDocs } from "firebase/firestore";
 import { useAuth } from "./use-auth";
@@ -70,7 +70,7 @@ function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
   return null;
 }
 
-export function TeamProvider({ children }: { children: React.ReactNode }) {
+export function TeamProvider({ children, overrideOrgId }: { children: React.ReactNode; overrideOrgId?: string }) {
   const { user, userData, loading: authLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -170,7 +170,7 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
   }, [personnelData]); // Re-create if personnel list changes
 
   useEffect(() => {
-    const targetOrgId = userData?.ownedOrgId || userData?.orgId;
+    const targetOrgId = overrideOrgId || userData?.ownedOrgId || userData?.orgId;
     
     // Safety check: If user logs out or org changes, clear everything
     if (authLoading) return;
@@ -226,10 +226,11 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
 
     // --- STEP 1: SYNC PERSONNEL LIST (GLOBAL ORG VIEW) ---
     // Establishes the baseline roster of employees for the target organization.
-    const role = userData?.role?.toLowerCase();
-    const isManager = role === 'manager';
-    const isOwner = role === 'owner' || role === 'founder' || role === 'hr' || role === 'ops' || !!userData?.ownedOrgId;
-    const userDept = userData?.department;
+    const isClient = !!overrideOrgId;
+    const role = isClient ? 'client' : userData?.role?.toLowerCase();
+    const isManager = isClient ? false : role === 'manager';
+    const isOwner = isClient ? false : (role === 'owner' || role === 'founder' || role === 'hr' || role === 'ops' || !!userData?.ownedOrgId);
+    const userDept = isClient ? null : userData?.department;
 
     let q = query(
       collection(db, "users"), 
@@ -373,34 +374,35 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners, selectedDate]);
 
-  // Derive final data
-  const employees = Object.values(personnelData).filter(p => {
-    // Always exclude inactive users
-    if (p.active === false) {
-      return false;
-    }
+  const employees = useMemo(() => {
+    return Object.values(personnelData).filter(p => {
+      // Always exclude inactive users
+      if (p.active === false) return false;
 
-    // Handle owners
-    const role = p.role?.toLowerCase();
-    if (role === 'owner') {
-      // Include owner ONLY if they have 'lastLoginAppVersion'
-      return p.hasOwnProperty('lastLoginAppVersion');
-    }
+      // Handle owners
+      const role = p.role?.toLowerCase();
+      if (role === 'owner') {
+        // Include owner ONLY if they have 'lastLoginAppVersion' (meaning they use the Electron app)
+        return p.hasOwnProperty('lastLoginAppVersion');
+      }
 
-    // For non-owners, include them unless they are the currently logged-in user
-    // EXCEPTION: If the user is a Manager/Admin/Owner, they might want to see themselves 
-    // in the list to monitor their own pulse/stats.
-    if (p.id === user?.uid) {
-      const myRole = userData?.role?.toLowerCase();
-      const isPrivilegedUser = myRole === 'owner' || myRole === 'admin' || myRole === 'manager' || !!userData?.ownedOrgId;
-      return isPrivilegedUser; 
-    }
+      // For non-owners, include them unless they are the currently logged-in user
+      // EXCEPTION: Logged-in users should see themselves if they are a Manager/Admin/Owner 
+      // OR if they have completed the employee onboarding (meaning they are using the Desktop app to track time).
+      if (p.id === user?.uid) {
+        const myRole = userData?.role?.toLowerCase();
+        const isPrivilegedUser = myRole === 'owner' || myRole === 'admin' || myRole === 'manager' || !!userData?.ownedOrgId;
+        const usesDesktopApp = !!p.employeeOnboardingV1Complete || p.hasOwnProperty('lastLoginAppVersion');
+        return isPrivilegedUser || usesDesktopApp;
+      }
 
-    return true;
-  });
-  const owner = Object.values(personnelData).find(p => p.id === user?.uid) || 
+      return true;
+    });
+  }, [personnelData, user?.uid, userData?.role, userData?.ownedOrgId]);
+
+  const owner = useMemo(() => Object.values(personnelData).find(p => p.id === user?.uid) || 
                 Object.values(personnelData).find(p => p.role?.toLowerCase() === 'owner') || 
-                userData;
+                userData, [personnelData, user?.uid, userData]);
 
   // --- STATS DERIVATION (REACTIVE AGGREGATION) ---
   // Calculates organization-wide metrics on-the-fly from the personnelData map.

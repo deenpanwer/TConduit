@@ -295,7 +295,7 @@ export function DepartmentManager({ orgName, employees: initialEmployees, depart
 
         {isExpanded && !isRoot && (
           <div className="pl-6 ml-3 border-l border-border/60 space-y-2">
-            <Droppable droppableId={id}>
+            <Droppable droppableId={id} isDropDisabled={false}>
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}

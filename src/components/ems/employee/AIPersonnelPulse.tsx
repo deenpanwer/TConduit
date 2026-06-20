@@ -118,13 +118,13 @@ export function AIPersonnelPulse({ employee, workShifts, screenshots }: AIPerson
           status: s.status,
           startTime: s.startTime,
           endTime: s.endTime,
+          startTimeLocal: s.startTimeLocal,
+          endTimeLocal: s.updatedAtLocal || new Date(s.endTime).toLocaleString(),
+          timezone: s.timezone,
           liveMetrics: s.liveMetrics,
           liveBreakdown: s.liveBreakdown,
-          cognitiveReport: s.cognitiveReport,
-          velocity: s.velocity,
-          productivityScore: s.productivityScore,
-          focusScore: s.focusScore,
           hourlyPulse: s.hourlyPulse,
+          // Removed cognitiveReport, velocity, productivityScore, and focusScore
         })),
         screenshotUrls: collageBase64 ? [collageBase64] : [],
         screenshotMetadata: validScreenshots.map(s => ({

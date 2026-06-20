@@ -88,7 +88,7 @@ function OnboardingContent() {
   const { refreshUserData } = useAuth();
 
   const [formData, setFormData] = useState({
-    role: "",
+    role: "Founder",
     orgName: "",
     teamSize: "",
     reportingPlatforms: ["dashboard"] as string[],
@@ -144,9 +144,11 @@ function OnboardingContent() {
           return;
         }
 
-        if (data?.role) {
-          setFormData(prev => ({ ...prev, role: data.role }));
+        let userRole = data?.role;
+        if (!userRole || userRole === 'owner') {
+          userRole = 'Founder';
         }
+        setFormData(prev => ({ ...prev, role: userRole }));
 
         if (data?.ownedOrgId) {
           const orgDoc = await getDoc(doc(db, "organizations", data.ownedOrgId));
@@ -154,14 +156,6 @@ function OnboardingContent() {
           setOrgData({ id: data.ownedOrgId, ...oData });
           if (oData?.name) {
             setFormData(prev => ({ ...prev, orgName: oData.name }));
-          }
-        } else if (data?.orgId) {
-          const orgDoc = await getDoc(doc(db, "organizations", data.orgId));
-          const oData = orgDoc.data();
-          setOrgData({ id: data.orgId, ...oData });
-          // If already linked to an org (e.g. Electron), start at Step 2
-          if (data.role !== 'owner') {
-            setStep(2);
           }
         }
         setAuthLoading(false);
@@ -392,45 +386,7 @@ function OnboardingContent() {
     );
   }
 
-  // Role Selection Step (if no role yet)
-  if (!formData.role && step === 1) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-30">
-          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-          <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
-        </div>
-        <div className="w-full max-w-2xl bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 text-center backdrop-blur-sm">
-          <div className="flex justify-center mb-8">
-            <img src="/special-triangle-black.svg" alt="Logo" className="w-12 h-12 block dark:hidden" />
-            <img src="/special-triangle.svg" alt="Logo" className="w-12 h-12 hidden dark:block" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4 uppercase tracking-tight">How will you be using Trac?</h1>
-          <p className="text-muted-foreground mb-8">Choose your role to customize your setup experience.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button 
-              onClick={() => { setFormData({...formData, role: 'owner'}); }}
-              className="p-8 rounded-[2rem] border-4 border-transparent bg-secondary/30 hover:bg-secondary/50 hover:border-primary transition-all group"
-            >
-              <Building2 size={48} className="mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-black uppercase tracking-widest mb-2">Employer</h2>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">I want to manage my team and operations.</p>
-            </button>
-            <button 
-              onClick={() => { setFormData({...formData, role: 'employee'}); }}
-              className="p-8 rounded-[2rem] border-4 border-transparent bg-secondary/30 hover:bg-secondary/50 hover:border-primary transition-all group"
-            >
-              <User size={48} className="mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-black uppercase tracking-widest mb-2">Employee</h2>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">I'm joining an existing organization.</p>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const isOwner = formData.role === 'owner' || formData.role === 'Founder' || formData.role === 'Manager' || formData.role === 'Ops' || formData.role === 'HR';
+  const isOwner = true;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -448,8 +404,8 @@ function OnboardingContent() {
         <div className="bg-card border border-border/50 rounded-[2.5rem] shadow-2xl p-8 md:p-12 backdrop-blur-sm relative">
           <div className="flex items-center justify-between mb-10">
             <div className="flex gap-2">
-              {(isOwner ? [1, 2, 3, 4, 5] : (userData?.orgId ? [1, 2, 3] : [1, 2, 3, 4])).map((i) => {
-                const isActive = isOwner ? step === i : (userData?.orgId ? step === i + 1 : step === i);
+              {[1, 2, 3, 4, 5].map((i) => {
+                const isActive = step === i;
                 return (
                   <div 
                     key={i} 
@@ -462,51 +418,14 @@ function OnboardingContent() {
               })}
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Step {isOwner ? step : (userData?.orgId ? step - 1 : step)} of {isOwner ? 5 : (userData?.orgId ? 3 : 4)}
+              Step {step} of 5
             </span>
           </div>
 
           <AnimatePresence mode="wait">
-            {/* EMPLOYEE STEP 1: Join Organization */}
-            {!isOwner && step === 1 && (
-              <motion.div
-                key="empStep1"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
-              >
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">Join Organization</h1>
-                  <p className="text-muted-foreground">Enter the invite code provided by your employer.</p>
-                </div>
 
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Invite Code</Label>
-                    <Input
-                      placeholder="e.g. 123456"
-                      value={formData.inviteCode}
-                      onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
-                      className="h-14 rounded-2xl px-6 bg-background/50 text-center text-2xl font-black tracking-[0.3em]"
-                      maxLength={6}
-                    />
-                  </div>
-                </div>
 
-                <Button 
-                  disabled={formData.inviteCode.length < 6 || loading} 
-                  onClick={handleJoinOrg} 
-                  className="w-full h-14 rounded-2xl font-bold uppercase tracking-wide group"
-                >
-                  {loading ? <Loader2 className="animate-spin" /> : "Verify Code"}
-                  {!loading && <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />}
-                </Button>
-              </motion.div>
-            )}
-
-            {/* PERSONAL DETAILS: Step 1 (Owner) or Step 2 (Employee) */}
-            {((isOwner && step === 1) || (!isOwner && step === 2)) && (
+            {step === 1 && (
               <motion.div
                 key="personalDetails"
                 initial={{ opacity: 0, x: 20 }}
@@ -516,41 +435,34 @@ function OnboardingContent() {
               >
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight mb-2 uppercase">
-                    {isOwner ? "Welcome" : "Personal Details"}
+                    Welcome
                   </h1>
                   <p className="text-muted-foreground">
-                    {isOwner ? "Let's start with your organization details." : "Tell us a bit about yourself."}
+                    Let's start with your organization details.
                   </p>
                 </div>
 
                 <div className="space-y-6">
-                  {isOwner && (
-                    <div className="space-y-3">
-                      <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
-                      <Input
-                        placeholder="e.g. Acme Corp"
-                        value={formData.orgName}
-                        onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
-                        className="h-14 rounded-2xl px-6 bg-background/50"
-                      />
-                    </div>
-                  )}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Organization Name</Label>
+                    <Input
+                      placeholder="e.g. Acme Corp"
+                      value={formData.orgName}
+                      onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
+                      className="h-14 rounded-2xl px-6 bg-background/50"
+                    />
+                  </div>
 
                   <div className="space-y-3">
                     <Label className="text-xs font-semibold uppercase tracking-wider ml-1">Your Role</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(isOwner ? ["Founder", "Manager", "Ops", "HR"] : ["Engineer", "Design", "Support", "Marketing"]).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => setFormData({ ...formData, role: r })}
-                          className={cn(
-                            "px-4 py-3 rounded-xl border-2 text-[10px] font-bold uppercase tracking-widest transition-all",
-                            formData.role === r ? "border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10" : "border-transparent bg-secondary/50 hover:bg-secondary"
-                          )}
-                        >
-                          {r}
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        key="Founder"
+                        type="button"
+                        className="px-4 py-3 rounded-xl border-2 text-[10px] font-bold uppercase tracking-widest border-primary bg-primary/5 text-primary shadow-lg shadow-primary/10 transition-all text-center"
+                      >
+                        Founder
+                      </button>
                     </div>
                   </div>
 
@@ -571,11 +483,7 @@ function OnboardingContent() {
                 </div>
 
                 <div className="flex gap-3">
-                  {!isOwner && !userData?.orgId && (
-                    <Button variant="outline" onClick={handleBack} className="h-14 px-8 rounded-2xl font-bold uppercase">
-                      Back
-                    </Button>
-                  )}
+
                   <Button 
                     disabled={!formData.role || (isOwner && !formData.orgName) || !formData.whatsapp} 
                     onClick={handleNext} 

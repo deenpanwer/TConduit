@@ -63,11 +63,11 @@ The data contains these time record types per employee:
 
 - "liveMetrics": The SINGLE SOURCE OF TRUTH for how long each employee worked. Use ONLY liveMetrics.totalSeconds. Nothing else. The pre-computed totals above are already calculated from these fields — trust them.
 - "liveBreakdown": Per-app time breakdown (activeSeconds, idleSeconds, totalSeconds per app). These are ALREADY included inside liveMetrics.totalSeconds — do NOT add them on top.
-- "hourlyPulse" or "hourlyMetrics": A row-by-row hourly breakdown. Already reflected in liveMetrics. Do NOT add hourly rows on top of liveMetrics.
+- "hourlyPulse": A row-by-row hourly breakdown of the exact same data. Do NOT add hourly rows on top of liveMetrics or liveBreakdown. They are identical datasets.
 
-👉 RULE 1 — NEVER use "startTime" and "endTime" to calculate how long someone worked. Those timestamps include offline time, idle periods, and breaks. They are clock timestamps, NOT a stopwatch.
+👉 RULE 1 — NEVER use "startTime" or "endTime" (or their Local equivalents) to calculate how long someone worked. Those timestamps include offline time, idle periods, and breaks. They are clock timestamps, NOT a stopwatch. You may mention their local timezone.
 👉 RULE 2 — NEVER add liveBreakdown app totals together for an overall total. They are already inside liveMetrics.totalSeconds.
-👉 RULE 3 — NEVER add hourly rows on top of liveMetrics. They cover the same work period.
+👉 RULE 3 — NEVER add hourlyPulse rows on top of liveMetrics. If you add hourlyPulse to liveMetrics, you will artificially double the employee's tracked time. NEVER DO THIS.
 👉 RULE 4 — NEVER treat seconds as minutes. All time fields are in raw SECONDS. Divide by 3600 for hours.
 👉 RULE 5 — TRUST the pre-computed totals at the top. Do not re-derive them from startTime/endTime.
 

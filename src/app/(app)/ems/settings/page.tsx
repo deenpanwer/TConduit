@@ -18,6 +18,7 @@ import { IntelligenceModal } from '@/components/ems/IntelligenceModal';
 import { DepartmentManager } from '@/components/ems/DepartmentManager';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { ClientSharingManager } from '@/components/ems/ClientSharingManager';
 import { 
   LogOut, User, Building2, Ticket, 
   Check, Copy, Moon, Sun, Menu, X, ArrowLeft,
@@ -588,7 +589,14 @@ function SettingsPageContent() {
               <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger>
               <TabsTrigger value="operations" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
               {isAllowedRole && (
-                <TabsTrigger value="visibility" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">App Visibility</TabsTrigger>
+                <>
+                  <TabsTrigger value="visibility" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Visibility</TabsTrigger>
+                  {/*
+                    Commented out: we can't make this live before we update the crm overview page, 
+                    and the tasks overview page, and add pdf, excel, csv based reporting for tasks and crm
+                    <TabsTrigger value="client-sharing" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Client Sharing</TabsTrigger>
+                  */}
+                </>
               )}
             </TabsList>
 
@@ -1435,6 +1443,32 @@ function SettingsPageContent() {
                 </section>
               </TabsContent>
             )}
+
+            {/*
+              Commented out: we can't make this live before we update the crm overview page, 
+              and the tasks overview page, and add pdf, excel, csv based reporting for tasks and crm
+            {isAllowedRole && (
+              <TabsContent value="client-sharing" className="space-y-8">
+                <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
+                  <div className='flex items-center gap-4 mb-8'>
+                    <div className='size-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary'>
+                      <Globe size={24} />
+                    </div>
+                    <div>
+                      <h3 className='text-lg font-black uppercase tracking-tighter'>Client Sharing Command Center</h3>
+                      <p className='text-xs font-medium text-muted-foreground uppercase tracking-tight'>Control secure client access links and custom branding portals</p>
+                    </div>
+                  </div>
+
+                  <ClientSharingManager 
+                    orgId={userData?.ownedOrgId || userData?.orgId}
+                    isPremium={!!orgData?.isPremium}
+                    orgData={orgData}
+                  />
+                </section>
+              </TabsContent>
+            )}
+            */}
           </Tabs>
         </div>
       </main>

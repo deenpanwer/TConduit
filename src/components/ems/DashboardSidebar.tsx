@@ -37,6 +37,8 @@ interface DashboardSidebarProps {
   setIsMobileSidebarOpen: (v: boolean) => void;
   employees: any[];
   onInviteClick?: () => void;
+  isClient?: boolean;
+  allowedScopes?: string[];
 }
 
 export function DashboardSidebar({
@@ -45,7 +47,9 @@ export function DashboardSidebar({
   isMobileSidebarOpen,
   setIsMobileSidebarOpen,
   employees,
-  onInviteClick
+  onInviteClick,
+  isClient,
+  allowedScopes
 }: DashboardSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { user, userData } = useAuth();
@@ -250,6 +254,8 @@ export function DashboardSidebar({
               selectedModules={selectedModules}
               partnerBrand={partnerBrand}
               onConfigOpen={() => setIsConfigOpen(true)}
+              isClient={isClient}
+              allowedScopes={allowedScopes}
             />
           </div>
 
@@ -337,13 +343,15 @@ export function DashboardSidebar({
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => {
+                      if (isClient) return;
                       router.push("/ems/settings");
                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                     }}
                     className={cn(
                       "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group",
                       pathname === "/ems/settings" ? "bg-secondary ring-1 ring-border" : "",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
+                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2",
+                      isClient && "cursor-default hover:bg-transparent"
                     )}
                   >
                     <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0 transition-transform group-hover:scale-105">
@@ -356,10 +364,10 @@ export function DashboardSidebar({
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-1 items-center justify-between min-w-0">
                         <div className="flex flex-col min-w-0 text-left">
-                            <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Admin"}</div>
-                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{userData?.role || "Owner"}</div>
+                            <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Client Portal"}</div>
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{isClient ? "Client" : (userData?.role || "Owner")}</div>
                         </div>
-                        <Settings size={14} className="text-muted-foreground ml-2 shrink-0 group-hover:text-primary transition-colors" />
+                        {!isClient && <Settings size={14} className="text-muted-foreground ml-2 shrink-0 group-hover:text-primary transition-colors" />}
                       </div>
                     )}
                   </button>

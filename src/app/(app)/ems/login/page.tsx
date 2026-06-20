@@ -14,8 +14,9 @@ import {
   GoogleAuthProvider 
 } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { Suspense } from "react";
+import { useAuthStore, LastUser } from "@/store/use-auth-store";
 
 const PICSUM_IMAGES = [
   "https://picsum.photos/id/10/1200/800",
@@ -41,6 +42,26 @@ function LoginContent() {
   const [partnerHeadline, setPartnerHeadline] = useState<string | null>(null);
   const [partnerSubheadline, setPartnerSubheadline] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const [isMounted, setIsMounted] = useState(false);
+  const [showPasswordCard, setShowPasswordCard] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<LastUser | null>(null);
+  
+  const { savedUsers, removeUser } = useAuthStore();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const handleSelectSavedUser = (u: LastUser) => {
+    if (u.authType === 'google') {
+      handleGoogleLogin(u.email);
+    } else {
+      setSelectedUser(u);
+      setFormData(prev => ({...prev, email: u.email}));
+      setShowPasswordCard(true);
+    }
+  };
 
   useEffect(() => {
     // Force clear session on mount to prevent redirect loops
@@ -97,9 +118,10 @@ function LoginContent() {
     fetchPartnerLogo();
   }, [searchParams]);
     
-      const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);    try {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);    
+    try {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
@@ -179,9 +201,14 @@ function LoginContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (emailHint?: string) => {
     setLoading(true);
     const provider = new GoogleAuthProvider();
+    
+    if (typeof emailHint === 'string') {
+      provider.setCustomParameters({ login_hint: emailHint });
+    }
+    
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
@@ -325,74 +352,171 @@ function LoginContent() {
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider ml-1">Email Address</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="name@company.com" 
-                className="bg-background/50 border-border h-14 rounded-2xl px-5"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between ml-1">
-                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
-                <Link href="/ems/forgot-password" disable-animation="true" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
+          {isMounted && selectedUser && showPasswordCard && selectedUser.authType === 'password' ? (
+            <div className="flex flex-col items-center justify-center space-y-6 mt-6">
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-background shadow-xl ring-2 ring-primary/20 bg-secondary flex items-center justify-center">
+                  <img 
+                    src={selectedUser.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${selectedUser.email || 'user'}`} 
+                    alt={selectedUser.name || selectedUser.email} 
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Input 
-                  id="password" 
-                  type={showPassword ? "text" : "password"} 
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  placeholder="••••••••" 
-                  className="bg-background/50 border-border h-14 rounded-2xl px-5 pr-12"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              <div className="text-center">
+                <h3 className="font-bold text-xl">{selectedUser.name || "Welcome Back"}</h3>
+                <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+              </div>
+              
+              <div className="w-full space-y-3 pt-4">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2 text-left">
+                    <Label htmlFor="password_continue" className="text-xs font-semibold uppercase tracking-wider ml-1">Password</Label>
+                    <div className="relative">
+                      <Input 
+                        id="password_continue" 
+                        type={showPassword ? "text" : "password"} 
+                        value={formData.password}
+                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                        placeholder="••••••••" 
+                        className="bg-background/50 border-border h-14 rounded-2xl px-5 pr-12"
+                        autoFocus
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold tracking-wide shadow-xl shadow-primary/20">
+                    {loading ? "Signing in..." : "Continue"}
+                  </Button>
+                </form>
+                
+                <Button 
+                  variant="ghost" 
+                  onClick={() => { setShowPasswordCard(false); setSelectedUser(null); }} 
+                  disabled={loading}
+                  className="w-full h-10 text-muted-foreground hover:bg-secondary/50 mt-2"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                  Log in with a different account
+                </Button>
               </div>
             </div>
-            <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold tracking-wide shadow-xl shadow-primary/20">
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
+          ) : (
+            <>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider ml-1">Email Address</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="name@company.com" 
+                    className="bg-background/50 border-border h-14 rounded-2xl px-5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between ml-1">
+                    <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Password</Label>
+                    <Link href="/ems/forgot-password" disable-animation="true" className="text-xs font-semibold text-primary hover:underline">Forgot password?</Link>
+                  </div>
+                  <div className="relative">
+                    <Input 
+                      id="password" 
+                      type={showPassword ? "text" : "password"} 
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      placeholder="••••••••" 
+                      className="bg-background/50 border-border h-14 rounded-2xl px-5 pr-12"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <Button disabled={loading} type="submit" className="w-full h-14 rounded-2xl font-bold tracking-wide shadow-xl shadow-primary/20">
+                  {loading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-            <div className="relative flex justify-center text-xs uppercase font-medium"><span className="bg-card px-3 text-muted-foreground tracking-wider">Or continue with</span></div>
-          </div>
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                <div className="relative flex justify-center text-xs uppercase font-medium"><span className="bg-card px-3 text-muted-foreground tracking-wider">Or continue with</span></div>
+              </div>
 
-          <Button 
-            variant="outline" 
-            type="button" 
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full h-14 rounded-2xl font-bold tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
-          >
-            <img src="/google.svg" width={20} height={20} className="size-5" alt="Google" />
-            Continue with Google
-          </Button>
-
-          <div className="mt-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link 
-                href={`/ems/signup${callbackUrl !== "/ems" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} 
-                className="text-primary font-semibold hover:underline"
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={() => handleGoogleLogin()}
+                disabled={loading}
+                className="w-full h-14 rounded-2xl font-bold tracking-wide gap-3 border-2 border-border/50 hover:bg-secondary/50"
               >
-                Sign up
-              </Link>
-            </p>
-          </div>
+                <img src="/google.svg" width={20} height={20} className="size-5" alt="Google" />
+                Continue with Google
+              </Button>
+
+              {/* Saved Accounts */}
+              {isMounted && savedUsers.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <div className="relative flex justify-center text-xs uppercase font-medium mt-6 mb-4">
+                    <span className="bg-card px-3 text-muted-foreground tracking-wider">Saved Accounts</span>
+                  </div>
+                  {savedUsers.map(u => (
+                    <div key={u.uid} className="relative group">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleSelectSavedUser(u)}
+                        className="w-full h-14 rounded-2xl font-bold tracking-wide border-2 border-border/50 bg-secondary/30 hover:bg-accent flex items-center justify-between pl-4 pr-10 disabled:opacity-50"
+                        disabled={loading}
+                      >
+                        <div className="flex items-center gap-3">
+                          <img src={u.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${u.email}`} alt={u.name || u.email} className="w-8 h-8 rounded-full shadow-sm" loading="lazy" />
+                          <span className="text-sm truncate max-w-[200px] text-left">
+                            Continue as {u.name?.split(' ')[0] || u.email.split('@')[0]}
+                          </span>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                          {u.authType === 'google' ? 'Google' : 'Password'}
+                        </span>
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeUser(u.uid); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-destructive/10"
+                        title="Remove account"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-10 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Don't have an account?{" "}
+                  <Link 
+                    href={`/ems/signup${callbackUrl !== "/ems" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} 
+                    className="text-primary font-semibold hover:underline"
+                  >
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            </>
+          )}
         </motion.div>
       </div>
     </main>

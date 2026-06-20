@@ -200,17 +200,27 @@ export function CRMKanban({
     const groups: Record<string, CRMEntity[]> = {};
     stages.forEach(s => groups[s.value] = []);
 
+    const validStageValues = new Set(stages.map(s => s.value));
+
     entities.forEach(entity => {
-      const stageValue = optimisticMoves[entity.id] || (entity as any).status || entity.data[kanbanField.key] || '__blank__';
-      const finalStage = stageValue === null ? '__blank__' : stageValue;
-      if (!groups[finalStage]) groups[finalStage] = [];
-      groups[finalStage].push(entity);
+      let stageValue = optimisticMoves[entity.id] || (entity as any).status || entity.data[kanbanField.key];
+      
+      if (!stageValue || (typeof stageValue === 'string' && stageValue.trim() === '')) {
+          stageValue = '__blank__';
+      }
+
+      if (!validStageValues.has(stageValue)) {
+          stageValue = '__blank__';
+      }
+
+      if (!groups[stageValue]) groups[stageValue] = [];
+      groups[stageValue].push(entity);
     });
     return groups;
   }, [entities, stages, kanbanField.key, optimisticMoves]);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-6 h-[calc(100vh-280px)] min-h-[500px] custom-scrollbar px-2 bg-background/50 rounded-3xl p-2 border border-border/20">
+    <div className="flex-1 flex gap-4 overflow-x-auto pb-2 h-full min-h-0 custom-scrollbar px-2 bg-background/50 rounded-3xl p-2 border border-border/20">
       <DragDropContext onDragEnd={handleDragEnd}>
         {stages.map((stage) => (
           <div key={stage.value} className="flex flex-col w-[300px] shrink-0 bg-[#f5f6f8] dark:bg-slate-900/40 rounded-2xl border border-border/40 overflow-hidden shadow-sm">
@@ -275,7 +285,7 @@ export function CRMKanban({
             </div>
 
             {/* SCROLLABLE DROPPABLE AREA */}
-            <Droppable droppableId={stage.value}>
+            <Droppable droppableId={stage.value} isDropDisabled={false}>
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}

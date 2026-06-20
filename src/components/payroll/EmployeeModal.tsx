@@ -143,6 +143,7 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
       if (!orgId) throw new Error('No organization context found.');
 
       // Call server-side API to create/update employee (Firebase Admin SDK bypasses firestore.rules)
+      const isManagerDesignation = formData.designation?.toLowerCase() === 'manager';
       const res = await fetch('/api/admin/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,6 +158,7 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
           whatsapp: formData.whatsapp,
           orgId,
           createdBy: user?.uid || 'unknown',
+          role: isManagerDesignation ? 'Manager' : 'employee'
         }),
       });
       const data = await res.json();
@@ -180,8 +182,8 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl rounded-[2.5rem] border-border/40 shadow-2xl bg-background/95 backdrop-blur-xl p-0 overflow-hidden">
-        <DialogHeader className="p-8 pb-4 bg-secondary/5 border-b border-border/50">
+      <DialogContent className="max-w-3xl w-[92vw] max-h-[90vh] rounded-[2.5rem] border-border/40 shadow-2xl bg-background/95 backdrop-blur-xl p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="p-8 pb-4 bg-secondary/5 border-b border-border/50 shrink-0">
           <div className="flex items-center gap-4">
             <div className="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
               <User size={24} />
@@ -199,7 +201,7 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
           </div>
         </DialogHeader>
 
-        <div className="p-8 space-y-8">
+        <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -393,7 +395,7 @@ export function EmployeeModal({ isOpen, onClose, employee }: EmployeeModalProps)
           )}
         </div>
 
-        <DialogFooter className="p-8 bg-secondary/5 border-t border-border/50">
+        <DialogFooter className="p-8 bg-secondary/5 border-t border-border/50 shrink-0">
           <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold">
             Cancel
           </Button>

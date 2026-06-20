@@ -49,8 +49,8 @@ export function OutreachSetupModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-background border rounded-2xl p-5 gap-0">
-        <DialogHeader className="pb-3 border-b border-border/40">
+      <DialogContent className="max-w-2xl bg-background border rounded-2xl p-6 gap-0 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <DialogHeader className="pb-4 border-b border-border/40">
           <DialogTitle className="text-sm font-black uppercase tracking-wider text-foreground">
             Outreach Setup
           </DialogTitle>

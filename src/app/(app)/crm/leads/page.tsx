@@ -257,7 +257,7 @@ function LeadsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 flex flex-col h-full overflow-hidden relative w-full">
+    <div className="p-4 md:p-6 md:pb-2 pb-2 space-y-4 flex flex-col h-full overflow-hidden relative w-full">
       <LeadModal 
         isOpen={showLeadModal} 
         onOpenChange={setShowLeadModal} 

@@ -1,14 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { FieldConfig } from '@/hooks/use-crm-module';
-import { GripVertical, Trash2, PlusCircle, Sparkles } from 'lucide-react';
+import { GripVertical, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
+import { Reorder, useDragControls } from 'framer-motion';
 import { ColumnPicker } from '../shared/ColumnPicker';
 import { cn } from '@/lib/utils';
 
@@ -18,16 +15,85 @@ interface FieldEditorProps {
   availableTemplates?: FieldConfig[];
 }
 
-// A simple utility to create a URL-friendly key from a label
 const generateKey = (label: string) => {
     return label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 };
 
+const EditorFieldItem = ({
+  field,
+  onRemove,
+  draggedId,
+  setDraggedId
+}: {
+  field: FieldConfig;
+  onRemove: (id: string) => void;
+  draggedId: string | null;
+  setDraggedId: (id: string | null) => void;
+}) => {
+  const dragControls = useDragControls();
+  const isDragging = draggedId === field.id;
+
+  return (
+    <Reorder.Item
+      value={field}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragStart={() => setDraggedId(field.id)}
+      onDragEnd={() => setDraggedId(null)}
+      whileDrag={{ 
+        scale: 1.02, 
+        zIndex: 9999,
+        backgroundColor: "hsl(var(--card))",
+        boxShadow: "0 15px 30px -5px rgba(0,0,0,0.3)",
+        borderColor: "hsl(var(--primary) / 0.3)"
+      }}
+      className={cn(
+        "transition-shadow relative",
+        isDragging && "z-[9999]"
+      )}
+    >
+      <Card className={cn(
+        "p-3 bg-card border-border/20 shadow-sm hover:border-primary/20 transition-all",
+        isDragging && "shadow-2xl ring-2 ring-blue-500 bg-card rotate-1"
+      )}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div 
+              onPointerDown={(e) => {
+                e.preventDefault();
+                dragControls.start(e);
+              }}
+              className="p-1 -ml-1 hover:bg-secondary/80 rounded transition-colors cursor-grab active:cursor-grabbing"
+            >
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-bold text-[11px] uppercase tracking-widest">{field.label}</p>
+              <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">
+                Type: <span className="text-primary">{field.type}</span>
+                {field.isSystem && (<span className="ml-2 text-blue-500 font-black tracking-widest">(System)</span>)}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!field.isSystem && (
+              <Button variant="ghost" size="icon" onClick={() => onRemove(field.id)} className="h-8 w-8 hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+    </Reorder.Item>
+  );
+};
+
 export function FieldEditor({ fields, onFieldsChange, availableTemplates = [] }: FieldEditorProps) {
-    const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+    const [isMounted, setIsMounted] = useState(false);
+    const [draggedId, setDraggedId] = useState<string | null>(null);
 
     useEffect(() => {
-        setPortalNode(document.body);
+        setIsMounted(true);
     }, []);
 
     const handleRemoveField = (id: string) => {
@@ -35,14 +101,8 @@ export function FieldEditor({ fields, onFieldsChange, availableTemplates = [] }:
         onFieldsChange(updatedFields.map((field, index) => ({ ...field, order: index })));
     };
 
-    const handleOnDragEnd = (result: DropResult) => {
-        if (!result.destination) return;
-
-        const items = Array.from(fields);
-        const [reorderedItem] = items.splice(result.source.index, 1);
-        items.splice(result.destination.index, 0, reorderedItem);
-
-        const updatedFields = items.map((field, index) => ({ ...field, order: index }));
+    const handleReorder = (newFields: FieldConfig[]) => {
+        const updatedFields = newFields.map((field, index) => ({ ...field, order: index }));
         onFieldsChange(updatedFields);
     };
 
@@ -50,7 +110,6 @@ export function FieldEditor({ fields, onFieldsChange, availableTemplates = [] }:
         const label = template?.label || (type ? type.charAt(0).toUpperCase() + type.slice(1) : "New Field");
         const key = template?.key || generateKey(label);
         
-        // Avoid duplicate keys
         let finalKey = key;
         let counter = 1;
         while (fields.some(f => f.key === finalKey)) {
@@ -72,95 +131,47 @@ export function FieldEditor({ fields, onFieldsChange, availableTemplates = [] }:
         onFieldsChange([...fields, newFieldConfig]);
     };
 
-  const renderDraggableField = (field: FieldConfig, index: number) => (
-    <Draggable key={field.id} draggableId={field.id} index={index}>
-      {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => {
-        const child = (
-          <div 
-            ref={provided.innerRef} 
-            {...provided.draggableProps}
-            style={{
-              ...provided.draggableProps.style,
-              width: snapshot.isDragging ? '450px' : (provided.draggableProps.style as any)?.width,
-            }}
-            className={cn(
-                "transition-shadow",
-                snapshot.isDragging && "z-[9999]"
+    return (
+        <div className={cn(
+            "p-6 space-y-4 max-h-[60vh] custom-scrollbar",
+            draggedId ? "overflow-hidden select-none" : "overflow-y-auto"
+        )}>
+            <p className="text-xs text-muted-foreground px-2 font-medium uppercase tracking-wider">
+                Drag and drop handle to reorder fields. Use the Column Picker to add specialized data modules.
+            </p>
+            
+            {isMounted && (
+                <Reorder.Group axis="y" values={fields} onReorder={handleReorder} className="space-y-3">
+                    {fields.map((field) => (
+                        <EditorFieldItem
+                            key={field.id}
+                            field={field}
+                            onRemove={handleRemoveField}
+                            draggedId={draggedId}
+                            setDraggedId={setDraggedId}
+                        />
+                    ))}
+                </Reorder.Group>
             )}
-          >
-            <Card className={cn(
-                "p-3 bg-card border-border/20 shadow-sm hover:border-primary/20 transition-all",
-                snapshot.isDragging && "shadow-2xl ring-2 ring-blue-500 bg-card rotate-1"
-            )}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div {...provided.dragHandleProps} className="p-1 -ml-1 hover:bg-secondary/80 rounded transition-colors cursor-grab active:cursor-grabbing">
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                      <p className="font-bold text-[11px] uppercase tracking-widest">{field.label}</p>
-                      <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">
-                          Type: <span className="text-primary">{field.type}</span>
-                          {field.isSystem && (<span className="ml-2 text-blue-500 font-black tracking-widest">(System)</span>)}
-                      </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!field.isSystem && (
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveField(field.id)} className="h-8 w-8 hover:bg-destructive/10">
-                      <Trash2 className="h-4 w-4 text-destructive" />
+
+            <div className="pt-4 px-2">
+                <ColumnPicker 
+                    onSelect={handleAddField} 
+                    availableTemplates={availableTemplates.filter(t => !fields.some(f => f.key === t.key))}
+                >
+                    <Button variant="outline" className="w-full h-14 border-dashed rounded-2xl border-border/40 hover:bg-secondary/50 group transition-all">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
+                                <Sparkles size={18} />
+                            </div>
+                            <div className="text-left">
+                                <span className="block text-[10px] font-black uppercase tracking-widest">Add New Field</span>
+                                <span className="block text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Open Column Center</span>
+                            </div>
+                        </div>
                     </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </div>
-        );
-
-        if (snapshot.isDragging && portalNode) {
-          return createPortal(child, portalNode);
-        }
-
-        return child;
-      }}
-    </Draggable>
-  );
-
-  return (
-    <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
-      <p className="text-xs text-muted-foreground px-2 font-medium uppercase tracking-wider">
-        Drag and drop handle to reorder fields. Use the Column Picker to add specialized data modules.
-      </p>
-      
-      <DragDropContext onDragEnd={handleOnDragEnd}>
-        <Droppable droppableId="fields">
-          {(provided) => (
-            <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-              {fields.map((field, index) => renderDraggableField(field, index))}
-              {provided.placeholder}
+                </ColumnPicker>
             </div>
-          )}
-        </Droppable>
-      </DragDropContext>
-
-      <div className="pt-4 px-2">
-        <ColumnPicker 
-            onSelect={handleAddField} 
-            availableTemplates={availableTemplates.filter(t => !fields.some(f => f.key === t.key))}
-        >
-            <Button variant="outline" className="w-full h-14 border-dashed rounded-2xl border-border/40 hover:bg-secondary/50 group transition-all">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform">
-                        <Sparkles size={18} />
-                    </div>
-                    <div className="text-left">
-                        <span className="block text-[10px] font-black uppercase tracking-widest">Add New Field</span>
-                        <span className="block text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">Open Column Center</span>
-                    </div>
-                </div>
-            </Button>
-        </ColumnPicker>
-      </div>
-    </div>
-  );
+        </div>
+    );
 }

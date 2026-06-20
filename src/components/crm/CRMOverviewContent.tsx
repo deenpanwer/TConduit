@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useCRM } from "@/hooks/use-crm";
 import { useAuth } from "@/hooks/use-auth";
+import { useTeam } from "@/hooks/use-team";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   Users, 
@@ -24,11 +25,14 @@ import {
   UserPlus,
   Briefcase,
   Phone,
-  MessageSquare
+  MessageSquare,
+  Coins,
+  FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DealModal } from "@/components/crm/forms/DealModal";
 import { 
   Sheet, 
@@ -42,11 +46,315 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer, 
+  Cell, 
+  PieChart, 
+  Pie 
+} from "recharts";
+
+const ChartTooltip = ({ active, payload, formatter }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const value = payload[0].value;
+    return (
+      <div className="bg-black/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl text-xs text-white">
+        <p className="font-black uppercase tracking-wider mb-1 text-[10px] text-gray-400">{payload[0].name || data.name}</p>
+        <p className="font-bold text-sm">
+          {formatter ? formatter(value, data) : value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export function CRMOverviewContent() {
-  const { leads, deals, contacts, config, entities, loading, notes, calls } = useCRM();
+  const router = useRouter();
+  const { leads, deals, contacts, config, entities, loading, notes, calls, invoices = [] } = useCRM();
   const { user, userData } = useAuth();
   const [isDealModalOpen, setIsDealModalOpen] = React.useState(false);
+
+  const { employees } = useTeam();
+
+  // Tab 1: Leads Pipeline (Ditto Kanban data resolution)
+  const leadsConfig = config?.modules?.leads;
+  const leadsView = leadsConfig?.views?.find((v: any) => v.type === 'kanban') || leadsConfig?.views?.[0];
+  const leadsKanbanField = leadsConfig?.fields?.find((f: any) => f.id === leadsView?.kanbanFieldId) || leadsConfig?.fields?.find((f: any) => f.key === 'status');
+  const leadStatuses = leadsKanbanField?.options || [];
+
+  const leadsChartData = useMemo(() => {
+    if (!leadsKanbanField) return [];
+    return leadStatuses.map((status: any) => {
+      const count = leads.filter(l => {
+        let stageValue = (l as any).status || l.data?.[leadsKanbanField.key];
+        if (!stageValue || (typeof stageValue === 'string' && stageValue.trim() === '')) {
+          stageValue = '__blank__';
+        }
+        return stageValue === status.value;
+      }).length;
+      return {
+        name: status.label,
+        count: count,
+        color: status.color || "blue"
+      };
+    });
+  }, [leads, leadStatuses, leadsKanbanField]);
+
+  // Dynamic Follow Up Field detection
+  const followUpField = config?.modules?.leads?.fields?.find((f: any) => 
+    (f.label.toLowerCase().includes("follow") || f.key.toLowerCase().includes("follow")) &&
+    f.type === "date"
+  );
+  const followUpKey = followUpField ? followUpField.key : null;
+
+  // Tab 2: Follow-ups Health
+  const followUpData = useMemo(() => {
+    if (!followUpKey) {
+      return [
+        { name: "No Key Configured", value: leads.length, color: "#64748b", key: "none" }
+      ];
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    let missed = 0;
+    let today = 0;
+    let upcoming = 0;
+    let none = 0;
+
+    leads.forEach(lead => {
+      if (lead.isDeleted) return;
+      const val = lead.data?.[followUpKey] || (lead as any)[followUpKey];
+      if (!val) {
+        none++;
+        return;
+      }
+
+      let dateVal: Date | null = null;
+      if (typeof val.toDate === 'function') {
+        dateVal = val.toDate();
+      } else if (val.seconds !== undefined) {
+        dateVal = new Date(val.seconds * 1000);
+      } else {
+        const clean = typeof val === 'string' ? val.replace(/(\d+)(st|nd|rd|th)/gi, '$1') : val;
+        const parsed = new Date(clean);
+        if (!isNaN(parsed.getTime())) {
+          dateVal = parsed;
+        }
+      }
+
+      if (!dateVal) {
+        none++;
+        return;
+      }
+
+      if (dateVal < startOfToday) {
+        missed++;
+      } else if (dateVal >= startOfToday && dateVal <= endOfToday) {
+        today++;
+      } else {
+        upcoming++;
+      }
+    });
+
+    return [
+      { name: "Missed", value: missed, color: "#ef4444", key: "missed" },
+      { name: "Today", value: today, color: "#f59e0b", key: "today" },
+      { name: "Upcoming", value: upcoming, color: "#10b981", key: "upcoming" },
+      { name: "None Scheduled", value: none, color: "#64748b", key: "none" }
+    ];
+  }, [leads, followUpKey]);
+
+  const totalActionRequired = useMemo(() => {
+    return followUpData
+      .filter(d => d.key === "missed" || d.key === "today")
+      .reduce((acc, curr) => acc + curr.value, 0);
+  }, [followUpData]);
+
+  // Extract Top 3 Overdue Follow-ups
+  const overdueFollowups = useMemo(() => {
+    if (!followUpKey) return [];
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return leads
+      .filter(lead => {
+        if (lead.isDeleted) return false;
+        
+        let stageValue = (lead as any).status || lead.data?.[leadsKanbanField?.key || 'status'];
+        if (stageValue === 'won' || stageValue === 'lost') return false;
+
+        const val = lead.data?.[followUpKey] || (lead as any)[followUpKey];
+        if (!val) return false;
+
+        let dateVal: Date | null = null;
+        if (typeof val.toDate === 'function') {
+          dateVal = val.toDate();
+        } else if (val.seconds !== undefined) {
+          dateVal = new Date(val.seconds * 1000);
+        } else {
+          const clean = typeof val === 'string' ? val.replace(/(\d+)(st|nd|rd|th)/gi, '$1') : val;
+          const parsed = new Date(clean);
+          if (!isNaN(parsed.getTime())) {
+            dateVal = parsed;
+          }
+        }
+        
+        return dateVal ? dateVal < startOfToday : false;
+      })
+      .map(lead => {
+        const val = lead.data?.[followUpKey] || (lead as any)[followUpKey];
+        let dateVal: Date | null = null;
+        if (typeof val.toDate === 'function') {
+          dateVal = val.toDate();
+        } else if (val.seconds !== undefined) {
+          dateVal = new Date(val.seconds * 1000);
+        } else {
+          const clean = typeof val === 'string' ? val.replace(/(\d+)(st|nd|rd|th)/gi, '$1') : val;
+          const parsed = new Date(clean);
+          if (!isNaN(parsed.getTime())) {
+            dateVal = parsed;
+          }
+        }
+        return {
+          lead,
+          date: dateVal
+        };
+      })
+      .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0))
+      .slice(0, 3);
+  }, [leads, followUpKey, leadsKanbanField]);
+
+  // Tab 3: Deals Pipeline Revenue
+  const dealsConfig = config?.modules?.deals;
+  const dealsView = dealsConfig?.views?.find((v: any) => v.type === 'kanban') || dealsConfig?.views?.[0];
+  const dealsKanbanField = dealsConfig?.fields?.find((f: any) => f.id === dealsView?.kanbanFieldId) || dealsConfig?.fields?.find((f: any) => f.key === 'status');
+  const dealStages = dealsKanbanField?.options || [];
+
+  const dealsChartData = useMemo(() => {
+    if (!dealsKanbanField) return [];
+    return dealStages.map((stage: any) => {
+      const stageDeals = deals.filter(d => {
+        let stageValue = (d as any).status || d.data?.[dealsKanbanField.key];
+        if (!stageValue || (typeof stageValue === 'string' && stageValue.trim() === '')) {
+          stageValue = '__blank__';
+        }
+        return stageValue === stage.value;
+      });
+      const totalVal = stageDeals.reduce((sum, d) => sum + (Number(d.data?.annualRevenue) || 0), 0);
+      return {
+        name: stage.label,
+        value: totalVal,
+        count: stageDeals.length,
+        color: stage.color || "blue"
+      };
+    });
+  }, [deals, dealStages, dealsKanbanField]);
+
+  // Calculate Invoice Status Chart Data
+  const invoicesChartData = useMemo(() => {
+    const statuses = [
+      { label: 'Draft', value: 'draft', color: '#64748b' },
+      { label: 'Sent', value: 'sent', color: '#3b82f6' },
+      { label: 'Paid', value: 'paid', color: '#10b981' },
+      { label: 'Rejected', value: 'rejected', color: '#ef4444' },
+      { label: 'Overdue', value: 'overdue', color: '#f59e0b' }
+    ];
+
+    return statuses.map(s => {
+      const stageInvoices = (invoices || []).filter(inv => !inv.isDeleted && (inv.data?.status === s.value || (!inv.data?.status && s.value === 'draft')));
+      const totalAmount = stageInvoices.reduce((sum, inv) => sum + (Number(inv.data?.amount) || 0), 0);
+      return {
+        name: s.label,
+        value: totalAmount,
+        count: stageInvoices.length,
+        color: s.color
+      };
+    }).filter(s => s.count > 0);
+  }, [invoices]);
+
+  // Extract Top 3 High-Value Active Deals
+  const topActiveDeals = useMemo(() => {
+    return deals
+      .filter(d => {
+        let stageValue = (d as any).status || d.data?.[dealsKanbanField?.key || 'status'];
+        return !['won', 'lost'].includes(stageValue || '');
+      })
+      .sort((a, b) => {
+        const revA = Number(a.data?.annualRevenue) || 0;
+        const revB = Number(b.data?.annualRevenue) || 0;
+        return revB - revA;
+      })
+      .slice(0, 3);
+  }, [deals, dealsKanbanField]);
+
+  // Calculate Employee Workload Lead Assignments
+  const employeeLeadsData = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+    return employees
+      .map(emp => {
+        const count = leads.filter(l => {
+          const assignedId = l.data?.assignedTo || (l as any).assignedTo;
+          return assignedId === emp.id;
+        }).length;
+        
+        return {
+          name: emp.name || emp.displayName || "Unknown Employee",
+          count: count,
+          id: emp.id,
+          avatar: emp.avatar || emp.photoURL || `https://api.dicebear.com/9.x/initials/svg?seed=${emp.name || 'EMP'}`
+        };
+      })
+      .filter(item => item.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [leads, employees]);
+
+  const unassignedCount = useMemo(() => {
+    return leads.filter(l => {
+      const assignedId = l.data?.assignedTo || (l as any).assignedTo;
+      return !assignedId;
+    }).length;
+  }, [leads]);
+
+  const employeeLeadsChartData = useMemo(() => {
+    const list = [...employeeLeadsData];
+    if (unassignedCount > 0) {
+      list.push({
+        name: "Unassigned",
+        count: unassignedCount,
+        id: "unassigned",
+        avatar: ""
+      });
+    }
+    return list;
+  }, [employeeLeadsData, unassignedCount]);
+
+  const getColorHex = (colorName: string) => {
+    const map: Record<string, string> = {
+      blue: "#3b82f6",
+      green: "#10b981",
+      emerald: "#10b981",
+      orange: "#f97316",
+      purple: "#8b5cf6",
+      red: "#ef4444",
+      rose: "#f43f5e",
+      amber: "#f59e0b",
+      yellow: "#eab308",
+      pink: "#ec4899",
+      slate: "#64748b",
+      gray: "#94a3b8"
+    };
+    return map[colorName.toLowerCase()] || "#3b82f6";
+  };
 
   if (loading) {
     return (
@@ -206,12 +514,6 @@ export function CRMOverviewContent() {
                   <div className={cn("p-3 rounded-2xl", stat.bgColor, stat.color)}>
                     <stat.icon size={22} strokeWidth={2.5} />
                   </div>
-                  <Badge variant={stat.trendUp ? "default" : "destructive"} className={cn(
-                    "text-[10px] font-black uppercase tracking-widest bg-opacity-10",
-                    stat.trendUp ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-red-500/10 text-red-600 border-red-500/20"
-                  )}>
-                    {stat.trend}
-                  </Badge>
                 </div>
                 <div>
                   <h3 className="text-3xl font-black tracking-tighter text-foreground">
@@ -226,76 +528,228 @@ export function CRMOverviewContent() {
         ))}
       </div>
 
-      {/* Mid Section: Pipeline & Recent People */}
+      {/* Mid Section: Pipeline & Workload & Recent People */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Main Progress Tracker */}
-        <Card className="lg:col-span-2 border-border/40 bg-card/40 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-            <div>
-              <CardTitle className="text-xl font-black tracking-tight uppercase">Current Progress</CardTitle>
-              <CardDescription className="text-xs italic">Where everyone is in our journey.</CardDescription>
+        {/* Leads Pipeline Card (1 Column) */}
+        <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+                <UserPlus size={18} className="text-blue-500" /> Leads Funnel
+              </CardTitle>
+              <Link href="/crm/leads">
+                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 hover:bg-blue-500/5 px-2">
+                  View <ArrowRight size={10} className="ml-0.5" />
+                </Button>
+              </Link>
             </div>
-            <Link href="/crm/leads">
-              <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 hover:bg-blue-500/5">
-                View All <ArrowRight className="ml-1" size={12} />
-              </Button>
-            </Link>
+            <CardDescription className="text-[10px] italic leading-tight mt-1">
+              Where everyone stands in our journey.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-6">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  <UserPlus size={14} /> New Friends Progress
-                </p>
-                <div className="space-y-5">
-                  {(config.modules.leads.fields.find(f => f.key === 'status')?.options || []).map((status) => {
-                    const count = leads.filter(l => l.data.status === status.value).length;
-                    const percentage = leads.length > 0 ? (count / leads.length) * 100 : 0;
-                    return (
-                      <div key={status.value} className="space-y-1.5">
-                        <div className="flex justify-between items-end">
-                          <span className="text-xs font-bold uppercase">{status.label}</span>
-                          <span className="text-[10px] font-medium text-muted-foreground">{count}</span>
-                        </div>
-                        <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${percentage}%` }}
-                            className={cn("h-full rounded-full", `bg-${status.color || 'blue'}-500`)}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center items-center text-center p-8 rounded-3xl bg-blue-500/5 border border-dashed border-blue-500/20">
-                <div className="size-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
-                  <Briefcase className="text-blue-500" size={32} />
-                </div>
-                <h4 className="font-black text-lg tracking-tight">Focus on Deals</h4>
-                <p className="text-xs text-muted-foreground mt-1 mb-6 max-w-[200px]">
-                  You have <span className="text-foreground font-bold">{activeDeals.length} deals</span> that need your attention.
-                </p>
-                <Link href="/crm/deals">
-                  <Button className="rounded-full px-6 font-black uppercase tracking-widest text-[10px] h-9">
-                    Go to Deals
-                  </Button>
-                </Link>
-              </div>
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="h-[180px] w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={leadsChartData} layout="vertical" margin={{ top: 5, right: 10, left: 15, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.03)" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }} />
+                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#f8fafc' }} width={60} />
+                  <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} wrapperStyle={{ zIndex: 1000 }} content={<ChartTooltip formatter={(v: any) => `${v} Lead(s)`} />} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={14}>
+                    {leadsChartData.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={getColorHex(entry.color)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
+            <p className="text-[10px] text-muted-foreground leading-normal mt-4 border-t border-border/10 pt-3">
+              Distribution of active contacts across pipeline stages. Nurture them towards deal creation.
+            </p>
           </CardContent>
         </Card>
 
-        {/* Newest Friends List */}
-        <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-xl font-black tracking-tight uppercase">Newest Friends</CardTitle>
-            <CardDescription className="text-xs italic">People who just joined us.</CardDescription>
+        {/* Follow-ups Health Card (2 Columns) */}
+        <Card className="lg:col-span-2 border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+                <Clock size={18} className="text-blue-500" /> Follow-up Health & Delayed Actions
+              </CardTitle>
+            </div>
+            <CardDescription className="text-[10px] italic leading-tight mt-1">
+              Workload and task schedule overview with active follow-up alarms.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="px-2">
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+              {/* Left Side: Pie Chart */}
+              <div className="md:col-span-2 h-[180px] w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={followUpData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={66}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {followUpData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip wrapperStyle={{ zIndex: 1000 }} content={<ChartTooltip formatter={(v: any) => `${v} Lead(s)`} />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute flex flex-col items-center justify-center pointer-events-none z-0">
+                  <span className="text-2xl font-black tracking-tighter text-foreground leading-none">
+                    {totalActionRequired}
+                  </span>
+                  <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground flex flex-col items-center leading-[1]">
+                    <span>Alerts</span>
+                    <span>Today</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Side: Overdue Followups List */}
+              <div className="md:col-span-3 space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">Top Overdue Follow-ups</h4>
+                {overdueFollowups.length === 0 ? (
+                  <div className="py-6 flex flex-col items-center justify-center text-center bg-secondary/10 border border-dashed border-border/20 rounded-2xl">
+                    <Clock className="text-muted-foreground/30 mb-1" size={20} />
+                    <p className="text-[10px] text-muted-foreground font-medium italic">All caught up! No overdue follow-ups.</p>
+                  </div>
+                ) : (
+                  overdueFollowups.map(({ lead, date }) => {
+                    const daysOverdue = Math.floor((new Date().getTime() - (date?.getTime() || 0)) / (1000 * 60 * 60 * 24));
+                    return (
+                      <motion.div
+                        key={lead.id}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-secondary/20 border border-border/30 hover:bg-secondary/40 transition-all group"
+                      >
+                        <div className="min-w-0 flex-1 pr-3">
+                          <p className="text-xs font-bold truncate text-foreground">{lead.name}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter truncate mt-0.5">
+                            {lead.data.company || "Individual"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full uppercase">
+                            {daysOverdue > 0 ? `${daysOverdue}d overdue` : "Today"}
+                          </span>
+                          <Link href={`/crm/leads/${lead.id}`}>
+                            <Button variant="ghost" size="sm" className="size-8 p-0 rounded-full hover:bg-blue-500/10 hover:text-blue-500">
+                              <ArrowUpRight size={14} />
+                            </Button>
+                          </Link>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-normal mt-4 border-t border-border/10 pt-3">
+              Missed follow-ups indicate delayed actions. Check notifications drawer to log reasons and reschedule.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 3: Deals Revenue & Newest Friends */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Deals Pipeline Card (2 Columns) */}
+        <Card className="lg:col-span-2 border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+                <DollarSign size={18} className="text-blue-500" /> Deals Pipeline Value
+              </CardTitle>
+              <Link href="/crm/deals">
+                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 hover:bg-blue-500/5 px-2">
+                  View Deals <ArrowRight size={10} className="ml-0.5" />
+                </Button>
+              </Link>
+            </div>
+            <CardDescription className="text-[10px] italic leading-tight mt-1">
+              Value distribution across active deal stages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+              {/* Left Side: Bar Chart */}
+              <div className="md:col-span-3 h-[180px] w-full relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dealsChartData} margin={{ top: 15, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#f8fafc' }} />
+                    <YAxis hide domain={['auto', 'auto']} />
+                    <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} wrapperStyle={{ zIndex: 1000 }} content={<ChartTooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} />} />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={24}>
+                      {dealsChartData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={getColorHex(entry.color)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Right Side: High Value Deals List */}
+              <div className="md:col-span-2 space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">Top Active Deals</h4>
+                {topActiveDeals.length === 0 ? (
+                  <div className="py-6 flex flex-col items-center justify-center text-center bg-secondary/10 border border-dashed border-border/20 rounded-2xl">
+                    <Briefcase className="text-muted-foreground/30 mb-1" size={20} />
+                    <p className="text-[10px] text-muted-foreground font-medium italic">No active deals found.</p>
+                  </div>
+                ) : (
+                  topActiveDeals.map((deal) => (
+                    <motion.div
+                      key={deal.id}
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-secondary/20 border border-border/30 hover:bg-secondary/40 transition-all group"
+                    >
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="text-xs font-bold truncate text-foreground">{deal.name}</p>
+                        <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter truncate mt-0.5">
+                          {deal.data.organization || "Individual"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[9px] font-black text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full uppercase">
+                          ${(Number(deal.data.annualRevenue) || 0).toLocaleString()}
+                        </span>
+                        <Link href={`/crm/deals/${deal.id}`}>
+                          <Button variant="ghost" size="sm" className="size-8 p-0 rounded-full hover:bg-blue-500/10 hover:text-blue-500">
+                            <ArrowUpRight size={14} />
+                          </Button>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-normal mt-4 border-t border-border/10 pt-3">
+              Total estimated annual revenue on the table. Track negotiation stages and close deals to unlock value.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Newest Friends List Card (1 Column) */}
+        <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-black tracking-tight uppercase">Newest Friends</CardTitle>
+            <CardDescription className="text-[10px] italic mt-1">People who just joined us.</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 flex-1 flex flex-col justify-between pb-6">
             <div className="space-y-1">
               {recentLeads.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-center px-4">
@@ -309,19 +763,20 @@ export function CRMOverviewContent() {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-3 rounded-2xl hover:bg-secondary/50 transition-colors group cursor-pointer"
+                    className="flex items-center gap-3 p-2 rounded-2xl hover:bg-secondary/50 transition-colors group cursor-pointer"
+                    onClick={() => router.push(`/crm/leads/${lead.id}`)}
                   >
-                    <Avatar className="size-10 border border-border group-hover:scale-105 transition-transform">
+                    <Avatar className="size-8 border border-border group-hover:scale-105 transition-transform">
                       <AvatarImage src={`https://api.dicebear.com/9.x/initials/svg?seed=${lead.name}`} />
                       <AvatarFallback>{lead.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{lead.name}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                      <p className="text-xs font-bold truncate">{lead.name}</p>
+                      <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter">
                         {lead.data.company || "Individual"}
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-[8px] font-black uppercase">
+                    <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0 px-2 py-0.5">
                       {lead.data.status || 'New'}
                     </Badge>
                   </motion.div>
@@ -329,9 +784,9 @@ export function CRMOverviewContent() {
               )}
             </div>
             {recentLeads.length > 0 && (
-              <div className="p-4 pt-2">
+              <div className="pt-4 border-t border-border/10">
                 <Link href="/crm/leads">
-                  <Button variant="outline" className="w-full rounded-xl h-10 text-[10px] font-black uppercase tracking-widest border-border/50 hover:bg-secondary">
+                  <Button variant="outline" className="w-full rounded-xl h-9 text-[10px] font-black uppercase tracking-widest border-border/50 hover:bg-secondary">
                     See all friends
                   </Button>
                 </Link>
@@ -339,6 +794,165 @@ export function CRMOverviewContent() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Row 4: Employee Workload chart & Focus callout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Employee Workload Card (2 Columns) */}
+        <Card className="lg:col-span-2 border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+              <Users size={18} className="text-blue-500" /> Employee Workload
+            </CardTitle>
+            <CardDescription className="text-[10px] italic leading-tight mt-1">
+              Active lead assignment distribution across team members.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+              {/* Left Side: Horizontal Bar Chart */}
+              <div className="md:col-span-3 h-[180px] w-full relative">
+                {employeeLeadsChartData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-center">
+                    <p className="text-xs text-muted-foreground italic">No workload data available.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={employeeLeadsChartData} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.03)" />
+                      <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }} />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#f8fafc' }} width={80} />
+                      <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} wrapperStyle={{ zIndex: 1000 }} content={<ChartTooltip formatter={(v: any) => `${v} Lead(s)`} />} />
+                      <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {/* Right Side: Team Leads Count List */}
+              <div className="md:col-span-2 space-y-2">
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">Active Roster Assignments</h4>
+                <div className="max-h-[160px] overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
+                  {employeeLeadsChartData.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground italic">No team assignments.</p>
+                  ) : (
+                    employeeLeadsChartData.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 rounded-xl bg-secondary/15 border border-border/20"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {item.id !== "unassigned" ? (
+                            <Avatar className="size-6 border border-border">
+                              <AvatarImage src={item.avatar} />
+                              <AvatarFallback>{item.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <div className="size-6 rounded-full border border-border border-dashed bg-secondary/30 flex items-center justify-center text-[9px] font-bold text-muted-foreground">?</div>
+                          )}
+                          <span className="text-xs font-semibold truncate text-foreground leading-none">{item.name}</span>
+                        </div>
+                        <span className="text-[10px] font-black bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full shrink-0">
+                          {item.count} Lead(s)
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Invoices Overview Card (1 Column) */}
+        <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+              <Coins size={18} className="text-green-500" /> Invoices Ledger
+            </CardTitle>
+            <CardDescription className="text-[10px] italic leading-tight mt-1">
+              Billed revenue distribution by document status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            {invoicesChartData.length === 0 ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center bg-secondary/5 border border-dashed border-border/20 rounded-2xl h-full">
+                <FileText className="text-muted-foreground/30 mb-2" size={32} />
+                <p className="text-xs text-muted-foreground font-medium italic">No invoice data available.</p>
+                <Link href="/crm/invoices" className="mt-3">
+                  <Button variant="outline" className="rounded-xl h-8 text-[9px] font-black uppercase tracking-widest border-border/50 hover:bg-secondary">
+                    Create Invoice
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Donut Chart */}
+                <div className="h-[120px] w-full relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={invoicesChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={45}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {invoicesChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip content={<ChartTooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center Text */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">Billed</span>
+                    <span className="text-xs font-black text-foreground">
+                      ${invoicesChartData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Breakdown List */}
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
+                  {invoicesChartData.map((item) => (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between p-2 rounded-xl bg-secondary/15 border border-border/20 hover:bg-secondary/30 transition-all"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        <span className="text-[10px] font-bold text-muted-foreground truncate">{item.name} ({item.count})</span>
+                      </div>
+                      <span className="text-xs font-bold text-foreground shrink-0 ml-1">
+                        ${item.value.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Deals Callout Card (1 Column) */}
+        <div className="flex flex-col justify-center items-center text-center p-6 rounded-3xl bg-blue-500/5 border border-dashed border-blue-500/20 h-full">
+          <div className="size-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
+            <Briefcase className="text-blue-500" size={24} />
+          </div>
+          <h4 className="font-black text-sm tracking-tight uppercase">Focus on Deals</h4>
+          <p className="text-[11px] text-muted-foreground mt-1 mb-4 max-w-[200px] leading-relaxed">
+            You have <span className="text-foreground font-bold">{activeDeals.length} active deals</span> requiring team coordination.
+          </p>
+          <Link href="/crm/deals">
+            <Button className="rounded-full px-6 font-black uppercase tracking-widest text-[9px] h-8 shadow-md bg-blue-600 hover:bg-blue-700 text-white">
+              Go to Deals
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Lower Section: Notes & Activities */}

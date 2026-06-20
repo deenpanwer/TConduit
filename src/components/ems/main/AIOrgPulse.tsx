@@ -42,13 +42,13 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
           status: s.status,
           startTime: s.startTime,
           endTime: s.endTime,
+          startTimeLocal: s.startTimeLocal,
+          endTimeLocal: s.updatedAtLocal || new Date(s.endTime).toLocaleString(),
+          timezone: s.timezone,
           liveMetrics: s.liveMetrics,
           liveBreakdown: s.liveBreakdown,
           hourlyPulse: s.hourlyPulse,
-          cognitiveReport: s.cognitiveReport,
-          velocity: s.velocity,
-          productivityScore: s.productivityScore,
-          focusScore: s.focusScore,
+          // Removed cognitiveReport, velocity, productivityScore, and focusScore
         }))
       };
     }).filter(emp => emp.shifts.length > 0);

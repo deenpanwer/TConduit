@@ -66,17 +66,20 @@ export default function TracDiaryDownloadPage() {
   const [version, setVersion] = useState("1.0.8-18");
 
   useEffect(() => {
-    // COMMENTED OUT: GitHub release fetch — Microsoft Store handles versioning now
-    // fetch('https://api.github.com/repos/deenpanwer/TConduit/releases/latest')
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     const exeAsset = data.assets?.find((a: any) => a.name.toLowerCase().endsWith('.exe'));
-    //     if (exeAsset) {
-    //       setDownloadUrl(exeAsset.browser_download_url);
-    //       setVersion(data.tag_name);
-    //     }
-    //   })
-    //   .catch(err => console.error("Update fetch failed:", err));
+    fetch('https://api.github.com/repos/deenpanwer/TConduit/releases/latest')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.tag_name) {
+          setVersion(data.tag_name);
+        }
+
+        // COMMENTED OUT: If direct GitHub exe download is needed in the future
+        // const exeAsset = data.assets?.find((a: any) => a.name.toLowerCase().endsWith('.exe'));
+        // if (exeAsset) {
+        //   setDownloadUrl(exeAsset.browser_download_url);
+        // }
+      })
+      .catch(err => console.error("Update fetch failed:", err));
   }, []);
 
   const handleDownload = (platform: string) => {
