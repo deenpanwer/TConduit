@@ -88,7 +88,7 @@ const CancellationRefundPolicyPage = () => {
             </p>
             <ul>
               <li><strong>Email:</strong> info@heytracai.com</li>
-              <li><strong>Phone:</strong> +923178005465</li>
+              <li><strong>Phone:</strong> +1 (505) 377-2899</li>
               <li><strong>Address:</strong> <a href="https://www.google.com/maps/place/Traconomics/@36.1228082,-86.7917479,17z/data=!3m1!4b1!4m6!3m5!1s0x886465000efe04e9:0x3a2317f60aeee3d0!8m2!3d36.1228039!4d-86.789173!16s%2Fg%2F11mkg7ynh4?entry=ttu&g_ep=EgoyMDI2MDYxMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" className="hover:underline">Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113</a></li>
             </ul>
           </div>

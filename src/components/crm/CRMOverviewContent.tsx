@@ -420,14 +420,19 @@ export function CRMOverviewContent() {
   const dealsTrend = currentActiveDeals >= previousActiveDeals ? "Growing" : "Steady";
 
   const allHistory = entities.flatMap(e => e.history.map(h => ({ ...h, entityName: e.name })));
-  const currentActions = filterByDate(allHistory, oneDayAgo).length;
-  const previousActions = filterByDate(allHistory, twoDaysAgo, oneDayAgo).length;
-  const pulseTrend = currentActions >= previousActions ? "Busy" : "Quiet";
+
+  const currentCalls = filterByDate(calls, sevenDaysAgo).length;
+  const previousCalls = filterByDate(calls, fourteenDaysAgo, sevenDaysAgo).length;
+  const callsTrend = calculateTrend(currentCalls, previousCalls);
+
+  const currentNotes = filterByDate(notes, sevenDaysAgo).length;
+  const previousNotes = filterByDate(notes, fourteenDaysAgo, sevenDaysAgo).length;
+  const notesTrend = calculateTrend(currentNotes, previousNotes);
 
   const stats = [
     {
-      title: "New Friends",
-      description: "People interested in us",
+      title: "Total Leads",
+      description: "New potential clients",
       value: leads.length,
       icon: Users,
       trend: leadsTrend,
@@ -436,8 +441,8 @@ export function CRMOverviewContent() {
       bgColor: "bg-blue-500/10"
     },
     {
-      title: "Money on the Table",
-      description: "Possible deals happening",
+      title: "Total Quoted Price",
+      description: "Potential pipeline value",
       value: `$${moneyOnTable > 1000000 ? (moneyOnTable / 1000000).toFixed(1) + 'M' : moneyOnTable.toLocaleString()}`,
       icon: DollarSign,
       trend: moneyTrend,
@@ -456,14 +461,24 @@ export function CRMOverviewContent() {
       bgColor: "bg-purple-500/10"
     },
     {
-      title: "Team Pulse",
-      description: "Things we did today",
-      value: currentActions,
-      icon: Activity,
-      trend: pulseTrend,
-      trendUp: true,
+      title: "Calls Logged",
+      description: "Total conversations",
+      value: calls.length,
+      icon: PhoneCall,
+      trend: callsTrend,
+      trendUp: !callsTrend.startsWith('-'),
       color: "text-orange-500",
       bgColor: "bg-orange-500/10"
+    },
+    {
+      title: "Notes Added",
+      description: "Total insights recorded",
+      value: notes.length,
+      icon: StickyNote,
+      trend: notesTrend,
+      trendUp: !notesTrend.startsWith('-'),
+      color: "text-pink-500",
+      bgColor: "bg-pink-500/10"
     }
   ];
 
@@ -486,7 +501,7 @@ export function CRMOverviewContent() {
             Hello, <span className="text-blue-500">{userData?.name?.split(' ')[0] || "there"}!</span>
           </h1>
           <p className="text-muted-foreground font-medium text-lg italic">
-            Here's how we're doing with our friends and business.
+            Here's an overview of your pipeline and business.
           </p>
         </div>
         
@@ -500,7 +515,7 @@ export function CRMOverviewContent() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.title}
@@ -536,7 +551,7 @@ export function CRMOverviewContent() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
-                <UserPlus size={18} className="text-blue-500" /> Leads Funnel
+                <UserPlus size={18} className="text-blue-500" /> Active Leads
               </CardTitle>
               <Link href="/crm/leads">
                 <Button variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 hover:bg-blue-500/5 px-2">
@@ -545,7 +560,7 @@ export function CRMOverviewContent() {
               </Link>
             </div>
             <CardDescription className="text-[10px] italic leading-tight mt-1">
-              Where everyone stands in our journey.
+              Current status of all leads.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-between pb-6">
@@ -565,7 +580,7 @@ export function CRMOverviewContent() {
               </ResponsiveContainer>
             </div>
             <p className="text-[10px] text-muted-foreground leading-normal mt-4 border-t border-border/10 pt-3">
-              Distribution of active contacts across pipeline stages. Nurture them towards deal creation.
+              Lead distribution by status.
             </p>
           </CardContent>
         </Card>
@@ -669,7 +684,7 @@ export function CRMOverviewContent() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
-                <DollarSign size={18} className="text-blue-500" /> Deals Pipeline Value
+                <DollarSign size={18} className="text-blue-500" /> Deal Maturity Stage
               </CardTitle>
               <Link href="/crm/deals">
                 <Button variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-600 hover:bg-blue-500/5 px-2">
@@ -678,7 +693,7 @@ export function CRMOverviewContent() {
               </Link>
             </div>
             <CardDescription className="text-[10px] italic leading-tight mt-1">
-              Value distribution across active deal stages.
+              Deal value organized by current pipeline stage.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-between pb-6">
@@ -738,7 +753,7 @@ export function CRMOverviewContent() {
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground leading-normal mt-4 border-t border-border/10 pt-3">
-              Total estimated annual revenue on the table. Track negotiation stages and close deals to unlock value.
+              Track the progression of active deals towards successful closure.
             </p>
           </CardContent>
         </Card>
@@ -746,15 +761,15 @@ export function CRMOverviewContent() {
         {/* Newest Friends List Card (1 Column) */}
         <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-black tracking-tight uppercase">Newest Friends</CardTitle>
-            <CardDescription className="text-[10px] italic mt-1">People who just joined us.</CardDescription>
+            <CardTitle className="text-lg font-black tracking-tight uppercase">Newest Leads</CardTitle>
+            <CardDescription className="text-[10px] italic mt-1">Most recently acquired leads.</CardDescription>
           </CardHeader>
           <CardContent className="px-2 flex-1 flex flex-col justify-between pb-6">
             <div className="space-y-1">
               {recentLeads.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-center px-4">
                   <Users className="text-muted-foreground/30 mb-2" size={32} />
-                  <p className="text-xs text-muted-foreground font-medium italic">No friends here yet. Let's find some!</p>
+                  <p className="text-xs text-muted-foreground font-medium italic">No leads found.</p>
                 </div>
               ) : (
                 recentLeads.map((lead, i) => (
@@ -787,7 +802,7 @@ export function CRMOverviewContent() {
               <div className="pt-4 border-t border-border/10">
                 <Link href="/crm/leads">
                   <Button variant="outline" className="w-full rounded-xl h-9 text-[10px] font-black uppercase tracking-widest border-border/50 hover:bg-secondary">
-                    See all friends
+                    See all leads
                   </Button>
                 </Link>
               </div>
@@ -868,10 +883,10 @@ export function CRMOverviewContent() {
         <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
-              <Coins size={18} className="text-green-500" /> Invoices Ledger
+              <Coins size={18} className="text-green-500" /> Invoices Issued
             </CardTitle>
             <CardDescription className="text-[10px] italic leading-tight mt-1">
-              Billed revenue distribution by document status.
+              Billed revenue by status.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-between pb-6">
@@ -939,20 +954,28 @@ export function CRMOverviewContent() {
         </Card>
 
         {/* Deals Callout Card (1 Column) */}
-        <div className="flex flex-col justify-center items-center text-center p-6 rounded-3xl bg-blue-500/5 border border-dashed border-blue-500/20 h-full">
-          <div className="size-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
-            <Briefcase className="text-blue-500" size={24} />
-          </div>
-          <h4 className="font-black text-sm tracking-tight uppercase">Focus on Deals</h4>
-          <p className="text-[11px] text-muted-foreground mt-1 mb-4 max-w-[200px] leading-relaxed">
-            You have <span className="text-foreground font-bold">{activeDeals.length} active deals</span> requiring team coordination.
-          </p>
-          <Link href="/crm/deals">
-            <Button className="rounded-full px-6 font-black uppercase tracking-widest text-[9px] h-8 shadow-md bg-blue-600 hover:bg-blue-700 text-white">
-              Go to Deals
-            </Button>
-          </Link>
-        </div>
+        <Card className="border-border/40 bg-card/40 backdrop-blur-sm flex flex-col justify-between h-full">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-black tracking-tight uppercase flex items-center gap-2">
+              <Briefcase size={18} className="text-blue-500" /> Focus on Deals
+            </CardTitle>
+            <CardDescription className="text-[10px] italic mt-1">Requires team coordination.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="py-2">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                You currently have <span className="text-foreground font-bold">{activeDeals.length} active deals</span> in progress.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-border/10">
+              <Link href="/crm/deals">
+                <Button variant="outline" className="w-full rounded-xl h-9 text-[10px] font-black uppercase tracking-widest border-border/50 hover:bg-secondary">
+                  Go to Deals
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Lower Section: Notes & Activities */}

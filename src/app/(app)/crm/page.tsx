@@ -7,22 +7,22 @@ import { CRMNotificationsDrawer } from "@/components/crm/CRMNotificationsDrawer"
 import { AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { 
-  History, 
-  Bell, 
+import {
+  History,
+  Bell,
   Sparkles,
   Phone,
   StickyNote,
   Zap,
   FileText
 } from "lucide-react";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle, 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
-  SheetDescription 
+  SheetDescription
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,7 +34,7 @@ import { CRMReportsModal } from "@/components/crm/CRMReportsModal";
 export default function CRMPage() {
   const { user } = useAuth();
   const { entities } = useCRM();
-  
+
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [crmNotificationsCount, setCrmNotificationsCount] = useState<number>(0);
@@ -68,10 +68,10 @@ export default function CRMPage() {
 
           <div className="flex items-center gap-2">
             {/* 
-            <Button 
+            <Button
               onClick={() => setIsReportsModalOpen(true)}
-              variant="destructive" 
-              size="icon" 
+              variant="destructive"
+              size="icon"
               className="rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/10"
             >
               <FileText size={20} />
@@ -112,10 +112,10 @@ export default function CRMPage() {
               </SheetContent>
             </Sheet>
 
-            <Button 
+            <Button
               onClick={() => setIsNotificationsOpen(true)}
-              variant="ghost" 
-              size="icon" 
+              variant="ghost"
+              size="icon"
               className="rounded-full hover:bg-secondary relative"
             >
               <Bell size={20} className="text-muted-foreground" />
@@ -136,15 +136,15 @@ export default function CRMPage() {
       <CRMOverviewContent />
       <AnimatePresence>
         {isNotificationsOpen && (
-          <CRMNotificationsDrawer 
-            isOpen={isNotificationsOpen} 
-            onClose={() => setIsNotificationsOpen(false)} 
+          <CRMNotificationsDrawer
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
           />
         )}
       </AnimatePresence>
-      <CRMReportsModal 
-        isOpen={isReportsModalOpen} 
-        onClose={() => setIsReportsModalOpen(false)} 
+      <CRMReportsModal
+        isOpen={isReportsModalOpen}
+        onClose={() => setIsReportsModalOpen(false)}
       />
     </div>
   );

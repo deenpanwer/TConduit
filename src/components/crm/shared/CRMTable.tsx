@@ -8,6 +8,7 @@ import { useCRM, FieldConfig, ModuleConfig } from "@/hooks/use-crm";
 import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
 import { useCRMStore } from "@/store/use-crm-store";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 // Sub-components
 import { CRMTableHeader } from "./CRMTableHeader";
@@ -43,12 +44,17 @@ interface CRMTableProps {
   pageSize: number;
   setPageSize: (size: number) => void;
   actions?: (entity: any) => React.ReactNode;
+  stripColor?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortToggle?: (fieldId: string) => void;
 }
 
 export function CRMTable({
   entities, config, updateEntity, deleteEntity, updateConfig, 
   onEntityClick, selectedIds, onSelect, onSelectAll, addEntity,
-  pageSize, setPageSize, actions
+  pageSize, setPageSize, actions, stripColor,
+  sortBy, sortDirection, onSortToggle
 }: CRMTableProps) {
   const { employees } = useTeam();
   const { organizations, contacts } = useCRM();
@@ -56,17 +62,13 @@ export function CRMTable({
   const userRole = userData?.role || 'employee';
   const canManageColumns = userRole === 'owner' || userRole === 'manager';
   const tableContainerRef = useRef<HTMLDivElement>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const UI_PAGE_SIZE = 50;
 
-  const paginatedEntities = useMemo(() => {
-    const start = (currentPage - 1) * UI_PAGE_SIZE;
-    return entities.slice(start, start + UI_PAGE_SIZE);
-  }, [entities, currentPage, UI_PAGE_SIZE]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [entities.length]);
+  const rowVirtualizer = useVirtualizer({
+    count: entities.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 52, // From h-[52px] in CRMTableRow
+    overscan: 5,
+  });
 
   // Keyboard layout scrolling listener (velocity-based requestAnimationFrame scroller)
   useEffect(() => {
@@ -157,7 +159,7 @@ export function CRMTable({
   const [quickAddValue, setQuickAddValue] = useState("");
   const [draftRow, setDraftRow] = useState<any | null>(null);
 
-  const [tableColor] = useState(() => STRIP_COLORS[Math.floor(Math.random() * STRIP_COLORS.length)]);
+  const [tableColor] = useState(() => stripColor || STRIP_COLORS[Math.floor(Math.random() * STRIP_COLORS.length)]);
   const lightTableColor = useMemo(() => lightenHexColor(tableColor, 75), [tableColor]);
 
   const [newOptionValue, setNewOptionValue] = useState("");
@@ -363,7 +365,7 @@ export function CRMTable({
     <TooltipProvider>
       <div className="space-y-0 text-foreground bg-background h-full flex flex-col overflow-hidden">
         <div ref={tableContainerRef} className="rounded-[1.25rem] border border-border/40 bg-card/40 backdrop-blur-xl shadow-2xl overflow-x-auto overflow-y-auto flex-1 min-h-0 custom-scrollbar relative">
-          <table className="w-full text-left text-sm min-w-full border-collapse">
+          <table className="w-full text-left text-sm min-w-full border-separate border-spacing-0">
             <CRMTableHeader 
               displayFields={displayFields}
               tableColor={tableColor}
@@ -381,36 +383,57 @@ export function CRMTable({
               handleAddColumn={handleAddColumn}
               availableTemplates={config.fields.filter(f => f.isSystem && !view.visibleFields.includes(f.id))}
               canManageColumns={canManageColumns}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSortToggle={onSortToggle}
             />
             <tbody>
-              {paginatedEntities.map((entity) => (
-                <CRMTableRow 
-                  key={entity.id}
-                  entityId={entity.id}
-                  isSelected={selectedIds.includes(entity.id)}
-                  onSelect={onSelect}
-                  displayFields={displayFields}
-                  tableColor={tableColor}
-                  editingCell={editingCell}
-                  setEditingCell={setEditingCell}
-                  openDropdownId={openDropdownId}
-                  setOpenDropdownId={setOpenDropdownId}
-                  dropdownSearch={dropdownSearch}
-                  setDropdownSearch={setDropdownSearch}
-                  handleCellSave={handleCellSave}
-                  moveToNextCell={moveToNextCell}
-                  employees={employees}
-                  organizations={organizations}
-                  activeFieldIdForOption={activeFieldIdForOption}
-                  setActiveFieldIdForOption={setActiveFieldIdForOption}
-                  newOptionValue={newOptionValue}
-                  setNewOptionValue={setNewOptionValue}
-                  handleAddOption={handleAddOption}
-                  onEntityClick={onEntityClick}
-                  deleteEntity={deleteEntity}
-                  actions={actions}
-                />
-              ))}
+              {(() => {
+                const virtualItems = rowVirtualizer.getVirtualItems();
+                const paddingTop = virtualItems.length > 0 ? virtualItems[0]?.start || 0 : 0;
+                const paddingBottom = virtualItems.length > 0
+                  ? rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+                  : 0;
+
+                return (
+                  <>
+                    {paddingTop > 0 && <tr><td style={{ height: `${paddingTop}px`, padding: 0 }} colSpan={displayFields.length + 2} /></tr>}
+                    {virtualItems.map((virtualRow) => {
+                      const entity = entities[virtualRow.index];
+                      return (
+                        <CRMTableRow 
+                          key={entity.id}
+                          entityId={entity.id}
+                          index={virtualRow.index}
+                          isSelected={selectedIds.includes(entity.id)}
+                          onSelect={onSelect}
+                          displayFields={displayFields}
+                          tableColor={tableColor}
+                          editingCell={editingCell}
+                          setEditingCell={setEditingCell}
+                          openDropdownId={openDropdownId}
+                          setOpenDropdownId={setOpenDropdownId}
+                          dropdownSearch={dropdownSearch}
+                          setDropdownSearch={setDropdownSearch}
+                          handleCellSave={handleCellSave}
+                          moveToNextCell={moveToNextCell}
+                          employees={employees}
+                          organizations={organizations}
+                          activeFieldIdForOption={activeFieldIdForOption}
+                          setActiveFieldIdForOption={setActiveFieldIdForOption}
+                          newOptionValue={newOptionValue}
+                          setNewOptionValue={setNewOptionValue}
+                          handleAddOption={handleAddOption}
+                          onEntityClick={onEntityClick}
+                          deleteEntity={deleteEntity}
+                          actions={actions}
+                        />
+                      );
+                    })}
+                    {paddingBottom > 0 && <tr><td style={{ height: `${paddingBottom}px`, padding: 0 }} colSpan={displayFields.length + 2} /></tr>}
+                  </>
+                );
+              })()}
               {draftRow && (
                 <CRMSimpleDraftRow
                   draft={draftRow}
@@ -438,41 +461,12 @@ export function CRMTable({
                       <span className="text-[10px] font-black uppercase text-muted-foreground/30 group-hover/new:text-blue-500 transition-colors tracking-widest">+ Add Item</span>
                     </div>
                   </td>
-                  <td className="bg-card/90 group-hover/new:bg-blue-500/[0.03] transition-colors"></td>
+                  <td className="w-12 bg-card/90 group-hover/new:bg-blue-500/[0.03] border-l border-border/20 sticky right-0 z-20 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] transition-colors"></td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Pagination Action Bar */}
-        {entities.length > UI_PAGE_SIZE && (
-          <div className="flex items-center justify-between px-6 py-1.5 bg-card/60 border-t border-border/20 shrink-0 select-none">
-            <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * UI_PAGE_SIZE + 1, entities.length)} - {Math.min(currentPage * UI_PAGE_SIZE, entities.length)} of {entities.length} items
-            </span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                disabled={currentPage === 1}
-                className="h-7 rounded-xl text-[9px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
-              >
-                Previous
-              </button>
-              <span className="text-[9px] font-black uppercase tracking-widest text-foreground">
-                Page {currentPage} of {Math.ceil(entities.length / UI_PAGE_SIZE)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(p => Math.min(p + 1, Math.ceil(entities.length / UI_PAGE_SIZE)))}
-                disabled={currentPage >= Math.ceil(entities.length / UI_PAGE_SIZE)}
-                className="h-7 rounded-xl text-[9px] font-black uppercase tracking-wider border border-border/40 text-foreground bg-card px-4 shadow-sm hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </TooltipProvider>
   );

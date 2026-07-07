@@ -68,3 +68,12 @@ reference.md
 reference-full.md
 /reference.md
 /reference-full.md
+
+# Reports and dummy files
+generate_reports.mjs
+generate_dummy_reports.mjs
+generate_attendance_dummy_report.mjs
+CRM_Performance_Report_Monthly.xlsx
+CRM_Performance_Report_Monthly.pdf
+Attendance_Report_Dummy.xlsx
+temp_deals_page.txt

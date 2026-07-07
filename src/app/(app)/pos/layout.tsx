@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+import { PaywallWrapper } from "@/components/ems/PaywallWrapper";
 
 export default function PosLayout({
   children,
@@ -47,12 +48,9 @@ export default function PosLayout({
           </div>
         </header>
 
-        {/* Main Page Content */}
-        <main
-          className="flex-1 overflow-y-auto transition-all duration-300 scrollbar-none"
-        >
+        <main className="flex-1 overflow-y-auto transition-all duration-300 scrollbar-none">
           <AnnouncementBanner />
-          {children}
+          <PaywallWrapper>{children}</PaywallWrapper>
         </main>
       </div>
     </div>

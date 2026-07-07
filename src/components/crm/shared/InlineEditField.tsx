@@ -124,7 +124,7 @@ export const InlineEditField: React.FC<InlineEditFieldProps> = ({
 
   const renderValue = () => {
     if (!currentValue && currentValue !== 0) {
-        return <span className="text-muted-foreground italic font-normal">{placeholder}</span>;
+        return <span className="text-muted-foreground italic font-normal">{readOnly ? "-" : placeholder}</span>;
     }
 
     if (type === 'people') {

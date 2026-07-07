@@ -48,6 +48,10 @@ export function ProductSwitcher({
       return allowedScopes.includes(m.id);
     }
     return true;
+  }).sort((a, b) => {
+    if (a.released && !b.released) return -1;
+    if (!a.released && b.released) return 1;
+    return 0;
   });
 
   return (

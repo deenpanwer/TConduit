@@ -17,6 +17,7 @@ import { DealModal } from "@/components/crm/forms/DealModal";
 import { OutreachSetupModal } from "@/components/OutreachSetupModal";
 import { TierStatusModal } from "@/components/crm/shared/TierStatusModal";
 import { Button } from "@/components/ui/button";
+import { PaywallWrapper } from "@/components/ems/PaywallWrapper";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -576,6 +577,7 @@ export default function LeadFinderPage() {
   };
 
   return (
+    <PaywallWrapper>
     <div className="p-4 md:p-6 space-y-6 flex flex-col h-full min-h-screen relative w-full font-sans text-foreground">
       
       {/* Dynamic pre-filled Deal Modal */}
@@ -1151,5 +1153,6 @@ export default function LeadFinderPage() {
       </Dialog>
 
     </div>
+    </PaywallWrapper>
   );
 }

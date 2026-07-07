@@ -70,6 +70,9 @@ const PrivacyPolicyPage = () => {
             <p>
               c. <strong>Mobile Sharing Disclaimer:</strong> Mobile phone numbers collected for SMS/text messaging purposes and consent will not be shared with third parties or affiliates for marketing or promotional purposes. All of the sharing categories below exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.
             </p>
+            <p>
+              d. <strong>SMS & Marketing Consent:</strong> When you opt-in to our SMS text messaging program, you provide express written consent to receive marketing and promotional messages, as well as transactional and support messages. You may opt-out at any time by replying STOP to any message.
+            </p>
 
             <h2>2. Personal data that we collect</h2>
             <p>
@@ -157,7 +160,7 @@ const PrivacyPolicyPage = () => {
               <a href="mailto:info@heytracai.com" className="text-primary font-black hover:underline italic">
                 info@heytracai.com
               </a>{' '}
-              or call us at <strong>+923178005465</strong>.
+              or call us at <strong>+1 (505) 377-2899</strong>.
             </p>
           </div>
           

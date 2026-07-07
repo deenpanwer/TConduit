@@ -130,8 +130,8 @@ export default function ContactPage() {
                   { 
                     icon: Smartphone, 
                     label: 'Phone', 
-                    value: '+92 317 8005465', 
-                    href: 'tel:+923178005465' 
+                    value: '+1 (505) 377-2899', 
+                    href: 'tel:+15053772899' 
                   },
                   { 
                     icon: MapPin, 
@@ -266,10 +266,10 @@ export default function ContactPage() {
                             />
                             <div className="space-y-1">
                               <Label htmlFor="smsConsent" className="text-xs font-bold uppercase tracking-wider cursor-pointer">
-                                Opt-in to SMS Notifications
+                                Opt-in to SMS Notifications & Marketing
                               </Label>
                               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                By checking this box and submitting this form, you consent to receive automated SMS/text messages from TRAC AI LLC regarding your inquiry and support. Message frequency varies. Msg & data rates may apply. Reply STOP to opt-out. See our <Link href="/privacy-policy" className="underline hover:text-primary">Privacy Policy</Link> and <Link href="/terms-of-service" className="underline hover:text-primary">Terms of Service</Link>.
+                                By checking this box and submitting this form, you provide express written consent to receive automated SMS/text messages, including promotional and marketing messages, from TRAC AI LLC at the phone number provided. Consent is not a condition of purchase. Message frequency varies. Msg & data rates may apply. Reply STOP to opt-out, HELP for help. See our <Link href="/privacy-policy" className="underline hover:text-primary">Privacy Policy</Link> and <Link href="/terms-of-service" className="underline hover:text-primary">Terms of Service</Link>.
                               </p>
                             </div>
                           </div>

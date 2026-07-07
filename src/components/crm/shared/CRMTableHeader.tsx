@@ -2,7 +2,7 @@
 
 import React from "react";
 import { 
-  MoreVertical, Edit2, NotebookPen, ArrowLeft, ArrowRight, Trash, Plus, Search as SearchIcon
+  MoreVertical, Edit2, NotebookPen, ArrowLeft, ArrowRight, Trash, Plus, Search as SearchIcon, ChevronUp, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,9 @@ interface CRMTableHeaderProps {
   handleAddColumn: (template?: Partial<FieldConfig>, type?: FieldConfig['type']) => void;
   availableTemplates: FieldConfig[];
   canManageColumns?: boolean;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortToggle?: (fieldId: string) => void;
 }
 
 export const CRMTableHeader = ({
@@ -49,20 +52,26 @@ export const CRMTableHeader = ({
   handleDeleteColumn,
   handleAddColumn,
   availableTemplates,
-  canManageColumns = true
+  canManageColumns = true,
+  sortBy,
+  sortDirection,
+  onSortToggle
 }: CRMTableHeaderProps) => {
   return (
     <thead>
       <tr className="h-12 bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
         <th className="w-24 p-0 border-r border-border/50 sticky left-0 top-0 z-[60] bg-slate-100 dark:bg-slate-800">
           <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
-          <div className="flex items-center justify-center h-full pl-3">
-            <input
-              type="checkbox"
-              className="rounded-sm border-border bg-background cursor-pointer accent-blue-600 h-4 w-4"
-              checked={entitiesCount > 0 && selectedCount === entitiesCount}
-              onChange={(e) => onSelectAll(e.target.checked)}
-            />
+          <div className="flex items-center justify-start gap-2 h-full pl-4">
+            <div className="w-5" /> {/* Spacer for index */}
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <input
+                type="checkbox"
+                className="rounded-sm border-border bg-background cursor-pointer accent-blue-600 h-4 w-4"
+                checked={entitiesCount > 0 && selectedCount === entitiesCount}
+                onChange={(e) => onSelectAll(e.target.checked)}
+              />
+            </div>
           </div>
         </th>
         {displayFields.map((field) => (
@@ -82,9 +91,20 @@ export const CRMTableHeader = ({
               ) : (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <span className="font-extrabold uppercase tracking-wider text-xs text-muted-foreground cursor-help hover:text-foreground transition-colors whitespace-nowrap">
-                            {field.label}
-                        </span>
+                        <div 
+                           className="flex items-center gap-1 cursor-pointer group/sort px-1 -mx-1"
+                           onClick={(e) => {
+                             e.preventDefault();
+                             if (onSortToggle) onSortToggle(field.key);
+                           }}
+                        >
+                          <span className="font-extrabold uppercase tracking-wider text-xs text-muted-foreground group-hover/sort:text-foreground transition-colors whitespace-nowrap select-none">
+                              {field.label}
+                          </span>
+                          {sortBy === field.key && (
+                            sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 text-blue-500 shrink-0" /> : <ChevronDown className="h-4 w-4 text-blue-500 shrink-0" />
+                          )}
+                        </div>
                     </TooltipTrigger>
                     <TooltipContent className="bg-card/95 border-border/40 backdrop-blur-xl p-4 rounded-2xl shadow-2xl max-w-xs z-[100]">
                         <p className="text-xs font-black uppercase tracking-widest text-blue-500 mb-1">{field.label}</p>

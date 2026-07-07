@@ -208,11 +208,15 @@ function LeadDetailClientPage() {
                         <InlineEditField
                             key={field.key}
                             label={field.label}
-                            value={lead.data[field.key] || ''}
+                            value={
+                              field.key === 'lastInteraction' ? (lead.data[field.key] || (lead as any).createdAt || '') :
+                              field.key === 'createdBy' ? (lead.data[field.key] || 'System') :
+                              (lead.data[field.key] || '')
+                            }
                             onSave={(newValue) => handleSaveField(field.key, newValue)}
                             type={field.type as any}
                             options={field.options}
-                            readOnly={field.key === 'lastInteraction'}
+                            readOnly={field.key === 'lastInteraction' || field.key === 'createdBy'}
                         />
                       ))}
                   </CardContent>

@@ -228,7 +228,7 @@ async function executeUpdate() {
     const totalHoursToday = (totalSecondsToday / 3600).toFixed(1);
 
     // 5. Send WhatsApp Template with Detailed Logging
-    const cleanPhone = ownerWhatsapp.replace(/\+/g, '').replace(/\s/g, '');
+    const cleanPhone = String(ownerWhatsapp).replace(/\+/g, '').replace(/\s/g, '');
     const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
     const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -338,6 +338,7 @@ export async function GET(req: Request) {
     const result = await executeUpdate();
     return NextResponse.json(result);
   } catch (error: any) {
+    console.error("Cron GET Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -352,6 +353,7 @@ export async function POST(req: Request) {
     const result = await executeUpdate();
     return NextResponse.json(result);
   } catch (error: any) {
+    console.error("Cron POST Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

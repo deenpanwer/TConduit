@@ -20,7 +20,7 @@ import {
   limit,
   QueryConstraint
 } from "firebase/firestore";
-import { useCRMStore, CRMEntity as StoreEntity } from "@/store/use-crm-store";
+import { useCRMStore, CRMEntity as StoreEntity, DocChange } from "@/store/use-crm-store";
 import { 
   FieldConfig, 
   ViewConfig, 
@@ -95,11 +95,25 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
   const { user, userData } = useAuth();
   const isClient = !!overrideOrgId;
   const [loading, setLoading] = useState(true);
-  const [pageSize, setPageSize] = useState(1000);
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('crm_page_size');
+      if (saved) return parseInt(saved, 10) || 1000;
+    }
+    return 1000;
+  });
+
+  const handleSetPageSize = useCallback((size: number) => {
+    setPageSize(size);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('crm_page_size', String(size));
+    }
+  }, []);
   
   // Zustand Store
   const entitiesMap = useCRMStore(state => state.entities);
   const setStoreEntities = useCRMStore(state => state.setEntities);
+  const applyDocChanges = useCRMStore(state => state.applyDocChanges);
   const updateStoreEntity = useCRMStore(state => state.updateEntityLocal);
   const addStoreEntity = useCRMStore(state => state.addEntityLocal);
   const deleteStoreEntity = useCRMStore(state => state.deleteEntityLocal);
@@ -110,7 +124,8 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
   const updateModuleConfigLocal = useCRMStore(state => state.updateModuleConfigLocal);
   const setGlobalConfig = useCRMStore(state => state.setGlobalConfig);
 
-  const getOrgId = useCallback(() => overrideOrgId || userData?.ownedOrgId || userData?.orgId, [overrideOrgId, userData]);
+  const orgIdStr = overrideOrgId || userData?.ownedOrgId || userData?.orgId;
+  const getOrgId = useCallback(() => orgIdStr, [orgIdStr]);
 
   const allEntities = useMemo(() => {
     return Object.values(entitiesMap)
@@ -150,18 +165,42 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
       limit(pageSize)
     );
 
+    let isFirstSnapshot = true;
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs: CRMEntity[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        docs.push({
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
-        } as CRMEntity);
-      });
-      setStoreEntities(docs);
+      if (isFirstSnapshot) {
+        isFirstSnapshot = false;
+        const docs: CRMEntity[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          docs.push({
+            ...data,
+            id: docSnap.id,
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
+            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+          } as CRMEntity);
+        });
+        setStoreEntities(docs);
+      } else {
+        const changes = snapshot.docChanges();
+        if (changes.length === 0) {
+          setLoading(false);
+          return;
+        }
+        const docChanges: DocChange[] = changes.map((change) => {
+          const data = change.doc.data();
+          return {
+            type: change.type as DocChange['type'],
+            entity: {
+              ...data,
+              id: change.doc.id,
+              createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
+              updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+            } as CRMEntity
+          };
+        });
+        applyDocChanges(docChanges);
+      }
       setLoading(false);
     }, (error) => {
       console.error("Entities snapshot error:", error);
@@ -302,7 +341,8 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
   return (
     <CRMContext.Provider value={{
       entities: allEntities, leads, organizations, contacts, deals, calls, notes, invoices,
-      config, loading, isSyncing: dirtyIds.size > 0, pageSize, setPageSize,
+      config, loading, isSyncing: dirtyIds.size > 0, pageSize,
+      setPageSize: handleSetPageSize,
       addEntity, updateEntity, updateEntityField: (id, key, val) => updateEntity(id, { [key]: val }),
       addActivity: async () => {}, deleteEntity, restoreEntity: async (id) => updateEntity(id, { isDeleted: false }),
       updateModuleConfig

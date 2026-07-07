@@ -16,6 +16,12 @@ export interface CRMEntity {
   createdDate?: string;
 }
 
+// Represents a single Firestore document change for incremental updates
+export interface DocChange {
+  type: 'added' | 'modified' | 'removed';
+  entity: CRMEntity;
+}
+
 interface CRMStore {
   entities: Record<string, CRMEntity>; // Map for O(1) access
   config: CRMConfig;
@@ -23,6 +29,11 @@ interface CRMStore {
   
   // Actions
   setEntities: (entities: CRMEntity[]) => void;
+  /**
+   * Apply Firestore docChanges() incrementally instead of replacing the whole map.
+   * This avoids allocating a fresh copy of all entities on every minor change.
+   */
+  applyDocChanges: (changes: DocChange[]) => void;
   updateEntityLocal: (id: string, updates: Partial<CRMEntity> | { data: Record<string, any> }) => void;
   addEntityLocal: (entity: CRMEntity) => void;
   markSynced: (id: string) => void;
@@ -50,6 +61,38 @@ export const useCRMStore = create<CRMStore>()(
           entityMap[e.id] = e;
         });
         set({ entities: entityMap });
+      },
+
+      /**
+       * Incremental update using Firestore's docChanges().
+       * Only touches the changed entries in the map — avoids full object spread.
+       * This is the primary update path after the initial load.
+       */
+      applyDocChanges: (changes) => {
+        if (changes.length === 0) return;
+        set((state) => {
+          // Shallow-clone the map so React detects a change, but only for entries that changed
+          const newEntities = { ...state.entities };
+          let hasAnyChange = false;
+
+          for (const change of changes) {
+            const { type, entity } = change;
+            if (type === 'added' || type === 'modified') {
+              // Skip if this entity is in our local dirty set (we own this write)
+              if (state.dirtyIds.has(entity.id)) continue;
+              newEntities[entity.id] = entity;
+              hasAnyChange = true;
+            } else if (type === 'removed') {
+              if (entity.id in newEntities) {
+                delete newEntities[entity.id];
+                hasAnyChange = true;
+              }
+            }
+          }
+
+          if (!hasAnyChange) return state;
+          return { entities: newEntities };
+        });
       },
 
       updateEntityLocal: (id, updates) => {

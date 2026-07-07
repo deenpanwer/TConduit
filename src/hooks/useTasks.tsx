@@ -714,11 +714,12 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
     setLoading(true);
     const tasksCollection = collection(db, "organizations", orgId, "tasks");
     
-    // We'll use a ref to track the unsubscribe function so we can clean it up safely
-    let unsubscribe: () => void = () => {};
+    let isCancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
     // Fetch org data to check for departments
     getDoc(doc(db, "organizations", orgId)).then(orgDoc => {
+      if (isCancelled) return;
       const orgData = orgDoc.data();
       const hasDepartments = (orgData?.departments?.length || 0) > 0;
       
@@ -763,7 +764,11 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
     });
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      isCancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
     };
   }, [orgId, authLoading, userRole, userData?.department, userData?.ownedOrgId]);
 

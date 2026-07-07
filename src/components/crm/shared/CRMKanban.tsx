@@ -1,79 +1,65 @@
-"use client";
-
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Plus, MoreVertical, Check, X, MessageSquare, Paperclip, GripVertical, Search, Loader2, ExternalLink } from "lucide-react";
+import { Plus, MoreVertical, Check, X, MessageSquare, Paperclip, GripVertical, Search, Loader2, ExternalLink, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { CRMEntity, ModuleConfig, ViewConfig, FieldConfig } from "@/hooks/use-crm-module";
+import { useCRM } from "@/hooks/use-crm";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DraggableStateSnapshot } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 import { Badge } from "@/components/ui/badge";
+import { useVirtualizer } from '@tanstack/react-virtual';
 
-/**
- * MONDAY-STYLE KANBAN COMPONENT (v2)
- * ----------------------------------
- * Advanced Kanban with vertical column scrolling, horizontal board scrolling,
- * and inline editing. Designed to match Monday.com's high-density interface.
- */
-
-interface CRMKanbanProps {
+export interface CRMKanbanProps {
   entities: CRMEntity[];
   config: ModuleConfig;
   updateEntity: (id: string, updates: any) => Promise<void>;
-  addEntity: (payload: { name: string, data: Record<string, any> }) => Promise<string | null>;
+  addEntity: (payload: { name?: string; summary?: string; data: Record<string, any> }) => Promise<string | null>;
   deleteEntity: (id: string) => Promise<void>;
   updateConfig: (updates: Partial<ModuleConfig>) => Promise<void>;
   onEntityClick: (entity: CRMEntity) => void;
   actions?: (entity: CRMEntity) => React.ReactNode;
-  onQuickAdd?: (stage: string) => void;
+  onQuickAdd?: (stageId: string, name: string) => void;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSortToggle?: (key: string) => void;
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  blue: '#00a9ff',
-  green: '#00ca72',
-  yellow: '#ffcb00',
-  orange: '#ff7538',
-  red: '#ff158a',
-  purple: '#a25ddc',
-  indigo: '#579bfc',
-  gray: '#c4c4c4',
-  blank: '#787d8a', // Darker gray for 'Blank'
+const getStageColor = (color?: string) => {
+    switch (color) {
+        case 'blue': return '#3b82f6';
+        case 'green': return '#10b981';
+        case 'yellow': return '#f59e0b';
+        case 'red': return '#ef4444';
+        case 'purple': return '#8b5cf6';
+        case 'gray': return '#6b7280';
+        case 'blank': return '#94a3b8';
+        default: return '#3b82f6';
+    }
 };
 
-const getStageColor = (colorName?: string) => STAGE_COLORS[colorName || 'gray'] || STAGE_COLORS.gray;
-
-/**
- * INLINE CARD EDITOR
- */
-const InlineCardEditor = ({
-    initialValue,
-    onSave,
-    onCancel
-}: {
-    initialValue: string;
-    onSave: (val: string) => void;
-    onCancel: () => void;
-}) => {
+const InlineCardEditor = ({ initialValue, onSave, onCancel }: { initialValue: string, onSave: (val: string) => void, onCancel: () => void }) => {
     const [val, setVal] = useState(initialValue);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
+        if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
     }, []);
 
     const handleConfirm = () => {
-        if (val.trim() && val !== initialValue) onSave(val.trim());
+        if (val.trim()) onSave(val.trim());
         else onCancel();
     };
 
@@ -97,28 +83,227 @@ const InlineCardEditor = ({
     );
 };
 
+// KanbanCard Component
+const KanbanCard = ({ 
+  entity, 
+  provided, 
+  snapshot, 
+  style, 
+  context,
+  measureRef,
+  dataIndex
+}: { 
+  entity: CRMEntity, 
+  provided: DraggableProvided, 
+  snapshot: DraggableStateSnapshot, 
+  style?: React.CSSProperties,
+  context: any,
+  measureRef?: (el: HTMLElement | null) => void,
+  dataIndex?: number
+}) => {
+  const { editingEntityId, setEditingEntityId, updateEntity, onEntityClick, actions, view, config, calls, notes } = context;
+
+  const entityCalls = calls?.filter((c: any) => c.data.relatedTo === entity.id) || [];
+  const entityNotes = notes?.filter((n: any) => n.data.relatedTo === entity.id) || [];
+  const hasCalls = entityCalls.length > 0;
+  const hasNotes = entityNotes.length > 0;
+
+  const displayName = useMemo(() => {
+    const fName = entity.data.firstName || "";
+    const lName = entity.data.lastName || "";
+    const fullName = `${fName} ${lName}`.trim();
+    
+    if (entity.name === "Imported Lead" || !entity.name) {
+       const fallbackField = entity.data.email || entity.data.phone || entity.data.company || "Unnamed Lead";
+       return fullName || fallbackField;
+    }
+    return entity.name;
+  }, [entity]);
+
+  return (
+    <div
+      ref={(el) => {
+        provided.innerRef(el);
+        if (measureRef && el) measureRef(el);
+      }}
+      data-index={dataIndex}
+      {...provided.draggableProps}
+      style={{
+        ...provided.draggableProps.style,
+        ...style,
+        paddingBottom: '8px' // Gap between cards
+      }}
+      className="w-full"
+    >
+      <div
+        className={cn(
+          "group relative bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:shadow-md transition-all select-none",
+          snapshot.isDragging ? "shadow-2xl ring-2 ring-blue-500 scale-[1.03] z-[9999] rotate-1" : ""
+        )}
+      >
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div {...provided.dragHandleProps} className="p-1 -ml-1 hover:bg-secondary/80 rounded transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100">
+            <GripVertical size={12} className="text-muted-foreground" />
+          </div>
+          {editingEntityId === entity.id ? (
+              <InlineCardEditor
+                  initialValue={entity.name}
+                  onSave={(name) => { updateEntity(entity.id, { name }); setEditingEntityId(null); }}
+                  onCancel={() => setEditingEntityId(null)}
+              />
+          ) : (
+              <h4
+                  className="text-[11px] font-black uppercase tracking-widest text-foreground truncate flex-1 cursor-text hover:text-blue-600 transition-colors"
+                  onDoubleClick={(e) => { e.stopPropagation(); setEditingEntityId(entity.id); }}
+                  title={displayName}
+              >
+                  {displayName}
+              </h4>
+          )}
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 rounded-lg">
+              <MoreVertical size={12}/>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 z-[100]">
+              <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}>
+                  <ExternalLink size={12} className="mr-2 text-blue-500" /> Open Lead
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => setEditingEntityId(entity.id)}>
+                  <GripVertical size={12} className="mr-2 text-muted-foreground" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {actions && actions(entity)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* FIELDS DISPLAY */}
+      <div className="space-y-1.5 opacity-70 ml-5">
+          {view.visibleFields.slice(0, 3).map((fieldId: string) => {
+              const field = config.fields.find((f: any) => f.id === fieldId);
+              if (!field || !field.isVisible || field.key === 'status') return null;
+              const val = entity.data[field.key];
+              if (!val) return null;
+              return (
+                  <div key={fieldId} className="flex items-center gap-2">
+                      <span className="text-[8px] font-black uppercase text-muted-foreground/40 w-14 shrink-0 truncate">{field.label}</span>
+                      <span className="text-[9px] font-bold truncate text-foreground/80">{String(val)}</span>
+                  </div>
+              );
+          })}
+      </div>
+
+      {(hasCalls || hasNotes) && (
+          <div className="mt-3 pt-2 border-t border-border/10 flex items-center gap-3 justify-end text-muted-foreground/50">
+              {hasCalls && <div className="flex items-center gap-1 text-[10px] font-bold"><PhoneCall size={10} /> {entityCalls.length}</div>}
+              {hasNotes && <div className="flex items-center gap-1 text-[10px] font-bold"><MessageSquare size={10} /> {entityNotes.length}</div>}
+          </div>
+      )}
+    </div>
+    </div>
+  );
+};
+
+// KanbanColumn Component
+const KanbanColumn = ({ stage, items, context }: { stage: any, items: CRMEntity[], context: any }) => {
+  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentEl,
+    estimateSize: () => 120, // Estimated card height
+    overscan: 5,
+  });
+
+  return (
+    <Droppable droppableId={stage.value} mode="virtual" renderClone={(provided, snapshot, rubric) => (
+      <KanbanCard entity={items[rubric.source.index]} provided={provided} snapshot={snapshot} context={context} />
+    )}>
+      {(provided, snapshot) => (
+        <div
+          ref={(el) => { provided.innerRef(el); if (el && parentEl !== el) setParentEl(el); }}
+          {...provided.droppableProps}
+          className={cn(
+            "flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors",
+            snapshot.isDraggingOver ? "bg-blue-500/[0.05]" : ""
+          )}
+        >
+          {context.addingToStage === stage.value && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border-2 border-blue-500 rounded-xl p-3 shadow-xl mb-2">
+              <Input
+                autoFocus
+                placeholder="New Lead Name..."
+                className="text-[10px] font-black uppercase tracking-widest border-none p-0 focus-visible:ring-0 h-auto mb-2"
+                onKeyDown={e => {
+                  if (e.key === "Enter") context.handleQuickAdd(stage.value, (e.target as HTMLInputElement).value);
+                  if (e.key === "Escape") context.setAddingToStage(null);
+                }}
+              />
+              <div className="flex justify-end gap-1">
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-[8px] font-black uppercase" onClick={() => context.setAddingToStage(null)}>Cancel</Button>
+                <Button size="sm" className="h-6 px-3 text-[8px] font-black uppercase bg-blue-600" onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement;
+                  context.handleQuickAdd(stage.value, input.value);
+                }}>Add</Button>
+              </div>
+            </motion.div>
+          )}
+
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map(virtualRow => {
+              const entity = items[virtualRow.index];
+              return (
+                <Draggable key={entity.id} draggableId={entity.id} index={virtualRow.index}>
+                  {(provided, snapshot) => (
+                    <KanbanCard 
+                      entity={entity} 
+                      provided={provided} 
+                      snapshot={snapshot} 
+                      context={context}
+                      measureRef={rowVirtualizer.measureElement}
+                      dataIndex={virtualRow.index}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`
+                      }} 
+                    />
+                  )}
+                </Draggable>
+              );
+            })}
+          </div>
+          {provided.placeholder}
+        </div>
+      )}
+    </Droppable>
+  );
+};
+
+
 export function CRMKanban({
   entities, config, updateEntity, addEntity, deleteEntity, updateConfig, 
   onEntityClick, actions, onQuickAdd
 }: CRMKanbanProps) {
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setPortalNode(document.body);
-  }, []);
-  
   const [addingToStage, setAddingToStage] = useState<string | null>(null);
   const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
   const [renamingStageId, setRenamingStageId] = useState<string | null>(null);
   const [tempStageName, setTempStageName] = useState("");
   const [optimisticMoves, setOptimisticMoves] = useState<Record<string, string>>({});
+  const { calls, notes } = useCRM();
   
   const view = useMemo(() => config.views.find(v => v.type === 'kanban') || config.views[0], [config.views]);
   const kanbanField = useMemo(() => config.fields.find(f => f.id === view.kanbanFieldId), [config.fields, view.kanbanFieldId]);
 
   if (!kanbanField) return <div className="p-8 text-center text-muted-foreground font-black uppercase tracking-widest">Kanban field not configured</div>;
 
-  // MONDAY FIX: Ensure 'Blank' stage is always present first
   const stages = useMemo(() => {
     const baseStages = kanbanField.options || [];
     return [
@@ -156,34 +341,15 @@ export function CRMKanban({
         setRenamingStageId(null);
         return;
     }
-    
-    // IMMUTABLE UPDATE: Create a new options array
     const newOptions = (kanbanField.options || []).map(o => 
         o.value === stageValue ? { ...o, label: tempStageName.trim() } : o
     );
-    
-    // IMMUTABLE UPDATE: Create a new fields array
     const newFields = config.fields.map(f => 
         f.id === kanbanField.id ? { ...f, options: newOptions } : f
     );
-    
     await updateConfig({ fields: newFields });
     setRenamingStageId(null);
     setTempStageName("");
-  };
-
-  const handleAddStage = async () => {
-    const newStageValue = `stage_${Date.now()}`;
-    const newOptions = [
-        ...(kanbanField.options || []), 
-        { label: 'New Stage', value: newStageValue, color: 'blue' }
-    ];
-    
-    const newFields = config.fields.map(f => 
-        f.id === kanbanField.id ? { ...f, options: newOptions } : f
-    );
-    
-    await updateConfig({ fields: newFields });
   };
 
   const handleDeleteStage = async (stageValue: string) => {
@@ -219,12 +385,17 @@ export function CRMKanban({
     return groups;
   }, [entities, stages, kanbanField.key, optimisticMoves]);
 
+  const contextProps = {
+    editingEntityId, setEditingEntityId, updateEntity, onEntityClick, actions, view, config,
+    addingToStage, setAddingToStage, handleQuickAdd, calls, notes
+  };
+
   return (
     <div className="flex-1 flex gap-4 overflow-x-auto pb-2 h-full min-h-0 custom-scrollbar px-2 bg-background/50 rounded-3xl p-2 border border-border/20">
       <DragDropContext onDragEnd={handleDragEnd}>
         {stages.map((stage) => (
           <div key={stage.value} className="flex flex-col w-[300px] shrink-0 bg-[#f5f6f8] dark:bg-slate-900/40 rounded-2xl border border-border/40 overflow-hidden shadow-sm">
-            {/* STAGE HEADER - Monday Style Flush */}
+            {/* STAGE HEADER */}
             <div 
               style={{ backgroundColor: getStageColor(stage.color) }}
               className="p-3 shadow-md flex items-center justify-between min-h-[48px]"
@@ -284,156 +455,10 @@ export function CRMKanban({
               )}
             </div>
 
-            {/* SCROLLABLE DROPPABLE AREA */}
-            <Droppable droppableId={stage.value} isDropDisabled={false}>
-              {(provided, snapshot) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={cn(
-                    "flex-1 flex flex-col gap-2 p-3 overflow-y-auto custom-scrollbar transition-colors",
-                    snapshot.isDraggingOver ? "bg-blue-500/[0.05]" : ""
-                  )}
-                >
-                  <AnimatePresence mode="popLayout">
-                    {addingToStage === stage.value && (
-                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border-2 border-blue-500 rounded-xl p-3 shadow-xl mb-2">
-                            <Input
-                                autoFocus
-                                placeholder="New Lead Name..."
-                                className="text-[10px] font-black uppercase tracking-widest border-none p-0 focus-visible:ring-0 h-auto mb-2"
-                                onKeyDown={e => {
-                                    if (e.key === "Enter") handleQuickAdd(stage.value, (e.target as HTMLInputElement).value);
-                                    if (e.key === "Escape") setAddingToStage(null);
-                                }}
-                            />
-                            <div className="flex justify-end gap-1">
-                                <Button size="sm" variant="ghost" className="h-6 px-2 text-[8px] font-black uppercase" onClick={() => setAddingToStage(null)}>Cancel</Button>
-                                <Button size="sm" className="h-6 px-3 text-[8px] font-black uppercase bg-blue-600" onClick={(e) => {
-                                    const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement;
-                                    handleQuickAdd(stage.value, input.value);
-                                }}>Add</Button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {groupedEntities[stage.value]?.map((entity, index) => (
-                      <Draggable key={entity.id} draggableId={entity.id} index={index}>
-                        {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => {
-                          const child = (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              style={{
-                                ...provided.draggableProps.style,
-                                width: snapshot.isDragging ? '300px' : (provided.draggableProps.style as any)?.width,
-                              }}
-                              className={cn(
-                                "group relative bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:shadow-md transition-all select-none",
-                                snapshot.isDragging ? "shadow-2xl ring-2 ring-blue-500 scale-[1.03] z-[9999] rotate-1" : ""
-                              )}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <div {...provided.dragHandleProps} className="p-1 -ml-1 hover:bg-secondary/80 rounded transition-colors cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100">
-                                    <GripVertical size={12} className="text-muted-foreground" />
-                                  </div>
-                                  {editingEntityId === entity.id ? (
-                                      <InlineCardEditor
-                                          initialValue={entity.name}
-                                          onSave={(name) => { updateEntity(entity.id, { name }); setEditingEntityId(null); }}
-                                          onCancel={() => setEditingEntityId(null)}
-                                      />
-                                  ) : (
-                                      <h4
-                                          className="text-[11px] font-black uppercase tracking-widest text-foreground truncate flex-1 cursor-text hover:text-blue-600 transition-colors"
-                                          onDoubleClick={(e) => { e.stopPropagation(); setEditingEntityId(entity.id); }}
-                                      >
-                                          {entity.name}
-                                      </h4>
-                                  )}
-                                </div>
-
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 rounded-lg">
-                                      <MoreVertical size={12}/>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-52 z-[100]">
-                                      <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => onEntityClick(entity)}>
-                                          <ExternalLink size={12} className="mr-2 text-blue-500" /> Open Lead
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem className="text-[10px] font-black uppercase" onClick={() => setEditingEntityId(entity.id)}>
-                                          <GripVertical size={12} className="mr-2 text-muted-foreground" /> Rename
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      {actions && actions(entity)}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-
-                              {/* FIELDS DISPLAY */}
-                              <div className="space-y-1.5 opacity-70 ml-5">
-                                  {view.visibleFields.slice(0, 3).map(fieldId => {
-                                      const field = config.fields.find(f => f.id === fieldId);
-                                      if (!field || !field.isVisible || field.key === 'status') return null;
-                                      const val = entity.data[field.key];
-                                      if (!val) return null;
-                                      return (
-                                          <div key={fieldId} className="flex items-center gap-2">
-                                              <span className="text-[8px] font-black uppercase text-muted-foreground/40 w-14 shrink-0 truncate">{field.label}</span>
-                                              <span className="text-[9px] font-bold truncate text-foreground/80">{String(val)}</span>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-
-                              <div className="mt-3 pt-2 border-t border-border/10 flex items-center justify-between ml-5">
-                                  <div className="flex -space-x-1">
-                                      <div className="size-4 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[7px] font-black text-blue-500">AI</div>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-muted-foreground/30">
-                                      <MessageSquare size={10} />
-                                      <Paperclip size={10} />
-                                  </div>
-                              </div>
-                            </div>
-                          );
-
-                          if (snapshot.isDragging && portalNode) {
-                            return createPortal(child, portalNode);
-                          }
-                          return child;
-                        }}
-                      </Draggable>
-                    ))}
-                  </AnimatePresence>
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-
-            {/* Integrated Add Button at bottom of column */}
-            <button
-                className="p-3 text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 hover:text-blue-500 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 border-t border-border/10"
-                onClick={() => setAddingToStage(stage.value)}
-            >
-                <Plus size={12} /> Add Contact
-            </button>
+            <KanbanColumn stage={stage} items={groupedEntities[stage.value] || []} context={contextProps} />
           </div>
         ))}
-
-        {/* VERTICAL ADD STAGE BUTTON */}
-        <button
-            onClick={handleAddStage}
-            className="w-12 shrink-0 rounded-2xl border-2 border-dashed border-border/20 hover:border-blue-500/20 hover:bg-blue-500/[0.02] transition-all flex flex-col items-center justify-center gap-4 text-muted-foreground/30 hover:text-blue-500 group py-8 h-full min-h-[400px]"
-        >
-            <Plus size={18} className="group-hover:rotate-90 transition-transform" />
-            <span className="[writing-mode:vertical-lr] rotate-180 text-[9px] font-black uppercase tracking-[0.2em]">Add Stage</span>
-        </button>
       </DragDropContext>
     </div>
   );
 }
-

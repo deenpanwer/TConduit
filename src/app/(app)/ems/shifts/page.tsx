@@ -515,7 +515,7 @@ export default function ShiftsPage() {
 
                 <div className="divide-y-2 divide-border">
                   {/* --- OPEN SPOTS --- */}
-                  <div className="flex bg-amber-500/[0.03]">
+                  {/* <div className="flex bg-amber-500/[0.03]">
                     <div className="w-72 p-6 border-r-2 border-border shrink-0 flex items-center gap-3">
                       <div className="size-8 rounded-lg bg-amber-500/10 border-2 border-amber-500/20 flex items-center justify-center text-amber-600 shadow-sm">
                         <UserPlus size={16} />
@@ -546,7 +546,7 @@ export default function ShiftsPage() {
                         );
                       })}
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Employee Rows */}
                   {employees.map(member => (

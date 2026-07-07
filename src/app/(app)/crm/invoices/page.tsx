@@ -38,11 +38,12 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 function InvoicesPageContent() {
-  const { entities: invoices, deleteEntity, updateEntity, loading } = useCRMInvoices();
+  const { entities: invoices, config, deleteEntity, updateEntity, loading } = useCRMInvoices();
   const router = useRouter();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"number" | "client" | "amount" | "updated">("updated");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
   const filteredInvoices = useMemo(() => {
@@ -62,18 +63,35 @@ function InvoicesPageContent() {
     }
     
     result.sort((a, b) => {
-      if (sortBy === "number") return (a.data?.invoiceNumber || "").localeCompare(b.data?.invoiceNumber || "");
-      if (sortBy === "client") return (a.data?.clientName || "").localeCompare(b.data?.clientName || "");
-      if (sortBy === "amount") return (Number(b.data?.amount) || 0) - (Number(a.data?.amount) || 0);
-      if (sortBy === "updated") {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : Date.now();
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : Date.now();
-        return timeB - timeA;
+      const multiplier = sortDirection === 'asc' ? 1 : -1;
+      if (sortBy === "newest") {
+        return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
       }
-      return 0;
+      if (sortBy === "oldest") {
+        return (((a as any).createdAt || 0) - ((b as any).createdAt || 0)) * multiplier;
+      }
+      
+      const field = config?.fields?.find(f => f.key === sortBy);
+      if (field) {
+        const valA = a.data?.[sortBy];
+        const valB = b.data?.[sortBy];
+        
+        if (field.type === "number" || field.type === "currency") {
+          return ((Number(valB) || 0) - (Number(valA) || 0)) * multiplier;
+        } else if (field.type === "date" || field.type === "timeline") {
+          const timeA = valA ? new Date(valA).getTime() : 0;
+          const timeB = valB ? new Date(valB).getTime() : 0;
+          return (timeB - timeA) * multiplier;
+        } else {
+          return String(valA || "").localeCompare(String(valB || "")) * multiplier;
+        }
+      }
+
+      // Default fallback
+      return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
     });
     return result;
-  }, [invoices, searchQuery, sortBy, filterStatus]);
+  }, [invoices, searchQuery, sortBy, filterStatus, config]);
 
   if (loading && invoices.length === 0) {
     return (
@@ -112,12 +130,27 @@ function InvoicesPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("number")}>Invoice Number</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("client")}>Client Name</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("amount")}>Total Amount</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updated")}>Recently Updated</DropdownMenuItem>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+                <ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {
+                  sortBy === "newest" ? "Newest First" : 
+                  sortBy === "oldest" ? "Oldest First" : 
+                  config?.fields?.find(f => f.key === sortBy)?.label || "Newest First"
+                }
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl max-h-64 overflow-y-auto">
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {config?.fields?.filter(f => f.isVisible).map(f => (
+                <DropdownMenuItem key={f.key} className="text-[10px] font-bold uppercase" onClick={() => {
+                  if (sortBy === f.key) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                  else { setSortBy(f.key); setSortDirection('desc'); }
+                }}>
+                  {f.label} {sortBy === f.key && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           

@@ -63,7 +63,8 @@ export const DEFAULT_CONFIG: CRMConfig = {
         { id: 'f_interaction', key: 'lastInteraction', label: 'Last Interaction', type: 'date', isSystem: true, isVisible: true, order: 8 },
       ],
       views: [
-        { id: 'v2', name: 'List', type: 'list', visibleFields: ['f1', 'f_last', 'f2', 'f_email', 'f_phone', 'f5', 'f6', 'f_val', 'f_interaction'] },
+        { id: 'v2', name: 'List', type: 'list', visibleFields: ['f1', 'f_last', 'f2', 'f_email', 'f_phone', 'f5', 'f6', 'f_val', 'f_interaction'], kanbanFieldId: 'f5' },
+        { id: 'v_kanban_leads', name: 'Kanban', type: 'kanban', visibleFields: ['f1', 'f_last', 'f2', 'f_val', 'f_interaction'], kanbanFieldId: 'f5' }
       ]
     },
     deals: {
@@ -84,7 +85,8 @@ export const DEFAULT_CONFIG: CRMConfig = {
         { id: 'd_created_by', key: 'createdBy', label: 'Created By', type: 'people', isSystem: true, isVisible: true, order: 6 },
       ],
       views: [
-        { id: 'dv2', name: 'All Deals', type: 'list', visibleFields: ['d1', 'd_org', 'd_rev', 'd_status', 'd_owner', 'd_interaction', 'd_created_by'] },
+        { id: 'dv2', name: 'All Deals', type: 'list', visibleFields: ['d1', 'd_org', 'd_rev', 'd_status', 'd_owner', 'd_interaction', 'd_created_by'], kanbanFieldId: 'd_status' },
+        { id: 'dv_kanban_deals', name: 'Kanban', type: 'kanban', visibleFields: ['d1', 'd_org', 'd_rev', 'd_owner'], kanbanFieldId: 'd_status' }
       ]
     },
     organizations: {

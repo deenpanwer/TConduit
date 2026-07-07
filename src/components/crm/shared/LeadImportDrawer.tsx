@@ -331,7 +331,12 @@ export function LeadImportDrawer({
         try {
           const res = await addEntity({
             name: p.name,
-            data: { ...p.data, _isImported: true }
+            data: { 
+              ...p.data, 
+              _isImported: true,
+              lastInteraction: new Date().toISOString(),
+              createdBy: user?.uid || "Unknown"
+            }
           });
           if (res) return true;
         } catch (err) {

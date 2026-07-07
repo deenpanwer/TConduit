@@ -8,6 +8,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter, usePathname } from "next/navigation";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+import { PaywallWrapper } from "@/components/ems/PaywallWrapper";
 
 export default function CRMClientLayout({ children }: { children: React.ReactNode }) {
   const { loading, userData } = useAuth();
@@ -114,7 +115,7 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
         {/* Main Content Area */}
         <main className="flex-1 overflow-hidden flex flex-col transition-all duration-300 bg-background/50">
           <AnnouncementBanner />
-          {children}
+          <PaywallWrapper>{children}</PaywallWrapper>
         </main>
       </div>
     </div>

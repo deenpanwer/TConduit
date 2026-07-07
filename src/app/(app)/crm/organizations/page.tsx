@@ -34,7 +34,8 @@ function OrganizationsPageContent() {
   const router = useRouter();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "revenue" | "updated">("updated");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterIndustry, setFilterIndustry] = useState<string | null>(null);
   
   const [showOrgModal, setShowOrgModal] = useState(false);
@@ -64,17 +65,35 @@ function OrganizationsPageContent() {
     }
     
     result.sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "revenue") return (Number(b.data?.annualRevenue) || 0) - (Number(a.data?.annualRevenue) || 0);
-      if (sortBy === "updated") {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : Date.now();
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : Date.now();
-        return timeB - timeA;
+      const multiplier = sortDirection === 'asc' ? 1 : -1;
+      if (sortBy === "newest") {
+        return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
       }
-      return 0;
+      if (sortBy === "oldest") {
+        return (((a as any).createdAt || 0) - ((b as any).createdAt || 0)) * multiplier;
+      }
+      
+      const field = config.fields.find(f => f.key === sortBy);
+      if (field) {
+        const valA = a.data?.[sortBy];
+        const valB = b.data?.[sortBy];
+        
+        if (field.type === "number" || field.type === "currency") {
+          return ((Number(valB) || 0) - (Number(valA) || 0)) * multiplier;
+        } else if (field.type === "date" || field.type === "timeline") {
+          const timeA = valA ? new Date(valA).getTime() : 0;
+          const timeB = valB ? new Date(valB).getTime() : 0;
+          return (timeB - timeA) * multiplier;
+        } else {
+          return String(valA || "").localeCompare(String(valB || "")) * multiplier;
+        }
+      }
+
+      // Default fallback
+      return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
     });
     return result;
-  }, [organizations, searchQuery, sortBy, filterIndustry]);
+  }, [organizations, searchQuery, sortBy, filterIndustry, config.fields]);
 
   const handleLaunchDeal = (org: CRMEntity) => { setSelectedOrg(org); setShowDealModal(true); };
   const handleLogCall = (org: CRMEntity) => { setSelectedOrg(org); setShowCallModal(true); };
@@ -190,11 +209,28 @@ function OrganizationsPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("revenue")}>Sort by Revenue</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updated")}>Sort by Updated</DropdownMenuItem>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+                <ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {
+                  sortBy === "newest" ? "Newest First" : 
+                  sortBy === "oldest" ? "Oldest First" : 
+                  config.fields.find(f => f.key === sortBy)?.label || "Newest First"}
+                  {sortBy !== "newest" && sortBy !== "oldest" && (sortDirection === 'asc' ? ' ↑' : ' ↓')}
+                
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl max-h-64 overflow-y-auto">
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {config.fields.filter(f => f.isVisible).map(f => (
+                <DropdownMenuItem key={f.key} className="text-[10px] font-bold uppercase" onClick={() => {
+                  if (sortBy === f.key) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                  else { setSortBy(f.key); setSortDirection('desc'); }
+                }}>
+                  {f.label} {sortBy === f.key && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -218,6 +254,9 @@ function OrganizationsPageContent() {
             entities={filteredOrgs} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity} updateConfig={updateConfig} 
             onEntityClick={(o) => router.push(`/crm/organizations/${o.id}`)} selectedIds={selectedIds} onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSelectAll={setSelectedIds} 
             addEntity={addEntity} pageSize={pageSize} setPageSize={setPageSize} actions={orgActions}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSortToggle={(key) => { if (sortBy === key) setSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setSortBy(key); setSortDirection('desc'); } }}
           />
         </motion.div>
       </div>

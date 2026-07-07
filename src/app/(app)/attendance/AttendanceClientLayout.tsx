@@ -7,6 +7,7 @@ import { InviteModal } from "@/components/ems/InviteModal";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { PaywallWrapper } from "@/components/ems/PaywallWrapper";
 
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "Attendance";
@@ -48,9 +49,9 @@ export function AttendanceClientLayout({
             <div className="w-8" />
         </header>
         <div className="flex-1 flex flex-col overflow-hidden">
-         {children}
+          <PaywallWrapper>{children}</PaywallWrapper>
         </div>
-        </main>
+      </main>
     </div>
   );
 }

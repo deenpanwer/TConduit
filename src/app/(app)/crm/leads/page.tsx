@@ -6,7 +6,7 @@ import { useCRMNotes } from "@/hooks/use-crm-notes";
 import { useCRMCalls } from "@/hooks/use-crm-calls";
 import { 
   LayoutGrid, List as ListIcon, Plus, Search, 
-  Filter, Download, ArrowUpDown, Loader2, Check,
+  Filter, Download, ArrowUpDown, Loader2, Check, Database,
   ExternalLink, Eye, Edit2, Briefcase, PhoneCall, NotebookPen, Trash, FileText, Upload, SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,8 @@ function LeadsPageContent() {
   
   const [activeView, setActiveView] = useState<"list" | "kanban">("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "value" | "updated" | "follow-asc" | "follow-desc">("updated");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterStage, setFilterStage] = useState<string | null>(null);
   const [filterAssignedToMe, setFilterAssignedToMe] = useState(false);
   
@@ -148,11 +149,16 @@ function LeadsPageContent() {
       const q = searchQuery.toLowerCase();
       result = result.filter(l => {
         const name = (l.name || "").toLowerCase();
-        const firstName = (l.data?.firstName || "").toLowerCase();
-        const lastName = (l.data?.lastName || "").toLowerCase();
-        const email = (l.data?.email || "").toLowerCase();
-        const company = (l.data?.company || "").toLowerCase();
-        return name.includes(q) || firstName.includes(q) || lastName.includes(q) || email.includes(q) || company.includes(q);
+        
+        let foundInData = false;
+        if (l.data) {
+          foundInData = Object.values(l.data).some(val => {
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(q);
+          });
+        }
+        
+        return name.includes(q) || foundInData;
       });
     }
 
@@ -164,45 +170,36 @@ function LeadsPageContent() {
       result = result.filter(l => l.data?.assignedTo === user.uid || (l as any).assignedTo === user.uid);
     }
 
-    const followUpField = config.fields.find(f => 
-      (f.label.toLowerCase().includes("follow") || f.key.toLowerCase().includes("follow")) &&
-      f.type === "date"
-    );
-    const followUpKey = followUpField ? followUpField.key : "lastInteraction";
-
     result.sort((a, b) => {
-      const valA = a.data?.[followUpKey] || (a as any)[followUpKey] || "";
-      const valB = b.data?.[followUpKey] || (b as any)[followUpKey] || "";
-
-      // We always sort according to how close the next follow-up is
-      // Missed/past/delayed follow-ups at the top, ranked nearest to today first
-      // Upcoming follow-ups next, ranked nearest to today first
-      // No follow-up date at the bottom
-      const now = new Date().getTime();
-      const timeA = valA ? new Date(valA).getTime() : null;
-      const timeB = valB ? new Date(valB).getTime() : null;
-
-      if (timeA === null && timeB === null) return 0;
-      if (timeA === null) return 1;
-      if (timeB === null) return -1;
-
-      const isOverdueA = timeA < now;
-      const isOverdueB = timeB < now;
-
-      if (isOverdueA && !isOverdueB) return -1;
-      if (!isOverdueA && isOverdueB) return 1;
-
-      if (isOverdueA && isOverdueB) {
-        // Both overdue: sort closest to today first (which means larger timestamp first, i.e., timeB - timeA)
-        // Actually, closest to today means the latest date (e.g. yesterday vs last week. Yesterday is larger timestamp).
-        return timeB - timeA;
+      const multiplier = sortDirection === 'asc' ? 1 : -1;
+      if (sortBy === "newest") {
+        return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
+      }
+      if (sortBy === "oldest") {
+        return (((a as any).createdAt || 0) - ((b as any).createdAt || 0)) * multiplier;
+      }
+      
+      const field = config.fields.find(f => f.key === sortBy);
+      if (field) {
+        const valA = a.data?.[sortBy];
+        const valB = b.data?.[sortBy];
+        
+        if (field.type === "number" || field.type === "currency") {
+          return ((Number(valB) || 0) - (Number(valA) || 0)) * multiplier;
+        } else if (field.type === "date" || field.type === "timeline") {
+          const timeA = valA ? new Date(valA).getTime() : 0;
+          const timeB = valB ? new Date(valB).getTime() : 0;
+          return (timeB - timeA) * multiplier;
+        } else {
+          return String(valA || "").localeCompare(String(valB || "")) * multiplier;
+        }
       }
 
-      // Both upcoming: sort closest to today first (which means smaller timestamp first, i.e., timeA - timeB)
-      return timeA - timeB;
+      // Default fallback
+      return (((b as any).createdAt || 0) - ((a as any).createdAt || 0)) * multiplier;
     });
     return result;
-  }, [leads, searchQuery, sortBy, filterStage, filterAssignedToMe, user, config.fields]);
+  }, [leads, searchQuery, sortBy, sortDirection, filterStage, filterAssignedToMe, user, config.fields]);
 
   const handleLaunchDeal = (lead: CRMEntity) => { setSelectedLead(lead); setShowDealModal(true); };
   const handleLogCall = (lead: CRMEntity) => { setSelectedLead(lead); setShowCallModal(true); };
@@ -353,7 +350,7 @@ function LeadsPageContent() {
         <div className="relative flex-1 max-w-xl group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
           <Input 
-            placeholder="SEARCH BY NAME, EMAIL, OR ORGANIZATION..." 
+            placeholder="SEARCH ACROSS ALL LEAD DATA..." 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
             className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" 
@@ -361,13 +358,28 @@ function LeadsPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {sortBy === "follow-asc" ? "Follow Asc" : sortBy === "follow-desc" ? "Follow Desc" : sortBy}</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("name")}>Sort by Name</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("value")}>Sort by Value</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("updated")}>Sort by Updated</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("follow-asc")}>Follow Date: Ascending</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("follow-desc")}>Follow Date: Descending</DropdownMenuItem>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm text-foreground">
+                <ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {
+                  sortBy === "newest" ? "Newest First" : 
+                  sortBy === "oldest" ? "Oldest First" : 
+                  config.fields.find(f => f.key === sortBy)?.label || "Newest First"}
+                  {sortBy !== "newest" && sortBy !== "oldest" && (sortDirection === 'asc' ? ' ↑' : ' ↓')}
+                
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl max-h-64 overflow-y-auto">
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("newest")}>Newest First</DropdownMenuItem>
+              <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setSortBy("oldest")}>Oldest First</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {config.fields.filter(f => f.isVisible).map(f => (
+                <DropdownMenuItem key={f.key} className="text-[10px] font-bold uppercase" onClick={() => {
+                  if (sortBy === f.key) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                  else { setSortBy(f.key); setSortDirection('desc'); }
+                }}>
+                  {f.label} {sortBy === f.key && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -393,7 +405,33 @@ function LeadsPageContent() {
             <Check size={14} className={cn("mr-2 text-blue-500 opacity-30", filterAssignedToMe && "opacity-100")} /> 
             Assigned to me
           </Button>
-          <Button variant="outline" size="sm" disabled className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest opacity-40 px-6 shadow-sm"><Download size={14} className="mr-2 text-blue-500" /> Export</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+                <Database size={14} className="mr-2 text-blue-500" /> {pageSize === 1000000 ? 'All' : pageSize.toLocaleString()} Leads
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 border-border/40 bg-card/95 backdrop-blur-xl rounded-xl shadow-2xl p-2">
+              <DropdownMenuItem onClick={() => setPageSize(100)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>100 Leads</span> {pageSize === 100 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPageSize(500)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>500 Leads</span> {pageSize === 500 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPageSize(1000)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>1,000 Leads</span> {pageSize === 1000 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPageSize(5000)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>5,000 Leads</span> {pageSize === 5000 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPageSize(10000)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>10,000 Leads</span> {pageSize === 10000 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPageSize(1000000)} className="text-[10px] font-black uppercase py-2.5 cursor-pointer flex justify-between items-center">
+                <span>Load All</span> {pageSize === 1000000 && <Check size={12} className="text-blue-500" />}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -405,7 +443,10 @@ function LeadsPageContent() {
                 entities={filteredLeads} config={config} updateEntity={updateEntity} deleteEntity={deleteEntity} updateConfig={updateConfig} 
                 onEntityClick={(l) => router.push(`/crm/leads/${l.id}?from=${activeView}`)} selectedIds={selectedIds} onSelect={id => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSelectAll={setSelectedIds} 
                 addEntity={addEntity} pageSize={pageSize} setPageSize={setPageSize} actions={leadActions}
-              />
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSortToggle={(key) => { if (sortBy === key) setSortDirection(d => d === 'asc' ? 'desc' : 'asc'); else { setSortBy(key); setSortDirection('desc'); } }}
+          />
             </motion.div>
           ) : (
             <motion.div key="kanban" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="h-full flex flex-col min-h-0">

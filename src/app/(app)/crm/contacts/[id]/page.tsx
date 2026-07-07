@@ -240,10 +240,15 @@ function ContactDetailClientPage() {
                         <InlineEditField
                             key={field.key}
                             label={field.label}
-                            value={contact.data[field.key] || ''}
+                            value={
+                              field.key === 'lastInteraction' ? (contact.data[field.key] || (contact as any).createdAt || '') :
+                              field.key === 'createdBy' ? (contact.data[field.key] || 'System') :
+                              (contact.data[field.key] || '')
+                            }
                             onSave={(newValue) => handleSaveField(field.key, newValue)}
                             type={field.type as any}
                             options={field.options}
+                            readOnly={field.key === 'lastInteraction' || field.key === 'createdBy'}
                         />
                       ))}
                   </CardContent>

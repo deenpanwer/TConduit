@@ -91,6 +91,13 @@ export function useCRMModule(type: keyof CRMConfig['modules'], defaultConfig: Mo
           }
           return v;
         });
+
+        // Append missing views (e.g. Kanban if missing)
+        const existingViewTypes = newViews.map(v => v.type);
+        const missingViews = defaultModuleConfig.views.filter(dv => !existingViewTypes.includes(dv.type));
+        if (missingViews.length > 0) {
+          newViews = [...newViews, ...missingViews];
+        }
       }
 
       orig = {

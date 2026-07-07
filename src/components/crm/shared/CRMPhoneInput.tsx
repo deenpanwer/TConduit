@@ -32,7 +32,7 @@ export const CRMPhoneDisplay = ({ value, placeholder = "-", className }: CRMPhon
 
   let phoneNumber;
   try {
-    phoneNumber = parsePhoneNumber(value);
+    phoneNumber = parsePhoneNumber(value, 'US');
   } catch (e) {
     // Ignore error and fall back
   }

@@ -46,7 +46,7 @@ const TermsOfServicePage = () => {
                 <Phone className="text-primary" size={24} />
               </div>
               <h3 className="text-xs font-black uppercase tracking-widest mb-2">Contact Number</h3>
-              <p className="text-xs text-muted-foreground">+923178005465</p>
+              <p className="text-xs text-muted-foreground">+1 (505) 377-2899</p>
             </div>
             <div className="bg-card border border-border/60 p-6 rounded-2xl flex flex-col items-center text-center group hover:border-primary/50 transition-colors">
               <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -72,7 +72,7 @@ const TermsOfServicePage = () => {
               b. We offer this website, including all information, tools, products and services available from this website to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.
             </p>
             <p>
-              c. If you have any problems placing your order on our website, or require support after placing an order through our website, please contact us by calling us on <strong>+923178005465</strong> or send us an email on <strong>info@heytracai.com</strong>.
+              c. If you have any problems placing your order on our website, or require support after placing an order through our website, please contact us by calling us on <strong>+1 (505) 377-2899</strong> or send us an email on <strong>info@heytracai.com</strong>.
             </p>
 
             <h2>2. Applicability and Updates</h2>
@@ -146,9 +146,12 @@ const TermsOfServicePage = () => {
               Our Terms and Conditions are governed by the laws of the State of New Mexico, United States and you agree that the courts of <strong>Albuquerque, New Mexico</strong> will have exclusive jurisdiction in any dispute that you have with us.
             </p>
 
-            <h2>9. WhatsApp Messaging Terms</h2>
+            <h2>9. SMS, Text & WhatsApp Messaging Terms</h2>
             <p>
-              By providing your phone number and opting in to our WhatsApp messaging service, you consent to receive automated messages from Trac AI. You can opt-out at any time by replying with 'STOP' or 'UNSUBSCRIBE'. Message frequency will vary based on your interaction with our service. Standard message and data rates may apply.
+              By providing your phone number and opting in to our messaging services via web form or other means, you provide express written consent to receive automated SMS/text and WhatsApp messages from TRAC AI LLC, including promotional and marketing messages. Consent is not a condition of purchase.
+            </p>
+            <p>
+              You can opt-out at any time by replying with 'STOP' or 'UNSUBSCRIBE'. For help, reply 'HELP'. Message frequency will vary based on your interaction with our service. Standard message and data rates may apply.
             </p>
 
             <h2>10. Cancellation/Return/Refund Policy</h2>
@@ -162,7 +165,7 @@ const TermsOfServicePage = () => {
               <a href="mailto:info@heytracai.com" className="text-primary font-black hover:underline italic">
                 info@heytracai.com
               </a>{' '}
-              or call us at <strong>+923178005465</strong>.
+              or call us at <strong>+1 (505) 377-2899</strong>.
             </p>
           </div>
           

@@ -249,10 +249,15 @@ function OrganizationDetailClientPage() {
                   <InlineEditField
                     key={field.key}
                     label={field.label}
-                    value={organization.data[field.key] || ''}
+                    value={
+                      field.key === 'lastInteraction' ? (organization.data[field.key] || (organization as any).createdAt || '') :
+                      field.key === 'createdBy' ? (organization.data[field.key] || 'System') :
+                      (organization.data[field.key] || '')
+                    }
                     onSave={(newValue) => handleSaveField(field.key, newValue)}
                     type={field.type as any}
                     options={field.options}
+                    readOnly={field.key === 'lastInteraction' || field.key === 'createdBy'}
                   />
                 ))}
               </CardContent>

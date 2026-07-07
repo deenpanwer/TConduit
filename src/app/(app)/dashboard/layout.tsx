@@ -4,6 +4,7 @@ import { UnifiedDashboard } from "@/components/dashboard/UnifiedDashboard";
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from "@/components/ui/skeleton";
+import { PaywallWrapper } from "@/components/ems/PaywallWrapper";
 
 export default function DashboardLayout({
   children,
@@ -27,7 +28,7 @@ export default function DashboardLayout({
   // Original Dashboard Layout - Commented out until the feature is ready.
   return (
     <UnifiedDashboard>
-      {children}
+      <PaywallWrapper>{children}</PaywallWrapper>
     </UnifiedDashboard>
   );
   */

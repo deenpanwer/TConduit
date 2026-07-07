@@ -184,11 +184,15 @@ function DealDetailClientPage() {
                   <InlineEditField
                     key={field.key}
                     label={field.label}
-                    value={deal.data[field.key] || ''}
+                    value={
+                      field.key === 'lastInteraction' ? (deal.data[field.key] || (deal as any).createdAt || '') :
+                      field.key === 'createdBy' ? (deal.data[field.key] || 'System') :
+                      (deal.data[field.key] || '')
+                    }
                     onSave={(newValue) => handleSaveField(field.key, newValue)}
                     type={field.type as any}
                     options={field.options}
-                    readOnly={field.key === 'lastInteraction'}
+                    readOnly={field.key === 'lastInteraction' || field.key === 'createdBy'}
                   />
                 ))}
               </CardContent>

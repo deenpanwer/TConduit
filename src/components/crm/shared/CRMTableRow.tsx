@@ -30,6 +30,7 @@ const getEmployeeAvatarUrl = (emp: any) => {
 
 interface CRMTableRowProps {
   entityId: string; // ONLY pass the ID
+  index?: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
   displayFields: FieldConfig[];
@@ -56,6 +57,7 @@ interface CRMTableRowProps {
 
 export const CRMTableRow = React.memo(({
   entityId,
+  index,
   isSelected,
   onSelect,
   displayFields,
@@ -184,14 +186,19 @@ export const CRMTableRow = React.memo(({
       isSelected 
         ? "bg-blue-50 dark:bg-[#0c1e3b] hover:bg-blue-100 dark:hover:bg-[#112547]" 
         : (isMissed 
-            ? "bg-rose-50 dark:bg-[#251016] border-rose-200 dark:border-rose-900/50 hover:bg-rose-100/80 dark:hover:bg-rose-950/50" 
-            : "bg-card dark:bg-card hover:bg-muted/50 dark:hover:bg-muted/50")
+            ? "bg-rose-50 dark:bg-[#251016] border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-950" 
+            : "bg-card dark:bg-card hover:bg-muted dark:hover:bg-muted")
     )}>
       <td className={cn(
         "w-24 p-0 border-r border-border/20 sticky left-0 z-20 transition-colors shadow-[2px_0_5px_rgba(0,0,0,0.05)] h-[52px] bg-inherit"
       )}>
         <div className="absolute left-0 top-0 bottom-0 w-3" style={{backgroundColor: tableColor}} />
-        <div className="flex items-center justify-start gap-3 h-full pl-6">
+        <div className="flex items-center justify-start gap-2 h-full pl-4">
+            {index !== undefined && (
+              <span className="w-5 text-[10px] font-black text-muted-foreground/80 text-right select-none tracking-tighter">
+                {index + 1}
+              </span>
+            )}
             <div className="w-5 h-5 flex items-center justify-center shrink-0">
               <input type="checkbox" className="rounded-sm border-border bg-background cursor-pointer accent-blue-600 h-4 w-4" checked={isSelected} onChange={() => onSelect(entity.id)} />
             </div>
@@ -574,7 +581,7 @@ export const CRMTableRow = React.memo(({
                     }
                 })() : isLastInteraction ? (
                     <span className="text-[10px] font-black uppercase text-muted-foreground/60 italic">
-                        {val ? format(new Date(val), "MMM d, h:mm a") : '-'}
+                        {(val || (entity as any).createdAt) ? format(new Date(val || (entity as any).createdAt), "MMM d, h:mm a") : '-'}
                     </span>
                 ) : field.type === 'phone' ? (
                     <div className="flex items-center justify-between w-full pr-1">
@@ -626,9 +633,9 @@ export const CRMTableRow = React.memo(({
           </td>
         );
       })}
-      <td className="p-0 text-center w-12 border-l border-border/20">
+      <td className="p-0 text-center w-12 border-l border-border/20 sticky right-0 z-20 transition-colors shadow-[-2px_0_5px_rgba(0,0,0,0.05)] h-[52px] bg-inherit">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 opacity-0 group-hover:opacity-100 hover:bg-secondary/50 rounded-xl"><MoreHorizontal size={14} /></Button></DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-secondary/50 rounded-xl"><MoreHorizontal size={14} /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 border-border/40 bg-card/95 backdrop-blur-xl z-[100]">
             {actions ? actions(entity) : (
               <>

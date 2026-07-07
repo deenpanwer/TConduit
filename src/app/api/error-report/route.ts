@@ -53,6 +53,8 @@ export async function POST(req: Request) {
         messageContent += `👤 USER: ${userMeta.name || 'Unknown'} (${userMeta.email || 'No Email'})\n`;
         messageContent += `• UID: ${userMeta.uid || 'N/A'}\n`;
         if (userMeta.role) messageContent += `• Role: ${userMeta.role}\n`;
+        if (userMeta.orgId) messageContent += `• Org ID: ${userMeta.orgId}\n`;
+        if (userMeta.companyName) messageContent += `• Company: ${userMeta.companyName}\n`;
         messageContent += `\n`;
       } else {
         messageContent += `👤 USER: Unknown User\n\n`;

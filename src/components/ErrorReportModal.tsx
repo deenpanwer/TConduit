@@ -54,8 +54,12 @@ export function ErrorReportModal() {
       const memory = (navigator as any).deviceMemory ? `${(navigator as any).deviceMemory} GB` : "N/A";
       const cpu = navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} cores` : "N/A";
       
+      let deviceType = "Desktop";
+      if (/Mobile|Android|iP(hone|od)/i.test(ua)) deviceType = "Mobile";
+      else if (/Tablet|iPad/i.test(ua)) deviceType = "Tablet";
+
       setDeviceInfo({
-        device: "Desktop",
+        device: deviceType,
         os: os,
         browser: browser,
         memory: memory,
