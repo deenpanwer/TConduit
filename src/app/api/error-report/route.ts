@@ -42,8 +42,8 @@ export async function POST(req: Request) {
 
     // Send Emergency Pushover Notification
     try {
-      const PUSHOVER_USER = 'ugshfubjs4igoqvk1s16o6ycdskoqz';
-      const PUSHOVER_TOKEN = 'a1mhx6fgw5qmn3gebsbwi9a1d1wbo8';
+      const PUSHOVER_USER = 'uuyo19eeyah72skyzmg1u81p8j3m5o';
+      const PUSHOVER_TOKEN = 'aqscygvj7bi3ek2i72ij2r12cjkpbu';
 
       // Build structured notification body with high priority fields at the top
       let messageContent = '';

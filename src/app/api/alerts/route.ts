@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Hardcoded keys for testing/immediate use
-    const userKey = "u21f2x6cp9uomnjpvg6zf8t6iv26ku";
-    const apiToken = "ao4g8q7qfyhu3n1xzur1nxp378ztas";
+    const userKey = "uuyo19eeyah72skyzmg1u81p8j3m5o";
+    const apiToken = "aqscygvj7bi3ek2i72ij2r12cjkpbu";
 
     const title = "New User Query Alert";
     const message = `Query: "${query}"\nUser: ${email}\nSearch ID: ${searchId}`;

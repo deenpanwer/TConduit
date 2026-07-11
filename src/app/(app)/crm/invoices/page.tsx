@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { 
-    Table, 
     TableBody, 
     TableCell, 
     TableHead, 
@@ -155,7 +154,11 @@ function InvoicesPageContent() {
           </DropdownMenu>
           
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><Filter size={14} className="mr-2 text-blue-500" /> Status: {filterStatus || 'All'}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+                <Filter size={14} className="mr-2 text-blue-500" /> Status: {filterStatus || 'All'}
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setFilterStatus(null)}>All Statuses</DropdownMenuItem>
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setFilterStatus('draft')}>Draft</DropdownMenuItem>
@@ -167,16 +170,16 @@ function InvoicesPageContent() {
         </div>
       </div>
 
-      <div className="flex-1 bg-card/40 backdrop-blur-xl rounded-[2rem] border border-border/40 overflow-y-auto shadow-2xl custom-scrollbar">
-        <Table>
-          <TableHeader className="bg-muted/30">
+      <div className="flex-1 bg-card/40 backdrop-blur-xl rounded-[2rem] border border-border/40 overflow-y-auto overflow-x-auto shadow-2xl custom-scrollbar">
+        <table className="w-full caption-bottom text-sm border-collapse">
+          <TableHeader className="bg-card sticky top-0 z-10 border-b border-border/40">
             <TableRow className="hover:bg-transparent border-b border-border/40">
-              <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pl-8">Invoice Info</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Client</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Amount</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Dates</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest text-right pr-8">Actions</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest py-5 pl-8 sticky top-0 bg-card z-10">Invoice Info</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest sticky top-0 bg-card z-10">Client</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest sticky top-0 bg-card z-10">Amount</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest text-center sticky top-0 bg-card z-10">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest sticky top-0 bg-card z-10">Dates</TableHead>
+              <TableHead className="text-[10px] font-black uppercase tracking-widest text-right pr-8 sticky top-0 bg-card z-10">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -301,7 +304,7 @@ function InvoicesPageContent() {
                 </TableRow>
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </div>
   );

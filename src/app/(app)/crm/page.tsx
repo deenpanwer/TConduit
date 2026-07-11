@@ -58,10 +58,10 @@ export default function CRMPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-background/50">
-      <header className="sticky top-0 z-30 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="w-full px-6 h-16 flex items-center justify-between">
+      <header className="relative md:sticky md:top-0 z-30 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
+        <div className="w-full px-4 md:px-6 h-12 md:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-black tracking-tighter uppercase font-poppins text-foreground">
+            <h2 className="text-sm md:text-xl font-black tracking-tighter uppercase font-poppins text-foreground">
               Business <span className="text-blue-500">Dashboard</span>
             </h2>
           </div>

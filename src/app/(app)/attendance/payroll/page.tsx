@@ -130,21 +130,18 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
-      <div className="flex-1 overflow-auto custom-scrollbar focus:outline-none" tabIndex={0}>
-        <div className="p-2 md:p-4 space-y-6 w-fit min-w-full">
-          
-          {/* Header Area */}
-          <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md pb-4 pt-2 -mt-2">
+    <div className="flex-1 flex flex-col h-auto md:h-full bg-background md:overflow-hidden overflow-y-auto p-4 md:p-6 space-y-6">
+      {/* Header Area */}
+      <div className="pb-2">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-3xl font-black uppercase tracking-tighter">Payroll Management</h1>
+                  <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">Payroll Management</h1>
                   <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px] opacity-60">
                     Cycle: {getCycleDateRange()}
                   </p>
                 </div>
-                <Button onClick={() => { setSelectedEmployee(null); setIsEmployeeModalOpen(true); }} className="rounded-2xl font-black uppercase tracking-widest text-xs h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20">
+                <Button onClick={() => { setSelectedEmployee(null); setIsEmployeeModalOpen(true); }} className="rounded-2xl font-black uppercase tracking-widest text-xs h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20 w-full sm:w-auto">
                   <Plus className="mr-2" size={16} /> Onboard Staff
                 </Button>
               </div>
@@ -171,17 +168,17 @@ export default function PayrollPage() {
           </div>
 
           {/* Payroll Table */}
-          <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/80 border-t-4 border-t-emerald-500/50">
-            <CardContent className="p-0">
+          <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/80 border-t-4 border-t-emerald-500/50 md:flex-1 flex flex-col min-h-[300px] md:min-h-0 md:overflow-hidden overflow-visible shrink-0 md:shrink">
+            <CardContent className="p-0 md:flex-1 md:overflow-auto overflow-x-auto overflow-y-visible custom-scrollbar min-h-0 relative">
               <table className="w-full text-left border-collapse min-w-[1200px]">
                 <thead>
                   <tr className="border-y border-border/50 bg-secondary/5">
-                    <th className="sticky top-[140px] z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Member</th>
-                    <th className="sticky top-[140px] z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Designation</th>
-                    <th className="sticky top-[140px] z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Salary</th>
-                    <th className="sticky top-[140px] z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Department</th>
-                    <th className="sticky top-[140px] z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center bg-background/95 backdrop-blur-md shadow-sm">Status</th>
-                    <th className="sticky top-[140px] z-20 p-6 bg-background/95 backdrop-blur-md shadow-sm"></th>
+                    <th className="sticky top-0 z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Member</th>
+                    <th className="sticky top-0 z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Designation</th>
+                    <th className="sticky top-0 z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Salary</th>
+                    <th className="sticky top-0 z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-background/95 backdrop-blur-md shadow-sm">Department</th>
+                    <th className="sticky top-0 z-20 p-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-center bg-background/95 backdrop-blur-md shadow-sm">Status</th>
+                    <th className="sticky top-0 z-20 p-6 bg-background/95 backdrop-blur-md shadow-sm"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -255,8 +252,6 @@ export default function PayrollPage() {
               </table>
             </CardContent>
           </Card>
-        </div>
-      </div>
 
       <EmployeeModal 
         isOpen={isEmployeeModalOpen} 

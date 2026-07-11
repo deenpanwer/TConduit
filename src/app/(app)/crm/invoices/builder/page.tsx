@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Package,
   Eye,
+  EyeOff,
   Edit3,
   Download,
   Printer,
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MobileInvoiceCanvas } from '@/components/crm/invoices/MobileInvoiceCanvas';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
@@ -73,6 +75,7 @@ interface InvoiceData {
   signature?: string; // Signature data/text
   relatedToId?: string;
   relatedToType?: 'lead' | 'deal';
+  hiddenFields?: Record<string, boolean>;
 }
 
 const CURRENCIES = [
@@ -110,6 +113,37 @@ export default function InvoiceBuilder() {
   const [brandingLogo, setBrandingLogo] = useState<string | null>(null);
   const [showPreviewOnMobile, setShowPreviewOnMobile] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    if (!previewContainerRef.current) return;
+    
+    const updateScale = () => {
+      const width = window.innerWidth < 768 ? window.innerWidth : (previewContainerRef.current?.getBoundingClientRect().width || window.innerWidth);
+      if (width > 0) {
+        setScale(Math.max(0.1, Math.min(1, (width - 48) / 800)));
+      }
+    };
+
+    updateScale();
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = window.innerWidth < 768 ? window.innerWidth : entry.contentRect.width;
+        if (width > 0) {
+          setScale(Math.max(0.1, Math.min(1, (width - 48) / 800)));
+        }
+      }
+    });
+    resizeObserver.observe(previewContainerRef.current);
+    window.addEventListener('resize', updateScale);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, []);
 
   const [invoice, setInvoice] = useState<InvoiceData>({
     invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
@@ -136,6 +170,7 @@ export default function InvoiceBuilder() {
     relatedToId: relatedId || undefined,
     relatedToType: relatedType || undefined,
     signature: '',
+    hiddenFields: {},
   });
 
   const subtotal = useMemo(() => {
@@ -214,6 +249,29 @@ export default function InvoiceBuilder() {
     });
   };
 
+  const renderToggleVisibility = (fieldKey: string) => {
+    const isHidden = !!invoice.hiddenFields?.[fieldKey];
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          const nextHidden = { ...invoice.hiddenFields, [fieldKey]: !isHidden };
+          updateInvoice('hiddenFields', nextHidden);
+        }}
+        className={cn(
+          "p-1 hover:bg-secondary/80 rounded transition-all text-xs flex items-center gap-1",
+          isHidden ? "text-red-500" : "text-muted-foreground hover:text-foreground"
+        )}
+        title={isHidden ? "Show field on invoice" : "Hide field from invoice"}
+      >
+        {isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+        <span className="text-[8px] font-bold uppercase tracking-wider">
+          {isHidden ? "Hidden" : "Visible"}
+        </span>
+      </button>
+    );
+  };
+
   const addLineItem = () => {
     setInvoice(prev => ({
       ...prev,
@@ -289,12 +347,37 @@ export default function InvoiceBuilder() {
         return;
     }
 
+    // Store original transforms and temporarily remove them for full resolution rendering
+    const originalTransforms = invoicePages.map(page => (page as HTMLElement).style.transform);
+    invoicePages.forEach(page => {
+        (page as HTMLElement).style.transform = 'none';
+    });
+
+    const pageWrappers = invoicePages.map(page => page.parentElement);
+    const originalWrapperStyles = pageWrappers.map(wrapper => {
+        if (!wrapper) return null;
+        return {
+            width: wrapper.style.width,
+            height: wrapper.style.height,
+            overflow: wrapper.style.overflow,
+        };
+    });
+
+    pageWrappers.forEach(wrapper => {
+        if (!wrapper) return;
+        wrapper.style.width = '800px';
+        wrapper.style.height = '1131px';
+        wrapper.style.overflow = 'visible';
+    });
+
     try {
         const firstPage = invoicePages[0] as HTMLElement;
         const firstCanvas = await html2canvas(firstPage, {
             scale: 2,
             useCORS: true,
             backgroundColor: null,
+            width: 800,
+            height: 1131,
         });
 
         const pdf = new jsPDF({
@@ -311,6 +394,8 @@ export default function InvoiceBuilder() {
                 scale: 2,
                 useCORS: true,
                 backgroundColor: null,
+                width: 800,
+                height: 1131,
             });
             pdf.addPage([canvas.width, canvas.height]);
             pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
@@ -323,6 +408,17 @@ export default function InvoiceBuilder() {
         console.error('Error generating PDF:', error);
         toast.error('Failed to generate PDF.');
     } finally {
+        // Restore page transforms back to normal
+        invoicePages.forEach((page, idx) => {
+            (page as HTMLElement).style.transform = originalTransforms[idx];
+        });
+        pageWrappers.forEach((wrapper, idx) => {
+            const style = originalWrapperStyles[idx];
+            if (!wrapper || !style) return;
+            wrapper.style.width = style.width;
+            wrapper.style.height = style.height;
+            wrapper.style.overflow = style.overflow;
+        });
         setIsDownloading(false);
     }
   };
@@ -337,9 +433,9 @@ export default function InvoiceBuilder() {
     const SAFE_ZONE = PAGE_HEIGHT - PADDING;
 
     // Height estimates in pixels (Refined for compact layout)
-    const FIRST_PAGE_HEADER = 450; // Logo, Title, Amount, Dates, Parties Grid
+    const FIRST_PAGE_HEADER = 400; // Logo, Title, Amount, Dates, Parties Grid
     const SUBSEQUENT_PAGE_HEADER = 100; // Continued header
-    const FOOTER_HEIGHT = 400; // Payment Info, Notes, Total, Signature
+    const FOOTER_HEIGHT = 380; // Payment Info, Notes, Total, Signature
     const ITEM_BASE_HEIGHT = 50; // Base height for one line item
     const CHARS_PER_LINE = 60; 
     const LINE_HEIGHT = 16;
@@ -384,12 +480,11 @@ export default function InvoiceBuilder() {
     if (lastPageHeight + FOOTER_HEIGHT > SAFE_ZONE && lastPageItems.length > 0) {
         p.push([]);
     }
-
     return p;
   }, [invoice.items, invoice.notes, invoice.paymentInfo]);
 
   return (
-    <div className='flex flex-col md:flex-row h-screen bg-background overflow-hidden'>
+    <div className='flex flex-col md:flex-row min-h-screen md:h-screen bg-background overflow-y-auto md:overflow-y-hidden'>
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap');
         .font-signature { font-family: 'Dancing Script', cursive; }
@@ -402,7 +497,14 @@ export default function InvoiceBuilder() {
       <div className='md:hidden flex items-center justify-between p-4 border-b bg-card sticky top-0 z-50'>
         <Button variant='ghost' size='sm' onClick={() => router.back()} className='rounded-xl text-[10px] font-black uppercase'><ChevronLeft size={14} /></Button>
         <h2 className='text-xs font-black uppercase tracking-widest'>{invoiceId ? 'Edit' : 'New'} Invoice</h2>
-        <div className='w-10' /> {/* Spacer to balance back button */}
+        <Button 
+          variant='ghost' 
+          size='sm' 
+          onClick={() => previewContainerRef.current?.scrollIntoView({ behavior: 'smooth' })} 
+          className='rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-500/5'
+        >
+          Preview
+        </Button>
       </div>
 
       {/* Left side: Form Steps */}
@@ -447,40 +549,55 @@ export default function InvoiceBuilder() {
                                 <button onClick={(e) => { e.stopPropagation(); setBrandingLogo(null); }} className='absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity'><X size={20} /></button>
                             </div>
                         ) : (
-                            <label className='flex flex-col items-center gap-2 cursor-pointer w-full h-full justify-center'>
-                                <Upload size={20} className='text-muted-foreground group-hover:text-blue-500 transition-colors' />
-                                <span className='text-[9px] font-black uppercase text-muted-foreground'>Logo</span>
-                                <input type='file' className='hidden' accept='image/*' onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (re) => setBrandingLogo(re.target?.result as string);
-                                        reader.readAsDataURL(file);
-                                    }
-                                }} />
-                            </label>
-                        )}
+                             <label className='flex flex-col items-center gap-2 cursor-pointer w-full h-full justify-center'>
+                                 <Upload size={20} className='text-muted-foreground group-hover:text-blue-500 transition-colors' />
+                                 <div className='flex items-center gap-1.5'>
+                                     <span className='text-[9px] font-black uppercase text-muted-foreground'>Logo</span>
+                                     {renderToggleVisibility('from.branding')}
+                                 </div>
+                                 <input type='file' className='hidden' accept='image/*' onChange={(e) => {
+                                     const file = e.target.files?.[0];
+                                     if (file) {
+                                         const reader = new FileReader();
+                                         reader.onload = (re) => setBrandingLogo(re.target?.result as string);
+                                         reader.readAsDataURL(file);
+                                     }
+                                 }} />
+                             </label>
+                         )}
                     </div>
                   </div>
 
                   <div className='space-y-4'>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Business Name</label>
-                        <Input placeholder='E.G. TRAC AI' value={invoice.from.name} onChange={(e) => updateInvoice('from.name', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 transition-all' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Business Name</label>
+                            {renderToggleVisibility('from.name')}
+                        </div>
+                        <Input placeholder='e.g. Acme Corp' value={invoice.from.name} onChange={(e) => updateInvoice('from.name', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 transition-all' />
                     </div>
                     <div className='grid grid-cols-2 gap-4'>
                         <div className='space-y-1.5'>
-                            <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Email</label>
-                            <Input placeholder='HELLO@TRAC.AI' value={invoice.from.email} onChange={(e) => updateInvoice('from.email', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                            <div className='flex items-center justify-between ml-1'>
+                                <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Email</label>
+                                {renderToggleVisibility('from.email')}
+                            </div>
+                            <Input placeholder='hello@trac.ai' value={invoice.from.email} onChange={(e) => updateInvoice('from.email', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5' />
                         </div>
                         <div className='space-y-1.5'>
-                            <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Phone</label>
-                            <Input placeholder='+1 234 567' value={invoice.from.phone} onChange={(e) => updateInvoice('from.phone', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                            <div className='flex items-center justify-between ml-1'>
+                                <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Phone</label>
+                                {renderToggleVisibility('from.phone')}
+                            </div>
+                            <Input placeholder='+1 234 567' value={invoice.from.phone} onChange={(e) => updateInvoice('from.phone', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5' />
                         </div>
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Address</label>
-                        <Textarea placeholder='WHERE ARE YOU LOCATED?' value={invoice.from.address} onChange={(e) => updateInvoice('from.address', e.target.value)} className='bg-secondary/30 border-none rounded-2xl text-[11px] font-bold uppercase tracking-widest p-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[100px] resize-none' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Address</label>
+                            {renderToggleVisibility('from.address')}
+                        </div>
+                        <Textarea placeholder='Where are you located?' value={invoice.from.address} onChange={(e) => updateInvoice('from.address', e.target.value)} className='bg-secondary/30 border-none rounded-2xl text-[11px] font-bold tracking-widest p-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[100px] resize-none' />
                     </div>
                   </div>
                 </div>
@@ -492,20 +609,32 @@ export default function InvoiceBuilder() {
                   </div>
                   <div className='space-y-4'>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Client Name</label>
-                        <Input placeholder='WHO ARE YOU BILLING?' value={invoice.to.name} onChange={(e) => updateInvoice('to.name', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Client Name</label>
+                            {renderToggleVisibility('to.name')}
+                        </div>
+                        <Input placeholder='Who are you billing?' value={invoice.to.name} onChange={(e) => updateInvoice('to.name', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5' />
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Company Name</label>
-                        <Input placeholder='CLIENT BUSINESS NAME' value={invoice.to.organization} onChange={(e) => updateInvoice('to.organization', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Company Name</label>
+                            {renderToggleVisibility('to.organization')}
+                        </div>
+                        <Input placeholder='Client business name' value={invoice.to.organization} onChange={(e) => updateInvoice('to.organization', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5' />
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Client Email</label>
-                        <Input placeholder='CLIENT@EMAIL.COM' value={invoice.to.email} onChange={(e) => updateInvoice('to.email', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Client Email</label>
+                            {renderToggleVisibility('to.email')}
+                        </div>
+                        <Input placeholder='client@email.com' value={invoice.to.email} onChange={(e) => updateInvoice('to.email', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black tracking-widest px-5' />
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Client Address</label>
-                        <Textarea placeholder='CLIENT BILLING ADDRESS' value={invoice.to.address} onChange={(e) => updateInvoice('to.address', e.target.value)} className='bg-secondary/30 border-none rounded-2xl text-[11px] font-bold uppercase tracking-widest p-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[100px] resize-none' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Client Address</label>
+                            {renderToggleVisibility('to.address')}
+                        </div>
+                        <Textarea placeholder='Client billing address' value={invoice.to.address} onChange={(e) => updateInvoice('to.address', e.target.value)} className='bg-secondary/30 border-none rounded-2xl text-[11px] font-bold tracking-widest p-5 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[100px] resize-none' />
                     </div>
                   </div>
                 </div>
@@ -521,29 +650,35 @@ export default function InvoiceBuilder() {
                   </div>
                   <div className='grid grid-cols-1 gap-6'>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Invoice #</label>
-                        <Input value={invoice.invoiceNumber} onChange={(e) => updateInvoice('invoiceNumber', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <label className='text-[9px] font-medium text-muted-foreground/60 ml-1'>Invoice #</label>
+                        <Input value={invoice.invoiceNumber} onChange={(e) => updateInvoice('invoiceNumber', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-medium px-5' />
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Currency</label>
+                        <label className='text-[9px] font-medium text-muted-foreground/60 ml-1'>Currency</label>
                         <Select value={invoice.currency} onValueChange={(val) => updateInvoice('currency', val)}>
-                            <SelectTrigger className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5'>
+                            <SelectTrigger className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-medium px-5'>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className='bg-card border-border rounded-2xl shadow-2xl p-2'>
-                                {CURRENCIES.map(c => <SelectItem key={c.value} value={c.value} className='text-[10px] font-black uppercase p-3 rounded-xl'>{c.label}</SelectItem>)}
+                                {CURRENCIES.map(c => <SelectItem key={c.value} value={c.value} className='text-[10px] p-3 rounded-xl'>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
                   </div>
                   <div className='grid grid-cols-2 gap-4'>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Invoice Date</label>
-                        <Input type='date' value={invoice.issueDate} onChange={(e) => updateInvoice('issueDate', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-medium text-muted-foreground/60'>Invoice Date</label>
+                            {renderToggleVisibility('issueDate')}
+                        </div>
+                        <Input type='date' value={invoice.issueDate} onChange={(e) => updateInvoice('issueDate', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-medium px-5' />
                     </div>
                     <div className='space-y-1.5'>
-                        <label className='text-[9px] font-black uppercase text-muted-foreground/60 ml-1'>Due Date</label>
-                        <Input type='date' value={invoice.dueDate} onChange={(e) => updateInvoice('dueDate', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-black uppercase tracking-widest px-5' />
+                        <div className='flex items-center justify-between ml-1'>
+                            <label className='text-[9px] font-medium text-muted-foreground/60'>Due Date</label>
+                            {renderToggleVisibility('dueDate')}
+                        </div>
+                        <Input type='date' value={invoice.dueDate} onChange={(e) => updateInvoice('dueDate', e.target.value)} className='h-14 bg-secondary/30 border-none rounded-2xl text-[11px] font-medium px-5' />
                     </div>
                   </div>
                 </div>
@@ -568,10 +703,10 @@ export default function InvoiceBuilder() {
                                 <div className='space-y-1.5'>
                                     <label className='text-[8px] font-black uppercase text-muted-foreground/60 ml-1'>Description</label>
                                     <Input 
-                                        placeholder='WHAT WORK WAS DONE?' 
+                                        placeholder='What work was done?' 
                                         value={item.description} 
                                         onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                                        className='h-12 bg-background/50 border-none rounded-xl text-[11px] font-bold uppercase tracking-widest px-4' 
+                                        className='h-12 bg-background/50 border-none rounded-xl text-[11px] font-bold tracking-widest px-4' 
                                     />
                                 </div>
                                 <div className='grid grid-cols-2 gap-4'>
@@ -604,24 +739,19 @@ export default function InvoiceBuilder() {
             {currentStep === 3 && (
               <motion.div key='step3' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className='space-y-8'>
                 <div className='space-y-8'>
-                  <div className='p-6 bg-amber-500/5 border border-amber-500/20 rounded-[2rem] flex items-start gap-4'>
-                    <div className='size-10 rounded-2xl bg-amber-500/10 flex items-center justify-center shrink-0'><ShieldCheck className='size-5 text-amber-600' /></div>
-                    <div>
-                        <p className='text-[11px] font-black uppercase tracking-widest text-amber-700'>Payment Security</p>
-                        <p className='text-[10px] font-bold text-amber-700/60 mt-1 uppercase leading-relaxed'>TRAC DOES NOT SAVE OR SHARE YOUR BANK DETAILS. THIS IS ONLY FOR THE INVOICE.</p>
-                    </div>
-                  </div>
-
                   <div className='space-y-6'>
-                    <div className='flex items-center gap-3'>
-                        <div className='size-8 rounded-xl bg-indigo-500/10 flex items-center justify-center'><CreditCard size={16} className='text-indigo-600' /></div>
-                        <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>How to pay?</span>
+                    <div className='flex items-center justify-between'>
+                        <div className='flex items-center gap-3'>
+                            <div className='size-8 rounded-xl bg-indigo-500/10 flex items-center justify-center'><CreditCard size={16} className='text-indigo-600' /></div>
+                            <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>How to pay?</span>
+                        </div>
+                        {renderToggleVisibility('paymentInfo')}
                     </div>
                     <Textarea 
-                        placeholder='ENTER YOUR BANK NAME, ACCOUNT NUMBER, ETC.'
+                        placeholder='Enter bank name, account number, etc.'
                         value={invoice.paymentInfo} 
                         onChange={(e) => updateInvoice('paymentInfo', e.target.value)} 
-                        className='bg-secondary/30 border-none rounded-[2rem] text-[11px] font-mono font-bold uppercase tracking-widest p-6 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[200px] resize-none shadow-inner' 
+                        className='bg-secondary/30 border-none rounded-[2rem] text-[11px] font-mono font-bold tracking-widest p-6 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[200px] resize-none shadow-inner' 
                     />
                   </div>
                 </div>
@@ -630,16 +760,19 @@ export default function InvoiceBuilder() {
 
             {currentStep === 4 && (
               <motion.div key='step4' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className='space-y-8'>
-                 <div className='space-y-10'>
+                  <div className='space-y-10'>
                     <div className='space-y-6'>
-                        <div className='flex items-center gap-3'>
-                            <div className='size-8 rounded-xl bg-rose-500/10 flex items-center justify-center'><SignatureIcon size={16} className='text-rose-600' /></div>
-                            <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>Sign Here</span>
+                        <div className='flex items-center justify-between'>
+                            <div className='flex items-center gap-3'>
+                                <div className='size-8 rounded-xl bg-rose-500/10 flex items-center justify-center'><SignatureIcon size={16} className='text-rose-600' /></div>
+                                <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>Sign Here</span>
+                            </div>
+                            {renderToggleVisibility('signature')}
                         </div>
                         {invoice.signature ? (
                             <div className='relative group'>
                                 <Input 
-                                    placeholder='YOUR FULL NAME' 
+                                    placeholder='Your Full Name' 
                                     value={invoice.signature} 
                                     onChange={(e) => updateInvoice('signature', e.target.value)} 
                                     className='h-16 bg-secondary/30 border-none rounded-2xl text-lg font-cursive italic tracking-widest px-6 focus-visible:ring-2 focus-visible:ring-blue-500/20'
@@ -657,19 +790,22 @@ export default function InvoiceBuilder() {
                                 <span className='text-[11px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-blue-600 transition-colors'>Sign This Invoice</span>
                             </Button>
                         )}
-                        <p className='text-[10px] font-bold text-muted-foreground uppercase text-center italic opacity-60'>THIS SIGNATURE CONSTITUTES A LEGALLY BINDING ACCEPTANCE OF THE DOCUMENT TERMS.</p>
+                        <p className='text-[10px] font-bold text-muted-foreground uppercase text-center italic opacity-60'>This signature constitutes a legally binding acceptance of the document terms.</p>
                     </div>
 
                     <div className='space-y-6 pt-8 border-t border-border/40'>
-                        <div className='flex items-center gap-3'>
-                            <div className='size-8 rounded-xl bg-slate-500/10 flex items-center justify-center'><NotebookPen size={16} className='text-slate-600' /></div>
-                            <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>Notes</span>
+                        <div className='flex items-center justify-between'>
+                            <div className='flex items-center gap-3'>
+                                <div className='size-8 rounded-xl bg-slate-500/10 flex items-center justify-center'><NotebookPen size={16} className='text-slate-600' /></div>
+                                <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>Notes</span>
+                            </div>
+                            {renderToggleVisibility('notes')}
                         </div>
                         <Textarea 
-                            placeholder='ANYTHING ELSE THE CLIENT SHOULD KNOW?'
+                            placeholder='Anything else the client should know?'
                             value={invoice.notes} 
                             onChange={(e) => updateInvoice('notes', e.target.value)} 
-                            className='bg-secondary/30 border-none rounded-[2rem] text-[11px] font-bold uppercase tracking-widest p-6 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[120px] resize-none shadow-inner' 
+                            className='bg-secondary/30 border-none rounded-[2rem] text-[11px] font-bold tracking-widest p-6 focus-visible:ring-2 focus-visible:ring-blue-500/20 min-h-[120px] resize-none shadow-inner' 
                         />
                     </div>
                  </div>
@@ -699,7 +835,10 @@ export default function InvoiceBuilder() {
       </div>
 
       {/* Right side: Preview Visualization */}
-      <div className='flex-1 bg-slate-100 dark:bg-slate-900 md:overflow-y-auto p-4 md:p-12 custom-scrollbar transition-all flex flex-col items-center'>
+      <div 
+        ref={previewContainerRef}
+        className='w-full flex-1 bg-slate-100 dark:bg-slate-900 md:overflow-y-auto p-4 md:p-12 transition-all flex flex-col items-center border-t md:border-t-0 border-border/40'
+      >
         {/* PDF Header Controls */}
         <div className='w-full max-w-[800px] mb-8 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-border/40 shadow-xl flex items-center justify-between shrink-0'>
             <div className='flex items-center gap-3'>
@@ -718,15 +857,29 @@ export default function InvoiceBuilder() {
             </div>
         </div>
 
-        <div ref={invoiceRef} className='flex flex-col gap-12 items-center pb-20 w-full max-w-[800px]'>
+        <div className='block md:hidden w-full max-w-lg mt-8'>
+            <MobileInvoiceCanvas invoice={invoice} subtotal={subtotal} brandingLogo={brandingLogo} />
+        </div>
+
+        <div ref={invoiceRef} className='flex-col gap-12 items-center pb-20 w-full max-w-[800px] hidden md:flex'>
             {pages.map((pageItems, pageIdx) => (
-                <motion.div 
+                <div 
                     key={pageIdx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: pageIdx * 0.1 }}
-                    className='invoice-page w-full bg-white dark:bg-slate-950 shadow-[0_40px_100px_rgba(0,0,0,0.1)] rounded-sm aspect-[1/1.4142] p-12 md:p-16 flex flex-col text-slate-800 dark:text-slate-200 relative overflow-hidden shrink-0'
+                    style={{
+                        width: `${800 * scale}px`,
+                        height: `${1131 * scale}px`,
+                    }}
+                    className='relative overflow-hidden shrink-0'
                 >
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: pageIdx * 0.1 }}
+                        className='invoice-page w-[800px] h-[1131px] bg-white dark:bg-slate-950 shadow-[0_40px_100px_rgba(0,0,0,0.1)] rounded-sm p-12 md:p-16 flex flex-col text-slate-800 dark:text-slate-200 absolute top-0 left-0 origin-top-left shrink-0'
+                        style={{
+                            transform: `scale(${scale})`,
+                        }}
+                    >
                     {/* Watermark/Background decoration */}
                     <div className='absolute -top-20 -right-20 size-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none' />
                     
@@ -735,12 +888,14 @@ export default function InvoiceBuilder() {
                         <>
                             <div className='flex justify-between items-start mb-10 relative z-10'>
                                 <div className='space-y-4'>
-                                    {brandingLogo ? (
-                                        <img src={brandingLogo} className='h-12 object-contain' alt='Branding Logo' />
-                                    ) : (
-                                        <div className='h-12 w-24 bg-slate-100 dark:bg-slate-900/50 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800'>
-                                            <ImageIcon className='text-slate-300' size={20} />
-                                        </div>
+                                    {!invoice.hiddenFields?.['from.branding'] && (
+                                        brandingLogo ? (
+                                            <img src={brandingLogo} className='h-12 object-contain' alt='Branding Logo' />
+                                        ) : (
+                                            <div className='h-12 w-24 bg-slate-100 dark:bg-slate-900/50 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800'>
+                                                <ImageIcon className='text-slate-300' size={20} />
+                                            </div>
+                                        )
                                     )}
                                     <div className='space-y-1'>
                                         <h1 className='text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white'>INVOICE</h1>
@@ -753,14 +908,18 @@ export default function InvoiceBuilder() {
                                         <p className='text-3xl font-black text-slate-900 dark:text-white'>{invoice.currency} {subtotal.toLocaleString()}</p>
                                     </div>
                                     <div className='flex gap-6 justify-end'>
-                                        <div className='text-right border-r border-slate-100 dark:border-slate-800 pr-6'>
-                                            <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Issuance Date</p>
-                                            <p className='text-[10px] font-bold text-slate-700 dark:text-slate-300'>{invoice.issueDate ? format(new Date(invoice.issueDate), 'MMM d, yyyy') : '-'}</p>
-                                        </div>
-                                        <div className='text-right'>
-                                            <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Due Date</p>
-                                            <p className='text-[10px] font-bold text-rose-500'>{invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '-'}</p>
-                                        </div>
+                                        {!invoice.hiddenFields?.['issueDate'] && (
+                                            <div className='text-right border-r border-slate-100 dark:border-slate-800 pr-6'>
+                                                <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Issuance Date</p>
+                                                <p className='text-[10px] font-bold text-slate-700 dark:text-slate-300'>{invoice.issueDate ? format(new Date(invoice.issueDate), 'MMM d, yyyy') : '-'}</p>
+                                            </div>
+                                        )}
+                                        {!invoice.hiddenFields?.['dueDate'] && (
+                                            <div className='text-right'>
+                                                <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Due Date</p>
+                                                <p className='text-[10px] font-bold text-rose-500'>{invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '-'}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -770,19 +929,35 @@ export default function InvoiceBuilder() {
                                 <div className='space-y-2'>
                                     <p className='text-[9px] font-black uppercase tracking-[0.3em] text-blue-600'>FROM</p>
                                     <div className='space-y-0.5'>
-                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.from.name || 'Company Name'}</p>
-                                        <p className='text-[10px] font-medium opacity-60 max-w-[200px] leading-tight'>{invoice.from.address || 'Business Address'}</p>
-                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.from.email}</p>
-                                        <p className='text-[10px] font-bold opacity-80'>{invoice.from.phone}</p>
+                                        {!invoice.hiddenFields?.['from.name'] && (
+                                            <p className='text-xs font-black text-slate-900 dark:text-white'>{invoice.from.name || 'Company Name'}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['from.address'] && (
+                                            <p className='text-[10px] font-medium opacity-60 max-w-[200px] leading-tight'>{invoice.from.address || 'Business Address'}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['from.email'] && (
+                                            <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.from.email}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['from.phone'] && (
+                                            <p className='text-[10px] font-bold opacity-80'>{invoice.from.phone}</p>
+                                        )}
                                     </div>
                                 </div>
                                 <div className='space-y-2 text-right'>
                                     <p className='text-[9px] font-black uppercase tracking-[0.3em] text-purple-600'>BILL TO</p>
                                     <div className='space-y-0.5'>
-                                        <p className='text-xs font-black uppercase text-slate-900 dark:text-white'>{invoice.to.name || 'Client Name'}</p>
-                                        <p className='text-[10px] font-black uppercase text-blue-600'>{invoice.to.organization}</p>
-                                        <p className='text-[10px] font-medium opacity-60 ml-auto max-w-[200px] leading-tight'>{invoice.to.address || 'Billing Address'}</p>
-                                        <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.to.email}</p>
+                                        {!invoice.hiddenFields?.['to.name'] && (
+                                            <p className='text-xs font-black text-slate-900 dark:text-white'>{invoice.to.name || 'Client Name'}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['to.organization'] && (
+                                            <p className='text-[10px] font-black text-blue-600'>{invoice.to.organization}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['to.address'] && (
+                                            <p className='text-[10px] font-medium opacity-60 ml-auto max-w-[200px] leading-tight'>{invoice.to.address || 'Billing Address'}</p>
+                                        )}
+                                        {!invoice.hiddenFields?.['to.email'] && (
+                                            <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.to.email}</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -796,9 +971,11 @@ export default function InvoiceBuilder() {
                                 <p className='text-[10px] font-black uppercase text-slate-400'>Invoice #{invoice.invoiceNumber}</p>
                                 <p className='text-[9px] font-bold text-slate-400 uppercase'>Continued - Page {pageIdx + 1}</p>
                             </div>
-                            <div className='text-right'>
-                                <p className='text-[10px] font-black uppercase text-slate-900 dark:text-white'>{invoice.from.name}</p>
-                            </div>
+                            {!invoice.hiddenFields?.['from.name'] && (
+                                <div className='text-right'>
+                                    <p className='text-[10px] font-black text-slate-900 dark:text-white'>{invoice.from.name}</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -818,7 +995,7 @@ export default function InvoiceBuilder() {
                                     {pageItems.map((item) => (
                                         <tr key={item.id} className='group'>
                                             <td className='py-5 pr-4'>
-                                                <p className='text-[12px] font-black uppercase text-slate-900 dark:text-white leading-tight'>{item.description || 'Professional Services'}</p>
+                                                <p className='text-[12px] font-black text-slate-900 dark:text-white leading-tight'>{item.description || 'Professional Services'}</p>
                                             </td>
                                             <td className='py-5 text-center text-[11px] font-bold text-slate-500'>{item.quantity}</td>
                                             <td className='py-5 text-right text-[11px] font-bold text-slate-500'>{invoice.currency} {Number(item.rate).toLocaleString()}</td>
@@ -839,16 +1016,20 @@ export default function InvoiceBuilder() {
                         <div className='mt-8 pt-8 border-t-2 border-slate-900 dark:border-white relative z-10'>
                             <div className='flex justify-between gap-12'>
                                 <div className='flex-1 space-y-8'>
-                                    <div className='space-y-3'>
-                                        <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-blue-600' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>Payment Instructions</p></div>
-                                        <p className='text-[10px] font-mono font-bold whitespace-pre-wrap leading-relaxed opacity-70 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner'>
-                                            {invoice.paymentInfo || 'Remittance details pending.'}
-                                        </p>
-                                    </div>
-                                    <div className='space-y-3'>
-                                        <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-slate-400' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>General Terms & Conditions</p></div>
-                                        <p className='text-[10px] font-bold italic opacity-50 max-w-[380px] leading-relaxed'>{invoice.notes}</p>
-                                    </div>
+                                    {!invoice.hiddenFields?.['paymentInfo'] && (
+                                        <div className='space-y-3'>
+                                            <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-blue-600' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>Payment Instructions</p></div>
+                                            <p className='text-[10px] font-mono font-bold whitespace-pre-wrap leading-relaxed opacity-70 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner'>
+                                                {invoice.paymentInfo || 'Remittance details pending.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {!invoice.hiddenFields?.['notes'] && (
+                                        <div className='space-y-3'>
+                                            <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-slate-400' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>General Terms & Conditions</p></div>
+                                            <p className='text-[10px] font-bold italic opacity-50 max-w-[380px] leading-relaxed'>{invoice.notes}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className='w-56 space-y-8 text-right'>
                                     <div className='space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800'>
@@ -862,14 +1043,16 @@ export default function InvoiceBuilder() {
                                         </div>
                                     </div>
 
-                                    <div className='pt-6'>
-                                        <div className='inline-block border-b-2 border-slate-900 dark:border-white min-w-[180px] text-center pb-1'>
-                                            <p className='text-xl font-signature italic tracking-[0.1em] text-slate-900 dark:text-white'>
-                                                {invoice.signature || ''}
-                                            </p>
+                                    {!invoice.hiddenFields?.['signature'] && (
+                                        <div className='pt-6'>
+                                            <div className='inline-block border-b-2 border-slate-900 dark:border-white min-w-[180px] text-center pb-1'>
+                                                <p className='text-xl font-signature italic tracking-[0.1em] text-slate-900 dark:text-white'>
+                                                    {invoice.signature || ''}
+                                                </p>
+                                            </div>
+                                            <p className='text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2'>Authorized Acceptance</p>
                                         </div>
-                                        <p className='text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2'>Authorized Acceptance</p>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -880,6 +1063,7 @@ export default function InvoiceBuilder() {
                         <p className='text-[10px] font-black uppercase tracking-[0.2em]'>PAGE {pageIdx + 1} OF {pages.length}</p>
                     </div>
                 </motion.div>
+                </div>
             ))}
         </div>
       </div>

@@ -522,9 +522,6 @@ function TasksPageContent() {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-14 px-6 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
-                    <Menu size={20} />
-                </Button>
                 <div className="flex items-center">
                     <span className="font-bold text-sm tracking-tight uppercase tracking-widest">Tasks</span>
                 </div>

@@ -208,15 +208,9 @@ export default function AttendanceOverviewPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
-      {/* Scrollable Container - Combined X and Y scrolling */}
-      <div
-        className="flex-1 overflow-auto custom-scrollbar focus:outline-none"
-        tabIndex={0}
-      >
-        <div className="p-2 md:p-4 space-y-6 w-fit min-w-full">
-          {/* Header section - Sticky horizontally */}
-          <div className="sticky left-0 flex flex-col md:flex-row md:items-center justify-between gap-4 w-[calc(100vw-3rem)]">
+    <div className="flex-1 flex flex-col h-auto md:h-full bg-background md:overflow-hidden overflow-y-auto p-4 md:p-6 space-y-6">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-black uppercase tracking-tighter">
                 Attendance Overview
@@ -229,25 +223,25 @@ export default function AttendanceOverviewPage() {
           </div>
 
           {/* Search and Controls Bar - Sticky horizontally */}
-          <div className="sticky left-0 flex items-center gap-4">
-            <div className="relative group max-w-xl flex-1">
+          <div className="sticky left-0 flex flex-col sm:flex-row sm:items-center gap-4 w-full">
+            <div className="relative group w-full sm:max-w-xl">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-emerald-500" />
               <Input
                 placeholder="Search employee name..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 rounded-2xl border-border/50 bg-card/50 font-bold focus-visible:ring-emerald-500/20"
+                className="pl-12 h-12 rounded-2xl border-border/50 bg-card/50 font-bold focus-visible:ring-emerald-500/20 w-full"
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-11 rounded-2xl border-border/50 bg-card font-black uppercase tracking-widest text-[10px] gap-2 px-6"
+                    className="h-11 rounded-2xl border-border/50 bg-card font-black uppercase tracking-widest text-[10px] gap-2 px-6 w-full sm:w-auto justify-center"
                   >
-                    <CalendarIcon size={14} className="text-emerald-500" />
+                    <CalendarIcon size={14} className="text-emerald-500 shrink-0" />
                     {format(selectedDate, 'PPP')}
                   </Button>
                 </PopoverTrigger>
@@ -272,9 +266,9 @@ export default function AttendanceOverviewPage() {
               </Popover>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-11 w-44 rounded-2xl border-border/50 bg-card font-black uppercase tracking-widest text-[10px] px-6">
+                <SelectTrigger className="h-11 w-full sm:w-44 rounded-2xl border-border/50 bg-card font-black uppercase tracking-widest text-[10px] px-6 justify-center">
                   <div className="flex items-center gap-2">
-                    <ArrowUpDown size={14} className="text-emerald-500" />
+                    <ArrowUpDown size={14} className="text-emerald-500 shrink-0" />
                     <SelectValue placeholder="Sort By" />
                   </div>
                 </SelectTrigger>
@@ -308,8 +302,8 @@ export default function AttendanceOverviewPage() {
             </div>
           </div>
 
-          {/* KPI Cards - Sticky horizontally */}
-          <div className="sticky left-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-[calc(100vw-3rem)]">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
             <KPICard
               title="Attendance"
               value={`${attendanceRate}%`}
@@ -345,8 +339,8 @@ export default function AttendanceOverviewPage() {
           </div>
 
           {/* Table Container */}
-          <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/80 border-t-4 border-t-emerald-500/50">
-            <div className="p-6 flex flex-row items-center justify-between border-b border-border/50">
+          <Card className="border-border/50 shadow-sm rounded-[2.5rem] bg-card/80 border-t-4 border-t-emerald-500/50 md:flex-1 flex flex-col min-h-[300px] md:min-h-0 md:overflow-hidden overflow-visible shrink-0 md:shrink">
+            <div className="p-6 flex flex-row items-center justify-between border-b border-border/50 shrink-0">
               <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">
                 Attendance Logs
               </h3>
@@ -365,7 +359,7 @@ export default function AttendanceOverviewPage() {
                 Export Today
               </Button>
             </div>
-            <CardContent className="p-0">
+            <CardContent className="p-0 md:flex-1 md:overflow-auto overflow-x-auto overflow-y-visible custom-scrollbar min-h-0 relative">
               <div className="overflow-visible">
                 <table className="w-full text-left border-collapse min-w-[1600px]">
                   <thead>
@@ -714,8 +708,6 @@ export default function AttendanceOverviewPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
 
       {/* Export Modal */}
       <AttendanceExportModal

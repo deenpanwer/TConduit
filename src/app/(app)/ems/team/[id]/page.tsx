@@ -399,12 +399,12 @@ export default function EmployeeDetailPage() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
+        <header className="h-14 sm:h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-3 sm:px-8 sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-9 w-9" onClick={() => setIsMobileOpen(true)}>
               <Menu size={20} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => router.back()}>
               <ArrowLeft size={20} />
             </Button>
             <GlobalDateSelector 
@@ -420,11 +420,11 @@ export default function EmployeeDetailPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowIntelligenceModal(true)} 
-                className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
+                className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
             >
                 <Ban size={14} className="mr-2" /> Manage Site Blocklist for {employee?.name?.split(' ')[0] || "Member"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
+            <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
             </Button>
             <DropdownMenu>
@@ -436,6 +436,12 @@ export default function EmployeeDetailPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Employee Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowIntelligenceModal(true)} className="md:hidden">
+                  Manage Blocklist
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowMemberAccessModal(true)} className="md:hidden">
+                  Member Access
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowEditEmployeeModal(true)}>Edit Profile</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDeactivateEmployeeModal(true)} className="text-destructive focus:text-destructive">Deactivate Employee</DropdownMenuItem>
               </DropdownMenuContent>

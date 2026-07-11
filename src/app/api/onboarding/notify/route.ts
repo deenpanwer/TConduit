@@ -14,20 +14,16 @@ export async function POST(req: Request) {
       role
     } = await req.json();
 
-    if (!ownerWhatsapp) {
-      return NextResponse.json({ error: "Missing whatsapp number" }, { status: 400 });
-    }
-
     // 1. Pushover Notification to Team (Detailed Summary)
     const PUSHOVER_USER = 'uj9fnutvd6k69fjmc3h86kqta1rck3';
     const PUSHOVER_TOKEN = 'airu99cyutatoy28gm1mtmt6atjmfx';
 
     const details = [
-      `Org: ${orgName}`,
-      `Email: ${ownerEmail}`,
-      `WhatsApp: ${ownerWhatsapp}`,
-      `Role: ${role}`,
-      `Invite Code: ${inviteCode}`,
+      `Org: ${orgName || 'N/A'}`,
+      `Email: ${ownerEmail || 'N/A'}`,
+      `WhatsApp: ${ownerWhatsapp || 'N/A'}`,
+      `Role: ${role || 'N/A'}`,
+      `Invite Code: ${inviteCode || 'N/A'}`,
       `Team Size: ${teamSize || 'N/A'}`,
       `Platforms: ${reportingPlatforms?.join(', ') || 'None'}`,
       `Modules: ${modulePriorities?.join(', ') || 'None'}`,
@@ -41,7 +37,7 @@ export async function POST(req: Request) {
         token: PUSHOVER_TOKEN,
         user: PUSHOVER_USER,
         message: details,
-        title: `🚀 New Signup: ${orgName}`,
+        title: `🚀 New Signup: ${orgName || 'New User'}`,
         priority: '0'
       })
     });
@@ -51,39 +47,41 @@ export async function POST(req: Request) {
     }
 
     // 2. WhatsApp Welcome Message to Owner (TEMPLATE: onboarding_invite_v1)
-    const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-    const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (ownerWhatsapp) {
+        const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+        const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
-    const cleanPhone = ownerWhatsapp.replace(/\+/g, '').replace(/\s/g, '');
+        const cleanPhone = ownerWhatsapp.replace(/\+/g, '').replace(/\s/g, '');
 
-    const whatsappRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: cleanPhone,
-        type: "template",
-        template: {
-          name: "onboarding_invite_v1",
-          language: { code: "en" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: orgName || "your new workspace" },
-                { type: "text", text: inviteCode }
+        const whatsappRes = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: cleanPhone,
+            type: "template",
+            template: {
+              name: "onboarding_invite_v1",
+              language: { code: "en" },
+              components: [
+                {
+                  type: "body",
+                  parameters: [
+                    { type: "text", text: orgName || "your new workspace" },
+                    { type: "text", text: inviteCode }
+                  ]
+                }
               ]
             }
-          ]
-        }
-      })
-    });
+          })
+        });
 
-    if (!whatsappRes.ok) {
-        console.error("WhatsApp Template Welcome failed:", await whatsappRes.text());
+        if (!whatsappRes.ok) {
+            console.error("WhatsApp Template Welcome failed:", await whatsappRes.text());
+        }
     }
 
     return NextResponse.json({ success: true });

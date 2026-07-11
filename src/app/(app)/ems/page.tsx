@@ -112,10 +112,10 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-30 shrink-0">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
-              <Menu />
+        <header className="h-14 sm:h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-3 sm:px-8 sticky top-0 z-30 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-9 w-9" onClick={() => setIsMobileOpen(true)}>
+              <Menu size={20} />
             </Button>
             <GlobalDateSelector 
               selectedDate={selectedDate} 
@@ -124,7 +124,7 @@ export default function DashboardPage() {
             />
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <SubscriptionBadge orgData={orgData} userData={userData} />
             {employees.length > 0 && (
               <Button 
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             )}
             <button 
               onClick={() => router.push("/ems/settings")}
-              className="size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90"
+              className="size-8 sm:size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90 shrink-0"
             >
                <img 
                   src={userData?.photoUrl || `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${user?.email || 'admin'}`} 

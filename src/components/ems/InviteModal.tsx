@@ -96,11 +96,11 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
           </DialogHeader>
 
           {/* Custom Modern Tabs */}
-          <div className="flex p-1.5 bg-secondary/30 rounded-2xl gap-1">
+          <div className="flex flex-col sm:flex-row p-1 sm:p-1.5 bg-secondary/30 rounded-2xl gap-1">
             <button
               onClick={() => setActiveTab("employee")}
               className={cn(
-                "flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
+                "flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
                 activeTab === "employee" ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -109,7 +109,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
             <button
               onClick={() => setActiveTab("manager")}
               className={cn(
-                "flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
+                "flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
                 activeTab === "manager" ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -118,7 +118,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
             <button
               onClick={() => setActiveTab("manual")}
               className={cn(
-                "flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
+                "flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
                 activeTab === "manual" ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -132,17 +132,17 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
               {/* Main Invite Code */}
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-primary via-orange-500 to-rose-500 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
-                <div className="relative bg-secondary/80 backdrop-blur-2xl rounded-[2.5rem] p-8 sm:p-10 border border-white/10 flex flex-col items-center">
+                <div className="relative bg-secondary/80 backdrop-blur-2xl rounded-[2.5rem] p-6 sm:p-10 border border-white/10 flex flex-col items-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-4">Master Invite Code</p>
-                    <h3 className="text-5xl sm:text-7xl font-black tracking-[0.3em] sm:tracking-[0.5em] text-foreground mb-8 pl-2 sm:pl-6 tabular-nums select-all">
+                    <h3 className="text-3xl sm:text-7xl font-black tracking-[0.15em] sm:tracking-[0.5em] text-foreground mb-8 pl-1 sm:pl-6 tabular-nums select-all text-center">
                       {inviteCode}
                     </h3>
                     <Button 
                       onClick={() => copyToClipboard(inviteCode, "Invite code ready for the Trac Diary app.")} 
                       className="rounded-2xl font-black uppercase tracking-widest text-xs h-14 sm:h-16 px-12 shadow-2xl shadow-primary/20 w-full sm:w-auto transition-all active:scale-95 gap-3"
                     >
-                        {copied ? <Check size={20} /> : <Copy size={20} />}
-                        {copied ? "Copied" : "Copy Code"}
+                      {copied ? <Check size={20} /> : <Copy size={20} />}
+                      {copied ? "Copied" : "Copy Code"}
                     </Button>
                 </div>
               </div>

@@ -207,10 +207,10 @@ function OrganizationsPageContent() {
             className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" 
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full overflow-x-auto no-scrollbar pb-1 md:pb-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm shrink-0">
                 <ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {
                   sortBy === "newest" ? "Newest First" : 
                   sortBy === "oldest" ? "Oldest First" : 
@@ -235,7 +235,7 @@ function OrganizationsPageContent() {
           </DropdownMenu>
           
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><Filter size={14} className="mr-2 text-blue-500" /> Industry: {filterIndustry || 'All'}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm shrink-0"><Filter size={14} className="mr-2 text-blue-500" /> Industry: {filterIndustry || 'All'}</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl max-h-[300px] overflow-y-auto">
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setFilterIndustry(null)}>All Industries</DropdownMenuItem>
               {config.fields.find(f => f.key === 'industry')?.options?.map(i => (
@@ -244,7 +244,7 @@ function OrganizationsPageContent() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" disabled className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest opacity-40 px-6 shadow-sm"><Download size={14} className="mr-2 text-blue-500" /> Export</Button>
+          <Button variant="outline" size="sm" disabled className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest opacity-40 px-6 shadow-sm shrink-0"><Download size={14} className="mr-2 text-blue-500" /> Export</Button>
         </div>
       </div>
 

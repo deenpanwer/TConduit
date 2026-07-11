@@ -133,7 +133,7 @@ export default function HolidaysPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="w-full h-full overflow-y-auto p-4 md:p-8 space-y-6 custom-scrollbar">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">

@@ -356,10 +356,10 @@ function LeadsPageContent() {
             className="pl-12 h-12 bg-background/50 border-border/40 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-blue-500/20" 
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full overflow-x-auto no-scrollbar pb-1 md:pb-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm text-foreground">
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm text-foreground shrink-0">
                 <ArrowUpDown size={14} className="mr-2 text-blue-500" /> Sort: {
                   sortBy === "newest" ? "Newest First" : 
                   sortBy === "oldest" ? "Oldest First" : 
@@ -384,7 +384,7 @@ function LeadsPageContent() {
           </DropdownMenu>
           
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm"><Filter size={14} className="mr-2 text-blue-500" /> Stage: {filterStage || 'All'}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm shrink-0"><Filter size={14} className="mr-2 text-blue-500" /> Stage: {filterStage || 'All'}</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 border-border bg-card/95 backdrop-blur-xl">
               <DropdownMenuItem className="text-[10px] font-bold uppercase" onClick={() => setFilterStage(null)}>All Stages</DropdownMenuItem>
               {config.fields.find(f => f.key === 'status')?.options?.map(s => (
@@ -398,7 +398,7 @@ function LeadsPageContent() {
             size="sm" 
             onClick={() => setFilterAssignedToMe(!filterAssignedToMe)}
             className={cn(
-              "h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm flex items-center",
+              "h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm flex items-center shrink-0",
               filterAssignedToMe && "border-blue-500/30 text-blue-500 bg-blue-500/5 hover:bg-blue-500/10"
             )}
           >
@@ -407,7 +407,7 @@ function LeadsPageContent() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm">
+              <Button variant="outline" size="sm" className="h-12 rounded-2xl border-border/40 font-black text-[10px] uppercase tracking-widest px-6 shadow-sm shrink-0">
                 <Database size={14} className="mr-2 text-blue-500" /> {pageSize === 1000000 ? 'All' : pageSize.toLocaleString()} Leads
               </Button>
             </DropdownMenuTrigger>

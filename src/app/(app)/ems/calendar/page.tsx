@@ -10,6 +10,7 @@ import {
   Zap,
   Layers,
   ArrowRight,
+  Menu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
 import { useCalendar, useDailyBreakdown } from "@/hooks/use-calendar"; // Import the new hook
+import { useSidebar } from "@/hooks/use-sidebar";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
@@ -70,6 +72,7 @@ export default function CalendarPage() {
     setSelectedDate: _setSelectedDate,
   } = useTeam();
 
+  const { setIsMobileOpen } = useSidebar();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -194,13 +197,18 @@ export default function CalendarPage() {
           className="flex-1 p-4 md:p-8 flex flex-col overflow-hidden"
         >
           <div className="flex items-center justify-between mb-6 md:mb-8">
-            <div className="space-y-1">
-              <h1 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {format(currentMonth, "MMMM yyyy")}
-              </h1>
-              <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                Strategic Capacity View
-              </p>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9 shrink-0" onClick={() => setIsMobileOpen(true)}>
+                <Menu size={20} className="text-foreground" />
+              </Button>
+              <div className="space-y-1">
+                <h1 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {format(currentMonth, "MMMM yyyy")}
+                </h1>
+                <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                  Strategic Capacity View
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-1 md:gap-2">
