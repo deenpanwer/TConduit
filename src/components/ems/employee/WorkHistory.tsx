@@ -230,12 +230,21 @@ export function WorkHistory({ timeEntries, screenshots, onLoadMore, hasMore }: W
 
   if (timeEntries.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-xl animate-pulse">
-        <div className="h-6 w-48 bg-muted rounded-full mb-10" />
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-24 bg-secondary/20 rounded-[2rem] border border-transparent" />
-          ))}
+      <div className="bg-card border border-border rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-tighter">Work Log</h3>
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">A timeline of work sessions.</p>
+          </div>
+          <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+            <Hash size={20} />
+          </div>
+        </div>
+        <div className="w-full h-32 rounded-[2rem] border-2 border-dashed border-border/50 bg-muted/5 flex flex-col items-center justify-center gap-2">
+          <div className="p-3 rounded-xl bg-muted/20 text-muted-foreground/20">
+            <Clock size={24} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">No work sessions recorded for this date</span>
         </div>
       </div>
     );

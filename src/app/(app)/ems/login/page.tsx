@@ -125,6 +125,13 @@ function LoginContent() {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
+      // Sync session cookie before navigation
+      const idToken = await user.getIdToken(true);
+      await fetch("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ session: idToken }),
+      });
+
       // Check if user exists in Firestore
       const { db } = await import("@/lib/firebase");
       const { doc, getDoc, setDoc, serverTimestamp } = await import("firebase/firestore");
@@ -212,6 +219,13 @@ function LoginContent() {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+
+      // Sync session cookie before navigation
+      const idToken = await user.getIdToken(true);
+      await fetch("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ session: idToken }),
+      });
 
       // Check if user exists in Firestore
       const { db } = await import("@/lib/firebase");

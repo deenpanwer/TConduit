@@ -98,7 +98,7 @@ export async function POST(req: Request) {
         
         console.log("Analyze Intent API: Sending prompt to Mistral for intent inference...");
         const { text } = await generateText({
-            model: mistral('pixtral-large-2411'), // Using the same model as the other route
+            model: mistral('pixtral-12b-2409'),
             messages: [{ role: "user", content: content }],
         });
         console.log("Analyze Intent API: Received response from Mistral");
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
                 },
                 output: inferredIntent,
                 metadata: {
-                    model: 'pixtral-large-2411',
+                    model: 'pixtral-12b-2409',
                     platform: 'website',
                     action: 'intent_analysis'
                 }

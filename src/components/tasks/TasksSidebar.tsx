@@ -1,16 +1,13 @@
 "use client";
 import { cn, getUserAvatar } from "@/lib/utils";
 import { 
-  ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
-  LayoutDashboard, Activity, Zap, Settings, Users,
-  Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays,
-  ShoppingCart, Briefcase, X,
+  SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
+  UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
+  Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays, Database,
+  ShoppingCart, Briefcase, X, List, LayoutGrid, Calendar, LogOut,
   Bell,
   Search,
   History,
-  LayoutGrid,
-  List,
-  Calendar,
   Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,10 +24,12 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTeam } from "@/hooks/use-team";
 import { useShift } from "@/hooks/use-shift";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 import { ProductSwitcher } from "@/components/ems/shared/ProductSwitcher";
+import { toast } from "sonner";
 
 interface TasksSidebarProps {
   isCollapsed: boolean;
@@ -225,29 +224,33 @@ export function TasksSidebar({
               selectedModules={selectedModules}
               partnerBrand={partnerBrand}
               onConfigOpen={() => setIsConfigOpen(true)}
+              isClient={userData?.role === "client" || userData?.isClient === true}
+              allowedScopes={userData?.allowedScopes || []}
             />
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => onInviteClick?.()}
-                    className={cn(
-                      "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
-                    )}
-                  >
-                    <Plus className="size-5 shrink-0" />
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Employees</span>}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Invite Employees
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {userData?.role !== "client" && !userData?.isClient && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => onInviteClick?.()}
+                      className={cn(
+                        "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
+                        (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+                      )}
+                    >
+                      <Plus className="size-5 shrink-0" />
+                      {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Employees</span>}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                    Invite Employees
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <div className="space-y-1">
                 <NavItem icon={LayoutDashboard} label="Overview" href="/tasks?view=dashboard" active={pathname === "/tasks" && (view === "dashboard" || !view)} />
                 <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && view === "list"} />
@@ -270,13 +273,34 @@ export function TasksSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
+                      if (userData?.role === "client" || userData?.isClient === true) {
+                        if (typeof window !== "undefined") {
+                          sessionStorage.removeItem("client_portal_session");
+                          localStorage.removeItem("client_portal_session");
+                        }
+                        const shareId = userData?.shareId;
+                        const orgId = userData?.orgId;
+                        await signOut(auth);
+                        toast("Logged Out", { description: "You have safely exited the client portal." });
+                        if (orgId && shareId) {
+                          router.push(`/share/${orgId}/${shareId}`);
+                        } else {
+                          router.push("/");
+                        }
+                        return;
+                      }
                       router.push("/ems/settings");
                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
+                      "flex items-center transition-all group border border-transparent",
+                      (isCollapsed && !isMobileSidebarOpen) 
+                        ? "w-12 h-12 justify-center rounded-full mx-auto" 
+                        : "w-full gap-3 p-2 px-3 rounded-xl",
+                      (userData?.role === "client" || userData?.isClient === true)
+                        ? "bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
+                        : "hover:bg-secondary"
                     )}
                   >
                     <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0 transition-transform group-hover:scale-105">
@@ -287,17 +311,24 @@ export function TasksSidebar({
                         />
                     </div>
                     {(!isCollapsed || isMobileSidebarOpen) && (
-                      <div className="flex flex-1 items-center justify-between min-w-0">
-                        <div className="flex flex-col min-w-0 text-left">
-                            <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Admin"}</div>
-                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{userData?.role || "Owner"}</div>
+                      <div className="flex flex-1 items-center justify-between min-w-0 text-left">
+                        <div className={cn("flex flex-col min-w-0", (userData?.role === "client" || userData?.isClient === true) ? "text-destructive" : "")}>
+                            <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Client Portal"}</div>
+                            <div className={cn("text-[10px] font-black uppercase tracking-widest", (userData?.role === "client" || userData?.isClient === true) ? "text-destructive/80" : "text-muted-foreground")}>
+                              {(userData?.role === "client" || userData?.isClient === true) ? "Client Access" : (userData?.role || "Owner")}
+                            </div>
                         </div>
+                        {(userData?.role === "client" || userData?.isClient === true) ? (
+                          <LogOut size={16} className="text-destructive ml-2 shrink-0 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <Settings size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                        )}
                       </div>
                     )}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Account Settings
+                  {(userData?.role === "client" || userData?.isClient === true) ? "Sign Out of Client Portal" : "Account Settings"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

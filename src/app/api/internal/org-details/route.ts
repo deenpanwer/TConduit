@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const admin = getFirebaseAdmin();
@@ -111,14 +113,21 @@ export async function GET(req: Request) {
       if (s) staff.push(s);
     });
 
-    // Sort staff by role (Owner first) then name
-    staff.sort((a, b) => {
-      if (a.role?.toLowerCase() === "owner" || a.role?.toLowerCase() === "founder") return -1;
-      if (b.role?.toLowerCase() === "owner" || b.role?.toLowerCase() === "founder") return 1;
-      return (a.name || "").localeCompare(b.name || "");
+    // 3. Fetch Client Shares / Portal Clients for this organization
+    const clientSharesSnap = await adminDb.collection("organizations").doc(orgId).collection("client_shares").get();
+    const clientShares: any[] = [];
+    clientSharesSnap.forEach(cDoc => {
+      const cData = cDoc.data();
+      clientShares.push({
+        id: cDoc.id,
+        clientEmail: cData.clientEmail || cData.email,
+        allowedScopes: cData.allowedScopes || [],
+        createdAt: cData.createdAt?.toDate ? cData.createdAt.toDate().toISOString() : cData.createdAt,
+        branding: cData.branding || {},
+      });
     });
 
-    return NextResponse.json({ org: orgData, staff });
+    return NextResponse.json({ org: orgData, staff, clientShares });
   } catch (error: any) {
     console.error("Org Details API Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

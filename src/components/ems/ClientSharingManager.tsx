@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
+import { cn } from "@/lib/utils";
 import { 
   collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp 
 } from "firebase/firestore";
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Copy, Check, Settings, BarChart2, Trash2, Plus, Loader2, Sparkles, 
-  Lock, ArrowUpRight, ShieldCheck, Mail, MonitorPlay, Clock, Calendar, Globe
+  Lock, ArrowUpRight, ArrowRight, Pencil, ShieldCheck, Mail, MonitorPlay, Clock, Calendar, Globe, ExternalLink
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -30,12 +31,9 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
 
   // Form State
   const [newEmail, setNewEmail] = useState("");
-  const [scopes, setScopes] = useState({
-    ems: true,
-    crm: true,
-    tasks: true,
-  });
+  const [scopes, setScopes] = useState({ ems: true, crm: true, tasks: true });
   const [isAdding, setIsAdding] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Modals / Modals State
   const [selectedShare, setSelectedShare] = useState<any>(null);
@@ -58,9 +56,6 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [loadingEmbed, setLoadingEmbed] = useState(false);
-
-  // Copy status
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // 1. Subscribe to Client Shares
   useEffect(() => {
@@ -95,6 +90,15 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
       .filter(([_, enabled]) => enabled)
       .map(([name]) => name);
 
+    if (clientShares.length >= 3) {
+      toast({
+        title: "Limit Reached",
+        description: "Maximum limit of 3 active client shares reached. Please remove an existing client link to generate a new one.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (activeScopes.length === 0) {
       toast({
         title: "Invalid Access Scopes",
@@ -106,38 +110,58 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
 
     setIsAdding(true);
     try {
-      const shareCollectionRef = collection(db, "organizations", orgId, "client_shares");
-      const newShareDoc = doc(shareCollectionRef);
-      const shareId = newShareDoc.id;
-
-      const batch = writeBatch(db);
-
-      // Create Client Share Doc (Branding & metadata)
-      const shareData = {
-        id: shareId,
-        orgId,
-        clientEmail: emailToRegister,
-        allowedScopes: activeScopes,
-        createdAt: serverTimestamp(),
-        branding: {
-          logoUrl: orgData?.logoUrl || "",
-          titleText: `Welcome to the ${orgData?.name || "Company"} Client Portal`,
-          descriptionText: "Enter your email address below to securely access your tasks, projects, and contact updates.",
-          buttonText: "Access Portal",
-          welcomeMessage: "Access granted! Fetching project files..."
-        }
-      };
-      batch.set(newShareDoc, shareData);
-
-      // Create Client Email Doc (Fast lookup for security rules)
-      const emailDocRef = doc(db, "organizations", orgId, "client_emails", emailToRegister);
-      batch.set(emailDocRef, {
-        shareId,
-        allowedScopes: activeScopes,
-        createdAt: serverTimestamp()
+      const res = await fetch("/api/client/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId,
+          clientEmail: emailToRegister,
+          allowedScopes: activeScopes,
+          branding: {
+            logoUrl: orgData?.logoUrl || "",
+            titleText: `Welcome to the ${orgData?.name || "Company"} Client Portal`,
+            descriptionText: "Enter your email address below to securely access your tasks, projects, and contact updates.",
+            buttonText: "Access Portal",
+            welcomeMessage: "Access granted! Fetching project files..."
+          }
+        })
       });
 
-      await batch.commit();
+      const resData = await res.json();
+      if (!res.ok) {
+        console.warn("Server API creation notice, attempting client-side fallback:", resData.error);
+        const shareCollectionRef = collection(db, "organizations", orgId, "client_shares");
+        const newShareDoc = doc(shareCollectionRef);
+        const shareId = newShareDoc.id;
+
+        const batch = writeBatch(db);
+
+        const shareData = {
+          id: shareId,
+          orgId,
+          clientEmail: emailToRegister,
+          allowedScopes: activeScopes,
+          isCustomBranded: false,
+          createdAt: serverTimestamp(),
+          branding: {
+            logoUrl: orgData?.logoUrl || "",
+            titleText: `Welcome to the ${orgData?.name || "Company"} Client Portal`,
+            descriptionText: "Enter your email address below to securely access your tasks, projects, and contact updates.",
+            buttonText: "Access Portal",
+            welcomeMessage: "Access granted! Fetching project files..."
+          }
+        };
+        batch.set(newShareDoc, shareData);
+
+        const emailDocRef = doc(db, "organizations", orgId, "client_emails", emailToRegister);
+        batch.set(emailDocRef, {
+          shareId,
+          allowedScopes: activeScopes,
+          createdAt: serverTimestamp()
+        });
+
+        await batch.commit();
+      }
 
       toast({
         title: "Client Portal Created",
@@ -147,7 +171,7 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
     } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: error.message,
+        description: error.message || "Could not register client portal.",
         variant: "destructive"
       });
     } finally {
@@ -158,13 +182,25 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
   // 3. Revoke Client Share
   const handleRevokeShare = async (share: any) => {
     try {
-      const batch = writeBatch(db);
-      const shareRef = doc(db, "organizations", orgId, "client_shares", share.id);
-      const emailRef = doc(db, "organizations", orgId, "client_emails", share.clientEmail);
+      const res = await fetch("/api/client/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId,
+          shareId: share.id,
+          clientEmail: share.clientEmail
+        })
+      });
 
-      batch.delete(shareRef);
-      batch.delete(emailRef);
-      await batch.commit();
+      if (!res.ok) {
+        const batch = writeBatch(db);
+        const shareRef = doc(db, "organizations", orgId, "client_shares", share.id);
+        const emailRef = doc(db, "organizations", orgId, "client_emails", share.clientEmail);
+
+        batch.delete(shareRef);
+        batch.delete(emailRef);
+        await batch.commit();
+      }
 
       toast({
         title: "Access Revoked",
@@ -198,8 +234,21 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
     setIsSavingBranding(true);
 
     try {
-      const shareRef = doc(db, "organizations", orgId, "client_shares", selectedShare.id);
-      await setDoc(shareRef, { branding }, { merge: true });
+      const res = await fetch("/api/client/update-branding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId,
+          shareId: selectedShare.id,
+          branding
+        })
+      });
+
+      if (!res.ok) {
+        const shareRef = doc(db, "organizations", orgId, "client_shares", selectedShare.id);
+        await setDoc(shareRef, { branding, isCustomBranded: true }, { merge: true });
+      }
+
       toast({
         title: "Branding Saved",
         description: "Visual settings successfully updated for this client link."
@@ -208,7 +257,7 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
     } catch (error: any) {
       toast({
         title: "Save Failed",
-        description: error.message,
+        description: error.message || "Failed to save branding settings.",
         variant: "destructive"
       });
     } finally {
@@ -303,19 +352,19 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
 
   return (
     <div className="space-y-8">
-      {/* Command Center Title / Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Active Client Shares</span>
-            <Globe className="size-4 text-primary" />
           </div>
           <div className="mt-4">
             <span className="text-4xl font-black tracking-tight">{clientShares.length}</span>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">White-labeled portals active</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">Client portals active</p>
           </div>
         </div>
 
+        {/* 
         <div className="bg-card border border-border rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Access Scopes</span>
@@ -328,26 +377,52 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">Configured modules</p>
           </div>
         </div>
+        */}
 
         <div className="bg-card border-2 border-primary/20 bg-primary/5 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Branding Prefills</span>
-            <Sparkles className="size-4 text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Branding Defaults</span>
           </div>
           <div className="mt-4">
-            <span className="text-sm font-bold uppercase tracking-tight text-foreground flex items-center gap-1.5">
-              Logo prefilled <Check className="size-4 text-primary" />
-            </span>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">Configured from {orgData?.name}</p>
+            {orgData?.logoUrl ? (
+              <>
+                <span className="text-sm font-bold uppercase tracking-tight text-foreground flex items-center gap-1.5">
+                  Logo Configured <Check className="size-4 text-primary" />
+                </span>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">Default logo active</p>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-bold uppercase tracking-tight text-muted-foreground">
+                  No Default Logo Uploaded
+                </span>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight mt-1">Upload logo in Company tab</p>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Add Client Share Form */}
-      <section className="bg-card border border-border rounded-3xl p-6 shadow-sm">
-        <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-          <Plus size={16} className="text-primary" /> Create New Client Share
-        </h3>
+      <section className="bg-card border border-border rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+            <Plus size={16} className="text-primary" /> Create New Client Share
+          </h3>
+          <Badge 
+            variant={clientShares.length >= 3 ? "destructive" : "secondary"} 
+            className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg"
+          >
+            {clientShares.length} / 3 Shares Used
+          </Badge>
+        </div>
+
+        {clientShares.length >= 3 && (
+          <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold flex items-center gap-3">
+            <ShieldCheck size={18} className="shrink-0" />
+            <span>Maximum limit reached (3/3 active client shares). Remove an existing client link below to free up a slot.</span>
+          </div>
+        )}
         
         <form onSubmit={handleAddClientShare} className="space-y-6 max-w-3xl">
           <div className="flex flex-col md:flex-row md:items-end gap-6">
@@ -360,6 +435,7 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
                   type="email"
                   placeholder="client@company.com"
                   value={newEmail}
+                  disabled={clientShares.length >= 3}
                   onChange={(e) => setNewEmail(e.target.value)}
                   className="pl-10 rounded-xl py-5 border-border bg-secondary/10"
                 />
@@ -368,8 +444,8 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
 
             <Button 
               type="submit" 
-              disabled={isAdding || !newEmail}
-              className="rounded-xl px-6 py-5 font-bold uppercase tracking-widest text-[10px] gap-2 shadow-sm bg-primary text-primary-foreground shrink-0 h-10 align-bottom"
+              disabled={isAdding || !newEmail || clientShares.length >= 3}
+              className="rounded-xl px-6 py-5 font-bold uppercase tracking-widest text-[10px] gap-2 shadow-sm bg-primary text-primary-foreground shrink-0 h-10 align-bottom disabled:opacity-50"
             >
               {isAdding ? <Loader2 className="size-3 animate-spin" /> : <Plus size={14} />} Generate Access Link
             </Button>
@@ -416,8 +492,15 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
       </section>
 
       {/* Directory Table */}
-      <section className="bg-card border border-border rounded-3xl p-6 shadow-sm overflow-hidden">
-        <h3 className="text-sm font-black uppercase tracking-widest mb-6">Client Access Directory</h3>
+      <section className="bg-card border border-border rounded-3xl p-6 shadow-sm overflow-hidden space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-black uppercase tracking-widest">Client Access</h3>
+          </div>
+          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest w-fit">
+            {clientShares.length} of 3 Slots Active
+          </Badge>
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -434,140 +517,262 @@ export function ClientSharingManager({ orgId, isPremium, orgData }: ClientSharin
               <thead>
                 <tr className="border-b border-border">
                   <th className="pb-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Client Email</th>
+                  <th className="pb-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Dedicated Client Login Link</th>
                   <th className="pb-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Scopes Enabled</th>
                   <th className="pb-4 text-[10px] font-black uppercase tracking-wider text-muted-foreground text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {clientShares.map((share) => (
-                  <tr key={share.id} className="group">
-                    <td className="py-4 text-xs font-bold font-mono text-foreground truncate max-w-[200px]">{share.clientEmail}</td>
-                    <td className="py-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        {share.allowedScopes?.map((scope: string) => (
-                          <Badge 
-                            key={scope} 
-                            variant="secondary" 
-                            className="text-[8px] font-black uppercase tracking-widest py-0.5 rounded-md bg-secondary/80 border"
+                {clientShares.map((share) => {
+                  const isBrandingConfigured = Boolean(share.isCustomBranded === true || share.branding?.isCustom === true);
+                  const clientLoginUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/share/${orgId}/${share.id}`;
+
+                  return (
+                    <tr key={share.id} className="group">
+                      <td className="py-4 text-xs font-bold font-mono text-foreground truncate max-w-[180px]">{share.clientEmail}</td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2 max-w-[340px]">
+                          <span 
+                            className="font-mono text-xs text-muted-foreground truncate max-w-[260px] select-all bg-secondary/30 px-2.5 py-1 rounded-lg border border-border/40"
+                            title="Client Portal Access Link (Copy-only)"
                           >
-                            {scope}
-                          </Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => copyLink(share.id)} 
-                          title="Copy Link"
-                          className="h-8 w-8 rounded-lg hover:bg-secondary border border-transparent hover:border-border transition-all"
-                        >
-                          {copiedId === share.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => openBrandingModal(share)}
-                          title="Portal Branding Config"
-                          className="h-8 w-8 rounded-lg hover:bg-secondary border border-transparent hover:border-border transition-all"
-                        >
-                          <Settings size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => openAnalytics(share)}
-                          title="Client Analytics Recordings"
-                          className="h-8 w-8 rounded-lg hover:bg-secondary border border-transparent hover:border-border transition-all"
-                        >
-                          <BarChart2 size={14} className="text-muted-foreground group-hover:text-green-500 transition-colors" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleRevokeShare(share)}
-                          title="Revoke All Access"
-                          className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/25 transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                            {clientLoginUrl}
+                          </span>
+                          <Button 
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => copyLink(share.id)}
+                            title="Copy Client Access Link"
+                            className={cn(
+                              "h-7 w-7 rounded-lg transition-all shrink-0 border",
+                              copiedId === share.id 
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 scale-110" 
+                                : "hover:bg-secondary text-muted-foreground hover:text-primary border-transparent hover:border-border"
+                            )}
+                          >
+                            {copiedId === share.id ? (
+                              <Check size={13} className="text-emerald-500 animate-in zoom-in" />
+                            ) : (
+                              <Copy size={13} />
+                            )}
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex gap-1.5 flex-wrap">
+                          {share.allowedScopes?.map((scope: string) => (
+                            <Badge 
+                              key={scope} 
+                              variant="secondary" 
+                              className="text-[8px] font-black uppercase tracking-widest py-0.5 rounded-md bg-secondary/80 border"
+                            >
+                              {scope}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => openBrandingModal(share)}
+                            title={isBrandingConfigured ? "Custom Branding Configured (Click to edit)" : "Portal Branding Config"}
+                            className={cn(
+                              "h-8 w-8 rounded-lg border transition-all relative",
+                              isBrandingConfigured 
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500 hover:text-white" 
+                                : "hover:bg-secondary text-muted-foreground hover:text-primary border-transparent hover:border-border"
+                            )}
+                          >
+                            <Settings size={14} className={isBrandingConfigured ? "text-emerald-500 hover:text-white" : "text-muted-foreground group-hover:text-primary"} />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => openAnalytics(share)}
+                            title="Client Analytics Recordings"
+                            className="h-8 w-8 rounded-lg hover:bg-secondary border border-transparent hover:border-border transition-all"
+                          >
+                            <BarChart2 size={14} className="text-muted-foreground group-hover:text-green-500 transition-colors" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleRevokeShare(share)}
+                            title="Remove Client & Revoke Link"
+                            className="h-8 px-3 rounded-xl border-destructive/30 bg-destructive/5 hover:bg-destructive text-destructive hover:text-white transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ml-2"
+                          >
+                            <Trash2 size={12} />
+                            <span>Remove</span>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </section>
 
-      {/* 1. Branding Config Modal */}
+      {/* 1. Branding Config Modal - Spacious 2-Column Live Preview Builder */}
       <Dialog open={brandingModalOpen} onOpenChange={setBrandingModalOpen}>
-        <DialogContent className="max-w-xl rounded-3xl border-border bg-card/95 backdrop-blur-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black uppercase tracking-tighter">Customize Client Branding</DialogTitle>
-            <DialogDescription className="text-xs uppercase tracking-tight text-muted-foreground">
-              Define the visual landing page layout for {selectedShare?.clientEmail}.
-            </DialogDescription>
+        <DialogContent className="max-w-6xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl border-border bg-card/95 backdrop-blur-2xl p-6 md:p-8">
+          <DialogHeader className="mb-4 pb-4 border-b border-border/50">
+            <div>
+              <DialogTitle className="text-lg font-black uppercase tracking-tight">
+                Onboarding Builder
+              </DialogTitle>
+              <DialogDescription className="text-xs uppercase tracking-tight text-muted-foreground mt-0.5">
+                Client Onboarding for <span className="text-primary font-mono font-bold">{selectedShare?.clientEmail}</span>
+              </DialogDescription>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-2">
+            {/* Left Column: Roomy Form Controls */}
+            <div className="lg:col-span-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Branding Logo URL</Label>
+                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Branding Logo</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="https://example.com/logo.png"
+                    value={branding.logoUrl}
+                    onChange={(e) => setBranding(prev => ({ ...prev, logoUrl: e.target.value }))}
+                    className="rounded-xl border-border bg-secondary/15 h-11 text-xs font-medium"
+                  />
+                  <label 
+                    htmlFor="branding-logo-file"
+                    className="px-4 py-2.5 rounded-xl bg-secondary border border-border hover:bg-secondary/80 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
+                  >
+                    <Pencil size={12} />
+                    <span>Upload</span>
+                  </label>
+                  <input 
+                    id="branding-logo-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setBranding(prev => ({ ...prev, logoUrl: reader.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Portal Welcome Title</Label>
                 <Input 
-                  placeholder="https://example.com/logo.png"
-                  value={branding.logoUrl}
-                  onChange={(e) => setBranding(prev => ({ ...prev, logoUrl: e.target.value }))}
-                  className="rounded-xl border-border bg-secondary/10"
+                  placeholder="e.g. Welcome to the Acme Corp Client Portal"
+                  value={branding.titleText}
+                  onChange={(e) => setBranding(prev => ({ ...prev, titleText: e.target.value }))}
+                  className="rounded-xl border-border bg-secondary/15 h-12 text-sm font-bold"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Custom Button Text</Label>
-                <Input 
-                  value={branding.buttonText}
-                  onChange={(e) => setBranding(prev => ({ ...prev, buttonText: e.target.value }))}
-                  className="rounded-xl border-border bg-secondary/10"
+                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Landing Page Description & Onboarding Note</Label>
+                <textarea 
+                  placeholder="Enter onboarding instructions or welcome details for your client..."
+                  value={branding.descriptionText}
+                  onChange={(e) => setBranding(prev => ({ ...prev, descriptionText: e.target.value }))}
+                  rows={3}
+                  className="w-full p-3.5 rounded-xl border border-border bg-secondary/15 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 custom-scrollbar resize-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Custom Button CTA Text</Label>
+                  <Input 
+                    placeholder="Access Portal"
+                    value={branding.buttonText}
+                    onChange={(e) => setBranding(prev => ({ ...prev, buttonText: e.target.value }))}
+                    className="rounded-xl border-border bg-secondary/15 h-11 text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Success Welcome Toast Note</Label>
+                  <Input 
+                    placeholder="Access granted! Loading project files..."
+                    value={branding.welcomeMessage}
+                    onChange={(e) => setBranding(prev => ({ ...prev, welcomeMessage: e.target.value }))}
+                    className="rounded-xl border-border bg-secondary/15 h-11 text-xs font-medium"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Portal Welcome Title</Label>
-              <Input 
-                value={branding.titleText}
-                onChange={(e) => setBranding(prev => ({ ...prev, titleText: e.target.value }))}
-                className="rounded-xl border-border bg-secondary/10"
-              />
-            </div>
+            {/* Right Column: Real-Time Interactive Live Portal Preview */}
+            <div className="lg:col-span-6 flex flex-col">
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">
+                <span>Client Onboarding Screen Mockup</span>
+              </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Landing Page Description</Label>
-              <Input 
-                value={branding.descriptionText}
-                onChange={(e) => setBranding(prev => ({ ...prev, descriptionText: e.target.value }))}
-                className="rounded-xl border-border bg-secondary/10"
-              />
-            </div>
+              <div className="flex-1 bg-background border-2 border-border/80 rounded-3xl p-6 shadow-inner flex flex-col justify-center items-center relative overflow-hidden min-h-[360px]">
+                {/* Background glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Access Success Note</Label>
-              <Input 
-                value={branding.welcomeMessage}
-                onChange={(e) => setBranding(prev => ({ ...prev, welcomeMessage: e.target.value }))}
-                className="rounded-xl border-border bg-secondary/10"
-              />
+                {/* Simulated Portal Card */}
+                <div className="w-full max-w-sm bg-card border border-border/80 rounded-2xl p-6 shadow-xl relative z-10 space-y-6 text-center">
+                  <div className="flex flex-col items-center">
+                    {branding.logoUrl ? (
+                      <img 
+                        src={branding.logoUrl} 
+                        alt="Logo Preview" 
+                        className="h-10 w-auto object-contain mb-3 dark:invert" 
+                      />
+                    ) : (
+                      <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-3">
+                        <ShieldCheck size={22} />
+                      </div>
+                    )}
+
+                    <h4 className="text-lg font-black uppercase tracking-tight leading-snug">
+                      {branding.titleText || `Welcome to the ${orgData?.name || "Company"} Portal`}
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                      {branding.descriptionText || "Enter your email address below to securely access your tasks and updates."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1 text-left">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Authorized Email</span>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                        <Input 
+                          readOnly 
+                          value={selectedShare?.clientEmail || "client@company.com"} 
+                          className="pl-9 h-9 text-[11px] font-mono rounded-lg bg-secondary/30 border-border" 
+                        />
+                      </div>
+                    </div>
+
+                    <Button className="w-full h-10 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-primary-foreground pointer-events-none">
+                      {branding.buttonText || "Access Portal"} <ArrowRight size={14} className="ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-4 pt-4 border-t border-border/50">
             <Button variant="outline" className="rounded-xl font-bold uppercase text-[10px] tracking-wider" onClick={() => setBrandingModalOpen(false)}>
               Cancel
             </Button>
-            <Button className="rounded-xl font-bold uppercase text-[10px] tracking-wider bg-primary text-primary-foreground" onClick={saveBranding} disabled={isSavingBranding}>
-              {isSavingBranding ? <Loader2 className="size-3 animate-spin" /> : "Save branding settings"}
+            <Button className="rounded-xl font-bold uppercase text-[10px] tracking-wider bg-primary text-primary-foreground px-6" onClick={saveBranding} disabled={isSavingBranding}>
+              {isSavingBranding ? <Loader2 className="size-3 animate-spin" /> : "Save Branding Settings"}
             </Button>
           </DialogFooter>
         </DialogContent>

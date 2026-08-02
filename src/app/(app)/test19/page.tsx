@@ -106,8 +106,8 @@ export default function TestOnboardingPage() {
   const [orgName, setOrgName] = useState("");
   const [website, setWebsite] = useState("");
   const [teamSize, setTeamSize] = useState("");
-  const [customerValue, setCustomerValue] = useState("");
-  const [avgSalary, setAvgSalary] = useState("");
+  const [customerValue, setCustomerValue] = useState("5000");
+  const [avgSalary, setAvgSalary] = useState("60000");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2139,142 +2139,221 @@ export default function TestOnboardingPage() {
                 </div>
             </div>
 
+            {/* PROPOSAL EXPERIMENTAL ROI NUDGE CARDS (STACKED FOR TESTING) */}
+            {(() => {
+               const parsedSeats = parseInt(teamSize) || 5;
+               const numSalary = parseFloat(avgSalary.replace(/[^0-9.]/g, '')) || 60000;
+               const numCustValue = parseFloat(customerValue.replace(/[^0-9.]/g, '')) || 5000;
+               const monthlyPayroll = Math.round((numSalary / 12) * parsedSeats);
+               const wastedPrevented = Math.round(monthlyPayroll * 0.18);
+               const tracCost = parsedSeats * 99;
+               const netSavings = wastedPrevented - tracCost;
+               const roiRatio = tracCost > 0 ? (wastedPrevented / tracCost).toFixed(1) : "10";
+               const annualWaste = wastedPrevented * 12;
+               const annualTracCost = tracCost * 12;
+               const annualNetProfit = Math.max(0, annualWaste - annualTracCost);
+
+               return (
+                  <div className="max-w-4xl mx-auto mb-10 space-y-6">
+                     <div className="text-center font-bold text-xs text-blue-600 bg-blue-50 py-1.5 px-4 rounded-full w-fit mx-auto border border-blue-200">
+                        🧪 TESTING ROI OPTIONS BELOW (Review Options 1, 2 & 3)
+                     </div>
+
+                     {/* OPTION 1: Payroll Leakage vs Trac Cost */}
+                     <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800">
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                           <div className="flex items-center gap-2">
+                              <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded">Option 1</span>
+                              <h3 className="font-extrabold text-[15px]">Personalized Workspace ROI Calculator</h3>
+                           </div>
+                           <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                              {roiRatio}x Estimated ROI
+                           </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center my-4">
+                           <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">Monthly Payroll</div>
+                              <div className="text-xl font-black text-white mt-1">${monthlyPayroll.toLocaleString()}</div>
+                           </div>
+                           <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">Idle Waste Prevented</div>
+                              <div className="text-xl font-black text-amber-400 mt-1">${wastedPrevented.toLocaleString()}/mo</div>
+                           </div>
+                           <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
+                              <div className="text-[10px] text-slate-400 font-bold uppercase">Trac Elite Plan</div>
+                              <div className="text-xl font-black text-slate-300 mt-1">-${tracCost.toLocaleString()}/mo</div>
+                           </div>
+                           <div className="bg-emerald-950/80 rounded-xl p-3 border border-emerald-500/30">
+                              <div className="text-[10px] text-emerald-300 font-bold uppercase">Net Monthly Savings</div>
+                              <div className="text-xl font-black text-emerald-400 mt-1">+${netSavings.toLocaleString()}/mo</div>
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* OPTION 2: Single Deal Recovery Threshold */}
+                     <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-6 shadow-xl border border-blue-800 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="space-y-1 text-left">
+                           <div className="flex items-center gap-2">
+                              <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded">Option 2</span>
+                              <h3 className="font-extrabold text-[15px]">Single Deal Recovery Threshold</h3>
+                           </div>
+                           <p className="text-[13px] text-blue-200">
+                              Your Average Customer Value is <strong className="text-white">${numCustValue.toLocaleString()}</strong>. Closing just <strong>1 extra deal</strong> this year pays for your team's entire Trac subscription 10× over.
+                           </p>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 text-center shrink-0 min-w-[200px]">
+                           <div className="text-[10px] font-bold uppercase text-blue-200">Deals Needed</div>
+                           <div className="text-2xl font-black text-emerald-300">1 Deal = 10x ROI</div>
+                        </div>
+                     </div>
+
+                     {/* OPTION 3: Interactive Dynamic Savings Bar Chart */}
+                     <div className="bg-white text-slate-900 rounded-2xl p-6 shadow-md border border-slate-200">
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                           <div className="flex items-center gap-2">
+                              <span className="bg-blue-600 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded">Option 3</span>
+                              <h3 className="font-extrabold text-[15px]">Annual Workspace Financial Impact</h3>
+                           </div>
+                           <span className="text-[11px] font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                              +${annualNetProfit.toLocaleString()} / yr Recovered
+                           </span>
+                        </div>
+                        <div className="space-y-4">
+                           <div>
+                              <div className="flex justify-between text-xs font-bold mb-1">
+                                 <span className="text-slate-500">Unmonitored Annual Waste</span>
+                                 <span className="text-red-500">${annualWaste.toLocaleString()} / yr</span>
+                              </div>
+                              <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                                 <div className="h-full bg-red-500 rounded-full" style={{ width: '100%' }} />
+                              </div>
+                           </div>
+                           <div>
+                              <div className="flex justify-between text-xs font-bold mb-1">
+                                 <span className="text-slate-500">Annual Trac Investment</span>
+                                 <span className="text-blue-600">${annualTracCost.toLocaleString()} / yr</span>
+                              </div>
+                              <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
+                                 <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, Math.max(10, Math.round((annualTracCost / Math.max(1, annualWaste)) * 100)))}%` }} />
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               );
+            })()}
+
             {/* Pricing Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                
-               {/* STARTER */}
+               {/* MINIMUM */}
                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative">
                   <div>
-                     <h3 className="text-[18px] font-black text-slate-800">Starter</h3>
+                     <h3 className="text-[18px] font-black text-slate-800">MINIMUM</h3>
                      <div className="mt-4 flex items-baseline">
-                        <span className="text-3xl font-black text-slate-800">$7</span>
+                        <span className="text-3xl font-black text-slate-800">$39</span>
                         <span className="text-slate-400 text-[12px] font-bold ml-1">/ seat / mo</span>
                      </div>
                      <p className="text-[10px] text-slate-400 font-bold mt-1">2 seat minimum</p>
                      
                      <Button className="w-full mt-6 bg-[#2b90ff] hover:bg-[#1a80ef] text-white font-bold h-10 rounded-lg text-[13px]">
-                        Choose Starter plan
+                        Choose Minimum plan
                      </Button>
 
                      <div className="mt-6 space-y-3.5 border-t border-gray-100 pt-6">
                         <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Includes:</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Time tracking</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Timesheets</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Activity levels</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Limited screenshots</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Limited app & URL tracking</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Limited reports</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Clients & Invoices</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Screenshot Capture</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Active Status & Idle Detection</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> AI Lead Hunter (5k leads/mo)</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Direct Messaging</div>
                      </div>
                   </div>
                   <div className="mt-8 pt-4 border-t border-gray-50 text-[11px] text-slate-400 font-bold">
-                     Support: Two-day email
+                     Support: Email
                   </div>
                </div>
 
-               {/* GROW */}
+               {/* BUSINESS */}
                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative">
                   <div>
-                     <h3 className="text-[18px] font-black text-slate-800">Grow</h3>
+                     <h3 className="text-[18px] font-black text-slate-800">BUSINESS</h3>
                      <div className="mt-4 flex items-baseline">
-                        <span className="text-3xl font-black text-slate-800">$9</span>
+                        <span className="text-3xl font-black text-slate-800">$59</span>
                         <span className="text-slate-400 text-[12px] font-bold ml-1">/ seat / mo</span>
                      </div>
                      <p className="text-[10px] text-slate-400 font-bold mt-1">2 seat minimum</p>
                      
                      <Button className="w-full mt-6 bg-[#2b90ff] hover:bg-[#1a80ef] text-white font-bold h-10 rounded-lg text-[13px]">
-                        Choose Grow plan
+                        Choose Business plan
                      </Button>
 
                      <div className="mt-6 space-y-3.5 border-t border-gray-100 pt-6">
-                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Starter plus:</div>
-                        <div className="bg-slate-50 rounded-lg p-2 flex items-center gap-2 border border-slate-100">
-                           <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">Add-on</span>
-                           <span className="text-[11px] font-bold text-slate-700">Tasks</span>
-                        </div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> 1 integration</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Idle timeout</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Project budgets</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Work breaks</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Expenses</div>
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Minimum plus:</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Mobile App Access</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> AI Insights Manager</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Shift Scheduling & Clock-ins</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Automated Timesheets</div>
                      </div>
                   </div>
                   <div className="mt-8 pt-4 border-t border-gray-50 text-[11px] text-slate-400 font-bold">
-                     Support: One-day email
+                     Support: Priority Email
                   </div>
                </div>
 
-               {/* TEAM */}
+               {/* ELITE */}
                <div className="bg-white border-2 border-blue-500 rounded-2xl p-6 shadow-md flex flex-col justify-between hover:shadow-lg transition-shadow relative ring-2 ring-blue-500/10">
                   <div className="absolute -top-3.5 right-4 bg-orange-500 text-white font-extrabold text-[10px] uppercase tracking-widest px-3 py-1 rounded-full border-2 border-white shadow-sm">
                      Popular
                   </div>
                   <div>
-                     <h3 className="text-[18px] font-black text-slate-800">Team</h3>
+                     <h3 className="text-[18px] font-black text-slate-800">ELITE</h3>
                      <div className="mt-4 flex items-baseline">
-                        <span className="text-3xl font-black text-slate-800">$12</span>
+                        <span className="text-3xl font-black text-slate-800">$99</span>
                         <span className="text-slate-400 text-[12px] font-bold ml-1">/ seat / mo</span>
                      </div>
                      <p className="text-[10px] text-slate-400 font-bold mt-1">2 seat minimum</p>
                      
                      <Button className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-lg text-[13px] shadow-md shadow-blue-100">
-                        Choose Team plan
+                        Choose Elite plan
                      </Button>
 
                      <div className="mt-6 space-y-3.5 border-t border-gray-100 pt-6">
-                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Grow plus:</div>
-                        <div className="bg-slate-50 rounded-lg p-2 flex flex-col gap-1.5 border border-slate-100">
-                           <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-extrabold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">Add-on</span>
-                              <span className="text-[11px] font-bold text-slate-700">Insights</span>
-                           </div>
-                           <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-extrabold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">Add-on</span>
-                              <span className="text-[11px] font-bold text-slate-700">Tasks</span>
-                           </div>
-                        </div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Unlimited screenshots</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Auto discard idle time</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Payments & payroll</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Scheduling & attendance</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Timesheet approvals</div>
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Business plus:</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> AI Personnel Pulse</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> 30 Days Full History</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Voice & Video Tasks</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Leaderboards & Contests</div>
                      </div>
                   </div>
                   <div className="mt-8 pt-4 border-t border-gray-50 text-[11px] text-slate-400 font-bold">
-                     Support: Chat & One-day email
+                     Support: Priority VIP 24/7
                   </div>
                </div>
 
                {/* ENTERPRISE */}
                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative">
                   <div>
-                     <h3 className="text-[18px] font-black text-slate-800">Enterprise</h3>
+                     <h3 className="text-[18px] font-black text-slate-800">ENTERPRISE</h3>
                      <div className="mt-4 flex items-baseline">
-                        <span className="text-3xl font-black text-slate-800">$25</span>
-                        <span className="text-slate-400 text-[12px] font-bold ml-1">/ seat / mo</span>
+                        <span className="text-3xl font-black text-slate-800">Custom</span>
                      </div>
                      <p className="text-[10px] text-slate-400 font-bold mt-1">Billed annually</p>
                      
-                     <Button variant="outline" className="w-full mt-6 border-blue-500 text-blue-600 hover:bg-blue-50 font-bold h-10 rounded-lg text-[13px]">
+                     <Button 
+                       variant="outline" 
+                       onClick={() => {
+                         window.open('https://calendly.com/kaayfkhan/discovery-call', '_blank');
+                       }}
+                       className="w-full mt-6 border-blue-500 text-blue-600 hover:bg-blue-50 font-bold h-10 rounded-lg text-[13px]"
+                     >
                         Let's talk
                      </Button>
 
                      <div className="mt-6 space-y-3.5 border-t border-gray-100 pt-6">
-                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Team plus:</div>
-                        <div className="bg-slate-50 rounded-lg p-2 flex flex-col gap-1.5 border border-slate-100">
-                           <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-extrabold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">Add-on</span>
-                              <span className="text-[11px] font-bold text-slate-700">Locations</span>
-                           </div>
-                           <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-extrabold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">Add-on</span>
-                              <span className="text-[11px] font-bold text-slate-700">Silent app</span>
-                           </div>
-                        </div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Pay by bank debit (ACH)</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> HIPAA compliance</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> SOC-2 Type II compliance</div>
-                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Single sign-on</div>
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">All Elite plus:</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Full ERP Suite (CRM, POS, ATS)</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Private Server Hosting</div>
+                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-2"><Check className="size-3.5 text-blue-500 shrink-0" /> Full Whitelabel Platform</div>
                      </div>
                   </div>
                   <div className="mt-8 pt-4 border-t border-gray-50 text-[11px] text-slate-400 font-bold">

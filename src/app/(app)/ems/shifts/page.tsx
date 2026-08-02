@@ -45,6 +45,8 @@ export default function ShiftsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const orgId = userData?.ownedOrgId || userData?.orgId;
   const [orgData, setOrgData] = useState<any>(null);
+  
+  const isClientUser = userData?.role === "client" || userData?.isClient === true;
 
   useEffect(() => {
     if (orgId) {
@@ -164,6 +166,31 @@ export default function ShiftsPage() {
       type: todayType,
     };
   }, [shifts, user, userData, daysOfWeek]);
+
+  // Derived: Scheduled Time Change Notice Alert text
+  const shiftChangeAlert = useMemo(() => {
+    const myId = user?.uid || userData?.id;
+    if (!myId) return null;
+
+    const weekDates = daysOfWeek.map(d => format(d, 'yyyy-MM-dd'));
+    const overrideShifts = shifts.filter(s => {
+      if (s.userId !== myId || !weekDates.includes(s.date) || s.isVirtual) return false;
+      return true;
+    });
+
+    if (overrideShifts.length === 0) return null;
+
+    const details = overrideShifts.map(s => {
+      let d: Date;
+      try { d = parseISO(s.date); } catch { d = new Date(); }
+      const dayLabel = format(d, 'EEEE, MMM d');
+      const start = s.startTime || '09:00';
+      const end = s.endTime || '17:00';
+      return `${dayLabel} (${start} - ${end})`;
+    }).join(' • ');
+
+    return `Scheduled Time Change Notice: You have ${overrideShifts.length} modified shift ${overrideShifts.length === 1 ? 'time' : 'times'} this week: ${details}.`;
+  }, [shifts, user, userData, daysOfWeek]);
   
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -172,9 +199,10 @@ export default function ShiftsPage() {
   const handleToday = () => setCurrentDate(new Date());
 
   const isManager = useMemo(() => {
+    if (isClientUser) return false;
     const role = userData?.role?.toLowerCase();
     return role === 'manager' || role === 'owner' || role === 'founder' || role === 'hr' || role === 'ops' || !!userData?.ownedOrgId;
-  }, [userData]);
+  }, [userData, isClientUser]);
 
   const handleCellClick = (userId: string | null, day: Date) => {
     if (!isManager) return;
@@ -348,7 +376,7 @@ export default function ShiftsPage() {
                 <div className="flex items-center gap-6 sm:gap-8">
                    <div>
                       <p className="text-[9px] font-black uppercase text-muted-foreground/60 mb-0.5">Today</p>
-                      <p className="text-sm font-black tracking-tight">{myScheduleSummary.today} <span className={cn("text-[10px] ml-1", myScheduleSummary.type === 'Regular' && 'text-indigo-500', myScheduleSummary.type === 'Custom Change' && 'text-amber-600')}>
+                      <p className="text-sm font-black tracking-tight">{myScheduleSummary.today} <span className={cn("text-[10px] ml-1", myScheduleSummary.type === 'Regular' && 'text-indigo-500', myScheduleSummary.type === 'Custom Change' && 'text-amber-600 font-bold')}>
                         ({myScheduleSummary.type})
                       </span></p>
                    </div>
@@ -356,7 +384,7 @@ export default function ShiftsPage() {
                    <div>
                       <p className="text-[9px] font-black uppercase text-muted-foreground/60 mb-0.5">This Week</p>
                       <p className="text-sm font-black tracking-tight">
-                        {myScheduleSummary.virtualCount} Regular <span className="mx-2 opacity-20">/</span> {myScheduleSummary.manualCount} Changes
+                        {myScheduleSummary.virtualCount} Regular <span className="mx-2 opacity-20">/</span> <span className={cn(myScheduleSummary.manualCount > 0 && "text-amber-600 font-bold")}>{myScheduleSummary.manualCount} Changes</span>
                       </p>
                    </div>
                 </div>
@@ -413,7 +441,7 @@ export default function ShiftsPage() {
                       {dayShifts.map(shift => {
                         const staff = employees.find(m => m.id === shift.userId || m.uid === shift.userId);
                         return (
-                          <div key={shift.id} onClick={() => !isOffDay && handleCellClick(shift.userId, day)} className="touch-none cursor-pointer">
+                          <div key={shift.id} onClick={() => !isClientUser && !isOffDay && handleCellClick(shift.userId, day)} className="touch-none cursor-pointer">
                             <div className={cn(
                               "p-4 rounded-[1.5rem] border-2 flex items-center justify-between bg-card shadow-sm transition-all",
                               shift.status === 'draft' ? "border-dashed border-slate-300 dark:border-muted-foreground/30 opacity-80" : "border-border"
@@ -603,15 +631,19 @@ export default function ShiftsPage() {
 						  const isPast = isBefore(day, today);
                           
                           return (
-                            <div key={dayStr} onClick={() => !approvedLeave && !isOffDay && handleCellClick(member.id || member.uid, day)} className={cn(
-                              "flex-1 p-2 border-r-2 last:border-r-0 min-h-[120px] flex items-center justify-center relative transition-all group/cell",
-                              (approvedLeave || isOffDay) ? "bg-red-500/5 cursor-not-allowed" : "cursor-pointer hover:bg-slate-100 dark:hover:bg-secondary/20",
-                              pendingLeave && "bg-yellow-500/5"
-                            )}>
-                              {isOffDay ? (
-                                <div className="text-center space-y-1">
-                                  <p className="text-[8px] font-black uppercase text-slate-300 dark:text-muted-foreground/30 tracking-widest rotate-[-45deg]">Closed</p>
-                                </div>
+                            <div 
+                              key={dayStr} 
+                              onClick={() => !isClientUser && !approvedLeave && handleCellClick(member.id || member.uid, day)} 
+                              className={cn(
+                                "flex-1 p-2 border-r-2 last:border-r-0 min-h-[120px] flex items-center justify-center relative transition-all group/cell",
+                                (approvedLeave || isClientUser) ? (isClientUser ? "cursor-default" : "bg-red-500/5 cursor-not-allowed") : "cursor-pointer hover:bg-slate-100 dark:hover:bg-secondary/20",
+                                isOffDay && !shift && "bg-red-500/10 dark:bg-red-500/15 border-red-500/20",
+                                isOffDay && shift && "bg-red-500/5 dark:bg-red-500/10",
+                                pendingLeave && "bg-yellow-500/5"
+                              )}
+                            >
+                              {shift && !(shift.isVirtual && isPast) ? (
+                                <WorkTimeBlock shift={shift} onDelete={isManager ? () => deleteShift(shift.id) : undefined} />
                               ) : approvedLeave ? (
                                 <div className="text-center space-y-1">
                                   <Coffee size={18} className="mx-auto text-red-500/40" />
@@ -622,9 +654,11 @@ export default function ShiftsPage() {
                                   <MessageSquare size={18} className="mx-auto text-yellow-500/40" />
                                   <p className="text-[10px] font-black uppercase text-yellow-500/40 tracking-widest">Pending</p>
                                 </div>
-                              ) : shift && !(shift.isVirtual && isPast) ? (
-                                <WorkTimeBlock shift={shift} onDelete={() => deleteShift(shift.id)} />
-                              ) : (
+                              ) : isOffDay ? (
+                                <div className="text-center space-y-1">
+                                  <p className="text-[9px] font-black uppercase text-red-600/70 dark:text-red-400/70 tracking-widest rotate-[-12deg]">OFF DAY</p>
+                                </div>
+                              ) : !isClientUser && (
                                 <div className="size-10 rounded-full border-2 border-dashed border-border/30 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity">
                                   <Plus size={18} className="text-slate-300 dark:text-muted-foreground/20" />
                                 </div>
@@ -833,8 +867,8 @@ export default function ShiftsPage() {
             <GlobalDefaultsModal 
               isOpen={isGlobalDefaultsOpen} 
               onClose={() => setIsGlobalDefaultsOpen(false)} 
-              employees={employees} 
-              onSave={updateEmployeeDefaults} 
+              employees={employees}
+              onSave={updateEmployeeDefaults}
             />
           )}
         </AnimatePresence>
@@ -843,7 +877,7 @@ export default function ShiftsPage() {
   );
 }
 
-function WorkTimeBlock({ shift, onDelete }: { shift: ScheduledShift; onDelete: () => void; }) {
+function WorkTimeBlock({ shift, onDelete }: { shift: ScheduledShift; onDelete?: () => void; }) {
   const isDraft = shift.status === 'draft';
   const isVirtual = shift.isVirtual;
   
@@ -877,7 +911,7 @@ function WorkTimeBlock({ shift, onDelete }: { shift: ScheduledShift; onDelete: (
               </div>
               <p className="text-[11px] font-black leading-tight uppercase tracking-tight line-clamp-2 drop-shadow-sm">{shift.note || "Work Cycle"}</p>
             </div>
-            {!isVirtual && (
+            {!isVirtual && onDelete && (
               <div className="mt-2 flex justify-end">
                 <div 
                   onClick={(e) => { e.stopPropagation(); onDelete(); }}

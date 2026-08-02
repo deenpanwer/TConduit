@@ -370,6 +370,7 @@ export default function SupervisePage() {
   const { employees, owner, loading: teamLoading, selectedDate, setSelectedDate } = useTeam();
   const { user, userData, loading: authLoading } = useAuth();
   const { monitoredPersonnel, latestScreenshots, loading: superviseLoading } = useSupervise(selectedDate);
+  const isClientUser = userData?.role === "client" || userData?.isClient === true;
 
   const [inferredIntents, setInferredIntents] = useState<Record<string, string>>({});
   const [aiIntentLoading, setAiIntentLoading] = useState<Record<string, boolean>>({});
@@ -533,7 +534,7 @@ export default function SupervisePage() {
             {monitoredPersonnel.length === 0 ? (
               <div className="h-dvh flex flex-col items-center justify-center text-center space-y-4 p-4 snap-start">
                 <h3 className="text-xl font-bold text-white">No personnel found</h3>
-                <Button onClick={() => setShowInviteModal(true)} className="rounded-xl h-12 px-8">Add Staff Member</Button>
+                {!isClientUser && <Button onClick={() => setShowInviteModal(true)} className="rounded-xl h-12 px-8">Add Staff Member</Button>}
               </div>
             ) : superviseLoading ? (
               <div className="h-dvh flex flex-col justify-center items-center snap-start"><Shimmer className="w-full h-full opacity-10" /></div>

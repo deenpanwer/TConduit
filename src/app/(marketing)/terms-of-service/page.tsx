@@ -64,6 +64,19 @@ const TermsOfServicePage = () => {
             prose-li:text-muted-foreground
             prose-strong:text-foreground">
             
+            {/* Compliance Reviewer Callout */}
+            <div className="bg-primary/5 border border-primary/20 p-6 rounded-2xl mb-12 shadow-sm">
+              <h3 className="text-lg font-black uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                <Phone size={18} /> SMS & Messaging Terms
+              </h3>
+              <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+                By providing your phone number and opting in to our messaging services via web form or other means, you provide express written consent to receive automated SMS/text and WhatsApp messages from <strong>TRAC AI LLC</strong>, including promotional, marketing, and support messages. Consent is not a condition of purchase.
+              </p>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                <strong>Message frequency will vary. Msg & data rates may apply.</strong> You can opt-out of receiving further messages at any time by replying with <strong>STOP</strong> or <strong>UNSUBSCRIBE</strong>. For help or assistance, reply <strong>HELP</strong>.
+              </p>
+            </div>
+
             <h2>1. Introduction</h2>
             <p>
               a. This website is owned and operated by <strong>TRAC AI LLC</strong> (hereinafter and throughout this website referred to as "we", "us" and "our"). Our registered office is at Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113. Our principal place of business is located at Louisiana Blvd NE, Ste A #9599, Albuquerque, NM 87113.
@@ -146,13 +159,7 @@ const TermsOfServicePage = () => {
               Our Terms and Conditions are governed by the laws of the State of New Mexico, United States and you agree that the courts of <strong>Albuquerque, New Mexico</strong> will have exclusive jurisdiction in any dispute that you have with us.
             </p>
 
-            <h2>9. SMS, Text & WhatsApp Messaging Terms</h2>
-            <p>
-              By providing your phone number and opting in to our messaging services via web form or other means, you provide express written consent to receive automated SMS/text and WhatsApp messages from TRAC AI LLC, including promotional and marketing messages. Consent is not a condition of purchase.
-            </p>
-            <p>
-              You can opt-out at any time by replying with 'STOP' or 'UNSUBSCRIBE'. For help, reply 'HELP'. Message frequency will vary based on your interaction with our service. Standard message and data rates may apply.
-            </p>
+
 
             <h2>10. Cancellation/Return/Refund Policy</h2>
             <p>

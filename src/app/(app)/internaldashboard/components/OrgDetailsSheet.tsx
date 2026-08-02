@@ -1,10 +1,10 @@
-"use client";
-
 import { 
   Building2, ShieldCheck, Trash2, Zap, PlusCircle, 
   Users, Mail, Globe, Clock, TrendingUp, Info, 
-  ShieldAlert, Loader2, Check 
+  ShieldAlert, Loader2, Check, Eye, Crown, Sparkles, Shield,
+  Video, Play, Film
 } from "lucide-react";
+import { toast } from "sonner";
 import { format, formatDistanceToNow, isAfter } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ import {
   SheetTitle, 
   SheetDescription 
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -50,6 +57,116 @@ export function OrgDetailsSheet({
 }: OrgDetailsSheetProps) {
   const [customScreenshot, setCustomScreenshot] = useState<Record<string, string>>({});
   const [customShift, setCustomShift] = useState<Record<string, string>>({});
+  const [updatingOrgVisibility, setUpdatingOrgVisibility] = useState<string | null>(null);
+  const [updatingOrgTier, setUpdatingOrgTier] = useState<string | null>(null);
+
+  // Client Video Player State
+  const [clientVideoModalEmail, setClientVideoModalEmail] = useState<string | null>(null);
+  const [clientRecordings, setClientRecordings] = useState<any[]>([]);
+  const [loadingClientRecordings, setLoadingClientRecordings] = useState(false);
+  const [selectedRecording, setSelectedRecording] = useState<any>(null);
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [loadingEmbed, setLoadingEmbed] = useState(false);
+
+  const openClientRecordingsModal = async (email: string) => {
+    setClientVideoModalEmail(email);
+    setClientRecordings([]);
+    setSelectedRecording(null);
+    setEmbedUrl(null);
+    setLoadingClientRecordings(true);
+
+    try {
+      const res = await fetch(`/api/client/recordings?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      if (data.results) {
+        setClientRecordings(data.results);
+      }
+    } catch (err) {
+      console.error("Failed to load client recordings:", err);
+    } finally {
+      setLoadingClientRecordings(false);
+    }
+  };
+
+  const playClientRecording = async (rec: any) => {
+    setSelectedRecording(rec);
+    setLoadingEmbed(true);
+    setEmbedUrl(null);
+
+    try {
+      const res = await fetch(`/api/client/recordings?recordingId=${rec.id}`);
+      const data = await res.json();
+      if (res.ok && data.embedUrl) {
+        setEmbedUrl(data.embedUrl);
+      } else {
+        toast.error(data.error || "PostHog recording embed not available");
+      }
+    } catch (err) {
+      toast.error("Failed to load recording video player");
+    } finally {
+      setLoadingEmbed(false);
+    }
+  };
+
+  const handleToggleOrgVisibility = async (key: string, currentValue: boolean) => {
+    if (!orgDetails?.org?.id) return;
+    const newValue = !currentValue;
+    setUpdatingOrgVisibility(key);
+    try {
+      const res = await fetch("/api/internal/update-org-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgDetails.org.id,
+          updates: { [key]: newValue }
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update organization visibility");
+      
+      toast.success("Organization module visibility updated");
+      
+      if (orgDetails.org) {
+        orgDetails.org[key] = newValue;
+      }
+    } catch (error: any) {
+      toast.error(`Error: ${error.message}`);
+    } finally {
+      setUpdatingOrgVisibility(null);
+    }
+  };
+
+  const handleSetOrgTier = async (tier: 'none' | 'standard' | 'premium') => {
+    if (!orgDetails?.org?.id) return;
+    setUpdatingOrgTier(tier);
+    const updates = {
+      isPremium: tier === 'premium',
+      isStandard: tier === 'standard'
+    };
+    try {
+      const res = await fetch("/api/internal/update-org-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: orgDetails.org.id,
+          updates
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update organization tier");
+      
+      toast.success(`Organization plan level updated to ${tier.toUpperCase()}`);
+      
+      if (orgDetails.org) {
+        orgDetails.org.isPremium = tier === 'premium';
+        orgDetails.org.isStandard = tier === 'standard';
+      }
+    } catch (error: any) {
+      toast.error(`Error: ${error.message}`);
+    } finally {
+      setUpdatingOrgTier(null);
+    }
+  };
   return (
     <Sheet open={!!selectedOrgId} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-xl border-l-4 border-black dark:border-white p-0 overflow-hidden flex flex-col font-sans">
@@ -164,6 +281,109 @@ export function OrgDetailsSheet({
                       {extendingTrial ? <Loader2 className="animate-spin size-3 mr-2" /> : <Zap size={14} className="mr-2" />}
                       Unlock +30 Days
                     </Button>
+                  </div>
+
+                  {/* Organization Subscription Tier Level Selector */}
+                  <div className="pt-4 border-t border-primary/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Organization Plan Tier</p>
+                      <Badge className={cn(
+                        "uppercase text-[9px] font-black px-2 py-0.5 rounded",
+                        orgDetails.org.isPremium ? "bg-emerald-500/20 text-emerald-600 border border-emerald-500/30" : 
+                        orgDetails.org.isStandard ? "bg-amber-500/20 text-amber-600 border border-amber-500/30" : 
+                        "bg-muted text-muted-foreground"
+                      )}>
+                        {orgDetails.org.isPremium ? "Premium Tier" : orgDetails.org.isStandard ? "Standard Tier" : "No Plan Tier"}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        type="button"
+                        disabled={updatingOrgTier !== null}
+                        onClick={() => handleSetOrgTier('none')}
+                        variant="outline"
+                        className={cn(
+                          "h-11 rounded-xl font-black uppercase text-[9px] tracking-wider transition-all border-2 flex items-center justify-center gap-1.5",
+                          !orgDetails.org.isPremium && !orgDetails.org.isStandard
+                            ? "bg-secondary text-foreground border-foreground/30 ring-2 ring-foreground/20 shadow-sm"
+                            : "border-border text-muted-foreground hover:bg-secondary/50"
+                        )}
+                      >
+                        {updatingOrgTier === 'none' ? <Loader2 className="animate-spin size-3" /> : <Shield size={12} />}
+                        None
+                      </Button>
+
+                      <Button
+                        type="button"
+                        disabled={updatingOrgTier !== null}
+                        onClick={() => handleSetOrgTier('standard')}
+                        variant="outline"
+                        className={cn(
+                          "h-11 rounded-xl font-black uppercase text-[9px] tracking-wider transition-all border-2 flex items-center justify-center gap-1.5",
+                          orgDetails.org.isStandard && !orgDetails.org.isPremium
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/40 ring-2 ring-amber-500/20 shadow-sm"
+                            : "border-border text-muted-foreground hover:bg-amber-500/5 hover:text-amber-500"
+                        )}
+                      >
+                        {updatingOrgTier === 'standard' ? <Loader2 className="animate-spin size-3" /> : <Sparkles size={12} />}
+                        Standard
+                      </Button>
+
+                      <Button
+                        type="button"
+                        disabled={updatingOrgTier !== null}
+                        onClick={() => handleSetOrgTier('premium')}
+                        variant="outline"
+                        className={cn(
+                          "h-11 rounded-xl font-black uppercase text-[9px] tracking-wider transition-all border-2 flex items-center justify-center gap-1.5",
+                          orgDetails.org.isPremium
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 ring-2 ring-emerald-500/20 shadow-sm"
+                            : "border-border text-muted-foreground hover:bg-emerald-500/5 hover:text-emerald-500"
+                        )}
+                      >
+                        {updatingOrgTier === 'premium' ? <Loader2 className="animate-spin size-3" /> : <Crown size={12} />}
+                        Premium
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* App Module Visibility Settings */}
+              <section className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Eye size={18} className="text-primary" />
+                  <h4 className="text-sm font-black uppercase tracking-widest">App Module Visibility</h4>
+                </div>
+
+                <div className="bg-secondary/30 border-2 border-border p-6 rounded-[2rem] space-y-4">
+                  <p className="text-xs text-muted-foreground font-medium">Control which features are hidden for this organization in the desktop app sidebar.</p>
+                  
+                  <div className="space-y-3">
+                    {[
+                      { key: 'disableLeaderboard', label: 'Hide Leaderboard', desc: 'Leaderboard & points system' },
+                      { key: 'disableCrm', label: 'Hide CRM', desc: 'Leads, Deals, Organizations & Contacts' },
+                      { key: 'disableTasks', label: 'Hide Tasks', desc: 'Task management module' },
+                      { key: 'disableDocs', label: 'Hide Docs & Policies', desc: 'Document packets and general policies' },
+                      { key: 'disableCeoLeads', label: 'Hide CEO Leads', desc: 'Executive leads section' },
+                    ].map((item) => {
+                      const isHidden = !!orgDetails.org[item.key];
+                      const isSaving = updatingOrgVisibility === item.key;
+                      return (
+                        <div key={item.key} className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-tight">{item.label}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{item.desc}</p>
+                          </div>
+                          <Switch 
+                            checked={isHidden}
+                            disabled={isSaving}
+                            onCheckedChange={() => handleToggleOrgVisibility(item.key, isHidden)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </section>
@@ -578,6 +798,52 @@ export function OrgDetailsSheet({
                 </div>
               </section>
 
+              {/* Client Portal Access & Session Videos */}
+              <section className="space-y-4 pt-6 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Video size={18} className="text-primary" />
+                    <h4 className="text-sm font-black uppercase tracking-widest">Client Access & Recordings</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] font-black uppercase">
+                    {orgDetails?.clientShares?.length || 0} Portal Clients
+                  </Badge>
+                </div>
+
+                {(!orgDetails?.clientShares || orgDetails.clientShares.length === 0) ? (
+                  <div className="py-8 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center px-6">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      No active client sharing links created for this organization.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {orgDetails.clientShares.map((cs: any) => (
+                      <div key={cs.id} className="p-4 rounded-2xl bg-secondary/30 border border-border flex items-center justify-between gap-4">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-black text-foreground truncate">{cs.clientEmail}</span>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {cs.allowedScopes?.map((scope: string) => (
+                              <span key={scope} className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-primary/10 text-primary">
+                                {scope}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="rounded-xl font-black text-[10px] uppercase tracking-wider gap-2 shrink-0 bg-primary hover:bg-primary/90 text-white"
+                          onClick={() => openClientRecordingsModal(cs.clientEmail)}
+                        >
+                          <Play size={12} />
+                          <span>Watch Video</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {/* 5. Payments (Placeholder) */}
               <section className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -606,6 +872,85 @@ export function OrgDetailsSheet({
           <p className="text-[9px] font-black opacity-40">System Version 2.4.0</p>
         </div>
       </SheetContent>
+
+      {/* Client Video Recording Modal */}
+      <Dialog open={!!clientVideoModalEmail} onOpenChange={(open) => !open && setClientVideoModalEmail(null)}>
+        <DialogContent className="sm:max-w-4xl rounded-[2.5rem] border-4 border-black dark:border-white p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+              <Video className="text-primary" size={20} />
+              Client Session Recordings ({clientVideoModalEmail})
+            </DialogTitle>
+            <DialogDescription className="text-xs font-bold uppercase text-muted-foreground">
+              Inspect customer portal interactions and session video playback
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingClientRecordings ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="animate-spin text-primary" size={32} />
+              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Loading PostHog Recordings...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+              {/* Recordings List */}
+              <div className="space-y-3 md:col-span-1 max-h-[450px] overflow-y-auto pr-1">
+                {clientRecordings.length === 0 ? (
+                  <div className="p-6 text-center border-2 border-dashed border-border rounded-2xl">
+                    <p className="text-xs font-bold text-muted-foreground uppercase">No recordings found for this client</p>
+                  </div>
+                ) : (
+                  clientRecordings.map((rec: any, idx: number) => {
+                    const durationMins = Math.floor((rec.recording_duration || 0) / 60);
+                    const durationSecs = Math.floor((rec.recording_duration || 0) % 60);
+                    const isSelected = selectedRecording?.id === rec.id;
+                    return (
+                      <button
+                        key={rec.id || idx}
+                        onClick={() => playClientRecording(rec)}
+                        className={cn(
+                          "w-full text-left p-3.5 rounded-2xl border transition-all flex flex-col gap-1",
+                          isSelected ? "border-primary bg-primary/10 shadow-md" : "border-border hover:bg-secondary/50"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-foreground">Session #{idx + 1}</span>
+                          <span className="text-[9px] font-bold text-muted-foreground">{durationMins}m {durationSecs}s</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground font-mono truncate">
+                          {rec.start_time ? new Date(rec.start_time).toLocaleString() : 'Recent Session'}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Video Player Frame */}
+              <div className="md:col-span-2 bg-black rounded-2xl border-2 border-border p-2 min-h-[350px] flex items-center justify-center relative overflow-hidden">
+                {loadingEmbed ? (
+                  <div className="flex flex-col items-center gap-2 text-white">
+                    <Loader2 className="animate-spin text-primary" size={28} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Loading Player...</span>
+                  </div>
+                ) : embedUrl ? (
+                  <iframe
+                    src={embedUrl}
+                    className="w-full h-[400px] rounded-xl border-0"
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="text-center p-6 text-muted-foreground flex flex-col items-center gap-2">
+                    <Film size={36} className="opacity-40" />
+                    <p className="text-xs font-black uppercase tracking-wider">Select a session on the left to watch video playback</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

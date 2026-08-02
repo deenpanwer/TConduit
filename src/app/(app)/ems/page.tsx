@@ -45,9 +45,11 @@ export default function DashboardPage() {
     if (ts.seconds) return new Date(ts.seconds * 1000);
     return new Date(ts);
   };
+  
+  const isClientUser = userData?.role === "client" || userData?.isClient === true;
 
   useEffect(() => {
-    if (!loading && user && (userData?.onboardingCompleted || userData?.employeeOnboardingV1Complete)) {
+    if (!loading && user && (userData?.onboardingCompleted || userData?.employeeOnboardingV1Complete || userData?.isClient || userData?.role === "client")) {
       fetchOrgDetails();
     }
   }, [user, userData, loading]);
@@ -126,7 +128,7 @@ export default function DashboardPage() {
           
           <div className="flex items-center gap-2 sm:gap-4">
             <SubscriptionBadge orgData={orgData} userData={userData} />
-            {employees.length > 0 && (
+            {employees.length > 0 && !isClientUser && (
               <Button 
                 onClick={() => setShowInviteModal(true)} 
                 variant="outline" 
@@ -137,7 +139,10 @@ export default function DashboardPage() {
               </Button>
             )}
             <button 
-              onClick={() => router.push("/ems/settings")}
+              onClick={() => {
+                if (isClientUser) return;
+                router.push("/ems/settings");
+              }}
               className="size-8 sm:size-10 rounded-full bg-secondary border-2 border-border flex items-center justify-center overflow-hidden transition-all hover:scale-105 active:scale-90 shrink-0"
             >
                <img 

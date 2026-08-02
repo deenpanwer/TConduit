@@ -43,7 +43,23 @@ const MetricBox = ({ icon: Icon, label, value, subValue }: MetricProps) => (
   </div>
 );
 
-export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any, stats = null as any, logoUrl = null as string | null }) => {
+export const OwnerCockpit = ({ 
+  orgName = "TRAC STUDIO", 
+  ownerData = null as any, 
+  stats = null as any, 
+  logoUrl = null as string | null,
+  partnerName = null as string | null,
+  partnerRole = null as string | null,
+  orgData = null as any
+}: {
+  orgName?: string;
+  ownerData?: any;
+  stats?: any;
+  logoUrl?: string | null;
+  partnerName?: string | null;
+  partnerRole?: string | null;
+  orgData?: any;
+}) => {
   const isOrgActive = (stats?.activeEmployees || 0) > 0;
   const router = useRouter();
   
@@ -57,6 +73,9 @@ export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any,
 
   const memberSince = format(getDate(ownerData?.createdAt), 'MMMM dd, yyyy');
   const primaryApp = stats?.topApps?.[0]?.name || "Analytics";
+
+  const effectivePartnerName = partnerName || orgData?.partnerName;
+  const effectivePartnerRole = partnerRole || orgData?.partnerRole || "Partner";
 
   return (
     <GlassCard elevated className="mb-12 p-6 md:p-12 relative overflow-hidden group/cockpit" hoverEffect={false}>
@@ -84,26 +103,26 @@ export const OwnerCockpit = ({ orgName = "TRAC STUDIO", ownerData = null as any,
           </div>
           <div className="h-20 w-px bg-gray-100 dark:bg-gray-800 hidden md:block" />
           <div className="min-w-0">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-                    <div className={`w-1.5 h-1.5 rounded-full mr-2 ${isOrgActive ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />
-                    <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                        {isOrgActive ? `Live: ${stats.activeEmployees} Personnel Active` : 'Organization Standby'}
-                    </span>
-                </div>
-            </div> 
             <h1 className="text-3xl md:text-6xl 2xl:text-7xl font-black text-gray-900 dark:text-white tracking-tighter leading-[0.85] uppercase break-words max-w-[300px] md:max-w-none">
               {orgName.split(' ').map((word, i) => (
                 <span key={i} className={i === 0 ? "block" : "block text-blue-500"}>{word}</span>
               ))}
             </h1>
-            <div className="mt-6 flex items-center space-x-4 group/owner">
+            <div className="mt-6 flex flex-wrap items-center gap-6 group/owner">
               <div className="flex flex-col">
                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] mb-0.5">Account Authority</span>
                 <span className="text-xs md:text-sm font-black text-gray-900 dark:text-white transition-colors duration-300">
                     {ownerData?.role || "Founder"}: {ownerData?.name || "System Admin"}
                 </span>
               </div>
+              {effectivePartnerName && (
+                <div className="flex flex-col border-l border-gray-200 dark:border-gray-800 pl-4">
+                  <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] mb-0.5">Partner</span>
+                  <span className="text-xs md:text-sm font-black text-gray-900 dark:text-white transition-colors duration-300">
+                      {effectivePartnerRole}: {effectivePartnerName}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

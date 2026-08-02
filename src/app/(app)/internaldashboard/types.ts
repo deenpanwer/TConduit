@@ -19,6 +19,7 @@ export interface InternalUser {
   export interface OrgDetails {
     org: any;
     staff: StaffMember[];
+    clientShares?: any[];
   }
   
   export interface StaffMember {

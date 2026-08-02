@@ -283,7 +283,7 @@ function registerWhatsAppHandlers(bot: Chat) {
                             orgId,
                             chatId,
                             platform: 'whatsapp',
-                            model: 'pixtral-large-2411',
+                            model: 'pixtral-12b-2409',
                             historyCount: history.length,
                             attachmentsCount: attachmentDocs.length,
                             toolInvocations: toolExecutionsTrace.map(t => t.toolName)

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { 
-  ChevronDown, Sparkles, Lock
+  ChevronDown, Lock, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MODULE_CONFIG } from "@/lib/modules";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ProductSwitcherProps {
   currentModuleId: string;
@@ -38,21 +39,30 @@ export function ProductSwitcher({
   allowedScopes
 }: ProductSwitcherProps) {
   const router = useRouter();
+  const { userData } = useAuth();
+
+  const isClientUser = isClient || userData?.isClient === true || userData?.role === "client";
+  const effectiveAllowedScopes = allowedScopes || userData?.allowedScopes;
+
+  const isOwnerOrFounder = React.useMemo(() => {
+    if (!userData || isClientUser) return false;
+    const role = (userData.role || '').toLowerCase();
+    return !!userData.ownedOrgId || role.includes('owner') || role.includes('founder') || role.includes('admin');
+  }, [userData, isClientUser]);
 
   const currentModule = MODULE_CONFIG.find(m => m.id === currentModuleId) || MODULE_CONFIG[0];
   
-  // Show all modules, but visually distinguish unreleased ones
-  const otherModules = MODULE_CONFIG.filter(m => {
-    if (m.id === currentModuleId) return false;
-    if (isClient && allowedScopes) {
-      return allowedScopes.includes(m.id);
+  // Show only allowed selected modules
+  const otherModules = React.useMemo(() => {
+    let base = MODULE_CONFIG;
+    if (selectedModules && selectedModules.length > 0) {
+      base = base.filter(m => selectedModules.includes(m.id));
     }
-    return true;
-  }).sort((a, b) => {
-    if (a.released && !b.released) return -1;
-    if (!a.released && b.released) return 1;
-    return 0;
-  });
+    if (isClientUser && effectiveAllowedScopes) {
+      base = base.filter(m => effectiveAllowedScopes.includes(m.id));
+    }
+    return base.filter(m => m.id !== currentModuleId);
+  }, [selectedModules, isClientUser, effectiveAllowedScopes, currentModuleId]);
 
   return (
     <DropdownMenu>
@@ -109,12 +119,14 @@ export function ProductSwitcher({
         {/* OTHER MODULES */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2 px-1">
         {otherModules.map((module) => {
-          if (!module.released) {
+          const isScopeAllowed = !isClientUser || (effectiveAllowedScopes && effectiveAllowedScopes.includes(module.id));
+
+          if (!module.released || !isScopeAllowed) {
              return (
               <DropdownMenuItem 
                 key={module.id}
                 disabled
-                className="flex items-center gap-4 p-3 rounded-2xl cursor-default opacity-50"
+                className="flex items-center gap-4 p-3 rounded-2xl cursor-default opacity-50 bg-secondary/20"
               >
                 <div className={cn("size-11 rounded-2xl flex items-center justify-center shrink-0 grayscale", module.bg)}>
                   <module.icon className={cn("size-5", module.color)} />
@@ -123,8 +135,9 @@ export function ProductSwitcher({
                   <span className="font-bold text-[13px] break-words">{module.shortTitle}</span>
                   <span className="text-[10px] text-muted-foreground break-words">{module.description}</span>
                 </div>
-                <div className="bg-secondary px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-muted-foreground shrink-0">
-                  Soon
+                <div className="bg-secondary px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-muted-foreground shrink-0 flex items-center gap-1">
+                  <Lock size={10} />
+                  <span>{!module.released ? "Soon" : "Locked"}</span>
                 </div>
               </DropdownMenuItem>
              );
@@ -150,25 +163,24 @@ export function ProductSwitcher({
         })}
         </div>
 
-        {/* Add more apps - commented out
-        {!isClient && (
+        {/* Add More Modules Button (Owner / Founder Only, Never for Clients) */}
+        {isOwnerOrFounder && !isClientUser && (
           <div className="border-t border-border mt-3 pt-3 px-1 pb-1">
             <Button 
               variant="ghost" 
-              className="w-full justify-start gap-4 p-4 h-auto rounded-2xl hover:bg-primary/5 hover:text-primary group"
+              className="w-full justify-start gap-4 p-3.5 h-auto rounded-2xl hover:bg-primary/5 hover:text-primary group border border-dashed border-border/80 hover:border-primary/40 transition-all"
               onClick={onConfigOpen}
             >
-              <div className="size-11 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
-                <Sparkles className="size-5 text-primary" />
+              <div className="size-10 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
+                <Plus className="size-5 text-primary" />
               </div>
               <div className="flex flex-col text-left min-w-0">
-                <span className="font-bold text-[13px] truncate">Add more apps</span>
-                <span className="text-[10px] text-muted-foreground truncate">Customize workspace</span>
+                <span className="font-bold text-[13px] truncate">Add More Modules</span>
+                <span className="text-[10px] text-muted-foreground truncate">Customize workspace apps</span>
               </div>
             </Button>
           </div>
         )}
-        */}
       </DropdownMenuContent>
     </DropdownMenu>
   );

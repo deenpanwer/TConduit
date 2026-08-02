@@ -89,10 +89,10 @@ export function WorkflowTimeline({ workShifts }: WorkflowTimelineProps) {
         }
 
         // Support Legacy: if detailedApps is missing but hour has seconds, create a generic block
-        if (apps.length === 0 && (data?.seconds || data?.metrics?.seconds)) {
+        if (apps.length === 0 && (data?.seconds || data?.metrics?.seconds || data?.metrics?.totalSeconds || data?.totalSeconds)) {
             apps.push({
                 name: 'General Activity',
-                totalSeconds: data?.metrics?.seconds || data?.seconds || 0,
+                totalSeconds: data?.metrics?.totalSeconds || data?.metrics?.seconds || data?.seconds || data?.totalSeconds || 0,
                 activeSeconds: data?.metrics?.activeSeconds || data?.activeSeconds || 0,
                 keystrokes: data?.metrics?.keystrokes || data?.keystrokes || 0,
                 mouseClicks: data?.metrics?.mouseClicks || data?.mouseClicks || 0,

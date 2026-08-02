@@ -254,7 +254,9 @@ export default function InvoiceBuilder() {
     return (
       <button
         type="button"
-        onClick={() => {
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           const nextHidden = { ...invoice.hiddenFields, [fieldKey]: !isHidden };
           updateInvoice('hiddenFields', nextHidden);
         }}
@@ -541,30 +543,33 @@ export default function InvoiceBuilder() {
                     <span className='text-[11px] font-black uppercase tracking-[0.2em] text-foreground'>Your Business</span>
                   </div>
                   
-                  <div className='relative group'>
-                    <div className='size-24 rounded-3xl border-2 border-dashed border-border/60 flex items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-500/5 transition-all overflow-hidden group shadow-inner'>
-                        {brandingLogo ? (
-                            <div className='relative w-full h-full'>
-                                <img src={brandingLogo} className='w-full h-full object-cover' />
-                                <button onClick={(e) => { e.stopPropagation(); setBrandingLogo(null); }} className='absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity'><X size={20} /></button>
-                            </div>
-                        ) : (
-                             <label className='flex flex-col items-center gap-2 cursor-pointer w-full h-full justify-center'>
-                                 <Upload size={20} className='text-muted-foreground group-hover:text-blue-500 transition-colors' />
-                                 <div className='flex items-center gap-1.5'>
-                                     <span className='text-[9px] font-black uppercase text-muted-foreground'>Logo</span>
-                                     {renderToggleVisibility('from.branding')}
-                                 </div>
-                                 <input type='file' className='hidden' accept='image/*' onChange={(e) => {
-                                     const file = e.target.files?.[0];
-                                     if (file) {
-                                         const reader = new FileReader();
-                                         reader.onload = (re) => setBrandingLogo(re.target?.result as string);
-                                         reader.readAsDataURL(file);
-                                     }
-                                 }} />
-                             </label>
-                         )}
+                  <div className='space-y-2'>
+                    <div className='flex items-center justify-between ml-1'>
+                        <label className='text-[9px] font-black uppercase text-muted-foreground/60'>Company Logo</label>
+                        {renderToggleVisibility('from.branding')}
+                    </div>
+                    <div className='relative group'>
+                      <div className='size-24 rounded-3xl border-2 border-dashed border-border/60 flex items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-500/5 transition-all overflow-hidden group shadow-inner'>
+                          {brandingLogo ? (
+                              <div className='relative w-full h-full'>
+                                  <img src={brandingLogo} className='w-full h-full object-cover' alt='Logo preview' />
+                                  <button type='button' onClick={(e) => { e.stopPropagation(); setBrandingLogo(null); }} className='absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity'><X size={20} /></button>
+                              </div>
+                          ) : (
+                              <label className='flex flex-col items-center gap-1.5 cursor-pointer w-full h-full justify-center'>
+                                  <Upload size={20} className='text-muted-foreground group-hover:text-blue-500 transition-colors' />
+                                  <span className='text-[9px] font-black uppercase text-muted-foreground'>Upload Logo</span>
+                                  <input type='file' className='hidden' accept='image/*' onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                          const reader = new FileReader();
+                                          reader.onload = (re) => setBrandingLogo(re.target?.result as string);
+                                          reader.readAsDataURL(file);
+                                      }
+                                  }} />
+                              </label>
+                           )}
+                      </div>
                     </div>
                   </div>
 

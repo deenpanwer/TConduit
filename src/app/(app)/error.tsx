@@ -19,7 +19,18 @@ export default function AppErrorBoundary({
   useEffect(() => {
     // Log the error to console for local developer debugging
     console.error("Uncaught application error boundary:", error);
-  }, [error]);
+
+    // Auto-report error immediately upon hitting ErrorBoundary
+    const userMeta = {
+      uid: user?.uid,
+      name: userData?.name || user?.displayName || undefined,
+      email: userData?.email || user?.email || undefined,
+      role: userData?.role,
+      orgId: userData?.ownedOrgId || userData?.orgId,
+      companyName: userData?.companyName,
+    };
+    openReport(error.message, error.stack, userMeta);
+  }, [error, user, userData, openReport]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh] w-full px-4 py-12 text-center bg-background text-foreground font-sans">
@@ -55,20 +66,12 @@ export default function AppErrorBoundary({
           </Button>
           <Button
             onClick={() => {
-              const userMeta = {
-                uid: user?.uid,
-                name: userData?.name || user?.displayName || undefined,
-                email: userData?.email || user?.email || undefined,
-                role: userData?.role,
-                orgId: userData?.ownedOrgId || userData?.orgId,
-                companyName: userData?.companyName,
-              };
-              openReport(error.message, error.stack, userMeta);
+              useErrorReportStore.setState({ isOpen: true });
             }}
             className="flex-1 rounded-xl font-semibold py-5 text-sm flex items-center justify-center gap-2"
           >
             <Send className="w-3.5 h-3.5" />
-            Report Issue
+            Add Details
           </Button>
         </div>
 

@@ -26,7 +26,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const session = request.cookies.get('trac_auth_session');
+  const session = request.cookies.get('trac_auth_session') || request.cookies.get('client_portal_session');
   const { search } = request.nextUrl;
 
   // 1. Only protect the dashboard root and its sub-pages

@@ -175,7 +175,7 @@ export async function POST(req: Request) {
                     userId,
                     orgId,
                     chatId,
-                    model: 'pixtral-large-2411',
+                    model: 'pixtral-12b-2409',
                     platform: 'website',
                     toolInvocations: toolInvocations.map(t => t.toolName)
                   }

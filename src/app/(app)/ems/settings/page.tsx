@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { cn, getUserAvatar } from '@/lib/utils';
-import { signOut } from 'firebase/auth';
+import { signOut, updateProfile } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardSidebar } from '@/components/ems/DashboardSidebar';
@@ -15,13 +16,14 @@ import { useTeam } from '@/hooks/use-team';
 import { InviteModal } from '@/components/ems/InviteModal';
 import { SubscriptionBadge } from '@/components/ems/SubscriptionBadge';
 import { IntelligenceModal } from '@/components/ems/IntelligenceModal';
+import { AppLockModal } from '@/components/ems/AppLockModal';
 import { DepartmentManager } from '@/components/ems/DepartmentManager';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { ClientSharingManager } from '@/components/ems/ClientSharingManager';
 import { 
   LogOut, User, Building2, Ticket, 
-  Check, Copy, Moon, Sun, Menu, X, ArrowLeft,
+  Check, Copy, Moon, Sun, Menu, X, ArrowLeft, Lock,
   Clock, Calendar, Save, Fingerprint, Loader2, BrainCircuit, ShieldCheck, Zap, Ban, ArrowRight, Users, Bell, MapPin, Pencil, MessageSquare, ClipboardList, Volume2, VolumeX,
   Globe, Sparkles, Trash2, Eye, Smartphone, Download
 } from 'lucide-react';
@@ -74,22 +76,201 @@ function SettingsPageContent() {
   const activeTab = searchParams.get('tab') || 'identity';
 
   const isAllowedRole = useMemo(() => {
-    return userData?.role && ['owner', 'founder', 'hr'].includes(userData.role.toLowerCase());
+    if (!userData) return false;
+    const role = (userData.role || '').toLowerCase();
+    return (
+      !!userData.ownedOrgId ||
+      role.includes('owner') ||
+      role.includes('founder') ||
+      role.includes('admin') ||
+      role.includes('hr') ||
+      role.includes('manager')
+    );
   }, [userData]);
+
+  useEffect(() => {
+    if (userData?.role === "client" || userData?.isClient === true) {
+      router.replace("/ems");
+    }
+  }, [userData, router]);
+
+  const isOwnerOrFounder = useMemo(() => {
+    if (!userData) return false;
+    const role = (userData.role || '').toLowerCase();
+    return !!userData.ownedOrgId || role.includes('owner') || role.includes('founder') || role.includes('admin');
+  }, [userData]);
+
+  const [userNameInput, setUserNameInput] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  useEffect(() => {
+    if (userData?.name || user?.displayName) {
+      setUserNameInput(userData?.name || user?.displayName || '');
+    }
+  }, [userData, user]);
+
+  const handleSaveUserName = async () => {
+    if (!user || !userNameInput.trim()) return;
+    setIsSavingName(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        name: userNameInput.trim(),
+        displayName: userNameInput.trim(),
+      });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: userNameInput.trim() });
+      }
+      await refreshUserData();
+      toast({ title: 'Profile Name Updated', description: 'Your account name has been updated successfully.' });
+    } catch (error: any) {
+      toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !userData) return;
+
+    setIsUploadingLogo(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      let downloadUrl = "";
+
+      try {
+        const storageRef = ref(storage, `organizations/${targetOrgId}/logo_${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        downloadUrl = await getDownloadURL(snapshot.ref);
+      } catch (storageErr) {
+        console.warn("Storage upload failed, falling back to base64 encoding:", storageErr);
+        downloadUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const orgRef = doc(db, 'organizations', targetOrgId);
+      await updateDoc(orgRef, {
+        logoUrl: downloadUrl,
+        updatedAt: serverTimestamp()
+      });
+
+      setOrgData((prev: any) => ({
+        ...prev,
+        logoUrl: downloadUrl
+      }));
+      setOrgLogoInput(downloadUrl);
+
+      await refreshUserData();
+      toast({ title: 'Logo Updated', description: 'Organization logo updated successfully.' });
+    } catch (error: any) {
+      console.error("Error updating logo:", error);
+      toast({ title: 'Upload Failed', description: error.message || "Failed to upload logo.", variant: 'destructive' });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+
+  const handleBannerFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !userData) return;
+
+    setIsUploadingBanner(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      let downloadUrl = "";
+
+      try {
+        const storageRef = ref(storage, `organizations/${targetOrgId}/banner_${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        downloadUrl = await getDownloadURL(snapshot.ref);
+      } catch (storageErr) {
+        console.warn("Storage upload failed, falling back to base64 encoding:", storageErr);
+        downloadUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const orgRef = doc(db, 'organizations', targetOrgId);
+      await updateDoc(orgRef, {
+        bannerUrl: downloadUrl,
+        updatedAt: serverTimestamp()
+      });
+
+      setOrgData((prev: any) => ({
+        ...prev,
+        bannerUrl: downloadUrl
+      }));
+
+      await refreshUserData();
+      toast({ title: 'Banner Updated', description: 'Organization cover banner updated successfully.' });
+    } catch (error: any) {
+      console.error("Error updating banner:", error);
+      toast({ title: 'Upload Failed', description: error.message || "Failed to upload banner.", variant: 'destructive' });
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
+  const handleSaveOrgName = async () => {
+    if (!user || !userData || !orgNameInput.trim()) return;
+    setIsSavingCompany(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      const orgRef = doc(db, 'organizations', targetOrgId);
+
+      await updateDoc(orgRef, {
+        name: orgNameInput.trim(),
+        updatedAt: serverTimestamp()
+      });
+
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        orgName: orgNameInput.trim()
+      });
+
+      setOrgData((prev: any) => ({
+        ...prev,
+        name: orgNameInput.trim()
+      }));
+
+      await refreshUserData();
+      toast({ title: 'Organization Name Saved', description: 'Organization name updated.' });
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
 
   const [orgData, setOrgData] = useState<any>(null);
   const [orgNameInput, setOrgNameInput] = useState('');
   const [orgLogoInput, setOrgLogoInput] = useState('');
+  const [partnerNameInput, setPartnerNameInput] = useState('');
+  const [partnerRoleInput, setPartnerRoleInput] = useState('');
   const [isSavingCompany, setIsSavingCompany] = useState(false);
 
   useEffect(() => {
     if (orgData) {
       setOrgNameInput(orgData.name || '');
       setOrgLogoInput(orgData.logoUrl || '');
+      setPartnerNameInput(orgData.partnerName || '');
+      setPartnerRoleInput(orgData.partnerRole || '');
     }
   }, [orgData]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [showSelfAppLockModal, setShowSelfAppLockModal] = useState(false);
   const [selectedUserForIntelligence, setSelectedUserForIntelligence] = useState<{id: string, name: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedOrgId, setCopiedOrgId] = useState(false);
@@ -430,6 +611,33 @@ function SettingsPageContent() {
     }
   };
 
+  const handleSavePartnerDetails = async () => {
+    if (!user || !userData) return;
+    setIsSavingCompany(true);
+    try {
+      const targetOrgId = userData.ownedOrgId || userData.orgId;
+      const orgRef = doc(db, 'organizations', targetOrgId);
+
+      await updateDoc(orgRef, {
+        partnerName: partnerNameInput.trim(),
+        partnerRole: partnerRoleInput.trim(),
+        updatedAt: serverTimestamp()
+      });
+
+      setOrgData((prev: any) => ({
+        ...prev,
+        partnerName: partnerNameInput.trim(),
+        partnerRole: partnerRoleInput.trim()
+      }));
+
+      toast({ title: 'Partner Details Saved', description: 'Partner information updated successfully.' });
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
+
   const handleToggleVisibility = async (key: string, value: boolean) => {
     if (!user || !orgData) return;
     try {
@@ -503,6 +711,16 @@ function SettingsPageContent() {
         userName={selectedUserForIntelligence?.name || ''}
       />
 
+      <AppLockModal
+        isOpen={showSelfAppLockModal}
+        onOpenChange={setShowSelfAppLockModal}
+        userId={user?.uid || ''}
+        userName={userData?.name || 'Your Profile'}
+        appLockPassword={userData?.appLockPassword}
+        appLockPaused={userData?.appLockPaused}
+        onUpdated={() => refreshUserData && refreshUserData()}
+      />
+
       <main className='flex-1 flex flex-col overflow-hidden relative'>
         <header className='h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30'>
           <div className='flex items-center gap-4'>
@@ -532,17 +750,37 @@ function SettingsPageContent() {
         </header>
 
         <div className='flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar'>
-          <div className="w-full h-48 md:h-64 lg:h-72 rounded-3xl overflow-hidden relative shadow-lg">
+          <div className="w-full h-48 md:h-64 lg:h-72 rounded-3xl overflow-hidden relative shadow-lg group">
             <img
-              src={`https://picsum.photos/seed/${userData?.orgName || 'org-trac'}/1600/400`}
+              src={orgData?.bannerUrl || `https://picsum.photos/seed/${userData?.orgName || 'org-trac'}/1600/400`}
               alt="Organization Cover"
               className="w-full h-full object-cover"
             />
+            {isOwnerOrFounder && (
+              <>
+                <label 
+                  htmlFor="org-header-banner-input"
+                  className="absolute top-4 right-4 z-20 flex items-center gap-2 px-4 py-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-2xl text-white text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all border border-white/20 shadow-xl active:scale-95"
+                  title="Upload Custom Banner"
+                >
+                  {isUploadingBanner ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                  <span>{orgData?.bannerUrl ? 'Change Banner' : 'Upload Banner'}</span>
+                </label>
+                <input 
+                  id="org-header-banner-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleBannerFileSelect}
+                  disabled={isUploadingBanner}
+                />
+              </>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row items-center md:items-end -mt-12 md:-mt-20 px-4 md:px-8 z-10 relative mb-12">
-            <div className="flex-shrink-0">
-              <div className="h-28 w-28 md:h-40 md:w-40 border-4 border-background rounded-[2.5rem] shadow-xl bg-muted overflow-hidden flex items-center justify-center">
+            <div className="relative flex-shrink-0 group">
+              <div className="h-28 w-28 md:h-40 md:w-40 border-4 border-background rounded-[2.5rem] shadow-xl bg-muted overflow-hidden flex items-center justify-center relative">
                 {orgData?.logoUrl ? (
                     <img 
                         src={orgData.logoUrl} 
@@ -554,7 +792,43 @@ function SettingsPageContent() {
                         <Building2 size={64} className="opacity-40" />
                     </div>
                 )}
+
+                {isOwnerOrFounder && (
+                  <label 
+                    htmlFor="org-header-logo-input"
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer rounded-[2.5rem] p-2 text-center"
+                    title="Click to update logo"
+                  >
+                    {isUploadingLogo ? (
+                      <Loader2 className="size-8 animate-spin text-white mb-1" />
+                    ) : (
+                      <>
+                        <Pencil className="size-6 mb-1 text-white" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">Change Logo</span>
+                      </>
+                    )}
+                  </label>
+                )}
               </div>
+
+              {isOwnerOrFounder && (
+                <label
+                  htmlFor="org-header-logo-input"
+                  className="absolute bottom-1 right-1 size-9 rounded-2xl bg-primary text-primary-foreground border-2 border-background flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform"
+                  title="Upload Organization Logo"
+                >
+                  {isUploadingLogo ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+                </label>
+              )}
+
+              <input 
+                id="org-header-logo-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoFileSelect}
+                disabled={isUploadingLogo}
+              />
             </div>
             <div className="flex flex-col md:flex-row justify-between items-center w-full mt-4 md:ml-6">
                 <div className="text-center md:text-left">
@@ -578,24 +852,17 @@ function SettingsPageContent() {
             onValueChange={(value) => router.push(`/ems/settings?tab=${value}`)} 
             className="w-full space-y-8"
           >
-            <TabsList className={cn(
-              "w-full h-auto p-1 bg-secondary/50 rounded-2xl grid grid-cols-2 gap-1",
-              isAllowedRole ? "md:grid-cols-7" : "md:grid-cols-6"
-            )}>
-              <TabsTrigger value="identity" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Identity</TabsTrigger>
-              <TabsTrigger value="company" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Company</TabsTrigger>
-              <TabsTrigger value="structure" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Structure</TabsTrigger>
-              <TabsTrigger value="intelligence" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Intelligence</TabsTrigger>
-              <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger>
-              <TabsTrigger value="operations" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
+            <TabsList className="w-full h-auto p-1.5 bg-secondary/50 rounded-2xl flex flex-wrap gap-1.5">
+              <TabsTrigger value="identity" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Identity</TabsTrigger>
+              <TabsTrigger value="company" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Company</TabsTrigger>
+              <TabsTrigger value="structure" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Structure</TabsTrigger>
+              <TabsTrigger value="intelligence" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Intelligence</TabsTrigger>
+              {/* <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger> */}
+              <TabsTrigger value="operations" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
               {isAllowedRole && (
                 <>
-                  <TabsTrigger value="visibility" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Visibility</TabsTrigger>
-                  {/*
-                    Commented out: we can't make this live before we update the crm overview page, 
-                    and the tasks overview page, and add pdf, excel, csv based reporting for tasks and crm
-                    <TabsTrigger value="client-sharing" className="rounded-xl py-2.5 font-black uppercase tracking-widest text-[10px]">Client Sharing</TabsTrigger>
-                  */}
+                  {/* <TabsTrigger value="visibility" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Visibility</TabsTrigger> */}
+                  <TabsTrigger value="client-sharing" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">View Access</TabsTrigger>
                 </>
               )}
             </TabsList>
@@ -617,7 +884,29 @@ function SettingsPageContent() {
                         </div>
                     </div>
 
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                        <div className='space-y-2'>
+                            <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Full Name</Label>
+                            <div className='relative flex items-center group'>
+                                <Input 
+                                    value={userNameInput} 
+                                    onChange={(e) => setUserNameInput(e.target.value)} 
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveUserName(); }}
+                                    placeholder="Your Name"
+                                    className='bg-secondary/20 h-12 rounded-xl font-bold border-border pr-10 focus:ring-1 focus:ring-emerald-500' 
+                                />
+                                {userNameInput.trim() !== (userData?.name || user?.displayName || '') && (
+                                    <button 
+                                        onClick={handleSaveUserName} 
+                                        disabled={isSavingName || !userNameInput.trim()}
+                                        className="absolute right-2.5 p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white transition-all shadow-sm"
+                                        title="Save Name"
+                                    >
+                                        {isSavingName ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         <div className='space-y-2'>
                             <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Email Address</Label>
                             <Input value={user?.email || ''} disabled className='bg-secondary/50 h-12 rounded-xl font-bold' />
@@ -716,6 +1005,44 @@ function SettingsPageContent() {
                     </div>
                 </section>
 
+                {/* Desktop App Lock Section */}
+                <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
+                    <div className='flex flex-col md:flex-row md:items-center justify-between gap-6'>
+                        <div className='flex items-center gap-4'>
+                            <div className='size-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border-2 border-primary/20'>
+                                <Lock size={24} />
+                            </div>
+                            <div className='space-y-1'>
+                                <div className='flex items-center gap-2'>
+                                  <p className='text-[10px] font-black uppercase tracking-widest text-primary'>Desktop Security</p>
+                                  {userData?.appLockPassword ? (
+                                    userData?.appLockPaused ? (
+                                      <span className='px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'>Paused</span>
+                                    ) : (
+                                      <span className='px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'>Active</span>
+                                    )
+                                  ) : (
+                                    <span className='px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md bg-slate-500/10 text-slate-500 border border-slate-500/20'>Not Configured</span>
+                                  )}
+                                </div>
+                                <p className='text-sm font-black uppercase tracking-tight text-foreground'>Desktop App Lock</p>
+                                <p className='text-[10px] font-bold text-muted-foreground uppercase leading-relaxed'>
+                                  Manage your 6-digit PIN and start/pause state for securing the desktop application screen.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Button 
+                            onClick={() => setShowSelfAppLockModal(true)}
+                            variant="outline"
+                            className='rounded-xl font-black uppercase tracking-widest text-[10px] h-12 px-6 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10'
+                        >
+                            <Lock size={14} className='mr-2' />
+                            Manage App Lock
+                        </Button>
+                    </div>
+                </section>
+
                 {/* Termination Protocol (Moved from Advanced) */}
                 {isAllowedRole && (
                   <section className='p-8 border-2 border-destructive/10 rounded-3xl bg-destructive/5'>
@@ -759,37 +1086,134 @@ function SettingsPageContent() {
                     </div>
 
                     <div className='space-y-6'>
-                        {isAllowedRole ? (
-                            <div className='space-y-4'>
+                        {isOwnerOrFounder ? (
+                            <>
+                            <div className='grid grid-cols-1 md:grid-cols-2 gap-8 items-start'>
                                 <div className='space-y-2'>
                                     <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Name</Label>
-                                    <Input 
-                                        value={orgNameInput} 
-                                        onChange={(e) => setOrgNameInput(e.target.value)} 
-                                        className='h-12 rounded-xl font-bold' 
-                                        placeholder='Enter Organization Name'
-                                    />
+                                    <div className='relative flex items-center group'>
+                                        <Input 
+                                            value={orgNameInput} 
+                                            onChange={(e) => setOrgNameInput(e.target.value)} 
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveOrgName(); }}
+                                            className='h-12 rounded-xl font-bold bg-secondary/20 border-border pr-10 focus:ring-1 focus:ring-emerald-500' 
+                                            placeholder='Enter Organization Name'
+                                        />
+                                        {orgNameInput.trim() !== (orgData?.name || '') && (
+                                            <button 
+                                                onClick={handleSaveOrgName} 
+                                                disabled={isSavingCompany}
+                                                className='absolute right-2.5 p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white transition-all shadow-sm'
+                                                title='Save Organization Name'
+                                            >
+                                                {isSavingCompany ? <Loader2 className='size-4 animate-spin' /> : <Check className='size-4' />}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
                                 <div className='space-y-2'>
-                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Logo URL</Label>
-                                    <Input 
-                                        value={orgLogoInput} 
-                                        onChange={(e) => setOrgLogoInput(e.target.value)} 
-                                        className='h-12 rounded-xl font-bold' 
-                                        placeholder='Enter Logo Image URL (e.g. https://domain.com/logo.png)'
-                                    />
-                                </div>
-                                <div className='pt-2'>
-                                    <Button 
-                                        onClick={handleSaveCompanyDetails} 
-                                        disabled={isSavingCompany}
-                                        className='rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-6'
-                                    >
-                                        {isSavingCompany ? <Loader2 className='size-3 mr-2 animate-spin' /> : <Save className='size-3 mr-2' />}
-                                        {isSavingCompany ? 'Saving...' : 'Save Company Details'}
-                                    </Button>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Logo</Label>
+                                    <div className='flex items-center gap-4 p-3 bg-secondary/20 rounded-2xl border border-border/50'>
+                                        <div className='size-14 rounded-2xl bg-secondary border border-border overflow-hidden flex items-center justify-center shrink-0 relative'>
+                                            {orgData?.logoUrl ? (
+                                                <img src={orgData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Building2 size={24} className="text-muted-foreground/40" />
+                                            )}
+                                        </div>
+                                        <div className='flex-1 min-w-0'>
+                                            <p className='text-xs font-bold text-foreground truncate'>{orgData?.name || 'Your Company'}</p>
+                                            <p className='text-[9px] text-muted-foreground uppercase font-black tracking-wider mt-0.5'>Device Image Upload</p>
+                                        </div>
+                                        <label 
+                                            htmlFor="org-tab-logo-input"
+                                            className='px-4 py-2.5 rounded-xl bg-background border border-border hover:bg-secondary text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-2 shrink-0 shadow-sm'
+                                        >
+                                            {isUploadingLogo ? <Loader2 className="size-3 animate-spin" /> : <Pencil className="size-3" />}
+                                            <span>{orgData?.logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+                                        </label>
+                                        <input 
+                                            id="org-tab-logo-input"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleLogoFileSelect}
+                                            disabled={isUploadingLogo}
+                                        />
+                                    </div>
                                 </div>
                             </div>
+
+                            <div className='grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-4 border-t border-border/40'>
+                                <div className='space-y-2 md:col-span-2'>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Cover Banner</Label>
+                                    <div className='flex items-center gap-4 p-3 bg-secondary/20 rounded-2xl border border-border/50'>
+                                        <div className='w-24 h-12 rounded-xl bg-secondary border border-border overflow-hidden flex items-center justify-center shrink-0 relative'>
+                                            <img 
+                                                src={orgData?.bannerUrl || `https://picsum.photos/seed/${userData?.orgName || 'org-trac'}/1600/400`} 
+                                                alt="Banner Preview" 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                        </div>
+                                        <div className='flex-1 min-w-0'>
+                                            <p className='text-xs font-bold text-foreground truncate'>Cover Banner</p>
+                                            <p className='text-[9px] text-muted-foreground uppercase font-black tracking-wider mt-0.5'>Header Banner Image</p>
+                                        </div>
+                                        <label 
+                                            htmlFor="org-tab-banner-input"
+                                            className='px-4 py-2.5 rounded-xl bg-background border border-border hover:bg-secondary text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-2 shrink-0 shadow-sm'
+                                        >
+                                            {isUploadingBanner ? <Loader2 className="size-3 animate-spin" /> : <Pencil className="size-3" />}
+                                            <span>{orgData?.bannerUrl ? 'Change Banner' : 'Upload Banner'}</span>
+                                        </label>
+                                        <input 
+                                            id="org-tab-banner-input"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleBannerFileSelect}
+                                            disabled={isUploadingBanner}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className='grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-4 border-t border-border/40'>
+                                <div className='space-y-2'>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Partner Name</Label>
+                                    <Input 
+                                        value={partnerNameInput} 
+                                        onChange={(e) => setPartnerNameInput(e.target.value)} 
+                                        className='h-12 rounded-xl font-bold bg-secondary/20 border-border focus:ring-1 focus:ring-emerald-500' 
+                                        placeholder='Enter Partner Name'
+                                    />
+                                </div>
+
+                                <div className='space-y-2'>
+                                    <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Partner Role</Label>
+                                    <Input 
+                                        value={partnerRoleInput} 
+                                        onChange={(e) => setPartnerRoleInput(e.target.value)} 
+                                        className='h-12 rounded-xl font-bold bg-secondary/20 border-border focus:ring-1 focus:ring-emerald-500' 
+                                        placeholder='Enter Partner Role (e.g. Co-Founder)'
+                                    />
+                                </div>
+
+                                {(partnerNameInput.trim() !== (orgData?.partnerName || '') || partnerRoleInput.trim() !== (orgData?.partnerRole || '')) && (
+                                    <div className="md:col-span-2 flex justify-end">
+                                        <Button
+                                            onClick={handleSavePartnerDetails}
+                                            disabled={isSavingCompany}
+                                            className="rounded-xl font-black uppercase tracking-widest text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        >
+                                            {isSavingCompany ? <Loader2 className="size-4 animate-spin mr-2" /> : <Check className="size-4 mr-2" />}
+                                            Save Partner Details
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                            </>
                         ) : (
                             <div className='space-y-2'>
                                 <Label className='text-[10px] font-black uppercase tracking-widest ml-1'>Organization Name</Label>
@@ -1020,6 +1444,8 @@ function SettingsPageContent() {
                 </section>
             </TabsContent>
 
+            {/* Notifications Tab Content (Disabled) */}
+            {false && (
             <TabsContent value="dispatcher" className="space-y-8">
                  {/* Notification Preferences Section */}
                 <section className='bg-card border-4 border-black dark:border-white rounded-[2.5rem] p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden group'>
@@ -1103,56 +1529,47 @@ function SettingsPageContent() {
                                                     deferredPrompt ? 'text-primary hover:underline' : 'text-muted-foreground cursor-not-allowed opacity-50'
                                                 )}
                                             >
-                                                {deferredPrompt ? 'Add to Screen' : 'Standalone'}
+                                                {deferredPrompt ? 'Install TRAC App' : 'App Installed'}
                                             </button>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Category Filters */}
+                            {/* Category Controls */}
                             <div className='p-6 rounded-[2rem] bg-secondary/30 border-2 border-border space-y-4'>
-                                <div className='flex items-center gap-3'>
-                                    <ShieldCheck className='text-primary' size={20} />
-                                    <h4 className='text-sm font-black uppercase tracking-tight'>Category Intelligence</h4>
+                                <div className='flex items-center gap-3 mb-2'>
+                                    <Bell className='text-primary' size={20} />
+                                    <h4 className='text-sm font-black uppercase tracking-tight'>Alert Channels</h4>
                                 </div>
                                 
                                 <div className='space-y-3'>
-                                    <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
-                                        <div className='flex items-center gap-3'>
-                                            <Clock size={16} className='text-muted-foreground' />
-                                            <span className='text-[10px] font-black uppercase tracking-widest'>Shifts & Claims</span>
-                                        </div>
+                                    <div className='flex items-center justify-between py-1'>
+                                        <span className='text-xs font-bold text-foreground'>Attendance & Shift Alerts</span>
                                         <Switch 
                                             checked={notificationPreferences.categories.shifts}
                                             onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev, 
+                                                ...prev,
                                                 categories: { ...prev.categories, shifts: checked }
                                             }))}
                                         />
                                     </div>
-                                    <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
-                                        <div className='flex items-center gap-3'>
-                                            <ClipboardList size={16} className='text-muted-foreground' />
-                                            <span className='text-[10px] font-black uppercase tracking-widest'>Task Activities</span>
-                                        </div>
+                                    <div className='flex items-center justify-between py-1'>
+                                        <span className='text-xs font-bold text-foreground'>Task Assignments & Overdues</span>
                                         <Switch 
                                             checked={notificationPreferences.categories.tasks}
                                             onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev, 
+                                                ...prev,
                                                 categories: { ...prev.categories, tasks: checked }
                                             }))}
                                         />
                                     </div>
-                                    <div className='flex items-center justify-between p-3 bg-background/50 rounded-xl border border-border/50'>
-                                        <div className='flex items-center gap-3'>
-                                            <MessageSquare size={16} className='text-muted-foreground' />
-                                            <span className='text-[10px] font-black uppercase tracking-widest'>Messenger Traffic</span>
-                                        </div>
+                                    <div className='flex items-center justify-between py-1'>
+                                        <span className='text-xs font-bold text-foreground'>Chat Messages & Mentions</span>
                                         <Switch 
                                             checked={notificationPreferences.categories.chats}
                                             onCheckedChange={(checked) => setNotificationPreferences(prev => ({
-                                                ...prev, 
+                                                ...prev,
                                                 categories: { ...prev.categories, chats: checked }
                                             }))}
                                         />
@@ -1161,69 +1578,51 @@ function SettingsPageContent() {
                             </div>
                         </div>
 
-                        {/* Muted Employees Cluster */}
-                        <div className='space-y-4'>
-                            <div className='flex items-center justify-between'>
-                                <div className='flex items-center gap-3'>
-                                    <Users className='text-primary' size={20} />
-                                    <h4 className='text-sm font-black uppercase tracking-tight'>Personnel Mute List</h4>
-                                </div>
-                                <span className='text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase tracking-widest'>
-                                    {notificationPreferences.mutedEmployees.length} Muted
-                                </span>
-                            </div>
-
-                            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
+                        {/* Mute Roster Section */}
+                        <div className='p-6 rounded-[2rem] bg-secondary/30 border-2 border-border space-y-4'>
+                            <h4 className='text-sm font-black uppercase tracking-tight'>Muted Personnel Roster</h4>
+                            <p className='text-xs font-medium text-muted-foreground leading-tight'>
+                                Select team members to suppress their real-time activity alerts on your personal feed.
+                            </p>
+                            
+                            <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-2'>
                                 {employees.map((emp: any) => {
                                     const isMuted = notificationPreferences.mutedEmployees.includes(emp.id);
                                     return (
                                         <div 
-                                            key={emp.id} 
-                                            className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50 hover:bg-secondary/40 transition-all'
+                                            key={emp.id}
+                                            onClick={() => {
+                                                const newMuted = isMuted
+                                                    ? notificationPreferences.mutedEmployees.filter((id: string) => id !== emp.id)
+                                                    : [...notificationPreferences.mutedEmployees, emp.id];
+                                                setNotificationPreferences(prev => ({ ...prev, mutedEmployees: newMuted }));
+                                            }}
+                                            className={cn(
+                                                'flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
+                                                isMuted 
+                                                    ? 'bg-destructive/10 border-destructive/30 text-destructive' 
+                                                    : 'bg-background/50 border-border hover:bg-secondary/60 text-foreground'
+                                            )}
                                         >
-                                            <div className='flex items-center gap-3'>
-                                                <div className='size-8 rounded-full overflow-hidden border border-border bg-muted'>
+                                            <div className='flex items-center gap-2.5 min-w-0'>
+                                                <div className='size-7 rounded-full overflow-hidden bg-secondary border border-border flex-shrink-0'>
                                                     <img src={getUserAvatar(emp)} alt={emp.name} className='w-full h-full object-cover' />
                                                 </div>
                                                 <div className='min-w-0'>
-                                                    <p className='text-[10px] font-black uppercase truncate max-w-[100px]'>{emp.name}</p>
-                                                    <p className='text-[8px] font-bold text-muted-foreground uppercase'>{emp.role || 'Staff'}</p>
+                                                    <p className='text-xs font-bold truncate leading-none'>{emp.name}</p>
+                                                    <p className='text-[8px] font-bold text-muted-foreground uppercase mt-0.5'>{emp.role || 'Staff'}</p>
                                                 </div>
                                             </div>
-                                            <button 
-                                                onClick={() => {
-                                                    setNotificationPreferences(prev => {
-                                                        const alreadyMuted = prev.mutedEmployees.includes(emp.id);
-                                                        return {
-                                                            ...prev,
-                                                            mutedEmployees: alreadyMuted 
-                                                                ? prev.mutedEmployees.filter(id => id !== emp.id)
-                                                                : [...prev.mutedEmployees, emp.id]
-                                                        };
-                                                    });
-                                                }}
-                                                className={cn(
-                                                    'p-2 rounded-xl border transition-all',
-                                                    isMuted 
-                                                        ? 'bg-destructive/10 text-destructive border-destructive/20' 
-                                                        : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                                )}
-                                            >
-                                                {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                                            </button>
+                                            {isMuted ? <VolumeX size={14} className='shrink-0 ml-2' /> : <Volume2 size={14} className='shrink-0 ml-2 text-muted-foreground/40' />}
                                         </div>
                                     );
                                 })}
-                                {employees.length === 0 && (
-                                    <div className='col-span-full py-8 text-center bg-secondary/10 rounded-3xl border-2 border-dashed border-border'>
-                                        <p className='text-[10px] font-bold text-muted-foreground uppercase tracking-widest'>No employees found to manage</p>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
                 </section>
             </TabsContent>
+            )}
 
             <TabsContent value="operations" className="space-y-8">
                 {/* Operations Section */}
@@ -1380,7 +1779,8 @@ function SettingsPageContent() {
                 </section>
             </TabsContent>
 
-            {isAllowedRole && (
+            {/* Visibility Tab Content (Disabled) */}
+            {false && isAllowedRole && (
               <TabsContent value="visibility" className="space-y-8">
                 <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
                   <div className='flex items-center gap-4 mb-8'>
@@ -1427,37 +1827,27 @@ function SettingsPageContent() {
                       />
                     </div>
 
-                    {/*
                     <div className='flex items-center justify-between p-4 bg-secondary/20 rounded-2xl border border-border/50'>
                       <div>
-                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide USA CEO Leads</h4>
-                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the USA CEO Leads tool from the desktop client sidebar.</p>
+                        <h4 className='text-sm font-black uppercase tracking-tight'>Hide Docs & Policies</h4>
+                        <p className='text-xs text-muted-foreground mt-0.5'>Hide the Docs & Policies module from the desktop client sidebar.</p>
                       </div>
                       <Switch 
-                        checked={!!orgData?.disableCeoLeads}
-                        onCheckedChange={(checked) => handleToggleVisibility('disableCeoLeads', checked)}
+                        checked={!!orgData?.disableDocs}
+                        onCheckedChange={(checked) => handleToggleVisibility('disableDocs', checked)}
                       />
                     </div>
-                    */}
                   </div>
                 </section>
               </TabsContent>
             )}
 
-            {/*
-              Commented out: we can't make this live before we update the crm overview page, 
-              and the tasks overview page, and add pdf, excel, csv based reporting for tasks and crm
             {isAllowedRole && (
               <TabsContent value="client-sharing" className="space-y-8">
                 <section className='bg-card border border-border rounded-3xl p-8 shadow-sm'>
-                  <div className='flex items-center gap-4 mb-8'>
-                    <div className='size-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary'>
-                      <Globe size={24} />
-                    </div>
-                    <div>
-                      <h3 className='text-lg font-black uppercase tracking-tighter'>Client Sharing Command Center</h3>
-                      <p className='text-xs font-medium text-muted-foreground uppercase tracking-tight'>Control secure client access links and custom branding portals</p>
-                    </div>
+                  <div className='mb-8'>
+                    <h3 className='text-lg font-black uppercase tracking-tighter'>View Access</h3>
+                    <p className='text-xs font-medium text-muted-foreground uppercase tracking-tight'>Manage client portal access links</p>
                   </div>
 
                   <ClientSharingManager 
@@ -1468,7 +1858,6 @@ function SettingsPageContent() {
                 </section>
               </TabsContent>
             )}
-            */}
           </Tabs>
         </div>
       </main>

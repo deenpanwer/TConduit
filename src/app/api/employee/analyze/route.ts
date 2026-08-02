@@ -119,7 +119,7 @@ OUTPUT FORMAT (USE EXACTLY):
     }
 
     const { text } = await generateText({
-      model: mistral('pixtral-large-2411'),
+      model: mistral('pixtral-12b-2409'),
       messages: [{ role: "user", content: content }],
     });
 
@@ -134,7 +134,7 @@ OUTPUT FORMAT (USE EXACTLY):
         },
         output: text,
         metadata: {
-          model: 'pixtral-large-2411',
+          model: 'pixtral-12b-2409',
           platform: 'website',
           action: 'employee_analysis'
         }

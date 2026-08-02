@@ -17,7 +17,7 @@ import { AlertCircle, Cpu, Info, Loader2, ChevronDown, ChevronUp, X } from "luci
 import { toast } from "sonner";
 
 export function ErrorReportModal() {
-  const { isOpen, errorMessage, stackTrace, userMeta, closeReport } = useErrorReportStore();
+  const { isOpen, errorMessage, stackTrace, userMeta, reportId, closeReport } = useErrorReportStore();
   
   // Only the device configuration has a checkbox and can be opted out of
   const [includeDeviceInfo, setIncludeDeviceInfo] = useState(true);
@@ -87,13 +87,22 @@ export function ErrorReportModal() {
   }, [isOpen]);
 
   const handleSubmit = async () => {
+    const trimmedMessage = additionalContext.trim();
+
+    // If user clicked Send Report without writing any additional message, no update or re-push is needed
+    if (!trimmedMessage) {
+      toast.success("Error report was submitted automatically. Thank you!");
+      closeReport();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Stack trace and App Context are always sent as they are crucial diagnostics
       const payload = {
+        reportId: reportId || undefined,
         errorMessage,
         stackTrace: stackTrace || "No trace available",
-        additionalContext: additionalContext.trim() || null,
+        additionalContext: trimmedMessage,
         deviceInfo: includeDeviceInfo ? deviceInfo : null,
         appContext: appContext,
         userMeta: userMeta || null,
@@ -111,11 +120,11 @@ export function ErrorReportModal() {
         throw new Error(`Server responded with ${res.status}`);
       }
 
-      toast.success("Thank you for your report. Our technical team has been notified.");
+      toast.success("Thank you! Your message has been appended to the report.");
       closeReport();
     } catch (err: any) {
       console.error("Submission failed:", err);
-      toast.error("Unable to send report. Please try again.");
+      toast.error("Unable to update report message. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

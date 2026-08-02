@@ -1,5 +1,5 @@
 import { 
-  LayoutDashboard, Briefcase, ShoppingCart, ListTodo, CalendarDays, Calculator, Search, Factory, Users 
+  LayoutDashboard, Briefcase, ShoppingCart, ListTodo, CalendarDays, FileText
 } from "lucide-react";
 
 export const MODULE_CONFIG = [
@@ -37,6 +37,17 @@ export const MODULE_CONFIG = [
     released: true
   },
   {
+    id: "docs",
+    title: "Docs & Policies",
+    shortTitle: "Docs",
+    description: "Policies & Onboarding Packets",
+    icon: FileText,
+    href: "/docs",
+    color: "text-teal-500",
+    bg: "bg-teal-500/10",
+    released: true
+  },
+  {
     id: "pos",
     title: "Point of Sale System",
     shortTitle: "POS",
@@ -57,60 +68,5 @@ export const MODULE_CONFIG = [
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
     released: true
-  },
-  {
-    id: "accounting",
-    title: "Accounting & Finance",
-    shortTitle: "Accounting",
-    description: "Financial Management",
-    icon: Calculator,
-    href: "#",
-    color: "text-rose-500",
-    bg: "bg-rose-500/10",
-    released: false
-  },
-  {
-    id: "lead-finder",
-    title: "Lead Generation",
-    shortTitle: "Lead Finder",
-    description: "B2B Prospecting",
-    icon: Search,
-    href: "/lead-finder",
-    color: "text-indigo-500",
-    bg: "bg-indigo-500/10",
-    released: true
-  },
-  {
-    id: "sap",
-    title: "SAP & Manufacturing",
-    shortTitle: "SAP/ERP",
-    description: "Enterprise Planning",
-    icon: Factory,
-    href: "#",
-    color: "text-slate-500",
-    bg: "bg-slate-500/10",
-    released: false
-  },
-  {
-    id: "procurement",
-    title: "Procurement & Supply",
-    shortTitle: "Procurement",
-    description: "Supply Chain",
-    icon: ShoppingCart,
-    href: "#",
-    color: "text-cyan-500",
-    bg: "bg-cyan-500/10",
-    released: false
-  },
-  {
-    id: "ats",
-    title: "Applicant Tracking",
-    shortTitle: "ATS",
-    description: "Recruitment Pipeline",
-    icon: Users,
-    href: "#",
-    color: "text-violet-500",
-    bg: "bg-violet-500/10",
-    released: false
   }
 ];

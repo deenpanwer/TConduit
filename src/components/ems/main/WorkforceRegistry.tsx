@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ChevronRight, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUserAvatar, isEmployeeOnline } from "@/lib/utils";
-import { format, parse, isValid } from "date-fns";
+import { format, parse, isValid, addDays } from "date-fns";
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { useTeam } from "@/hooks/use-team";
@@ -50,35 +50,27 @@ export const WorkforceRegistry = ({
   useEffect(() => {
     if (!employees || employees.length === 0) return;
 
-    const startOfSelectedDay = new Date(selectedDate);
-    startOfSelectedDay.setHours(0, 0, 0, 0);
-    const endOfSelectedDay = new Date(selectedDate);
-    endOfSelectedDay.setHours(23, 59, 59, 999);
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
 
     const unsubscribes = employees.map(emp => {
       const timeRef = collection(db, "users", emp.id, "timeEntries");
-      const firstEntryQuery = query(
-        timeRef,
-        where("startTime", ">=", startOfSelectedDay),
-        where("startTime", "<=", endOfSelectedDay),
-        orderBy("startTime", "asc"),
-        limit(1)
-      );
+      const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(50));
 
-      return onSnapshot(firstEntryQuery, (snapshot) => {
-        if (!snapshot.empty) {
-          setFirstTimeEntries(prev => ({
-            ...prev,
-            [emp.id]: { id: snapshot.docs[0].id, ...snapshot.docs[0].data() }
-          }));
-        } else {
-          setFirstTimeEntries(prev => ({
-            ...prev,
-            [emp.id]: null
-          }));
-        }
+      return onSnapshot(timeQuery, (snapshot) => {
+        const matches = snapshot.docs
+          .map(d => ({ id: d.id, ...(d.data() as any) }))
+          .filter(e => {
+            const d = parseShiftDate(e.startTime);
+            return d && format(d, "yyyy-MM-dd") === dateStr;
+          })
+          .sort((a, b) => (parseShiftDate(a.startTime)?.getTime() || 0) - (parseShiftDate(b.startTime)?.getTime() || 0));
+
+        setFirstTimeEntries(prev => ({
+          ...prev,
+          [emp.id]: matches.length > 0 ? matches[0] : null
+        }));
       }, (err) => {
-        console.warn(`Failed to fetch first time entry for employee ${emp.id}:`, err);
+        console.warn(`Failed to fetch time entries for employee ${emp.id}:`, err);
       });
     });
 
@@ -98,17 +90,25 @@ export const WorkforceRegistry = ({
     const scheduledEndTimeStr = employee.trackingSettings?.shiftDefaults?.endTime;
     const hasSchedule = scheduledStartTimeStr && scheduledEndTimeStr;
 
-    const actualShift = employee.workShifts?.find((s: any) => s.id.startsWith(shiftDateStr));
+    const actualShift = employee.workShifts?.find((s: any) => {
+      if (!s) return false;
+      const sDate = s.id?.split('_')[0] || s.dateStr || s.workDate || (s.startTime ? format(new Date(s.startTime), "yyyy-MM-dd") : "");
+      return sDate === shiftDateStr;
+    });
     
-    // Get actual start time strictly from the first time entry of the day
-    const actualStartTime = firstTimeEntry 
-      ? parseShiftDate(firstTimeEntry.startTime) 
-      : null;
+    // Get actual start time: Primary source is actualShift.startTime/clockIn to match Shift Reviews exactly
+    const actualStartTime = actualShift?.startTime 
+      ? parseShiftDate(actualShift.startTime) 
+      : (actualShift?.clockIn ? parseShiftDate(actualShift.clockIn) : (firstTimeEntry ? parseShiftDate(firstTimeEntry.startTime) : null));
       
-    const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime) : null;
+    const actualEndTime = actualShift ? parseShiftDate(actualShift.endTime || actualShift.clockOut) : null;
 
-    const scheduledStartTime = hasSchedule ? parse(`${shiftDateStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
-    const scheduledEndTime = hasSchedule ? parse(`${shiftDateStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+    let scheduledStartTime = hasSchedule ? parse(`${shiftDateStr} ${scheduledStartTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+    let scheduledEndTime = hasSchedule ? parse(`${shiftDateStr} ${scheduledEndTimeStr}`, "yyyy-MM-dd HH:mm", new Date()) : null;
+
+    if (scheduledStartTime && scheduledEndTime && scheduledEndTime < scheduledStartTime) {
+      scheduledEndTime = addDays(scheduledEndTime, 1);
+    }
 
     const formatDuration = (ms: number) => {
       const totalMinutes = Math.floor(Math.abs(ms) / (1000 * 60));

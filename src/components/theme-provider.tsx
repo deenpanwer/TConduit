@@ -8,7 +8,12 @@ import { type ThemeProviderProps } from "next-themes/dist/types"
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const origError = console.error;
   console.error = (...args: any[]) => {
-    if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag')) {
+    const fullMessage = args.map(a => typeof a === 'object' ? (a?.message || JSON.stringify(a)) : String(a)).join(' ');
+    if (
+      fullMessage.includes('Encountered a script tag') ||
+      fullMessage.includes('permission-denied') ||
+      fullMessage.includes('Missing or insufficient permissions')
+    ) {
       return;
     }
     origError.apply(console, args);

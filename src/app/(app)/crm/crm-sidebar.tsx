@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Briefcase, Building, ChevronDown, 
   ChevronsRight, ChevronsLeft, Moon, Sun, ShoppingCart, 
   X, NotebookPen, PhoneIncoming, Settings, Sparkles,
-  FileText
+  FileText, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,10 +19,12 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { getDocs, collection, query, where, limit, doc, getDoc } from "firebase/firestore";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 import { ProductSwitcher } from "@/components/ems/shared/ProductSwitcher";
+import { toast } from "sonner";
 
 interface CRMSidebarProps {
   isCollapsed: boolean;
@@ -151,6 +153,8 @@ export function CRMSidebar({
               selectedModules={selectedModules}
               partnerBrand={partnerBrand}
               onConfigOpen={() => setIsConfigOpen(true)}
+              isClient={userData?.role === "client" || userData?.isClient === true}
+              allowedScopes={userData?.allowedScopes || []}
             />
           </div>
 
@@ -164,20 +168,41 @@ export function CRMSidebar({
             <NavItem icon={FileText} label="Invoices" href="/crm/invoices" active={pathname?.startsWith("/crm/invoices")} />
             <NavItem icon={NotebookPen} label="Notes" href="/crm/notes" active={pathname === "/crm/notes"} />
             <NavItem icon={PhoneIncoming} label="Call Logs" href="/crm/call-logs" active={pathname === "/crm/call-logs"} />
-            <NavItem icon={Settings} label="Config" href="/crm/config" active={pathname === "/crm/config"} />
+            {userData?.role !== "client" && <NavItem icon={Settings} label="Config" href="/crm/config" active={pathname === "/crm/config"} />}
           </div>
 
           {/* Footer */}
           <div className="pt-4 border-t border-border flex flex-col items-center space-y-4 shrink-0">
             <button 
-              onClick={() => {
+              onClick={async () => {
+                if (userData?.role === "client" || userData?.isClient === true) {
+                  if (typeof window !== "undefined") {
+                    sessionStorage.removeItem("client_portal_session");
+                    localStorage.removeItem("client_portal_session");
+                  }
+                  const shareId = userData?.shareId;
+                  const orgId = userData?.orgId;
+                  await signOut(auth);
+                  toast("Logged Out", { description: "You have safely exited the client portal." });
+                  if (orgId && shareId) {
+                    router.push(`/share/${orgId}/${shareId}`);
+                  } else {
+                    router.push("/");
+                  }
+                  return;
+                }
                 router.push("/ems/settings");
                 if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
               }} 
               className={cn(
-                "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group", 
+                "flex items-center transition-all group border border-transparent", 
                 pathname === "/ems/settings" && "bg-secondary ring-1 ring-border", 
-                (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2"
+                (isCollapsed && !isMobileSidebarOpen) 
+                  ? "w-12 h-12 justify-center rounded-full mx-auto" 
+                  : "w-full gap-3 p-2 px-3 rounded-xl",
+                (userData?.role === "client" || userData?.isClient === true)
+                  ? "bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
+                  : "hover:bg-secondary"
               )}
             >
               <div className="size-10 rounded-full bg-secondary overflow-hidden border border-border shrink-0 transition-transform group-hover:scale-105">
@@ -185,11 +210,17 @@ export function CRMSidebar({
               </div>
               {(!isCollapsed || isMobileSidebarOpen) && (
                 <div className="flex flex-1 items-center justify-between min-w-0 text-left">
-                  <div className="flex flex-col min-w-0">
-                      <div className="text-xs font-bold truncate">{userData?.name || "Admin"}</div>
-                      <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Account Settings</div>
+                  <div className={cn("flex flex-col min-w-0", (userData?.role === "client" || userData?.isClient === true) ? "text-destructive" : "")}>
+                      <div className="text-xs font-bold truncate">{userData?.name || userData?.displayName || "Client Portal"}</div>
+                      <div className={cn("text-[10px] font-black uppercase tracking-widest", (userData?.role === "client" || userData?.isClient === true) ? "text-destructive/80" : "text-muted-foreground")}>
+                        {(userData?.role === "client" || userData?.isClient === true) ? "Client Access" : (userData?.role || "Owner")}
+                      </div>
                   </div>
-                  <Settings size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  {(userData?.role === "client" || userData?.isClient === true) ? (
+                    <LogOut size={16} className="text-destructive ml-2 shrink-0 group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <Settings size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  )}
                 </div>
               )}
             </button>

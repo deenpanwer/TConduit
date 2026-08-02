@@ -352,11 +352,10 @@ export default function AttendanceOverviewPage() {
                   });
                   setIsExportModalOpen(true);
                 }}
-                variant="outline"
-                className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 gap-2 px-6 border-border/50"
+                className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 gap-2 px-6 bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20 border border-red-600/30 transition-all active:scale-95"
               >
                 <Download size={14} />
-                Export Today
+                Export Report
               </Button>
             </div>
             <CardContent className="p-0 md:flex-1 md:overflow-auto overflow-x-auto overflow-y-visible custom-scrollbar min-h-0 relative">

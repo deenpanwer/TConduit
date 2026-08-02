@@ -76,14 +76,28 @@ export default function InternalDashboard() {
     setRefreshing(true);
     try {
       const [dashRes, dlRes] = await Promise.all([
-        fetch("/api/internal/dashboard"),
-        fetch("/api/internal/download-stats")
+        fetch("/api/internal/dashboard", { signal: AbortSignal.timeout(10000) }),
+        fetch("/api/internal/download-stats", { signal: AbortSignal.timeout(10000) })
       ]);
       
-      const dashData = await dashRes.json();
-      const dlData = await dlRes.json();
-      
-      if (!dashRes.ok) throw new Error(dashData.error || "Failed to fetch dashboard data");
+      let dashData: any = {};
+      let dlData: any = {};
+
+      const dashContentType = dashRes.headers.get("content-type") || "";
+      if (dashRes.ok && dashContentType.includes("application/json")) {
+        dashData = await dashRes.json();
+      } else {
+        const errText = await dashRes.text();
+        console.error("Dashboard API Error:", dashRes.status, errText);
+      }
+
+      const dlContentType = dlRes.headers.get("content-type") || "";
+      if (dlRes.ok && dlContentType.includes("application/json")) {
+        dlData = await dlRes.json();
+      } else {
+        const errText = await dlRes.text();
+        console.error("Download Stats API Error:", dlRes.status, errText);
+      }
       
       setUsers(dashData.users || []);
       setDownloads(dlData.downloads || []);
@@ -91,8 +105,9 @@ export default function InternalDashboard() {
       setPwaInstalls(dlData.pwaInstalls || []);
       setPwaCount(dlData.pwaCount || 0);
     } catch (error: any) {
-      console.error("Error fetching dashboard data:", error);
-      toast.error(`Permissions/API Error: ${error.message}`);
+      if (error.name !== "AbortError" && error.name !== "TimeoutError") {
+        console.error("Error fetching dashboard data:", error);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -325,11 +340,13 @@ export default function InternalDashboard() {
 
         <main className="max-w-[1400px] mx-auto p-8 space-y-16">
           <StatCards stats={stats} />
+          {/* Commented out because it generates a dynamic list of cards for every owner and gets too long:
           <SignupList 
             owners={users} 
             onToggleTalked={handleToggleTalked} 
             updatingField={updatingField} 
           />
+          */}
           <UserTable users={users} onViewDetails={handleViewDetails} loading={loading} />
         </main>
 

@@ -73,9 +73,9 @@ Ensure the output is valid JSON and nothing else.`;
       });
     }
 
-    // Call generateText using Mistral model 'pixtral-large-2411'
+    // Call generateText using Mistral model 'pixtral-12b-2409'
     const { text } = await generateText({
-      model: mistral('pixtral-large-2411'),
+      model: mistral('pixtral-12b-2409'),
       messages: [{ role: "user", content: content }],
     });
 
@@ -146,7 +146,7 @@ Ensure the output is valid JSON and nothing else.`;
           employeeName,
           uploaderEmail,
           uploaderName,
-          model: 'pixtral-large-2411',
+          model: 'pixtral-12b-2409',
           platform: 'website',
           action: 'resume_parsing'
         }

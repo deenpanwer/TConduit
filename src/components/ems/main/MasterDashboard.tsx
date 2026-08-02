@@ -33,20 +33,42 @@ interface MasterDashboardProps {
 export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: MasterDashboardProps) => {
   const { employees, owner: enrichedOwner, stats, loading, selectedDate, setSelectedDate } = useTeam();
   const ownerData = enrichedOwner || initialOwnerData;
-
   const dateStr = React.useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
+  // Filter employees for MasterDashboard: exclude owners/founders unless they have desktop trac-diary version in user doc or active work telemetry
+  const trackingEmployees = React.useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+
+    return employees.filter(emp => {
+      const role = (emp.role || '').toLowerCase();
+      const isOwnerOrFounder = role === 'owner' || role === 'founder';
+
+      if (!isOwnerOrFounder) return true;
+
+      const hasTracDiaryVersion = !!(
+        emp.tracDiaryVersion ||
+        emp.tracVersion ||
+        emp.appVersion ||
+        emp.version ||
+        emp.hasTracDiary ||
+        emp.tracInstalled ||
+        emp.desktopVersion ||
+        emp.installedAppVersion ||
+        emp.tracAppVersion
+      );
+
+      const hasWorkTelemetry = !!(
+        (emp.workShifts && emp.workShifts.length > 0) ||
+        (emp.totalSeconds && emp.totalSeconds > 0)
+      );
+
+      return hasTracDiaryVersion || hasWorkTelemetry;
+    });
+  }, [employees]);
+
   // --- SINGLE-PASS DATA ENGINE ---
-  // SCHEMA COMPATIBILITY NOTICE:
-  // This engine processes both Legacy and Modern workShift JSON structures.
-  // Legacy: liveBreakdown[app] is a number.
-  // Modern: liveBreakdown[app] is an object with { totalSeconds, activeSeconds, ... }.
-  //
-  // PHASE-OUT GUIDE:
-  // Once 100% of employees migrate to modern app versions, simplify this engine
-  // to remove 'typeof data === "number"' checks.
   const processedData = React.useMemo(() => {
-    if (employees.length === 0) return { workforce: [], performance: [], sankey: { nodes: [], links: [] } };
+    if (trackingEmployees.length === 0) return { workforce: [], performance: [], sankey: { nodes: [], links: [] } };
 
     const now = new Date();
     const currentHour = now.getHours();
@@ -66,7 +88,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
     const appNodeIndices: Record<string, number> = {};
 
     // 3. Process Workforce Table
-    const workforce = employees.map(emp => {
+    const workforce = trackingEmployees.map(emp => {
         const shifts = emp.workShifts || [];
         let totalDaySeconds = 0;
         let totalSeconds = 0;
@@ -82,7 +104,10 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             totalSeconds += shiftTotalSeconds;
 
             // Metrics aggregation for Selected Date
-            if (shift.id.startsWith(dateStr)) {
+            const shiftDateStr = shift.workDate || shift.date || (shift.startTime?.toDate ? format(shift.startTime.toDate(), "yyyy-MM-dd") : (typeof shift.startTime === 'string' ? shift.startTime.substring(0, 10) : null));
+            const isForSelectedDate = shift.id.startsWith(dateStr) || shiftDateStr === dateStr;
+
+            if (isForSelectedDate) {
                 totalDaySeconds += shiftTotalSeconds;
                 
                 const metrics = shift.liveMetrics || shift.metrics || {};
@@ -199,13 +224,16 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
             ownerData={ownerData} 
             stats={stats}
             logoUrl={orgData?.logoUrl}
+            partnerName={orgData?.partnerName}
+            partnerRole={orgData?.partnerRole}
+            orgData={orgData}
         />
       </motion.div>
 
       {/* NEW HUB: AI Collective Pulse */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
         <AIOrgPulse 
-          employees={[...employees, ownerData].filter(Boolean)} 
+          employees={trackingEmployees} 
           selectedDate={selectedDate} 
           orgName={ownerData?.orgName || orgData?.orgName || orgData?.name || "Your Organization"}
         />
@@ -253,7 +281,7 @@ export const MasterDashboard = ({ orgData, ownerData: initialOwnerData }: Master
 
       {/* HUB 7: Ledger */}
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
-        <ForceRegistry employees={employees} />
+        <ForceRegistry employees={trackingEmployees} />
       </motion.div>
     </div>
   );

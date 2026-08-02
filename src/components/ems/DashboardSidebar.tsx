@@ -5,8 +5,8 @@ import {
   SquarePen, ChevronDown, ChevronsRight, ChevronsLeft, Moon, Sun,
   UserPlus, LayoutDashboard, Activity, Zap, ShieldCheck, Settings, Users,
   Plus, ListTodo, MessageSquare, CalendarRange, CalendarDays, Database,
-  ShoppingCart, Briefcase, X,
-  Bell, Sparkles
+  ShoppingCart, Briefcase, X, LogOut,
+  Bell, Sparkles, CheckSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +27,8 @@ import { toast } from "sonner";
 import { ModuleConfigModal } from "@/components/ModuleConfigModal";
 import { ProductSwitcher } from "./shared/ProductSwitcher";
 
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { getDocs, collection, query, where, limit, doc, getDoc, onSnapshot } from "firebase/firestore";
 
 interface DashboardSidebarProps {
@@ -58,6 +59,25 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isTeamExpanded, setIsTeamExpanded] = useState(true);
+
+  const isClientUser = isClient || userData?.isClient === true || userData?.role === "client";
+  const clientAllowedScopes = allowedScopes || userData?.allowedScopes || ["ems", "crm", "tasks"];
+
+  const handleClientLogout = async () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("client_portal_session");
+      localStorage.removeItem("client_portal_session");
+    }
+    const shareId = userData?.shareId;
+    const orgId = userData?.orgId;
+    await signOut(auth);
+    toast("Logged Out", { description: "You have safely exited the client portal." });
+    if (orgId && shareId) {
+      router.push(`/share/${orgId}/${shareId}`);
+    } else {
+      router.push("/");
+    }
+  };
   const [partnerBrand, setPartnerBrand] = useState<string | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
@@ -76,7 +96,7 @@ export function DashboardSidebar({
   const orgId = userData?.ownedOrgId || userData?.orgId;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isClientUser) return;
     const q = query(
       collection(db, "users", user.uid, "notifications"),
       where("type", "==", "crm_missed_followup"),
@@ -254,37 +274,45 @@ export function DashboardSidebar({
               selectedModules={selectedModules}
               partnerBrand={partnerBrand}
               onConfigOpen={() => setIsConfigOpen(true)}
-              isClient={isClient}
-              allowedScopes={allowedScopes}
+              isClient={isClientUser}
+              allowedScopes={clientAllowedScopes}
             />
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-2 px-2 space-y-4 mb-6">
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => onInviteClick?.()}
-                    className={cn(
-                      "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
-                    )}
-                  >
-                    <Plus className="size-5 shrink-0" />
-                    {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Invite Staff Member
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {!isClientUser && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => onInviteClick?.()}
+                      className={cn(
+                        "flex items-center gap-3 w-full p-2 rounded-xl transition-all hover:bg-secondary border border-transparent hover:border-border",
+                        (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-3"
+                      )}
+                    >
+                      <Plus className="size-5 shrink-0" />
+                      {(!isCollapsed || isMobileSidebarOpen) && <span className="text-sm font-bold truncate">Invite Staff Member</span>}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
+                    Invite Staff Member
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
             <div className="space-y-1">
                 <NavItem icon={LayoutDashboard} label="Overview" href="/ems" active={pathname === "/ems"} />
                 <NavItem icon={Zap} label="Supervise" href="/ems/supervise" active={pathname === "/ems/supervise"} />
                 <NavItem icon={Bell} label="Notifications" onClick={() => setIsNotificationsOpen(true)} active={isNotificationsOpen} count={pendingCount} />
                 <NavItem icon={CalendarRange} label="Shifts" href="/ems/shifts" active={pathname === "/ems/shifts"} />
+                {(!isClientUser && ['founder', 'owner', 'manager', 'admin', 'hr', 'ops'].includes((userData?.role || '').toLowerCase()) || !!userData?.ownedOrgId) && (
+                  <>
+                    <NavItem icon={CheckSquare} label="Shift Reviews" href="/ems/shift-reviews" active={pathname === "/ems/shift-reviews"} />
+                    <NavItem icon={ShieldCheck} label="Insights" href="/ems/insights" active={pathname === "/ems/insights"} />
+                  </>
+                )}
                 <NavItem icon={CalendarDays} label="Calendar" href="/ems/calendar" active={pathname === "/ems/calendar"} />
                 <NavItem icon={MessageSquare} label="Chat" href="/ems/chat" active={pathname === "/ems/chat"} />
             </div>
@@ -343,15 +371,21 @@ export function DashboardSidebar({
                 <TooltipTrigger asChild>
                   <button 
                     onClick={() => {
-                      if (isClient) return;
+                      if (isClientUser) {
+                        handleClientLogout();
+                        return;
+                      }
                       router.push("/ems/settings");
                       if (isMobileSidebarOpen) setIsMobileSidebarOpen(false);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-secondary group",
-                      pathname === "/ems/settings" ? "bg-secondary ring-1 ring-border" : "",
-                      (isCollapsed && !isMobileSidebarOpen) ? "justify-center" : "px-2",
-                      isClient && "cursor-default hover:bg-transparent"
+                      "flex items-center transition-all group border border-transparent",
+                      (isCollapsed && !isMobileSidebarOpen)
+                        ? "w-12 h-12 justify-center rounded-full mx-auto"
+                        : "w-full gap-3 p-2 px-3 rounded-xl",
+                      isClientUser 
+                        ? "bg-destructive/10 hover:bg-destructive/20 border-destructive/30" 
+                        : "hover:bg-secondary"
                     )}
                   >
                     <div className="size-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center border border-border shrink-0 transition-transform group-hover:scale-105">
@@ -363,17 +397,21 @@ export function DashboardSidebar({
                     </div>
                     {(!isCollapsed || isMobileSidebarOpen) && (
                       <div className="flex flex-1 items-center justify-between min-w-0">
-                        <div className="flex flex-col min-w-0 text-left">
+                        <div className={cn("flex flex-col min-w-0 text-left", isClientUser ? "text-destructive" : "")}>
                             <div className="text-xs font-bold truncate">{userData?.name || user?.displayName || userEmail || "Client Portal"}</div>
-                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{isClient ? "Client" : (userData?.role || "Owner")}</div>
+                            <div className={cn("text-[10px] font-black uppercase tracking-widest", isClientUser ? "text-destructive/80" : "text-muted-foreground")}>{isClientUser ? "Client Access" : (userData?.role || "Owner")}</div>
                         </div>
-                        {!isClient && <Settings size={14} className="text-muted-foreground ml-2 shrink-0 group-hover:text-primary transition-colors" />}
+                        {isClientUser ? (
+                          <LogOut size={16} className="text-destructive ml-2 shrink-0 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <Settings size={14} className="text-muted-foreground ml-2 shrink-0 group-hover:text-primary transition-colors" />
+                        )}
                       </div>
                     )}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" className={cn((!isCollapsed || isMobileSidebarOpen) && "hidden")}>
-                  Account Settings
+                  {isClientUser ? "Sign Out of Client Portal" : "Account Settings"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

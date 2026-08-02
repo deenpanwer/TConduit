@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v4";
+const ANNOUNCEMENT_KEY = "trac-website-announcement-dismissed-v5-docs";
 
 export function AnnouncementBanner() {
   const [mounted, setMounted] = useState(false);
@@ -56,7 +56,7 @@ export function AnnouncementBanner() {
 
         {/* Banner Content */}
         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          We've optimized our core <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">authentication handshake protocols</span> and integrated advanced <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">client-side session caching</span> for seamless resilience, alongside a secure new <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">manager invitation flow</span>.
+          We've launched <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">Company Docs & Policies</span>! Publish company guidelines, assign <span className="text-blue-600 dark:text-blue-400 font-extrabold underline decoration-2 decoration-blue-600 dark:decoration-blue-400">onboarding packets</span> to team members, and track real-time acknowledgements across your organization.
         </p>
       </motion.div>
     </AnimatePresence>

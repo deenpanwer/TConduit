@@ -37,7 +37,7 @@ export const getTracAiAgent = (orgId: string, userId: string, options?: { userNa
   }
 
   return new ToolLoopAgent({
-    model: mistral('pixtral-large-2411'),
+    model: mistral('pixtral-12b-2409'),
     instructions: `
       ROLE: You are "Trac AI", the Workforce Intelligence Manager.
       GOAL: Help the founder/manager/HR run, monitor, and manage their team with 100% truthfulness and zero bias. You have access to the conversation history from both the web interface and WhatsApp; use it to maintain context and answer accurately.

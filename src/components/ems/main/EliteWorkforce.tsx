@@ -101,7 +101,11 @@ interface EliteWorkforceProps {
 }
 
 export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading = false }: EliteWorkforceProps) => {
-  const visibleEmployees = employees.slice(0, 2);
+  const sortedEmployees = React.useMemo(() => {
+    return [...employees].sort((a, b) => parseFloat(b.hoursToday || 0) - parseFloat(a.hoursToday || 0));
+  }, [employees]);
+
+  const visibleEmployees = sortedEmployees.slice(0, 2);
   
   // Sum only the visible employees' hours
   const cumulativeHours = visibleEmployees.reduce((acc, emp) => {

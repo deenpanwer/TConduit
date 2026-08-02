@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, orderBy, limit, updateDoc, getDoc, getDocs } from "firebase/firestore";
 import { format, addDays, startOfDay, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, MoreHorizontal, ShieldCheck, Menu, Ban } from "lucide-react";
@@ -43,10 +43,15 @@ import { PaywallScreen } from "@/components/ems/PaywallScreen";
 import { InviteModal } from "@/components/ems/InviteModal";
 import { SubscriptionBadge } from "@/components/ems/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/ems/IntelligenceModal";
+import { AppLockModal } from "@/components/ems/AppLockModal";
+import { ShiftReviewModal } from "@/components/ems/shifts/ShiftReviewModal";
 import { cn, isEmployeeOnline } from "@/lib/utils";
 import { GlobalDateSelector } from "@/components/ems/shared/GlobalDateSelector";
 import { AIPersonnelPulse } from "@/components/ems/employee/AIPersonnelPulse";
 import { DummyDataTile } from "@/components/ems/DummyDataTile";
+import { Lock } from "lucide-react";
+
+import { generateDummyData, generateDummyScreenshots, generateDummyTimeEntries } from "@/lib/dummy-data";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -57,19 +62,6 @@ const sectionVariants = {
   }
 };
 
-/**
- * EmployeeDetailPage: Deep-Dive Data Orchestration
- * -----------------------------------------------
- * This page manages temporary listeners for historical and deep-dive data.
- *
- * COST OPTIMIZATION (Surgical Reads):
- * 1. Shifts: Limited to last 30 at base (Bills only for existing docs).
- * 2. Time Entries: Limited to 5 at base.
- * 3. Screenshots: 1 listener for SELECTED_DATE only at base.
- *
- * NOTE ON NEW USERS: If a user joined today, a "limit(30)" query only bills for
- * the 1 or 2 shifts they actually have. Firestore does not bill for the "empty" limit.
- */
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -85,12 +77,13 @@ export default function EmployeeDetailPage() {
   
   // --- PAGINATION STATES ---
   const [historyLimit, setHistoryLimit] = useState(5);
-  const [shiftsLimit, setShiftsLimit] = useState(30); // Decreased from 100
-  // const [screenshotDays, setScreenshotDays] = useState(1); // Today only at base - now dynamic based on selectedDate
+  const [shiftsLimit, setShiftsLimit] = useState(30);
 
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [showAppLockModal, setShowAppLockModal] = useState(false);
+  const [showShiftReviewModal, setShowShiftReviewModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const { toast } = useToast();
 
@@ -139,14 +132,17 @@ export default function EmployeeDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    // Full loading only on employee change
     setLoading(true);
     
+    if ((id as string).startsWith('dummy_')) {
+      setLoading(false);
+      return;
+    }
+
     // 1. Profile Document
     const unsubProfile = onSnapshot(doc(db, "users", id as string), (snapshot) => {
       if (snapshot.exists()) {
         setEmployeeDoc(snapshot.data());
-        // We set loading false here because profile is the core identity
         setLoading(false); 
       } else {
         setLoading(false); 
@@ -159,8 +155,16 @@ export default function EmployeeDetailPage() {
   useEffect(() => {
     if (!id) return;
 
-    // We do NOT call setLoading(true) here for date/limit changes
-    // This allows the UI to stay interactive while the new snapshot arrives.
+    // Check if dummy employee
+    const isDummy = (id as string).startsWith('dummy_');
+    if (isDummy) {
+      const dummyShots = generateDummyScreenshots(selectedDate);
+      const dummyEntries = generateDummyTimeEntries(selectedDate, dummyShots);
+      setScreenshots(dummyShots);
+      setTimeEntries(dummyEntries);
+      setFirstTimeEntryOfDate(dummyEntries[0] || null);
+      return;
+    }
 
     // 2. Shift History (Limited for Ledger preview)
     const shiftsRef = collection(db, "users", id as string, "workShifts");
@@ -169,52 +173,60 @@ export default function EmployeeDetailPage() {
       setWorkShifts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // 3. Time Entries (Paginated Engagement Log)
+    // 3. Time Entries (Work Log for Selected Date - Resilient Client-Side Matching)
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
     const timeRef = collection(db, "users", id as string, "timeEntries");
-    const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(historyLimit));
+    const timeQuery = query(timeRef, orderBy("startTime", "desc"), limit(100));
+    
     const unsubTime = onSnapshot(timeQuery, (snapshot) => {
-      setTimeEntries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allEntries = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const filtered = allEntries
+        .filter(entry => {
+          const entryDate = getDate(entry.startTime);
+          return entryDate && format(entryDate, "yyyy-MM-dd") === dateStr;
+        })
+        .sort((a, b) => (getDate(a.startTime)?.getTime() || 0) - (getDate(b.startTime)?.getTime() || 0));
+
+      setTimeEntries(filtered);
+      setFirstTimeEntryOfDate(filtered.length > 0 ? filtered[0] : null);
+    }, (err) => {
+      console.warn("Failed to fetch time entries:", err);
     });
 
-    // 4. Visual Evidence (Snapshot per day)
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    
+    // 4. Visual Evidence (Snapshot per day with Fallback to latest date if selected date empty)
     const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
     const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
     
-    const unsubScreenshots = onSnapshot(screenQuery, (snapshot) => {
-        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    }); 
-
-    // 5. Very First Time Entry of Selected Date (for actual work start time)
-    const startOfSelectedDay = new Date(selectedDate);
-    startOfSelectedDay.setHours(0, 0, 0, 0);
-    const endOfSelectedDay = new Date(selectedDate);
-    endOfSelectedDay.setHours(23, 59, 59, 999);
-
-    const firstEntryQuery = query(
-      timeRef,
-      where("startTime", ">=", startOfSelectedDay),
-      where("startTime", "<=", endOfSelectedDay),
-      orderBy("startTime", "asc"),
-      limit(1)
-    );
-
-    const unsubFirstEntry = onSnapshot(firstEntryQuery, (snapshot) => {
+    const unsubScreenshots = onSnapshot(screenQuery, async (snapshot) => {
       if (!snapshot.empty) {
-        setFirstTimeEntryOfDate({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       } else {
-        setFirstTimeEntryOfDate(null);
+        try {
+          const datesRef = collection(db, "users", id as string, "screenshots");
+          const dateSnap = await getDocs(datesRef);
+          if (!dateSnap.empty) {
+            const allDateIds = dateSnap.docs.map((d: any) => d.id).sort((a: string, b: string) => b.localeCompare(a));
+            const latestDateId = allDateIds[0];
+            if (latestDateId) {
+              const fallbackRef = collection(db, "users", id as string, "screenshots", latestDateId, "images");
+              const imgSnap = await getDocs(query(fallbackRef, orderBy("timestamp", "desc"), limit(60)));
+              if (!imgSnap.empty) {
+                setScreenshots(imgSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
+                return;
+              }
+            }
+          }
+        } catch (fbErr) {
+          console.warn("Screenshot fallback warning:", fbErr);
+        }
+        setScreenshots([]);
       }
-    }, (err) => {
-      console.warn("Failed to fetch first time entry of the day:", err);
     });
 
     return () => {
       unsubShifts();
       unsubTime();
       unsubScreenshots();
-      unsubFirstEntry();
     };
   }, [id, historyLimit, shiftsLimit, selectedDate]);
 
@@ -232,9 +244,14 @@ export default function EmployeeDetailPage() {
     if (historyLimit >= shiftsLimit - 5) setShiftsLimit(prev => prev + 30);
   };
 
+  const effectiveWorkShifts = useMemo(() => {
+    if (liveEmployee?.workShifts?.length > 0) return liveEmployee.workShifts;
+    return workShifts;
+  }, [liveEmployee, workShifts]);
+
   const { currentShiftHours, todayTotalHours, topApp } = useMemo(() => {
     const officialStart = employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
-    const shiftsToProcess = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
+    const shiftsToProcess = effectiveWorkShifts;
     
     if (shiftsToProcess.length === 0) {
       return { currentShiftHours: "0.0", todayTotalHours: "0.0", topApp: "---" };
@@ -273,18 +290,18 @@ export default function EmployeeDetailPage() {
       todayTotalHours: (todayTotalSeconds / 3600).toFixed(1),
       topApp: top.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
     };
-  }, [employee, liveEmployee, workShifts]);  
+  }, [employee, effectiveWorkShifts, selectedDate]);  
 
   const joinedDate = useMemo(() => {
     return employee?.attachedAt?.toDate ? employee.attachedAt.toDate() : (employee?.createdAt?.toDate ? employee.createdAt.toDate() : new Date(0));
   }, [employee]);
 
   const activeShift = useMemo(() => {
-    return workShifts.find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
-  }, [workShifts]);
+    return effectiveWorkShifts.find((s: any) => s.status === 'active' || (s.id.startsWith(format(new Date(), "yyyy-MM-dd")) && !s.endTime));
+  }, [effectiveWorkShifts]);
 
   const { intensity, aiBrief } = useMemo(() => {
-    const shiftsForIntensity = (liveEmployee?.workShifts?.length > 0) ? liveEmployee.workShifts : workShifts;
+    const shiftsForIntensity = effectiveWorkShifts;
     if (shiftsForIntensity.length === 0) return { intensity: 0, aiBrief: null };
 
     const relevantShifts = shiftsForIntensity
@@ -312,26 +329,61 @@ export default function EmployeeDetailPage() {
     if (isEmployeeOnline(employee) && normalizedIntensity < 0.1) normalizedIntensity = 0.1; 
 
     return { intensity: normalizedIntensity, aiBrief: brief };
-  }, [employee, liveEmployee, workShifts]);
+  }, [employee, effectiveWorkShifts]);
+
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const handleEditEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !employee) return;
-    setLoading(true);
+    setIsSavingEdit(true);
     const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const name = formData.get("name") as string;
     const role = formData.get("role") as string;
+    const newName = name?.trim() || employee.name;
+    const targetOrgId = userData?.ownedOrgId || userData?.orgId || employee?.orgId;
 
     try {
-      await updateDoc(doc(db, "users", id as string), {
-        role: role,
-        updatedAt: new Date(),
-      });
-      toast({ title: "Employee Updated", description: `${employee?.name}'s profile has been updated.` });
+      if ((id as string).startsWith('dummy_')) {
+        setEmployeeDoc((prev: any) => ({ ...(prev || employee), name: newName, role }));
+        toast({ title: "Employee Updated", description: `${newName}'s profile has been updated.` });
+      } else {
+        // 1. Call server-side Admin API route to bypass Firestore client-side security rules
+        const res = await fetch("/api/admin/update-employee", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: id as string,
+            orgId: targetOrgId,
+            name: newName,
+            role: role
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Failed to update employee profile");
+        }
+
+        // 2. Client update attempt for local cache
+        try {
+          await updateDoc(doc(db, "users", id as string), {
+            name: newName,
+            role: role,
+            updatedAt: new Date(),
+          });
+        } catch (clientErr) {
+          // Ignore client rule error since server API succeeded
+        }
+
+        setEmployeeDoc((prev: any) => ({ ...(prev || employee), name: newName, role }));
+        toast({ title: "Employee Updated", description: `${newName}'s profile has been updated.` });
+      }
       setShowEditEmployeeModal(false);
     } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Update Failed", description: error.message || "Failed to update profile", variant: "destructive" });
     } finally {
-      setLoading(false);
+      setIsSavingEdit(false);
     }
   };
 
@@ -424,6 +476,9 @@ export default function EmployeeDetailPage() {
             >
                 <Ban size={14} className="mr-2" /> Manage Site Blocklist for {employee?.name?.split(' ')[0] || "Member"}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAppLockModal(true)} className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
+                <Lock size={14} className="mr-2" /> App Lock
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowMemberAccessModal(true)} className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20">
                 <Settings size={14} className="mr-2" /> Member Access
             </Button>
@@ -436,6 +491,9 @@ export default function EmployeeDetailPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Employee Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowAppLockModal(true)}>
+                  App Lock Controls
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowIntelligenceModal(true)} className="md:hidden">
                   Manage Blocklist
                 </DropdownMenuItem>
@@ -466,13 +524,13 @@ export default function EmployeeDetailPage() {
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <AIPersonnelPulse 
                   employee={employee} 
-                  workShifts={liveEmployee?.workShifts || workShifts} 
+                  workShifts={effectiveWorkShifts} 
                   screenshots={screenshots} 
                 />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <ShiftPulse workShifts={workShifts} firstTimeEntry={firstTimeEntryOfDate} employee={employee} />
+                <ShiftPulse workShifts={effectiveWorkShifts} firstTimeEntry={firstTimeEntryOfDate} employee={employee} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -480,11 +538,11 @@ export default function EmployeeDetailPage() {
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <AttendanceLedger employee={employee} workShifts={workShifts} joinedDate={joinedDate} />
+                <AttendanceLedger employee={employee} workShifts={effectiveWorkShifts} joinedDate={joinedDate} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
-                <WorkflowTimeline workShifts={workShifts} />
+                <WorkflowTimeline workShifts={effectiveWorkShifts} />
               </motion.div>
 
               {/* <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
@@ -492,14 +550,14 @@ export default function EmployeeDetailPage() {
               </motion.div> */}
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants} className="space-y-6">
-                <ActivityMatrix workShifts={liveEmployee?.workShifts || workShifts} screenshots={screenshots} />
+                <ActivityMatrix workShifts={effectiveWorkShifts} screenshots={screenshots} />
               </motion.div>
 
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionVariants}>
                 <YieldCalculator 
                     employeeId={id as string} 
                     employeeName={employee?.name || "Member"} 
-                    workShifts={workShifts} 
+                    workShifts={effectiveWorkShifts} 
                     screenshots={screenshots}
                     joinedDate={joinedDate}
                 />
@@ -536,12 +594,16 @@ export default function EmployeeDetailPage() {
           </DialogHeader>
           <form onSubmit={handleEditEmployee} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
+              <Label htmlFor="name" className="text-right">
                 Name
               </Label>
-              <div className="col-span-3 font-semibold text-foreground">
-                {employee?.name}
-              </div>
+              <Input
+                id="name"
+                name="name"
+                defaultValue={employee?.name || ""}
+                placeholder="Full Name"
+                className="col-span-3"
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
@@ -558,7 +620,9 @@ export default function EmployeeDetailPage() {
               </Select>
             </div>
             <DialogFooter>
-              <Button type="submit">Save changes</Button>
+              <Button type="submit" disabled={isSavingEdit}>
+                {isSavingEdit ? "Saving..." : "Save changes"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -708,6 +772,25 @@ export default function EmployeeDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* App Lock Management Modal */}
+      <AppLockModal
+        isOpen={showAppLockModal}
+        onOpenChange={setShowAppLockModal}
+        userId={id as string}
+        userName={employee?.name || "Employee"}
+        appLockPassword={employee?.appLockPassword}
+        appLockPaused={employee?.appLockPaused}
+      />
+
+      {/* Shift Review Modal */}
+      <ShiftReviewModal
+        isOpen={showShiftReviewModal}
+        onClose={() => setShowShiftReviewModal(false)}
+        employee={employee || { id: id, name: "Employee" }}
+        selectedDate={selectedDate}
+        shiftData={workShifts[0]}
+      />
     </>
   );
 }

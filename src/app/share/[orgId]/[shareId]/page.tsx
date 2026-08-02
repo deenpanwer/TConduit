@@ -11,6 +11,15 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, ArrowRight, ShieldCheck, HelpCircle } from "lucide-react";
 import posthog from "posthog-js";
+import { cn } from "@/lib/utils";
+
+const BACKGROUND_IMAGES = [
+  "https://picsum.photos/id/1069/1920/1080",
+  "https://picsum.photos/id/1067/1920/1080",
+  "https://picsum.photos/id/1015/1920/1080",
+  "https://picsum.photos/id/1039/1920/1080",
+  "https://picsum.photos/id/1043/1920/1080"
+];
 
 export default function ClientLandingPage() {
   const params = useParams();
@@ -25,6 +34,15 @@ export default function ClientLandingPage() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  // Rotate background images every 7 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fetch Portal Branding Configurations
   useEffect(() => {
@@ -85,7 +103,25 @@ export default function ClientLandingPage() {
         client_share_id: shareId,
       });
 
-      // 4. Redirect to portal
+      // 4. Store client session for production scope routing
+      if (typeof window !== "undefined") {
+        const sessionPayload = JSON.stringify({
+          orgId,
+          shareId,
+          clientEmail: targetEmail,
+          allowedScopes: Array.isArray(data.allowedScopes) ? data.allowedScopes : [],
+          branding: branding || {}
+        });
+        sessionStorage.setItem("client_portal_session", sessionPayload);
+        localStorage.setItem("client_portal_session", sessionPayload);
+        document.cookie = `client_portal_session=true; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = `trac_auth_session=client_${shareId}; path=/; max-age=86400; SameSite=Lax`;
+      }
+
+      // 5. Determine initial allowed scope route
+      const scopes = Array.isArray(data.allowedScopes) ? data.allowedScopes : [];
+      const targetRoute = scopes.includes("ems") ? "/ems" : scopes.includes("crm") ? "/crm" : scopes.includes("tasks") ? "/tasks" : (scopes[0] ? `/${scopes[0]}` : "/ems");
+
       setSuccess(true);
       toast({
         title: "Access Approved",
@@ -93,8 +129,8 @@ export default function ClientLandingPage() {
       });
 
       setTimeout(() => {
-        router.push(`/share/${orgId}/${shareId}/portal`);
-      }, 1500);
+        router.push(targetRoute);
+      }, 1200);
 
     } catch (err: any) {
       toast({
@@ -129,10 +165,23 @@ export default function ClientLandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans selection:bg-primary/20">
-      {/* Background glow styling */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      {/* Crisp Vivid Rotating Background Image Slideshow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 bg-slate-900">
+        {BACKGROUND_IMAGES.map((imgUrl, idx) => (
+          <div
+            key={imgUrl}
+            className={cn(
+              "absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out",
+              idx === currentBgIndex ? "opacity-75 scale-100" : "opacity-0 scale-105"
+            )}
+            style={{ backgroundImage: `url(${imgUrl})` }}
+          />
+        ))}
+        {/* Soft subtle overlay vignette */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/15 to-background/40" />
+      </div>
 
-      <div className="w-full max-w-md bg-card/65 backdrop-blur-2xl border border-border/80 rounded-3xl p-8 shadow-2xl relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+      <div className="w-full max-w-md bg-card/85 backdrop-blur-2xl border border-border/80 rounded-3xl p-8 shadow-2xl relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
         
         {/* Organization / Client Logo */}
         <div className="flex flex-col items-center text-center">

@@ -66,18 +66,22 @@ export function ErrorReportInitializer() {
           const toastOptions = { ...options };
 
           if (eligible) {
+            const userMeta = {
+              uid: userRef.current?.uid,
+              name: userDataRef.current?.name || userRef.current?.displayName || undefined,
+              email: userDataRef.current?.email || userRef.current?.email || undefined,
+              role: userDataRef.current?.role,
+              orgId: userDataRef.current?.ownedOrgId || userDataRef.current?.orgId,
+              companyName: userDataRef.current?.companyName,
+            };
+
+            // Trigger immediate background error reporting
+            openReport(msgString, errorStack, userMeta);
+
             toastOptions.action = options?.action || {
-              label: "Report",
+              label: "Add Details",
               onClick: () => {
-                const userMeta = {
-                  uid: userRef.current?.uid,
-                  name: userDataRef.current?.name || userRef.current?.displayName || undefined,
-                  email: userDataRef.current?.email || userRef.current?.email || undefined,
-                  role: userDataRef.current?.role,
-                  orgId: userDataRef.current?.ownedOrgId || userDataRef.current?.orgId,
-                  companyName: userDataRef.current?.companyName,
-                };
-                openReport(msgString, errorStack, userMeta);
+                useErrorReportStore.setState({ isOpen: true });
               },
             };
           }

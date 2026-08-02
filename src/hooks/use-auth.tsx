@@ -54,18 +54,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Sanitize the URL path to be a valid Firestore key (replace '/' with '_').
       const safePath = pathname.replace(/\//g, '_') || "root";
       
-      // Atomically increment the view count for the current page path.
-      // We use dot notation to update a field within the 'pageViews' map.
-      updateDoc(sessionDocRef, {
+      // Atomically set/update the view count for the current page path with merge: true to avoid "No document to update" error
+      setDoc(sessionDocRef, {
         [`pageViews.${safePath}`]: increment(1)
-      }).catch((e) => {
+      }, { merge: true }).catch((e) => {
         // Silently catch errors. We don't want analytics to crash the app.
         console.error("Failed to update page view count:", e);
       });
     }
   }, [pathname, user]); // Re-run this effect whenever the path or user changes.
 
+  // --- CLIENT PORTAL SCOPE PROTECTION ---
+  useEffect(() => {
+    if (!userData || loading) return;
+    const isClientUser = userData.role === "client" || userData.isClient === true;
+    if (isClientUser && Array.isArray(userData.allowedScopes)) {
+      const scopes = userData.allowedScopes;
+      let currentModule = "";
+      if (pathname.startsWith("/ems")) currentModule = "ems";
+      else if (pathname.startsWith("/crm")) currentModule = "crm";
+      else if (pathname.startsWith("/tasks")) currentModule = "tasks";
+      else if (pathname.startsWith("/docs")) currentModule = "docs";
+      else if (pathname.startsWith("/pos")) currentModule = "pos";
+      else if (pathname.startsWith("/attendance")) currentModule = "attendance";
+
+      if (currentModule && !scopes.includes(currentModule)) {
+        const fallbackModule = scopes[0] || "ems";
+        router.replace(`/${fallbackModule}`);
+      }
+    }
+  }, [userData, loading, pathname, router]);
+
   const fetchAndSetUserData = async (firebaseUser: User) => {
+    // Check if there is an active client portal session in storage
+    const storedClientSession = typeof window !== "undefined" 
+      ? (sessionStorage.getItem("client_portal_session") || localStorage.getItem("client_portal_session")) 
+      : null;
+
+    if (storedClientSession) {
+      try {
+        const clientData = JSON.parse(storedClientSession);
+        const clientUserData = {
+          uid: firebaseUser.uid,
+          role: "client",
+          isClient: true,
+          email: clientData.clientEmail || firebaseUser.email,
+          orgId: clientData.orgId,
+          ownedOrgId: clientData.orgId,
+          allowedScopes: Array.isArray(clientData.allowedScopes) ? clientData.allowedScopes : [],
+          branding: clientData.branding || {},
+          shareId: clientData.shareId,
+          displayName: clientData.clientEmail ? clientData.clientEmail.split("@")[0] : "Client Portal",
+          onboardingCompleted: true,
+          employeeOnboardingV1Complete: true,
+          crmTourCompleted: true,
+        };
+        setUserData(clientUserData);
+        return;
+      } catch (e) {
+        console.error("Failed to parse client portal session:", e);
+      }
+    }
+
     const userDocRef = doc(db, "users", firebaseUser.uid);
     const userDoc = await getDoc(userDocRef);
     
@@ -163,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * 'lastSeen' timestamp and the current calculated duration.
    */
   useEffect(() => {
-    if (!user || !sessionId.current) return;
+    if (!user || !sessionId.current || userData?.isClient || userData?.role === "client") return;
 
     const intervalId = setInterval(async () => {
       const durationSeconds = Math.round((Date.now() - sessionStartTime.current) / 1000);
@@ -205,11 +255,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const sessionDocRef = doc(db, "users", user.uid, "sessions", sessionId.current);
           
           try {
-            // Update the session document with the final duration and end time.
-            await updateDoc(sessionDocRef, {
+            // Update the session document with the final duration and end time using setDoc merge: true.
+            await setDoc(sessionDocRef, {
               durationSeconds: durationSeconds,
               endTime: serverTimestamp()
-            });
+            }, { merge: true });
           } catch (e) {
             // Silently fail. This write can sometimes be interrupted by the browser closing.
           }
@@ -293,6 +343,8 @@ function AuthRedirectHandler({ user, userData, loading, pathname, router }: any)
     const isScannerPage = pathname?.includes("/pos/remote-scan");
 
     if (!loading && isProtectedPage && !isAuthPage && !isOnboardingPage && !isScannerPage) {
+      if (userData?.role === "client" || userData?.isClient === true) return;
+
       const fullUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : (pathname || "/ems");
       
       if (!user) {

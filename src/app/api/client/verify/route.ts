@@ -37,8 +37,22 @@ export async function POST(req: Request) {
     const hash = crypto.createHash("sha256").update(`${normalizedEmail}_${orgId}`).digest("hex");
     const uid = `client_${hash}`;
 
-    // 4. Create custom claims and generate custom token
+    // 4. Ensure client user document exists in Firestore so security rules succeed
+    await admin.firestore().collection("users").doc(uid).set({
+      uid,
+      email: normalizedEmail,
+      orgId,
+      ownedOrgId: orgId,
+      role: "client",
+      isClient: true,
+      active: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // 5. Create custom claims and generate custom token
     const customClaims = {
+      role: "client",
+      isClient: true,
       clientEmail: normalizedEmail,
       orgId: orgId,
       clientShareId: shareId

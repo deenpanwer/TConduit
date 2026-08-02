@@ -306,6 +306,25 @@ function OnboardingContent() {
     viewType: "list" as "list" | "kanban",
   });
 
+  const handleSkip = async () => {
+    if (!user || finishing) return;
+    setFinishing(true);
+    setSkipDialogOpen(false);
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        crmTourCompleted: true,
+        updatedAt: new Date().toISOString()
+      });
+      await refreshUserData();
+      toast.success("Welcome to your Business Hub!");
+      router.replace(callbackUrl);
+    } catch (err) {
+      console.error("Error skipping tour:", err);
+      toast.error("Failed to skip tour.");
+      setFinishing(false);
+    }
+  };
+
   const handleFinish = async () => {
     if (!user || !userData) return;
     setFinishing(true);
@@ -383,8 +402,8 @@ function OnboardingContent() {
       });
       
       setTimeout(() => {
-        router.push(callbackUrl);
-      }, 2000);
+        router.replace(callbackUrl);
+      }, 1500);
     } catch (err) {
       console.error(err);
       toast.error("Failed to complete setup.");
@@ -767,7 +786,7 @@ function OnboardingContent() {
           <AlertDialogFooter className="mt-10 gap-3">
             <AlertDialogCancel className="h-14 rounded-2xl border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-widest flex-1">Go Back</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleFinish}
+              onClick={handleSkip}
               className="h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black uppercase tracking-widest flex-1 shadow-lg shadow-blue-500/20"
             >
               Skip Tour

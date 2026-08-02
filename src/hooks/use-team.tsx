@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, Suspense, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, orderBy, startAt, endAt, getDocs, limit } from "firebase/firestore";
 import { useAuth } from "./use-auth";
 import { format, parse, isSameDay, startOfMonth, endOfMonth, isValid } from "date-fns";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -62,8 +62,12 @@ function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
     if (dateParam) {
       try {
         const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
-        onDateFound(parsed);
+        if (isValid(parsed)) {
+          onDateFound(parsed);
+        }
       } catch (e) {}
+    } else {
+      onDateFound(new Date());
     }
   }, [searchParams, onDateFound]);
 
@@ -130,13 +134,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
     await Promise.all(usersToFetch.map(async (p) => {
       try {
         const shiftsRef = collection(db, "users", p.id, "workShifts");
-        // Query by ID (YYYY-MM-DD...) instead of 'date' field to ensure robustness
-        const q = query(
-          shiftsRef,
-          orderBy("__name__"),
-          startAt(startStr),
-          endAt(endStr + "\uf8ff")
-        );
+        const q = query(shiftsRef, orderBy("startTime", "desc"), limit(100));
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
@@ -223,6 +221,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
     // Clear sub-listeners when date changes to force fresh sync for the new range
     Object.values(listenersRef.current).forEach(unsubs => unsubs.forEach(unsub => unsub()));
     listenersRef.current = {};
+    personnelListRef.current = [];
 
     // --- STEP 1: SYNC PERSONNEL LIST (GLOBAL ORG VIEW) ---
     // Establishes the baseline roster of employees for the target organization.
@@ -286,22 +285,26 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
            * 2. Remove 'cognitiveReport' fallbacks in stats derivation.
            * 3. Assume liveBreakdown[app] is always an object, not a number.
            */
-          const shiftsRef = collection(db, "users", p.id, "workShifts");
-          const qShifts = query(
-              shiftsRef, 
-              orderBy("__name__"), 
-              startAt(dateStr), 
-              endAt(dateStr + "\uf8ff")
-          );
-          
-          const shiftSnap = await getDocs(qShifts);
-          const shifts = shiftSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          
-          archivalData[p.id] = {
-            ...p,
-            workShifts: shifts,
-            heartbeat: null // Past dates are "set-in-stone", no live heartbeat
-          };
+          try {
+            const shiftsRef = collection(db, "users", p.id, "workShifts");
+            const qShifts = query(shiftsRef, orderBy("startTime", "desc"), limit(30));
+            
+            const shiftSnap = await getDocs(qShifts);
+            const shifts = shiftSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            archivalData[p.id] = {
+              ...p,
+              workShifts: shifts,
+              heartbeat: null // Past dates are "set-in-stone", no live heartbeat
+            };
+          } catch (error) {
+            console.warn(`[useTeam] Failed to fetch archival shifts for ${p.id}:`, error);
+            archivalData[p.id] = {
+              ...p,
+              workShifts: [],
+              heartbeat: null
+            };
+          }
         }));
 
         setPersonnelData(archivalData);
@@ -317,10 +320,10 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
         setPersonnelData(prev => ({
           ...prev,
           [p.id]: {
-            workShifts: [],
-            heartbeat: null,
             ...prev[p.id],
-            ...p
+            ...p,
+            workShifts: [],
+            heartbeat: null
           }
         }));
 
@@ -343,12 +346,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
 
         // --- STEP 3: SYNC LIVE SHIFTS (ACTIVITY MONITORING) ---
         const shiftsRef = collection(db, "users", p.id, "workShifts");
-        const qShifts = query(
-            shiftsRef, 
-            orderBy("__name__"), 
-            startAt(dateStr), 
-            endAt(dateStr + "\uf8ff")
-        );
+        const qShifts = query(shiftsRef, orderBy("startTime", "desc"), limit(30));
 
         const unsubShifts = onSnapshot(qShifts, (snap) => {
           const shifts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -376,8 +374,8 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
 
   const employees = useMemo(() => {
     return Object.values(personnelData).filter(p => {
-      // Always exclude inactive users
-      if (p.active === false) return false;
+      // Always exclude inactive users and client profiles
+      if (p.active === false || p.role === 'client' || p.isClient === true) return false;
 
       // Handle owners
       const role = p.role?.toLowerCase();
@@ -404,10 +402,25 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
                 Object.values(personnelData).find(p => p.role?.toLowerCase() === 'owner') || 
                 userData, [personnelData, user?.uid, userData]);
 
+  const parseShiftDateStr = (ts: any): string => {
+    if (!ts) return "";
+    let d: Date | null = null;
+    if (ts?.toDate && typeof ts.toDate === "function") d = ts.toDate();
+    else if (ts?.seconds) d = new Date(ts.seconds * 1000);
+    else if (ts instanceof Date) d = ts;
+    else if (typeof ts === "number") d = new Date(ts);
+    else if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      if (!isNaN(parsed.getTime())) d = parsed;
+    }
+    return d ? format(d, "yyyy-MM-dd") : "";
+  };
+
   // --- STATS DERIVATION (REACTIVE AGGREGATION) ---
   // Calculates organization-wide metrics on-the-fly from the personnelData map.
   // This derivation is highly efficient as it executes in-memory.
   const stats = (() => {
+    const targetDateStr = format(selectedDate, "yyyy-MM-dd");
     let totalSecondsToday = 0;
     let totalSecondsAllTime = 0;
     const orgAppMap: Record<string, { totalSeconds: number; details: Record<string, number> }> = {};
@@ -430,8 +443,11 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       // 2. Lifecycle Metrics
       totalSecondsAllTime += (p.totalSeconds || 0);
 
-      // 3. Shift-Level Aggregation
+      // 3. Shift-Level Aggregation for Target Date
       p.workShifts?.forEach((s: any) => {
+        const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || (s.id?.includes('_') ? s.id.split('_')[0] : "");
+        if (sDate !== targetDateStr) return;
+
         // Normalization: Source of Truth is always liveMetrics.totalSeconds
         const shiftMetrics = s.liveMetrics || s.metrics || {};
         const shiftSeconds = shiftMetrics.totalSeconds || s.totalSeconds || 0;

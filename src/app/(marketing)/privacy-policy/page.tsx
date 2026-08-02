@@ -60,6 +60,19 @@ const PrivacyPolicyPage = () => {
             prose-li:text-muted-foreground
             prose-strong:text-foreground">
             
+            {/* Compliance Reviewer Callout */}
+            <div className="bg-primary/5 border border-primary/20 p-6 rounded-2xl mb-12 shadow-sm">
+              <h3 className="text-lg font-black uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                <Lock size={18} /> SMS & Messaging Compliance Notice
+              </h3>
+              <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+                <strong>Mobile Sharing Disclaimer:</strong> Your mobile information, including phone numbers collected for SMS/text messaging purposes and consent, will <strong>not be sold or shared with third parties or affiliates for promotional or marketing purposes</strong>. All other data sharing categories exclude text messaging originator opt-in data and consent; this information is strictly protected.
+              </p>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                <strong>SMS & Marketing Consent:</strong> When you opt-in to our SMS text messaging program, you provide express written consent to receive marketing, promotional, transactional, and support messages from TRAC AI LLC. <strong>Message frequency may vary. Msg & data rates may apply.</strong> You may opt-out at any time by replying <strong>STOP</strong>. For assistance, reply <strong>HELP</strong>.
+              </p>
+            </div>
+
             <h2>1. Introduction</h2>
             <p>
               a. This privacy policy ("Privacy Policy") applies to the collection and processing of personal data ("Personal Data") by <strong>TRAC AI LLC</strong> in connection with our website. This Privacy Policy will help you understand how we collect and use your Personal Data and what we do with it.
@@ -67,12 +80,7 @@ const PrivacyPolicyPage = () => {
             <p>
               b. By visiting our website and/ or purchasing something from us, you agree to us handling your Personal Data in accordance with this Privacy Policy.
             </p>
-            <p>
-              c. <strong>Mobile Sharing Disclaimer:</strong> Mobile phone numbers collected for SMS/text messaging purposes and consent will not be shared with third parties or affiliates for marketing or promotional purposes. All of the sharing categories below exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.
-            </p>
-            <p>
-              d. <strong>SMS & Marketing Consent:</strong> When you opt-in to our SMS text messaging program, you provide express written consent to receive marketing and promotional messages, as well as transactional and support messages. You may opt-out at any time by replying STOP to any message.
-            </p>
+
 
             <h2>2. Personal data that we collect</h2>
             <p>

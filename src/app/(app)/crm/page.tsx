@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { CRMNotificationsDrawer } from "@/components/crm/CRMNotificationsDrawer";
 import { AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
 import {
   History,
   Bell,
@@ -32,12 +32,24 @@ import { CRMOverviewContent } from "@/components/crm/CRMOverviewContent";
 import { CRMReportsModal } from "@/components/crm/CRMReportsModal";
 
 export default function CRMPage() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { entities } = useCRM();
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
   const [crmNotificationsCount, setCrmNotificationsCount] = useState<number>(0);
+  const [orgData, setOrgData] = useState<any>(null);
+
+  useEffect(() => {
+    const orgId = userData?.ownedOrgId || userData?.orgId;
+    if (!orgId) return;
+    const unsub = onSnapshot(doc(db, "organizations", orgId), (snap) => {
+      if (snap.exists()) setOrgData(snap.data());
+    });
+    return () => unsub();
+  }, [userData]);
+
+  const hasTierAccess = orgData?.isStandard === true || orgData?.isPremium === true;
 
   useEffect(() => {
     if (!user) return;
@@ -67,16 +79,17 @@ export default function CRMPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 
-            <Button
-              onClick={() => setIsReportsModalOpen(true)}
-              variant="destructive"
-              size="icon"
-              className="rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/10"
-            >
-              <FileText size={20} />
-            </Button>
-            */}
+            {hasTierAccess && (
+              <Button
+                onClick={() => setIsReportsModalOpen(true)}
+                variant="destructive"
+                size="sm"
+                className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider gap-1.5 shadow-md shadow-red-600/10 px-3.5 h-9"
+              >
+                <FileText size={15} />
+                <span>Report</span>
+              </Button>
+            )}
 
             <Sheet>
               <SheetTrigger asChild>

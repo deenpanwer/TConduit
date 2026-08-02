@@ -20,6 +20,9 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     // Only redirect if auth and userData are fully loaded AND we are in the CRM module
     if (!loading && userData && pathname?.startsWith("/crm")) {
+        const isClient = userData.role === "client" || userData.isClient === true;
+        if (isClient) return;
+
         const tourNotDone = userData.crmTourCompleted === false || userData.crmTourCompleted === undefined;
         const isNotOnOnboardingPage = pathname !== "/crm/onboarding" && !pathname?.startsWith("/crm/onboarding");
         
@@ -30,7 +33,8 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
   }, [loading, userData, pathname, router]);
 
   // Show shimmer while loading auth or while redirecting to tour
-  const tourNotDone = userData?.crmTourCompleted === false || userData?.crmTourCompleted === undefined;
+  const isClient = userData?.role === "client" || userData?.isClient === true;
+  const tourNotDone = !isClient && (userData?.crmTourCompleted === false || userData?.crmTourCompleted === undefined);
   const isNotOnOnboardingPage = pathname !== "/crm/onboarding" && !pathname?.startsWith("/crm/onboarding");
   const isCrmPath = pathname?.startsWith("/crm");
   const shouldRedirect = userData && tourNotDone && isNotOnOnboardingPage && isCrmPath;

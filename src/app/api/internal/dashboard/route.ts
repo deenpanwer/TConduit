@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getFirebaseAdmin } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const admin = getFirebaseAdmin();
@@ -19,14 +21,19 @@ export async function GET() {
     usersSnap.forEach((doc) => {
       const data = doc.data();
       const role = (data.role || "").toLowerCase();
-      // Only include owners or those with an ownedOrgId
-      if (role === "owner" || data.ownedOrgId) {
+      const isClient = data.isClient === true || role === "client";
+      const targetOrgId = data.ownedOrgId || data.orgId;
+
+      // Only include organization owners / non-client accounts in main dashboard list
+      if ((role === "owner" || data.ownedOrgId) && !isClient) {
+        let displayName = data.name || data.displayName || "Unknown User";
+
         const user = {
           id: doc.id,
-          name: data.name || data.displayName || "Unknown User",
-          email: data.email || "No Email",
-          role: data.role || "owner",
-          ownedOrgId: data.ownedOrgId,
+          name: displayName,
+          email: data.email || data.clientEmail || "No Email",
+          role: isClient ? "client" : (data.role || "owner"),
+          ownedOrgId: targetOrgId,
           orgName: data.orgName,
           totalVisits: data.totalVisits || 0,
           visits: data.visits || {},
@@ -36,8 +43,8 @@ export async function GET() {
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
         };
         ownerUsers.push(user);
-        if (data.ownedOrgId) {
-          orgIdsToFetch.push(data.ownedOrgId);
+        if (targetOrgId) {
+          orgIdsToFetch.push(targetOrgId);
         }
       }
     });
@@ -104,6 +111,7 @@ export async function GET() {
       try {
         const personalSessionSnap = await adminDb.collection("users").doc(user.id).collection("sessions")
           .orderBy("startTime", "desc")
+          .limit(5)
           .get();
         
         // Update the count based on actual sessions in the sub-collection

@@ -35,7 +35,11 @@ export function ModuleConfigModal({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => { 
-    setTempSelected(selectedModules); 
+    if (selectedModules && selectedModules.length > 0) {
+      setTempSelected(selectedModules); 
+    } else {
+      setTempSelected(MODULE_CONFIG.map(m => m.id));
+    }
   }, [selectedModules]);
 
   const handleSaveConfig = async () => {
