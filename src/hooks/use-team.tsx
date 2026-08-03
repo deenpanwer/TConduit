@@ -315,20 +315,43 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       }
 
       // --- LIVE MODE: REAL-TIME SYNCHRONIZATION ---
-      // Attaches dedicated listeners for Heartbeats and Shifts for the current date.
-      allPersonnel.forEach(p => {
+      // Fetch initial shifts for all personnel and attach dedicated listeners for Heartbeats and Shifts
+      await Promise.all(allPersonnel.map(async (p) => {
+        const isSelf = p.id === user?.uid;
+        if (!isPrivileged && !isSelf) {
+          setPersonnelData(prev => ({
+            ...prev,
+            [p.id]: {
+              ...prev[p.id],
+              ...p,
+              workShifts: prev[p.id]?.workShifts || [],
+              heartbeat: prev[p.id]?.heartbeat || null
+            }
+          }));
+          return;
+        }
+
+        // Fetch initial shift snapshots to prevent 0-hour delay on page load
+        let initialShifts: any[] = personnelData[p.id]?.workShifts || [];
+        try {
+          const shiftsRef = collection(db, "users", p.id, "workShifts");
+          const qShifts = query(shiftsRef, orderBy("startTime", "desc"), limit(30));
+          const snap = await getDocs(qShifts);
+          initialShifts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.warn(`[useTeam] Failed initial shift fetch for ${p.id}:`, e);
+        }
+
         setPersonnelData(prev => ({
           ...prev,
           [p.id]: {
             ...prev[p.id],
             ...p,
-            workShifts: [],
-            heartbeat: null
+            workShifts: initialShifts,
+            heartbeat: prev[p.id]?.heartbeat || null
           }
         }));
 
-        const isSelf = p.id === user?.uid;
-        if (!isPrivileged && !isSelf) return;
         if (listenersRef.current[p.id]) return;
 
         const userUnsubs: (() => void)[] = [];
@@ -358,7 +381,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
         userUnsubs.push(unsubShifts);
 
         listenersRef.current[p.id] = userUnsubs;
-      });
+      }));
 
       setLoading(false);
     }, (err) => {

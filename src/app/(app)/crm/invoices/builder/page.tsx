@@ -114,6 +114,7 @@ export default function InvoiceBuilder() {
   const [showPreviewOnMobile, setShowPreviewOnMobile] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitializedRef = useRef(false);
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
@@ -204,11 +205,12 @@ export default function InvoiceBuilder() {
   }, [userData, invoiceId]);
 
   useEffect(() => {
-    if (invoiceId) {
+    if (invoiceId && !hasInitializedRef.current) {
       const existing = allInvoices.find(i => i.id === invoiceId);
       if (existing) {
         setInvoice(existing.data as InvoiceData);
         if (existing.data.branding) setBrandingLogo(existing.data.branding);
+        hasInitializedRef.current = true;
       }
     }
   }, [invoiceId, allInvoices]);
@@ -238,14 +240,15 @@ export default function InvoiceBuilder() {
       const keys = path.split('.');
       if (keys.length === 1) return { ...prev, [keys[0]]: value };
       
+      // Deep-clone each nested level to ensure immutable updates
       const newPrev = { ...prev } as any;
       let current = newPrev;
       for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
+        current[keys[i]] = current[keys[i]] ? { ...current[keys[i]] } : {};
         current = current[keys[i]];
       }
       current[keys[keys.length - 1]] = value;
-      return { ...newPrev };
+      return newPrev;
     });
   };
 

@@ -25,90 +25,8 @@ interface EmployeeAnomalyModalProps {
 export function EmployeeAnomalyModal({ report, targetDateStr, onClose, onNavigateToScreenshots }: EmployeeAnomalyModalProps) {
   const [selectedInstanceIndex, setSelectedInstanceIndex] = useState<number>(0);
   const [excusing, setExcusing] = useState(false);
-  const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
-
   const flags = report?.flags && report.flags.length > 0 ? report.flags : (report?.flag ? [report.flag] : []);
   const activeFlag = flags[selectedInstanceIndex] || flags[0] || null;
-
-  useEffect(() => {
-    if (!report?.employeeId || !activeFlag) return;
-
-    let foundUrl: string | null = null;
-    const activeDateStr = targetDateStr || format(new Date(), "yyyy-MM-dd");
-
-    const parseShiftDateStr = (ts: any): string => {
-      if (!ts) return "";
-      let d: Date | null = null;
-      if (ts?.toDate && typeof ts.toDate === "function") d = ts.toDate();
-      else if (ts?.seconds) d = new Date(ts.seconds * 1000);
-      else if (ts instanceof Date) d = ts;
-      else if (typeof ts === "number") d = new Date(ts);
-      else if (typeof ts === "string") {
-        const parsed = new Date(ts);
-        if (!isNaN(parsed.getTime())) d = parsed;
-      }
-      return d ? format(d, "yyyy-MM-dd") : "";
-    };
-    
-    // First, try to match the screenshot to the active flag from workShifts
-    if (report.rawEmp?.workShifts) {
-      const allScreenshots: any[] = [];
-      report.rawEmp.workShifts.forEach((s: any) => {
-        const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || (s.id?.includes('_') ? s.id.split('_')[0] : "");
-        if (sDate === activeDateStr && s.screenshots && Array.isArray(s.screenshots)) {
-          allScreenshots.push(...s.screenshots);
-        }
-      });
-      
-      if (allScreenshots.length > 0) {
-        const lowerAppName = (activeFlag.appName || "").toLowerCase();
-        const lowerAppTitle = (activeFlag.appTitle || "").toLowerCase();
-        
-        // Try to find a matching screenshot if we have a title or app
-        if (lowerAppName || lowerAppTitle) {
-          const match = allScreenshots.find(scr => {
-             const actWin = scr.activity?.activeWindow || {};
-             const activeTitle = typeof actWin.title === 'string' ? actWin.title : (typeof actWin.owner === 'string' ? actWin.owner : null);
-             const rawProject = activeTitle || (typeof scr.windowTitle === 'string' ? scr.windowTitle : (typeof scr.app === 'string' ? scr.app : (typeof scr.project === 'string' ? scr.project : "")));
-             
-             if (!rawProject) return false;
-             const lowerProject = String(rawProject).toLowerCase();
-             
-             if (lowerAppTitle && lowerProject.includes(lowerAppTitle)) return true;
-             if (lowerAppName && lowerProject.includes(lowerAppName)) return true;
-             
-             return false;
-          });
-          
-          if (match) {
-            foundUrl = match.url || match.imageUrl || match.downloadUrl || match.src || null;
-          }
-        }
-        
-        // If no match found, fallback to the last screenshot of that day
-        if (!foundUrl) {
-          const last = allScreenshots[allScreenshots.length - 1];
-          foundUrl = last.url || last.imageUrl || last.downloadUrl || last.src || null;
-        }
-      }
-    }
-
-    if (foundUrl) {
-      setPreviewScreenshot(foundUrl);
-      return;
-    }
-
-    // Otherwise fetch screenshot from Firestore (order by timestamp to get the latest for activeDateStr)
-    const imagesRef = collection(db, "users", report.employeeId, "screenshots", activeDateStr, "images");
-    const qImages = query(imagesRef, limit(1));
-    getDocs(qImages).then(snap => {
-      if (!snap.empty) {
-        const data = snap.docs[0].data();
-        const url = data.url || data.imageUrl || data.downloadUrl || data.src;
-        if (url) setPreviewScreenshot(url);
-      }
-    }).catch(() => {});
-  }, [report, activeFlag]);
 
   if (!report || !activeFlag) return null;
 
@@ -323,27 +241,17 @@ export function EmployeeAnomalyModal({ report, targetDateStr, onClose, onNavigat
                         </Badge>
                       </div>
 
-                      {/* Screen Capture Thumbnail Preview */}
-                      {previewScreenshot && (
-                        <div className="space-y-1.5 pt-1">
-                          <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block flex items-center gap-1">
-                            <ImageIcon className="size-3.5 text-amber-700" /> Screen Capture Proof (Workstation Preview)
-                          </span>
-                          <div 
-                            onClick={() => onNavigateToScreenshots(report.employeeId)}
-                            className="relative rounded-xl overflow-hidden border border-amber-200 shadow-xs cursor-pointer group bg-black max-h-48 flex items-center justify-center"
-                          >
-                            <img 
-                              src={previewScreenshot} 
-                              alt="Workstation Screenshot Evidence" 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90 group-hover:opacity-100" 
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-bold">
-                              <Maximize2 className="size-4" /> Open Full Screen Capture
-                            </div>
-                          </div>
+                      {/* Keyword Evidence Match Text */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
+                          Captured Keyword Match
+                        </span>
+                        <div className="p-3 bg-white/60 rounded-xl border border-amber-200 shadow-xs">
+                          <p className="text-xs text-amber-950 font-medium break-words leading-relaxed">
+                            {activeFlag.appTitle || activeFlag.appName || "Media Distraction"}
+                          </p>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
 

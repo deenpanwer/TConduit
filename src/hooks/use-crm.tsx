@@ -270,12 +270,15 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
     const d = new Date();
     const createdDateVal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+    const entityData = data.data ? { ...data.data } : { ...data };
+    const entityName = data.name || data.invoiceNumber || data.summary || entityData.invoiceNumber || `New ${type}`;
+
     const newEntity: CRMEntity = {
       id: tempId,
       orgId,
-      name: data.name || data.summary || `New ${type}`,
+      name: entityName,
       type,
-      data,
+      data: entityData,
       isDeleted: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -285,18 +288,88 @@ export function CRMProvider({ children, overrideOrgId }: { children: React.React
     };
 
     addStoreEntity(newEntity);
+
+    // Direct immediate write to Firestore so router.push() never loses the new document
+    try {
+      syncingIdsRef.current.add(tempId);
+      const entityRef = doc(db, `organizations/${orgId}/crm_entities`, tempId);
+      const firestoreData = cleanObject({
+        ...newEntity,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await setDoc(entityRef, firestoreData);
+      markSynced(tempId);
+    } catch (err) {
+      console.error("Direct Firestore add error:", err);
+    } finally {
+      syncingIdsRef.current.delete(tempId);
+    }
+
     return tempId;
   };
 
   const updateEntity = async (id: string, updates: Record<string, any>) => {
     if (isClient) return;
-    const isDataUpdate = !('name' in updates || 'isDeleted' in updates);
-    updateStoreEntity(id, isDataUpdate ? { data: updates } : updates);
+    const orgId = getOrgId();
+    const existingEntity = entitiesMap[id];
+
+    const hasTopLevelProps = 'name' in updates || 'isDeleted' in updates || 'type' in updates;
+    const isDataUpdate = !hasTopLevelProps;
+    
+    // Extract new name if provided
+    const newName = updates.name || updates.invoiceNumber || (updates.data && (updates.data.name || updates.data.invoiceNumber));
+
+    // Prepare updated data map
+    const newInnerData = isDataUpdate 
+      ? { ...(existingEntity?.data || {}), ...updates }
+      : { ...(existingEntity?.data || {}), ...(updates.data || {}) };
+
+    // Update local Zustand store with the fully merged data
+    const localStoreUpdates: Record<string, any> = isDataUpdate ? { data: newInnerData } : { ...updates, data: newInnerData };
+    if (newName) localStoreUpdates.name = newName;
+    updateStoreEntity(id, localStoreUpdates);
+
+    // Direct immediate write to Firestore so router.push() never cancels the write timer
+    if (orgId && user) {
+      try {
+        syncingIdsRef.current.add(id);
+        const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
+        
+        const updatePayload: Record<string, any> = {
+          data: cleanObject(newInnerData),
+          updatedAt: serverTimestamp(),
+          lastEditedBy: user.uid
+        };
+
+        if (newName) updatePayload.name = newName;
+        if ('isDeleted' in updates) updatePayload.isDeleted = updates.isDeleted;
+        if ('type' in updates) updatePayload.type = updates.type;
+
+        await setDoc(entityRef, updatePayload, { merge: true });
+        markSynced(id);
+      } catch (err) {
+        console.error("Direct Firestore update error:", err);
+      } finally {
+        syncingIdsRef.current.delete(id);
+      }
+    }
   };
 
   const deleteEntity = async (id: string) => {
     if (isClient) return;
+    const orgId = getOrgId();
     updateStoreEntity(id, { isDeleted: true });
+
+    if (orgId && user) {
+      try {
+        const entityRef = doc(db, `organizations/${orgId}/crm_entities`, id);
+        await updateDoc(entityRef, { isDeleted: true, updatedAt: serverTimestamp() });
+        markSynced(id);
+      } catch (err) {
+        console.error("Direct Firestore delete error:", err);
+      }
+    }
   };
 
   const updateModuleConfig = async (module: keyof CRMConfig['modules'], updates: Partial<ModuleConfig>) => {
