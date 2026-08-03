@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { format } from "date-fns";
 
 export interface AnomalyFlag {
   id: string;
@@ -15,6 +16,7 @@ export interface AnomalyFlag {
   durationStr?: string;
   recommendation?: string;
   appName?: string;
+  appTitle?: string;
 }
 
 export interface EmployeeAnomalyReport {
@@ -51,7 +53,10 @@ export interface UseAnomaliesResult {
 }
 
 const DISTRACTION_KEYWORDS = [
-  "youtube", "netflix", "steam", "facebook", "instagram", "tiktok", "twitter", "x.com", "reddit", "twitch", "gaming"
+  "youtube", "netflix", "spotify", "twitch", "steam", "facebook", "instagram", 
+  "tiktok", "twitter", "x.com", "reddit", "hulu", "prime video", "disney", 
+  "vimeo", "dailymotion", "soundcloud", "gaming", "roblox", "discord", 
+  "kick.com", "rumble", "hotstar", "zee5", "primevideo", "hbo", "max.com"
 ];
 
 const FAKE_ACTIVITY_KEYWORDS = [
@@ -64,7 +69,7 @@ const FAKE_ACTIVITY_KEYWORDS = [
 /**
  * Empirical 8-Facet Anomaly Detection Engine Hook
  */
-export function useAnomalies(employees: any[], empAudits: Record<string, any> = {}): UseAnomaliesResult {
+export function useAnomalies(employees: any[], empAudits: Record<string, any> = {}, targetDateStr?: string): UseAnomaliesResult {
   return useMemo(() => {
     if (!employees || employees.length === 0) {
       return {
@@ -79,6 +84,20 @@ export function useAnomalies(employees: any[], empAudits: Record<string, any> = 
       };
     }
 
+    const parseShiftDateStr = (ts: any): string => {
+      if (!ts) return "";
+      let d: Date | null = null;
+      if (ts?.toDate && typeof ts.toDate === "function") d = ts.toDate();
+      else if (ts?.seconds) d = new Date(ts.seconds * 1000);
+      else if (ts instanceof Date) d = ts;
+      else if (typeof ts === "number") d = new Date(ts);
+      else if (typeof ts === "string") {
+        const parsed = new Date(ts);
+        if (!isNaN(parsed.getTime())) d = parsed;
+      }
+      return d ? format(d, "yyyy-MM-dd") : "";
+    };
+
     const flaggedEmployees: EmployeeAnomalyReport[] = [];
     const cleanEmployees: any[] = [];
     let grandFlaggedMinutes = 0;
@@ -86,14 +105,24 @@ export function useAnomalies(employees: any[], empAudits: Record<string, any> = 
 
     employees.forEach(emp => {
       const audit = empAudits[emp.id];
-      const shifts = emp.workShifts || [];
-      const shift = shifts[0] || {};
+      
+      // Filter workShifts for targetDateStr if provided
+      const allShifts = emp.workShifts || [];
+      const matchingShifts = targetDateStr 
+        ? allShifts.filter((s: any) => {
+            if (!s) return false;
+            const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || (s.id?.includes('_') ? s.id.split('_')[0] : "");
+            return sDate === targetDateStr;
+          })
+        : allShifts;
+
+      const shift = matchingShifts[0] || {};
       const shiftMetrics = shift.liveMetrics || shift.metrics || {};
       const liveBreakdown = shift.liveBreakdown || {};
 
-      const totalSecs = audit?.metrics?.totalSeconds || shiftMetrics.totalSeconds || emp.totalSeconds || 0;
+      const totalSecs = audit?.metrics?.totalSeconds || shiftMetrics.totalSeconds || 0;
       const activeSecs = audit?.metrics?.activeSeconds || shiftMetrics.activeSeconds || 0;
-      const idleSecs = audit?.metrics?.idleSeconds || shiftMetrics.idleSeconds || emp.idleSeconds || 0;
+      const idleSecs = audit?.metrics?.idleSeconds || shiftMetrics.idleSeconds || 0;
       const lateness = audit?.metrics?.latenessMinutes || shift.latenessMinutes || 0;
       const switches = shiftMetrics.appSwitches?.total || 0;
       const keystrokes = shiftMetrics.keystrokes || 0;
@@ -105,35 +134,80 @@ export function useAnomalies(employees: any[], empAudits: Record<string, any> = 
       const flags: AnomalyFlag[] = [];
       let empRiskScore = 0;
 
-      // 1. Facet: Non-Work App Monopolization (Distraction App)
+      // 1. Facet: Non-Work App & Web Streaming Monopolization (Distraction App / Web Video / YouTube)
       let distractionSecs = 0;
       let topDistractionApp = "";
+      let topDistractionTitle = "";
+
       Object.entries(liveBreakdown).forEach(([appName, data]: [string, any]) => {
-        const lowerName = appName.toLowerCase();
-        const isDistraction = DISTRACTION_KEYWORDS.some(k => lowerName.includes(k));
-        const secs = typeof data === 'number' ? data : (data?.totalSeconds || 0);
-        if (isDistraction && secs > 300) { // >5 mins of distraction
-          distractionSecs += secs;
-          if (!topDistractionApp || secs > distractionSecs) topDistractionApp = appName;
+        const lowerAppName = appName.toLowerCase();
+        const appSecs = typeof data === 'number' ? data : (data?.totalSeconds || 0);
+        const isAppDistraction = DISTRACTION_KEYWORDS.some(k => lowerAppName.includes(k));
+
+        if (isAppDistraction && appSecs > 30) {
+          distractionSecs += appSecs;
+          if (!topDistractionApp || appSecs > distractionSecs) topDistractionApp = appName;
+        }
+
+        // Deep inspection into browser window titles and URLs (e.g. YouTube video title, Netflix stream)
+        const details = typeof data === 'object' && data?.details ? data.details : {};
+        if (Array.isArray(details)) {
+          details.forEach((d: any) => {
+            const title = typeof d === 'string' ? d : d?.title || d?.activeWindow || d?.name || "";
+            const lowerTitle = title.toLowerCase();
+            const timeVal = d?.seconds || d?.duration || 0;
+            const titleSecs = typeof timeVal === 'number' ? timeVal : (parseInt(timeVal) || 0);
+            if (DISTRACTION_KEYWORDS.some(k => lowerTitle.includes(k))) {
+              distractionSecs += (titleSecs > 0 ? titleSecs : appSecs);
+              if (!topDistractionTitle) topDistractionTitle = title;
+              if (!topDistractionApp) topDistractionApp = appName;
+            }
+          });
+        } else if (typeof details === 'object' && details !== null) {
+          Object.entries(details).forEach(([title, time]: [string, any]) => {
+            const lowerTitle = title.toLowerCase();
+            const isTitleDistraction = DISTRACTION_KEYWORDS.some(k => lowerTitle.includes(k));
+            const titleSecs = typeof time === 'number' ? time : (time?.totalSeconds || 0);
+
+            if (isTitleDistraction) {
+              const effectiveSecs = titleSecs > 0 ? titleSecs : appSecs;
+              distractionSecs += effectiveSecs;
+              if (!topDistractionTitle) topDistractionTitle = title;
+              if (!topDistractionApp) topDistractionApp = appName;
+            }
+          });
         }
       });
 
-      if (distractionSecs > 1200 || (totalSecs > 0 && distractionSecs / totalSecs > 0.25)) {
-        const distMins = Math.round(distractionSecs / 60);
-        empRiskScore += distMins > 30 ? 30 : 15;
+      if (distractionSecs >= 30) { // >=30s of YouTube/media streaming or non-work app
+        const distMins = Math.floor(distractionSecs / 60);
+        const distSecs = distractionSecs % 60;
+        const durationDisplay = distMins > 0 ? `${distMins}m` : `${distSecs}s`;
+        const isHigh = distractionSecs > 900 || (totalSecs > 0 && distractionSecs / totalSecs > 0.25);
+
+        empRiskScore += isHigh ? 30 : 15;
+        grandFlaggedMinutes += Math.max(1, distMins);
+
+        const cleanEvidenceTitle = topDistractionTitle 
+          ? topDistractionTitle.substring(0, 80)
+          : (topDistractionApp || 'Media Streaming');
+
         flags.push({
           id: 'suspicious_app',
-          type: "Non-Work App Monopolization",
-          shortTitle: "Suspicious app",
-          detail: `Excessive usage of distraction application (${topDistractionApp || 'Social Media/Media'}) for ${distMins}m during shift`,
-          severity: distMins > 30 ? "High Flag" : "Medium Flag",
-          severityLabel: distMins > 30 ? "High" : "Medium",
-          color: distMins > 30 ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20",
-          metric: `${distMins}m ${topDistractionApp || 'Media'}`,
-          timeWindow: `Active Shift (${distMins}m logged)`,
-          durationStr: `${distMins}m`,
+          type: "Non-Work Web & Media Streaming",
+          shortTitle: "Media streaming / Distraction",
+          detail: topDistractionTitle 
+            ? `Non-work media streaming detected on browser: "${cleanEvidenceTitle}" (${durationDisplay} logged)`
+            : `Excessive usage of distraction application (${topDistractionApp || 'Social Media/Media'}) for ${durationDisplay} during shift`,
+          severity: isHigh ? "High Flag" : "Medium Flag",
+          severityLabel: isHigh ? "High" : "Medium",
+          color: isHigh ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20",
+          metric: `${durationDisplay} ${topDistractionApp || 'Media'}`,
+          timeWindow: `Active Shift (${durationDisplay} logged)`,
+          durationStr: durationDisplay,
           appName: topDistractionApp || "Media Application",
-          recommendation: "Review company web & app usage policy with team member."
+          appTitle: topDistractionTitle || "",
+          recommendation: "Review web & media streaming activity policies with team member."
         });
       }
 
@@ -405,5 +479,5 @@ export function useAnomalies(employees: any[], empAudits: Record<string, any> = 
       orgRiskScore: avgEmpRisk,
       orgHealthStatus
     };
-  }, [employees, empAudits]);
+  }, [employees, empAudits, targetDateStr]);
 }

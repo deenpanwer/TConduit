@@ -64,9 +64,9 @@ export function isEmployeeOnline(employee: any): boolean {
   const now = new Date();
   const diffMs = now.getTime() - lastActiveDate.getTime();
   
-  // Cut-off threshold: 5 minutes (300,000 ms)
-  // Most heartbeat pulses occur every 1-2 minutes.
-  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+  // Cut-off threshold / grace period: 15 minutes (900,000 ms)
+  // Desktop app heartbeat pulses every 1 minute.
+  const STALE_THRESHOLD_MS = 15 * 60 * 1000;
 
   return diffMs < STALE_THRESHOLD_MS;
 }

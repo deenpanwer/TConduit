@@ -174,12 +174,12 @@ export function AttendanceLedger({ employee, workShifts, joinedDate }: Attendanc
                     )}
                   />
                 </TooltipTrigger>
-                <TooltipContent side="top" className="p-4 rounded-2xl bg-[#111113] border-white/10 shadow-2xl">
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{format(day, 'EEEE, MMM do')}</p>
+                <TooltipContent side="top" className="p-4 rounded-2xl bg-card border-border shadow-xl text-card-foreground">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{format(day, 'EEEE, MMM do')}</p>
                     <div className="flex items-center gap-2">
-                      {isPresent ? <CheckCircle2 size={14} className="text-emerald-500" /> : isAbsent ? <XCircle size={14} className="text-rose-500" /> : <Clock size={14} className="text-gray-500" />}
-                      <span className="text-sm font-black text-white uppercase tracking-tight">{statusLabel}</span>
+                      {isPresent ? <CheckCircle2 size={14} className="text-emerald-500" /> : isAbsent ? <XCircle size={14} className="text-rose-500" /> : <Clock size={14} className="text-muted-foreground" />}
+                      <span className="text-sm font-black text-foreground uppercase tracking-tight">{statusLabel}</span>
                     </div>
                   </div>
                 </TooltipContent>

@@ -249,11 +249,11 @@ export const WorkQualityFlow = ({ data, isLoading = false }: WorkQualityFlowProp
                 }}
                 className="pointer-events-none"
               >
-                <div className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl flex flex-col items-center min-w-[160px]">
-                  <span className="text-[9px] font-black text-blue-400 uppercase tracking-[0.2em] mb-1 text-center">{hoveredItem.name}</span>
+                <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl p-4 shadow-2xl flex flex-col items-center min-w-[160px] text-card-foreground">
+                  <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1 text-center">{hoveredItem.name}</span>
                   <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-white tracking-tighter">{(hoveredItem.value).toFixed(1)}</span>
-                      <span className="text-xs font-bold text-gray-500 uppercase">Hours</span>
+                      <span className="text-3xl font-black text-foreground tracking-tighter">{(hoveredItem.value).toFixed(1)}</span>
+                      <span className="text-xs font-bold text-muted-foreground uppercase">Hours</span>
                   </div>
                 </div>
               </motion.div>

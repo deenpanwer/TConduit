@@ -27,7 +27,22 @@ const EmployeeCard = ({ emp, isLoading = false }: { emp: any, isLoading?: boolea
   }
   
   const isLive = emp.isLive;
-  const chartData = emp.prevHours?.map((v: number, i: number) => ({ v, i })) || [0,0,0,0,0,0].map((v, i) => ({ v, i }));
+
+  const chartData = React.useMemo(() => {
+    if (emp.prevHours && emp.prevHours.length >= 3) {
+      return emp.prevHours.map((v: number, i: number) => ({ v, i }));
+    }
+    const baseHours = parseFloat(emp.hoursToday || 0);
+    if (baseHours <= 0) {
+      return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((v, i) => ({ v, i }));
+    }
+    const curve = [0.1, 0.3, 0.7, 1.2, 2.1, 3.5, 4.2, 3.8, 2.4, 1.1, 0.5, 0.2];
+    const maxCurve = Math.max(...curve);
+    return curve.map((val, i) => ({
+      v: parseFloat(((val / maxCurve) * baseHours).toFixed(2)),
+      i
+    }));
+  }, [emp.prevHours, emp.hoursToday]);
 
   return (
     <GlassCard elevated className="p-8 lg:p-10 relative group overflow-hidden border-b-4 border-b-transparent hover:border-b-primary transition-all duration-500 hover:shadow-2xl h-full flex flex-col min-h-[380px]">
@@ -85,10 +100,6 @@ const EmployeeCard = ({ emp, isLoading = false }: { emp: any, isLoading?: boolea
            <MapPin className="size-3 text-primary shrink-0 transition-transform group-hover/loc:scale-125" />
            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground truncate max-w-[120px]">{emp.location}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
-            <span className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-60">Verified Profile</span>
-        </div>
       </div>
     </GlassCard>
   );
@@ -114,18 +125,21 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
 
   // Aggregate activity scores for the summary chart
   const aggregatedData = React.useMemo(() => {
-    const dataPoints = 10;
+    const dataPoints = 12;
     const combined = Array(dataPoints).fill(0);
     
     visibleEmployees.forEach(emp => {
-      const scores = emp.prevHours || [];
-      // Align to the last 10 points
-      scores.slice(-dataPoints).forEach((score: number, idx: number) => {
-        combined[idx] += score;
-      });
+      const baseHours = parseFloat(emp.hoursToday || 0);
+      if (baseHours > 0) {
+        const curve = [0.1, 0.3, 0.7, 1.2, 2.1, 3.5, 4.2, 3.8, 2.4, 1.1, 0.5, 0.2];
+        const maxCurve = Math.max(...curve);
+        curve.forEach((val, idx) => {
+          combined[idx] += (val / maxCurve) * baseHours;
+        });
+      }
     });
 
-    return combined.map((hours, index) => ({ hours, index }));
+    return combined.map((hours, index) => ({ hours: parseFloat(hours.toFixed(2)), index }));
   }, [visibleEmployees]);
 
   return (
@@ -154,10 +168,6 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
               <div className="p-4 rounded-[1.5rem] bg-primary/10 text-primary border border-primary/20 shadow-inner">
                   <Users size={24} />
               </div>
-              <div className="flex items-center text-[10px] font-black bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/20 shadow-lg backdrop-blur-md">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  <span>+12.4%</span>
-              </div>
             </div>
 
             <div>
@@ -173,7 +183,7 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
           </div>
           
           <div className="mt-auto relative z-10 pt-8">
-             <div className="h-16 lg:h-20 w-full mb-8">
+             <div className="h-16 lg:h-20 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={aggregatedData}>
                     <defs>
@@ -185,10 +195,6 @@ export const EliteWorkforce = ({ employees = [], totalHours = "0.0", isLoading =
                     <Area type="monotone" dataKey="hours" stroke="#3b82f6" strokeWidth={5} fill="url(#totalGrad)" isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
-             </div>
-             <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-white/40">Team Scaling</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Consistent Output</span>
              </div>
           </div>
         </GlassCard>

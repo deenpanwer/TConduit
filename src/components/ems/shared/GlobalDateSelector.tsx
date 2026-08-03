@@ -46,14 +46,14 @@ export const GlobalDateSelector: React.FC<GlobalDateSelectorProps> = ({
   const earliestSelectableDate = minDate ? new Date(minDate.setHours(0,0,0,0)) : undefined;
 
   return (
-    <div className="flex items-center space-x-3">
+    <div className="flex items-center space-x-0.5 sm:space-x-2">
       <Button
         variant="ghost"
         size="icon"
         onClick={handlePreviousDay}
-        className="text-gray-400 hover:text-primary transition-colors"
+        className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-primary transition-colors shrink-0"
       >
-        <ChevronLeft size={20} />
+        <ChevronLeft className="size-4 sm:size-5" />
       </Button>
 
       <Popover>
@@ -61,12 +61,14 @@ export const GlobalDateSelector: React.FC<GlobalDateSelectorProps> = ({
           <Button
             variant="outline"
             className={cn(
-              "flex items-center gap-2 rounded-xl h-10 px-4 text-xs font-black uppercase tracking-widest border-2",
-              "border-transparent bg-white/5 shadow-inner hover:border-primary/20 hover:bg-white/10 transition-all",
+              "flex items-center gap-1.5 rounded-xl h-8 sm:h-10 px-2.5 sm:px-4 text-[10px] sm:text-xs font-black uppercase tracking-widest border-2",
+              "border-transparent bg-white/5 shadow-inner hover:border-primary/20 hover:bg-white/10 transition-all shrink-0",
             )}
           >
-            <CalendarIcon size={16} />
-            Change Date: <span className="text-primary">{isToday ? 'Today' : displayDate}</span>
+            <CalendarIcon className="size-3.5 sm:size-4 shrink-0 text-primary" />
+            <span className="hidden md:inline">Change Date: </span>
+            <span className="text-primary hidden sm:inline">{isToday ? 'Today' : displayDate}</span>
+            <span className="text-primary sm:hidden">{isToday ? 'Today' : format(selectedDate, 'MMM dd')}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0 rounded-[2rem] border-border bg-card shadow-2xl" align="center">
@@ -85,9 +87,9 @@ export const GlobalDateSelector: React.FC<GlobalDateSelectorProps> = ({
         variant="ghost"
         size="icon"
         onClick={handleNextDay}
-        className="text-gray-400 hover:text-primary transition-colors"
+        className="h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-primary transition-colors shrink-0"
       >
-        <ChevronRight size={20} />
+        <ChevronRight className="size-4 sm:size-5" />
       </Button>
     </div>
   );

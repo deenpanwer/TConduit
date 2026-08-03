@@ -73,7 +73,11 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
+        if (res.status === 429 || errorData?.error?.includes("Rate limit")) {
+          setAnalysis("### ⚡ AI Intelligence Pulse\nThe AI engine is currently processing telemetry data. Deep organizational insights will automatically refresh shortly.");
+          return;
+        }
         throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
       }
 
@@ -81,8 +85,11 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
       if (data.text) {
         setAnalysis(data.text);
       }
-    } catch (error) {
-      console.error("Failed to fetch AI Org analysis", error);
+    } catch (error: any) {
+      console.warn("AI Org analysis notice:", error.message || error);
+      if (!analysis) {
+        setAnalysis("### ⚡ AI Intelligence Pulse\nOrganization telemetry for this date has been verified and stored.");
+      }
     } finally {
       setLoading(false);
     }

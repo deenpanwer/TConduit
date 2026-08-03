@@ -80,7 +80,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
       </GlassCard>
 
       <Dialog open={showAudit} onOpenChange={setShowAudit}>
-        <DialogContent className="max-w-3xl w-[95vw] md:w-full bg-card border-border rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-5xl w-[95vw] md:w-full bg-card border-border rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
           <DialogHeader className="p-6 md:p-8 border-b bg-card shrink-0">
             <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-2xl text-primary hidden sm:block">
@@ -127,7 +127,7 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                                                     <div className="p-2 rounded-xl bg-secondary border border-border group-hover:scale-110 transition-transform shrink-0">
                                                         {React.createElement(getAppIcon(app.name), { size: 14, className: "text-primary" })}
                                                     </div>
-                                                    <span className="text-sm font-black uppercase tracking-tight truncate max-w-[150px]">{app.name}</span>
+                                                    <span className="text-sm font-black uppercase tracking-tight text-foreground font-poppins">{app.name}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 md:px-8 py-5 md:py-6">
@@ -146,11 +146,11 @@ export const ApplicationUsage = ({ apps = [] }: { apps?: any[] }) => {
                                                     <div className="flex flex-wrap gap-2">
                                                         {Object.entries(app.details)
                                                             .sort(([, a], [, b]) => (b as number) - (a as number))
-                                                            .slice(0, 10)
+                                                            .slice(0, 15)
                                                             .map(([title, seconds]) => (
-                                                                <div key={title} className="group/title flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/50 border border-border/50 max-w-[250px] truncate">
-                                                                    <span className="text-[9px] font-bold text-muted-foreground truncate flex-1 uppercase tracking-tighter">{title}</span>
-                                                                    <span className="text-[8px] font-black text-primary/60 shrink-0">
+                                                                <div key={title} className="group/title flex items-center gap-2 px-2.5 py-1 rounded-lg bg-secondary/60 border border-border/60">
+                                                                    <span className="text-[10px] font-bold text-foreground/80 uppercase tracking-tight font-poppins">{title}</span>
+                                                                    <span className="text-[9px] font-black text-primary shrink-0 font-mono bg-primary/10 px-1.5 py-0.5 rounded">
                                                                         {Math.round((seconds as number) / 60)}m
                                                                     </span>
                                                                 </div>

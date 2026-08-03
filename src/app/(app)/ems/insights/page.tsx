@@ -203,13 +203,27 @@ export default function InsightsPage() {
     cleanWorkforceCount,
     orgRiskScore,
     orgHealthStatus
-  } = useAnomalies(displayEmployees, empAudits);
+  } = useAnomalies(displayEmployees, empAudits, dateStr);
 
   // Filter flagged employees based on selected employee dropdown
   const flaggedEmployees = useMemo(() => {
     if (selectedEmpId === "all") return allFlaggedEmployees;
     return allFlaggedEmployees.filter(emp => (emp.employeeId || emp.id) === selectedEmpId);
   }, [allFlaggedEmployees, selectedEmpId]);
+
+  const parseShiftDateStr = (ts: any): string => {
+    if (!ts) return "";
+    let d: Date | null = null;
+    if (ts?.toDate && typeof ts.toDate === "function") d = ts.toDate();
+    else if (ts?.seconds) d = new Date(ts.seconds * 1000);
+    else if (ts instanceof Date) d = ts;
+    else if (typeof ts === "number") d = new Date(ts);
+    else if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      if (!isNaN(parsed.getTime())) d = parsed;
+    }
+    return d ? format(d, "yyyy-MM-dd") : "";
+  };
 
   // Helper to derive app breakdown for any single employee
   const getEmployeeAppBreakdown = useCallback((emp: any, empAudit: any) => {
@@ -230,10 +244,13 @@ export default function InsightsPage() {
       }));
     }
 
-    // Parse liveBreakdown from emp.workShifts
+    // Parse liveBreakdown from emp.workShifts FOR dateStr ONLY
     const appMap: Record<string, { totalSeconds: number; details: Record<string, number> }> = {};
 
     emp.workShifts?.forEach((s: any) => {
+      const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || (s.id?.includes('_') ? s.id.split('_')[0] : "");
+      if (sDate !== dateStr) return;
+
       if (s.liveBreakdown) {
         Object.entries(s.liveBreakdown).forEach(([appName, data]) => {
           const isLegacy = typeof data === 'number';
@@ -280,7 +297,7 @@ export default function InsightsPage() {
           details: detailsArray
         };
       });
-  }, []);
+  }, [dateStr]);
 
   if (authLoading || teamLoading) {
     return (
@@ -315,34 +332,34 @@ export default function InsightsPage() {
     <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-background text-foreground font-sans">
       
       {/* Header */}
-      <header className="h-16 border-b border-border px-6 flex items-center justify-between shrink-0 bg-card">
-        <div className="flex items-center gap-3">
+      <header className="border-b border-border px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-card">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden shrink-0 size-8 sm:size-9"
             onClick={() => setIsMobileOpen(true)}
           >
-            <Menu className="size-5" />
+            <Menu className="size-4 sm:size-5" />
           </Button>
-          <div>
-            <h1 className="text-base font-bold flex items-center gap-2 text-foreground">
-              <ShieldCheck className="size-5 text-primary" />
-              Insights
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sm sm:text-base font-bold flex items-center gap-2 text-foreground truncate">
+              <ShieldCheck className="size-4 sm:size-5 text-primary shrink-0" />
+              <span>Insights</span>
               {isOffDay && (
-                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-[10px] font-black uppercase tracking-wider ml-1">
+                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0">
                   OFF DAY
                 </Badge>
               )}
             </h1>
-            <p className="text-[11px] text-muted-foreground">Team productivity, suspicious app flags & screenshot tagging</p>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate hidden sm:block">Team productivity, suspicious app flags & screenshot tagging</p>
           </div>
         </div>
 
         {/* Top Controls: Date & Employee Filter */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-end w-full sm:w-auto shrink-0">
           <Select value={selectedEmpId} onValueChange={setSelectedEmpId}>
-            <SelectTrigger className="w-44 h-9 text-xs font-semibold bg-background border-border rounded-xl">
+            <SelectTrigger className="w-32 sm:w-44 h-8 sm:h-9 text-[11px] sm:text-xs font-semibold bg-background border-border rounded-xl">
               <SelectValue placeholder="All Employees" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
@@ -355,69 +372,70 @@ export default function InsightsPage() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center bg-secondary rounded-xl p-1 border border-border">
+          <div className="flex items-center bg-secondary rounded-xl p-0.5 sm:p-1 border border-border shrink-0">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="size-7 hover:bg-background rounded-lg"
+              className="size-6 sm:size-7 hover:bg-background rounded-lg"
               onClick={() => setSelectedDate(subDays(selectedDate, 1))}
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5 sm:size-4" />
             </Button>
-            <span className="text-xs font-bold px-3 font-mono">
-              {format(selectedDate, "EEE, MMM dd, yyyy")}
+            <span className="text-[10px] sm:text-xs font-bold px-1.5 sm:px-3 font-mono">
+              <span className="hidden sm:inline">{format(selectedDate, "EEE, MMM dd, yyyy")}</span>
+              <span className="sm:hidden">{format(selectedDate, "EEE, MMM dd")}</span>
             </span>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="size-7 hover:bg-background rounded-lg"
+              className="size-6 sm:size-7 hover:bg-background rounded-lg"
               onClick={() => setSelectedDate(addDays(selectedDate, 1))}
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5 sm:size-4" />
             </Button>
           </div>
         </div>
       </header>
 
       {/* Sub-Navigation Tabs */}
-      <div className="border-b border-border bg-card px-6 py-2 flex items-center gap-2">
+      <div className="border-b border-border bg-card px-2 sm:px-6 py-1.5 sm:py-2 flex items-center gap-1 sm:gap-2 overflow-x-auto custom-scrollbar">
         <button
           onClick={() => setActiveTab('anomalies')}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            "flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0 sm:shrink flex-1 text-center",
             activeTab === 'anomalies' 
               ? "bg-primary text-primary-foreground shadow-xs" 
               : "text-muted-foreground hover:bg-secondary"
           )}
         >
-          <AlertTriangle className="size-4" />
-          1. Unusual Activity Radar
+          <AlertTriangle className="size-3.5 sm:size-4 shrink-0" />
+          <span>1. Unusual Activity</span>
         </button>
 
         <button
           onClick={() => setActiveTab('screenshots')}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            "flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0 sm:shrink flex-1 text-center",
             activeTab === 'screenshots' 
               ? "bg-primary text-primary-foreground shadow-xs" 
               : "text-muted-foreground hover:bg-secondary"
           )}
         >
-          <ImageIcon className="size-4" />
-          2. Hourly Screenshots & Tagging
+          <ImageIcon className="size-3.5 sm:size-4 shrink-0" />
+          <span>2. Screenshots & Tagging</span>
         </button>
 
         <button
           onClick={() => setActiveTab('apps')}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            "flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0 sm:shrink flex-1 text-center",
             activeTab === 'apps' 
               ? "bg-primary text-primary-foreground shadow-xs" 
               : "text-muted-foreground hover:bg-secondary"
           )}
         >
-          <LayoutGrid className="size-4" />
-          3. Apps & Website Breakdown
+          <LayoutGrid className="size-3.5 sm:size-4 shrink-0" />
+          <span>3. Apps & Websites</span>
         </button>
       </div>
 
@@ -779,14 +797,14 @@ export default function InsightsPage() {
                                         <Monitor className="size-4 text-primary shrink-0" />
                                       )}
                                       <div>
-                                        <p className="font-bold text-foreground text-sm flex items-center gap-2">
-                                          {item.name}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-bold text-foreground text-xs sm:text-sm">{item.name}</span>
                                           {hasDetails && (
-                                            <span className="text-[10px] font-semibold text-muted-foreground bg-background/60 px-2 py-0.5 rounded-full border border-border font-mono">
+                                            <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground bg-background/60 px-2 py-0.5 rounded-full border border-border font-mono whitespace-nowrap shrink-0">
                                               {item.details.length} {item.details.length === 1 ? 'URL/title' : 'URLs/titles'}
                                             </span>
                                           )}
-                                        </p>
+                                        </div>
                                       </div>
                                     </div>
 
@@ -837,6 +855,7 @@ export default function InsightsPage() {
       {/* Interactive Employee Anomaly Deep-Dive Modal */}
       <EmployeeAnomalyModal 
         report={selectedAnomalyReport}
+        targetDateStr={dateStr}
         onClose={() => setSelectedAnomalyReport(null)}
         onNavigateToScreenshots={(empId) => {
           setSelectedEmpId(empId);

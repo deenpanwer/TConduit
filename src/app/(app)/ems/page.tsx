@@ -114,10 +114,10 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-14 sm:h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-3 sm:px-8 sticky top-0 z-30 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-9 w-9" onClick={() => setIsMobileOpen(true)}>
-              <Menu size={20} />
+        <header className="h-14 sm:h-16 border-b bg-card/50 backdrop-blur-md flex items-center justify-between px-2 sm:px-8 sticky top-0 z-30 shrink-0 gap-1.5 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-4 min-w-0">
+            <Button variant="ghost" size="icon" className="lg:hidden shrink-0 h-8 w-8 sm:h-9 sm:w-9" onClick={() => setIsMobileOpen(true)}>
+              <Menu className="size-4 sm:size-5" />
             </Button>
             <GlobalDateSelector 
               selectedDate={selectedDate} 
@@ -126,7 +126,7 @@ export default function DashboardPage() {
             />
           </div>
           
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
             <SubscriptionBadge orgData={orgData} userData={userData} />
             {employees.length > 0 && !isClientUser && (
               <Button 

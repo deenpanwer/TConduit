@@ -40,7 +40,7 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
 
   const empId = selectedEmployee?.id || "demo_emp";
   const empName = selectedEmployee?.name || selectedEmployee?.displayName || "John Doe";
-  const dateStr = selectedDate.toISOString().substring(0, 10);
+  const dateStr = format(selectedDate, "yyyy-MM-dd");
 
   const [realScreenshots, setRealScreenshots] = useState<any[]>([]);
 
@@ -84,13 +84,30 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
     return () => unsub();
   }, [empId, dateStr]);
 
+  // Helper to parse dates robustly
+  const parseShiftDateStr = (ts: any): string => {
+    if (!ts) return "";
+    let d: Date | null = null;
+    if (ts?.toDate && typeof ts.toDate === "function") d = ts.toDate();
+    else if (ts?.seconds) d = new Date(ts.seconds * 1000);
+    else if (ts instanceof Date) d = ts;
+    else if (typeof ts === "number") d = new Date(ts);
+    else if (typeof ts === "string") {
+      const parsed = new Date(ts);
+      if (!isNaN(parsed.getTime())) d = parsed;
+    }
+    return d ? format(d, "yyyy-MM-dd") : "";
+  };
+
   // Group real screenshots into hourly blocks
   const hourlyData = useMemo(() => {
     const list = [...realScreenshots];
 
     if (selectedEmployee?.workShifts) {
       selectedEmployee.workShifts.forEach((s: any) => {
-        if (s.screenshots && Array.isArray(s.screenshots)) {
+        if (!s) return;
+        const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || (s.id?.includes('_') ? s.id.split('_')[0] : "");
+        if (sDate === dateStr && s.screenshots && Array.isArray(s.screenshots)) {
           list.push(...s.screenshots);
         }
       });
@@ -102,6 +119,7 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
     list.forEach((scr, idx) => {
       let dateObj: Date = new Date();
       if (scr.timestamp?.toDate) dateObj = scr.timestamp.toDate();
+      else if (scr.timestamp?.seconds) dateObj = new Date(scr.timestamp.seconds * 1000);
       else if (typeof scr.timestamp === 'number') dateObj = new Date(scr.timestamp);
       else if (typeof scr.timestamp === 'string') dateObj = new Date(scr.timestamp);
 
@@ -325,7 +343,6 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground font-medium">Total Worked: {hourBlock.totalWorked}</span>
                     <button className="p-1 text-muted-foreground hover:text-foreground">
                       {isCollapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
                     </button>
@@ -333,7 +350,7 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
                 </div>
 
                 {!isCollapsed && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     {hourBlock.slots.map(slot => {
                       const tags = slotTags[slot.id] || slot.tags || [];
                       const isTagging = taggingSlotId === slot.id;

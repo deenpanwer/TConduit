@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ShiftReviewModal } from "@/components/ems/shifts/ShiftReviewModal";
-import { cn, getUserAvatar } from "@/lib/utils";
+import { cn, getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc, serverTimestamp, collection, query, where } from "firebase/firestore";
 import { toast } from "sonner";
@@ -236,14 +236,57 @@ export default function ShiftReviewsPage() {
     return d ? format(d, "yyyy-MM-dd") : "";
   };
 
-  // Helper to resolve tracked shift for target date
+  // Helper to resolve tracked shift for target date (finds earliest start time for multi-shift days)
   const getEmpShiftForDate = (emp: any) => {
     if (!emp.workShifts || !Array.isArray(emp.workShifts)) return {};
-    return emp.workShifts.find((s: any) => {
+
+    // 1. Find ALL shifts belonging to target dateStr
+    const matchingShifts = emp.workShifts.filter((s: any) => {
       if (!s) return false;
       const sDate = s.dateStr || s.workDate || parseShiftDateStr(s.startTime) || parseShiftDateStr(s.clockIn) || s.id?.split('_')[0];
       return sDate === dateStr;
-    }) || {};
+    });
+
+    if (matchingShifts.length === 0) return {};
+
+    // 2. Sort matching shifts chronologically (earliest startTime first)
+    const sortedShifts = [...matchingShifts].sort((a: any, b: any) => {
+      const getMs = (s: any) => {
+        const val = s.startTime || s.clockIn || s.createdAt;
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+      };
+      return getMs(a) - getMs(b);
+    });
+
+    const earliestShift = sortedShifts[0];
+    const latestShift = sortedShifts[sortedShifts.length - 1];
+
+    // Aggregate total metrics across all daily shifts
+    const totalSecs = matchingShifts.reduce((acc: number, s: any) => {
+      const secs = s.liveMetrics?.totalSeconds || s.metrics?.totalSeconds || s.totalSeconds || s.durationSeconds || s.secondsWorked || 0;
+      return acc + secs;
+    }, 0);
+
+    const firstStartTime = earliestShift.startTime || earliestShift.clockIn;
+    const lastEndTime = latestShift.endTime || latestShift.clockOut;
+
+    return {
+      ...earliestShift,
+      startTime: firstStartTime, // GUARANTEES VERY FIRST SHIFT START TIME OF THE DAY!
+      endTime: lastEndTime,       // LAST SHIFT END TIME OF THE DAY!
+      liveMetrics: {
+        ...(earliestShift.liveMetrics || earliestShift.metrics || {}),
+        totalSeconds: totalSecs,
+      },
+      metrics: {
+        ...(earliestShift.metrics || earliestShift.liveMetrics || {}),
+        totalSeconds: totalSecs,
+      },
+      matchingShiftsCount: matchingShifts.length
+    };
   };
 
   // Punctuality & Scheduled Shift Resolution Engine
@@ -488,109 +531,110 @@ export default function ShiftReviewsPage() {
     <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-background text-foreground font-sans">
       
       {/* Header */}
-      <header className="h-16 border-b border-border px-6 flex items-center justify-between shrink-0 bg-card">
-        <div className="flex items-center gap-3">
+      <header className="px-4 sm:px-6 py-2.5 sm:py-3 border-b border-border flex items-center justify-between shrink-0 bg-card gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden shrink-0 size-8 sm:size-9"
             onClick={() => setIsMobileOpen(true)}
           >
-            <Menu className="size-5" />
+            <Menu className="size-4 sm:size-5" />
           </Button>
-          <div>
-            <h1 className="text-base font-bold text-foreground flex items-center gap-2">
-              Shift Reviews
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2 truncate">
+              <span>Shift Reviews</span>
               {isOffDay && (
-                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
+                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 shrink-0">
                   <CalendarOff className="size-3 mr-1 inline" /> Off Day
                 </Badge>
               )}
             </h1>
-            <p className="text-[11px] text-muted-foreground">Review clocked hours, computer activity & approve payroll shifts</p>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate hidden sm:block">Review clocked hours, computer activity & approve payroll shifts</p>
           </div>
         </div>
 
         {/* Historical Backdate Navigation */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-secondary rounded-xl p-1 border border-border">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center bg-secondary rounded-xl p-0.5 sm:p-1 border border-border">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="size-7 hover:bg-background rounded-lg"
+              className="size-6 sm:size-7 hover:bg-background rounded-lg"
               onClick={() => setSelectedDate(subDays(selectedDate, 1))}
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5 sm:size-4" />
             </Button>
-            <span className="text-xs font-bold px-3 font-mono">
-              {format(selectedDate, "EEE, MMM dd, yyyy")}
+            <span className="text-[10px] sm:text-xs font-bold px-1.5 sm:px-3 font-mono">
+              <span className="hidden sm:inline">{format(selectedDate, "EEE, MMM dd, yyyy")}</span>
+              <span className="sm:hidden">{format(selectedDate, "EEE, MMM dd")}</span>
             </span>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="size-7 hover:bg-background rounded-lg"
+              className="size-6 sm:size-7 hover:bg-background rounded-lg"
               onClick={() => setSelectedDate(addDays(selectedDate, 1))}
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5 sm:size-4" />
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-6 space-y-6 overflow-hidden min-h-0 bg-background">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-3 sm:space-y-6 overflow-hidden min-h-0 bg-background">
         
         {/* Off Day Hint Alert if applicable */}
         {isOffDay && (
-          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-between text-xs font-bold text-red-600 dark:text-red-400">
+          <div className="p-3 sm:p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-between text-xs font-bold text-red-600 dark:text-red-400">
             <div className="flex items-center gap-2">
               <CalendarOff className="size-4 shrink-0 text-red-500" />
               <span>
                 <strong>{format(selectedDate, "EEEE, MMMM dd")}</strong> is designated as an Organization Off-Day. Staff members working on this date will logged as Off-Day Overtime/Shifts.
               </span>
             </div>
-            <Badge variant="outline" className="border-red-500/30 bg-red-500/20 text-red-600 font-mono text-[10px]">
+            <Badge variant="outline" className="border-red-500/30 bg-red-500/20 text-red-600 font-mono text-[9px] sm:text-[10px] hidden sm:inline-flex">
               OFF DAY SCHEDULE
             </Badge>
           </div>
         )}
 
-        {/* Plain English Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-          <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-1">
-            <div className="flex justify-between items-center text-muted-foreground text-xs font-bold uppercase tracking-wider">
-              <span>Waiting for Approval</span>
-              <Clock className="size-4 text-amber-500" />
+        {/* Compact Summary Cards (2-column grid on mobile to save vertical space) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 shrink-0">
+          <div className="bg-card p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border border-border shadow-2xs space-y-0.5">
+            <div className="flex justify-between items-center text-muted-foreground text-[9px] sm:text-xs font-bold uppercase tracking-wider">
+              <span className="truncate">Waiting</span>
+              <Clock className="size-3.5 sm:size-4 text-amber-500 shrink-0" />
             </div>
-            <p className="text-2xl font-black text-foreground">
-              {waitingForApprovalCount} Employees
+            <p className="text-base sm:text-xl md:text-2xl font-black text-foreground">
+              {waitingForApprovalCount} <span className="text-xs sm:text-sm font-semibold text-muted-foreground">Emps</span>
             </p>
           </div>
 
-          <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-1">
-            <div className="flex justify-between items-center text-muted-foreground text-xs font-bold uppercase tracking-wider">
-              <span>Approved Shifts</span>
-              <Check className="size-4 text-emerald-500" />
+          <div className="bg-card p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border border-border shadow-2xs space-y-0.5">
+            <div className="flex justify-between items-center text-muted-foreground text-[9px] sm:text-xs font-bold uppercase tracking-wider">
+              <span className="truncate">Approved</span>
+              <Check className="size-3.5 sm:size-4 text-emerald-500 shrink-0" />
             </div>
-            <p className="text-2xl font-black text-foreground">
-              {Object.keys(approvedShifts).length} Employees
+            <p className="text-base sm:text-xl md:text-2xl font-black text-foreground">
+              {Object.keys(approvedShifts).length} <span className="text-xs sm:text-sm font-semibold text-muted-foreground">Emps</span>
             </p>
           </div>
 
-          <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-1">
-            <div className="flex justify-between items-center text-muted-foreground text-xs font-bold uppercase tracking-wider">
-              <span>Total Time Worked</span>
-              <Activity className="size-4 text-blue-500" />
+          <div className="bg-card p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border border-border shadow-2xs space-y-0.5">
+            <div className="flex justify-between items-center text-muted-foreground text-[9px] sm:text-xs font-bold uppercase tracking-wider">
+              <span className="truncate">Total Time</span>
+              <Activity className="size-3.5 sm:size-4 text-blue-500 shrink-0" />
             </div>
-            <p className="text-2xl font-black text-foreground font-mono">{totalWorkedFormatted}</p>
+            <p className="text-base sm:text-xl md:text-2xl font-black text-foreground font-mono truncate">{totalWorkedFormatted}</p>
           </div>
 
-          <div className="bg-card p-5 rounded-2xl border border-border shadow-xs space-y-1">
-            <div className="flex justify-between items-center text-muted-foreground text-xs font-bold uppercase tracking-wider">
-              <span>On-Time Arrival</span>
-              <ShieldCheck className="size-4 text-purple-500" />
+          <div className="bg-card p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border border-border shadow-2xs space-y-0.5">
+            <div className="flex justify-between items-center text-muted-foreground text-[9px] sm:text-xs font-bold uppercase tracking-wider">
+              <span className="truncate">On-Time</span>
+              <ShieldCheck className="size-3.5 sm:size-4 text-purple-500 shrink-0" />
             </div>
-            <p className="text-2xl font-black text-foreground">{onTimePercentage}</p>
+            <p className="text-base sm:text-xl md:text-2xl font-black text-foreground truncate">{onTimePercentage}</p>
           </div>
         </div>
 
@@ -702,9 +746,12 @@ export default function ShiftReviewsPage() {
                         const startVal = shift.startTime || shift.clockIn;
                         const endVal = shift.endTime || shift.clockOut;
                         const isSameTime = startVal && endVal && String(startVal) === String(endVal);
+                        const isOnlineNow = isToday && isEmployeeOnline(emp);
 
                         startTimeDisplay = formatTimeStr(startVal, "Shift Active");
-                        endTimeDisplay = (endVal && !isSameTime) ? formatTimeStr(endVal, "--") : (isToday ? "Shift Active" : "--");
+                        endTimeDisplay = isOnlineNow 
+                          ? "Shift Active" 
+                          : ((endVal && !isSameTime) ? formatTimeStr(endVal, "--") : (isToday ? "Shift Active" : "--"));
 
                         punctualityBadge = pInfo.status === "On Time" ? (
                           <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
@@ -759,12 +806,15 @@ export default function ShiftReviewsPage() {
                       }
                     } else {
                       // REAL WORK AUDIT DOCUMENT EXISTS IN FIRESTORE!
-                      const startVal = audit?.metrics?.startTime || shift.startTime || shift.clockIn;
-                      const endVal = audit?.metrics?.endTime || shift.endTime || shift.clockOut;
+                      const startVal = shift.startTime || shift.clockIn || audit?.metrics?.startTime;
+                      const endVal = shift.endTime || shift.clockOut || audit?.metrics?.endTime;
                       const isSameTime = startVal && endVal && String(startVal) === String(endVal);
+                      const isOnlineNow = isToday && isEmployeeOnline(emp);
 
                       startTimeDisplay = formatTimeStr(startVal, "--");
-                      endTimeDisplay = (endVal && !isSameTime) ? formatTimeStr(endVal, "--") : "--";
+                      endTimeDisplay = isOnlineNow 
+                        ? "Shift Active" 
+                        : ((endVal && !isSameTime) ? formatTimeStr(endVal, "--") : "--");
 
                       punctualityBadge = pInfo.status === "On Time" ? (
                         <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/20">

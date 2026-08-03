@@ -17,29 +17,29 @@ const CustomTooltip = ({ active, payload, label, isDark }: any) => {
     const projected = payload.find((p: any) => p.dataKey === "projectedHours")?.value;
 
     return (
-      <div className="bg-black/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl min-w-[200px]">
+      <div className="bg-card/95 backdrop-blur-2xl border border-border rounded-3xl p-6 shadow-2xl min-w-[200px] text-card-foreground">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col">
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-1">{data.fullDate || label}</span>
-            <div className="h-px w-full bg-white/5 my-2" />
+            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">{data.fullDate || label}</span>
+            <div className="h-px w-full bg-border/40 my-2" />
           </div>
           
           {actual !== null && actual !== undefined && (
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Confirmed Activity</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Confirmed Activity</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-white tracking-tighter">{parseFloat(actual).toFixed(1)}</span>
-                <span className="text-xs font-bold text-gray-400 uppercase">Hours</span>
+                <span className="text-3xl font-black text-foreground tracking-tighter">{parseFloat(actual).toFixed(1)}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase">Hours</span>
               </div>
             </div>
           )}
 
           {projected !== null && projected !== undefined && (
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Estimated Yield</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Estimated Yield</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-blue-500/80 tracking-tighter">{parseFloat(projected).toFixed(1)}</span>
-                <span className="text-xs font-bold text-gray-400 uppercase">Hours</span>
+                <span className="text-3xl font-black text-primary/80 tracking-tighter">{parseFloat(projected).toFixed(1)}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase">Hours</span>
               </div>
             </div>
           )}

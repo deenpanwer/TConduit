@@ -130,10 +130,10 @@ export const GlobalPresence = ({ employees = [] }: { employees?: any[] }) => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30"
               >
-                <div className="bg-black shadow-[0_32px_64px_rgba(0,0,0,0.5)] rounded-2xl p-6 border border-white/10 flex flex-col items-center min-w-[140px]">
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">{hoveredCountry}</span>
-                  <span className="text-4xl font-black text-white leading-none font-poppins tracking-tighter">{countryData[hoveredCountry]}</span>
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-2">Staff Members</span>
+                <div className="bg-card/95 backdrop-blur-xl border border-border shadow-2xl rounded-2xl p-6 flex flex-col items-center min-w-[140px] text-card-foreground">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">{hoveredCountry}</span>
+                  <span className="text-4xl font-black text-foreground leading-none font-poppins tracking-tighter">{countryData[hoveredCountry]}</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Staff Members</span>
                 </div>
               </motion.div>
             )}

@@ -116,15 +116,20 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(true)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]",
+          "flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border-2 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] dark:sm:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] shrink-0",
           isCritical 
             ? "bg-destructive text-white border-white animate-pulse" 
             : "bg-amber-400 text-black border-black"
         )}
       >
-        {isCritical ? <Timer size={14} className="animate-spin-slow" /> : <AlertTriangle size={14} />}
-        <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
-          {isCritical ? formatCountdown() : `${daysLeft} DAYS LEFT`}
+        {isCritical ? <Timer className="size-3 sm:size-3.5 animate-spin-slow" /> : <AlertTriangle className="size-3 sm:size-3.5" />}
+        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+          {isCritical ? formatCountdown() : (
+            <>
+              <span className="sm:hidden">{daysLeft}d</span>
+              <span className="hidden sm:inline">{daysLeft} DAYS LEFT</span>
+            </>
+          )}
         </span>
       </m.button>
 

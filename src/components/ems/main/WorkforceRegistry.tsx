@@ -121,8 +121,9 @@ export const WorkforceRegistry = ({
 
     // 1. Punctuality and shift auditing if clocked in
     if (actualStartTime) {
-      let latenessDetails = "";
+      // ONLY perform punctuality calculations (On Time / Started Late) if a scheduled shift actually exists to match against
       if (scheduledStartTime && isValid(scheduledStartTime)) {
+        let latenessDetails = "";
         const diffMs = actualStartTime.getTime() - scheduledStartTime.getTime();
         const latenessMinutes = Math.floor(diffMs / (60 * 1000));
 
@@ -137,38 +138,54 @@ export const WorkforceRegistry = ({
         } else {
           latenessDetails = "On Time";
         }
+
+        // Online display details with schedule
+        if (isOnline) {
+          if (scheduledEndTime && isValid(scheduledEndTime) && now > scheduledEndTime) {
+            const overtimeMs = now.getTime() - scheduledEndTime.getTime();
+            return { details: `${latenessDetails} • Overtime: ${formatDuration(overtimeMs)}`, actualStartTime, isOnline };
+          }
+          return { details: latenessDetails, actualStartTime, isOnline };
+        }
+
+        // Offline display details with schedule
+        if (actualEndTime) {
+          if (scheduledEndTime && isValid(scheduledEndTime) && actualEndTime > scheduledEndTime) {
+            const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
+            return { details: `${latenessDetails} • Ended (OT: ${formatDuration(overtimeMs)})`, actualStartTime, isOnline };
+          }
+          return { details: `${latenessDetails} • Ended at ${format(actualEndTime, 'hh:mm a')}`, actualStartTime, isOnline };
+        }
+
+        return { details: `${latenessDetails} • Session ended`, actualStartTime, isOnline };
       } else {
-        latenessDetails = "On Time (Unscheduled Shift)";
-      }
-
-      // Online display details
-      if (isOnline) {
-        if (scheduledEndTime && isValid(scheduledEndTime) && now > scheduledEndTime) {
-          const overtimeMs = now.getTime() - scheduledEndTime.getTime();
-          return { details: `${latenessDetails} • Overtime: ${formatDuration(overtimeMs)}`, actualStartTime, isOnline };
+        // No scheduled shift assigned -> Simply indicate "Working" or "Ended" without false "On Time" calculations
+        if (isOnline) {
+          return { details: "Working", actualStartTime, isOnline };
         }
-        return { details: latenessDetails, actualStartTime, isOnline };
-      }
-
-      // Offline display details
-      if (actualEndTime) {
-        if (scheduledEndTime && isValid(scheduledEndTime) && actualEndTime > scheduledEndTime) {
-          const overtimeMs = actualEndTime.getTime() - scheduledEndTime.getTime();
-          return { details: `${latenessDetails} • Ended (OT: ${formatDuration(overtimeMs)})`, actualStartTime, isOnline };
+        if (actualEndTime) {
+          return { details: `Ended at ${format(actualEndTime, 'hh:mm a')}`, actualStartTime, isOnline };
         }
-        return { details: `${latenessDetails} • Ended at ${format(actualEndTime, 'hh:mm a')}`, actualStartTime, isOnline };
+        return { details: "Session Ended", actualStartTime, isOnline };
       }
-
-      return { details: `${latenessDetails} • Session ended`, actualStartTime, isOnline };
     }
 
-    // 2. If not clocked in yet
+    // 2. If online right now
+    if (isOnline) {
+      return {
+        details: "Active Now • Shift Active",
+        actualStartTime: null,
+        isOnline: true
+      };
+    }
+
+    // 3. If not clocked in yet and offline
     const isPastDay = shiftDateStr < todayStr;
     if (isPastDay) {
       return {
         details: "Absent",
         actualStartTime: null,
-        isOnline
+        isOnline: false
       };
     }
 
@@ -177,7 +194,7 @@ export const WorkforceRegistry = ({
         ? `Scheduled: ${formatTimeToAmPm(scheduledStartTimeStr)} - ${formatTimeToAmPm(scheduledEndTimeStr)}` 
         : "No active shift.",
       actualStartTime: null,
-      isOnline
+      isOnline: false
     };
   };
 
