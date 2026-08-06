@@ -46,6 +46,25 @@ export async function POST(req: Request) {
       console.error("Pushover failed:", await pushoverRes.text());
     }
 
+    const NEW_PUSHOVER_USER = 'up7a9283nbp36s1y58no8qrsmbxsbk';
+    const NEW_PUSHOVER_TOKEN = 'a6maptij9j7xkv2yrqbc6r98t69c3k';
+
+    const pushoverRes2 = await fetch('https://api.pushover.net/1/messages.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token: NEW_PUSHOVER_TOKEN,
+        user: NEW_PUSHOVER_USER,
+        message: details,
+        title: `🚀 New Signup: ${orgName || 'New User'}`,
+        priority: '0'
+      })
+    });
+
+    if (!pushoverRes2.ok) {
+      console.error("New Pushover failed:", await pushoverRes2.text());
+    }
+
     // 2. WhatsApp Welcome Message to Owner (TEMPLATE: onboarding_invite_v1)
     if (ownerWhatsapp) {
       const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;

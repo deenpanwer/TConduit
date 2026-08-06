@@ -22,8 +22,8 @@ if (process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && proce
 }
 
 // --- Pushover Helper ---
-const PUSHOVER_USER = 'uuyo19eeyah72skyzmg1u81p8j3m5o';
-const PUSHOVER_TOKEN = 'aqscygvj7bi3ek2i72ij2r12cjkpbu';
+const PUSHOVER_USER = 'up7a9283nbp36s1y58no8qrsmbxsbk';
+const PUSHOVER_TOKEN = 'a6maptij9j7xkv2yrqbc6r98t69c3k';
 
 async function sendPushoverAlert(title: string, message: string) {
   try {

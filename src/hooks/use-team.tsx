@@ -54,7 +54,7 @@ const TeamContext = createContext<TeamContextType>({
   fetchMonthMetrics: async () => ({}),
 });
 
-function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
+function URLSync({ selectedDate, onDateFound }: { selectedDate: Date; onDateFound: (date: Date) => void }) {
   const searchParams = useSearchParams();
   
   useEffect(() => {
@@ -62,14 +62,12 @@ function URLSync({ onDateFound }: { onDateFound: (date: Date) => void }) {
     if (dateParam) {
       try {
         const parsed = parse(dateParam, 'yyyy-MM-dd', new Date());
-        if (isValid(parsed)) {
+        if (isValid(parsed) && format(parsed, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
           onDateFound(parsed);
         }
       } catch (e) {}
-    } else {
-      onDateFound(new Date());
     }
-  }, [searchParams, onDateFound]);
+  }, [searchParams, selectedDate, onDateFound]);
 
   return null;
 }
@@ -167,6 +165,8 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
     return metrics;
   }, [personnelData]); // Re-create if personnel list changes
 
+  const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+
   useEffect(() => {
     const targetOrgId = overrideOrgId || userData?.ownedOrgId || userData?.orgId;
     
@@ -179,7 +179,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       return;
     }
 
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    const dateStr = selectedDateKey;
     const isToday = isSameDay(selectedDate, new Date());
 
     // --- STEP 0: SYNC ORGANIZATION SETTINGS (DUMMY DATA FLAG) ---
@@ -265,9 +265,6 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       });
       personnelListRef.current = currentUids;
 
-      const role = userData?.role?.toLowerCase();
-      const isPrivileged = role === 'owner' || role === 'admin' || role === 'manager' || !!userData?.ownedOrgId;
-
       // --- BATCH PROCESSING: ARCHIVE MODE (HISTORICAL DATA) ---
       // For past dates, we avoid real-time listeners (N-listeners) to save cost and performance.
       // We perform a one-time "Batch Fetch" and commit the result to the local vault.
@@ -317,20 +314,6 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       // --- LIVE MODE: REAL-TIME SYNCHRONIZATION ---
       // Fetch initial shifts for all personnel and attach dedicated listeners for Heartbeats and Shifts
       await Promise.all(allPersonnel.map(async (p) => {
-        const isSelf = p.id === user?.uid;
-        if (!isPrivileged && !isSelf) {
-          setPersonnelData(prev => ({
-            ...prev,
-            [p.id]: {
-              ...prev[p.id],
-              ...p,
-              workShifts: prev[p.id]?.workShifts || [],
-              heartbeat: prev[p.id]?.heartbeat || null
-            }
-          }));
-          return;
-        }
-
         // Fetch initial shift snapshots to prevent 0-hour delay on page load
         let initialShifts: any[] = personnelData[p.id]?.workShifts || [];
         try {
@@ -342,15 +325,19 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
           console.warn(`[useTeam] Failed initial shift fetch for ${p.id}:`, e);
         }
 
-        setPersonnelData(prev => ({
-          ...prev,
-          [p.id]: {
-            ...prev[p.id],
-            ...p,
-            workShifts: initialShifts,
-            heartbeat: prev[p.id]?.heartbeat || null
-          }
-        }));
+        setPersonnelData(prev => {
+          const currentShifts = prev[p.id]?.workShifts;
+          const finalShifts = (currentShifts && currentShifts.length > 0) ? currentShifts : initialShifts;
+          return {
+            ...prev,
+            [p.id]: {
+              ...prev[p.id],
+              ...p,
+              workShifts: finalShifts,
+              heartbeat: prev[p.id]?.heartbeat || null
+            }
+          };
+        });
 
         if (listenersRef.current[p.id]) return;
 
@@ -393,7 +380,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
       unsubOrg();
       unsubscribePersonnel();
     };
-  }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners, selectedDate]);
+  }, [userData?.ownedOrgId, userData?.orgId, user?.uid, authLoading, clearListeners, selectedDateKey]);
 
   const employees = useMemo(() => {
     return Object.values(personnelData).filter(p => {
@@ -552,7 +539,7 @@ export function TeamProvider({ children, overrideOrgId }: { children: React.Reac
   return (
     <TeamContext.Provider value={{ employees, owner, stats, loading, selectedDate, setSelectedDate, fetchMonthMetrics }}>
       <Suspense fallback={null}>
-        <URLSync onDateFound={_setSelectedDate} />
+        <URLSync selectedDate={selectedDate} onDateFound={_setSelectedDate} />
       </Suspense>
       {children}
     </TeamContext.Provider>

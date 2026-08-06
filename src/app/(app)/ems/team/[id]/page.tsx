@@ -193,40 +193,87 @@ export default function EmployeeDetailPage() {
       console.warn("Failed to fetch time entries:", err);
     });
 
-    // 4. Visual Evidence (Snapshot per day with Fallback to latest date if selected date empty)
-    const screenshotRef = collection(db, "users", id as string, "screenshots", dateStr, "images");
-    const screenQuery = query(screenshotRef, orderBy("timestamp", "desc"), limit(60));
-    
-    const unsubScreenshots = onSnapshot(screenQuery, async (snapshot) => {
-      if (!snapshot.empty) {
-        setScreenshots(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      } else {
-        try {
-          const datesRef = collection(db, "users", id as string, "screenshots");
-          const dateSnap = await getDocs(datesRef);
-          if (!dateSnap.empty) {
-            const allDateIds = dateSnap.docs.map((d: any) => d.id).sort((a: string, b: string) => b.localeCompare(a));
-            const latestDateId = allDateIds[0];
-            if (latestDateId) {
-              const fallbackRef = collection(db, "users", id as string, "screenshots", latestDateId, "images");
-              const imgSnap = await getDocs(query(fallbackRef, orderBy("timestamp", "desc"), limit(60)));
-              if (!imgSnap.empty) {
-                setScreenshots(imgSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })));
-                return;
-              }
-            }
-          }
-        } catch (fbErr) {
-          console.warn("Screenshot fallback warning:", fbErr);
+    // 4. Visual Evidence (Multi-subcollection fetch filtered strictly by local workDate)
+    const prevDate = new Date(selectedDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = format(prevDate, "yyyy-MM-dd");
+
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDateStr = format(nextDate, "yyyy-MM-dd");
+
+    const getScrWorkDate = (scr: any): string => {
+      if (scr.workDate) return scr.workDate;
+      if (scr.createdAtLocal) {
+        const match = scr.createdAtLocal.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+          const m = match[1].padStart(2, '0');
+          const d = match[2].padStart(2, '0');
+          const y = match[3];
+          return `${y}-${m}-${d}`;
         }
-        setScreenshots([]);
+        if (scr.createdAtLocal.includes('T')) return scr.createdAtLocal.split('T')[0];
       }
-    });
+      let d: Date | null = null;
+      if (scr.timestamp?.toDate) d = scr.timestamp.toDate();
+      else if (scr.timestamp?.seconds) d = new Date(scr.timestamp.seconds * 1000);
+      else if (typeof scr.timestamp === 'number') d = new Date(scr.timestamp);
+      else if (typeof scr.timestamp === 'string') d = new Date(scr.timestamp);
+      else if (scr.createdAt) d = new Date(scr.createdAt);
+      if (d && !isNaN(d.getTime())) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      return "";
+    };
+
+    const curDocs = new Map<string, any>();
+    const prevDocs = new Map<string, any>();
+    const nextDocs = new Map<string, any>();
+
+    const updateCombined = () => {
+      const combinedMap = new Map<string, any>();
+      curDocs.forEach((val, key) => combinedMap.set(key, val));
+      prevDocs.forEach((val, key) => combinedMap.set(key, val));
+      nextDocs.forEach((val, key) => combinedMap.set(key, val));
+
+      const allDocs = Array.from(combinedMap.values());
+      const filtered = allDocs.filter(scr => getScrWorkDate(scr) === dateStr);
+      filtered.sort((a: any, b: any) => {
+        const tA = a.timestampEpoch || (a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : new Date(a.createdAt || 0).getTime()));
+        const tB = b.timestampEpoch || (b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : new Date(b.createdAt || 0).getTime()));
+        return tB - tA;
+      });
+      setScreenshots(filtered);
+    };
+
+    const refCur = collection(db, "users", id as string, "screenshots", dateStr, "images");
+    const refPrev = collection(db, "users", id as string, "screenshots", prevDateStr, "images");
+    const refNext = collection(db, "users", id as string, "screenshots", nextDateStr, "images");
+
+    const unsubCur = onSnapshot(query(refCur, limit(60)), (snap) => {
+      curDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => curDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => { updateCombined(); });
+
+    const unsubPrev = onSnapshot(query(refPrev, limit(60)), (snap) => {
+      prevDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => prevDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => { updateCombined(); });
+
+    const unsubNext = onSnapshot(query(refNext, limit(60)), (snap) => {
+      nextDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => nextDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => { updateCombined(); });
 
     return () => {
       unsubShifts();
       unsubTime();
-      unsubScreenshots();
+      unsubCur();
+      unsubPrev();
+      unsubNext();
     };
   }, [id, historyLimit, shiftsLimit, selectedDate]);
 

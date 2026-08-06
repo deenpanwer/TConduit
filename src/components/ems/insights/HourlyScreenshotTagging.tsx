@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { faker } from "@faker-js/faker";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { doc, updateDoc, collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, getDocs, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { toast } from "sonner";
 
 interface HourlyScreenshotTaggingProps {
@@ -41,10 +41,49 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
   const empId = selectedEmployee?.id || "demo_emp";
   const empName = selectedEmployee?.name || selectedEmployee?.displayName || "John Doe";
   const dateStr = format(selectedDate, "yyyy-MM-dd");
+  
+  const prevDate = new Date(selectedDate);
+  prevDate.setDate(prevDate.getDate() - 1);
+  const prevDateStr = format(prevDate, "yyyy-MM-dd");
+
+  const nextDate = new Date(selectedDate);
+  nextDate.setDate(nextDate.getDate() + 1);
+  const nextDateStr = format(nextDate, "yyyy-MM-dd");
 
   const [realScreenshots, setRealScreenshots] = useState<any[]>([]);
 
-  // Fetch real screenshots for the active employee and date across nested paths
+  // Helper to determine the local workDate string (YYYY-MM-DD) for any screenshot doc
+  const getScrWorkDate = (scr: any): string => {
+    if (scr.workDate) return scr.workDate;
+    if (scr.createdAtLocal) {
+      const match = scr.createdAtLocal.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (match) {
+        const m = match[1].padStart(2, '0');
+        const d = match[2].padStart(2, '0');
+        const y = match[3];
+        return `${y}-${m}-${d}`;
+      }
+      if (scr.createdAtLocal.includes('T')) {
+        return scr.createdAtLocal.split('T')[0];
+      }
+    }
+    let d: Date | null = null;
+    if (scr.timestamp?.toDate) d = scr.timestamp.toDate();
+    else if (scr.timestamp?.seconds) d = new Date(scr.timestamp.seconds * 1000);
+    else if (typeof scr.timestamp === 'number') d = new Date(scr.timestamp);
+    else if (typeof scr.timestamp === 'string') d = new Date(scr.timestamp);
+    else if (scr.createdAt) d = new Date(scr.createdAt);
+    
+    if (d && !isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return "";
+  };
+
+  // Fetch real screenshots for the active employee across current & adjacent subcollections
   useEffect(() => {
     if (!empId || empId === "demo_emp") {
       setLoading(false);
@@ -54,35 +93,77 @@ export function HourlyScreenshotTagging({ selectedEmployee, selectedDate, hideBa
 
     setLoading(true);
 
-    // Primary Path: users/{empId}/screenshots/{dateStr}/images (Electron Cloud Captures)
-    const imagesRef = collection(db, "users", empId, "screenshots", dateStr, "images");
-    const unsub = onSnapshot(imagesRef, (snap) => {
-      if (!snap.empty) {
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        docs.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
-        setRealScreenshots(docs);
-        setLoading(false);
-      } else {
-        // Fallback Path: users/{empId}/screenshots (where date == dateStr)
-        const rootRef = collection(db, "users", empId, "screenshots");
-        const qRoot = query(rootRef, where("date", "==", dateStr));
-        getDocs(qRoot).then(rootSnap => {
-          const docs = rootSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setRealScreenshots(docs);
-          setLoading(false);
-        }).catch(() => {
-          setRealScreenshots([]);
-          setLoading(false);
-        });
-      }
-    }, (err) => {
-      console.warn("Screenshot query error:", err);
-      setRealScreenshots([]);
+    const curDocs = new Map<string, any>();
+    const prevDocs = new Map<string, any>();
+    const nextDocs = new Map<string, any>();
+
+    const updateCombined = () => {
+      const combinedMap = new Map<string, any>();
+      curDocs.forEach((val, key) => combinedMap.set(key, val));
+      prevDocs.forEach((val, key) => combinedMap.set(key, val));
+      nextDocs.forEach((val, key) => combinedMap.set(key, val));
+
+      const allDocs = Array.from(combinedMap.values());
+      const filtered = allDocs.filter(scr => getScrWorkDate(scr) === dateStr);
+      filtered.sort((a: any, b: any) => {
+        const tA = a.timestampEpoch || (a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : new Date(a.createdAt || 0).getTime()));
+        const tB = b.timestampEpoch || (b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : new Date(b.createdAt || 0).getTime()));
+        return tB - tA;
+      });
+      setRealScreenshots(filtered);
       setLoading(false);
+    };
+
+    const refCur = collection(db, "users", empId, "screenshots", dateStr, "images");
+    const refPrev = collection(db, "users", empId, "screenshots", prevDateStr, "images");
+    const refNext = collection(db, "users", empId, "screenshots", nextDateStr, "images");
+
+    const qCur = query(refCur, orderBy("timestamp", "desc"), limit(60));
+    const qPrev = query(refPrev, orderBy("timestamp", "desc"), limit(60));
+    const qNext = query(refNext, orderBy("timestamp", "desc"), limit(60));
+
+    const unsubCur = onSnapshot(qCur, (snap) => {
+      curDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => curDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => {
+      onSnapshot(query(refCur, limit(60)), (snap) => {
+        curDocs.clear();
+        if (!snap.empty) snap.docs.forEach((d: any) => curDocs.set(d.id, { id: d.id, ...d.data() }));
+        updateCombined();
+      });
     });
 
-    return () => unsub();
-  }, [empId, dateStr]);
+    const unsubPrev = onSnapshot(qPrev, (snap) => {
+      prevDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => prevDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => {
+      onSnapshot(query(refPrev, limit(60)), (snap) => {
+        prevDocs.clear();
+        if (!snap.empty) snap.docs.forEach((d: any) => prevDocs.set(d.id, { id: d.id, ...d.data() }));
+        updateCombined();
+      });
+    });
+
+    const unsubNext = onSnapshot(qNext, (snap) => {
+      nextDocs.clear();
+      if (!snap.empty) snap.docs.forEach((d: any) => nextDocs.set(d.id, { id: d.id, ...d.data() }));
+      updateCombined();
+    }, () => {
+      onSnapshot(query(refNext, limit(60)), (snap) => {
+        nextDocs.clear();
+        if (!snap.empty) snap.docs.forEach((d: any) => nextDocs.set(d.id, { id: d.id, ...d.data() }));
+        updateCombined();
+      });
+    });
+
+    return () => {
+      unsubCur();
+      unsubPrev();
+      unsubNext();
+    };
+  }, [empId, dateStr, prevDateStr, nextDateStr]);
 
   // Helper to parse dates robustly
   const parseShiftDateStr = (ts: any): string => {

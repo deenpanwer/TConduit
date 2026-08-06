@@ -21,6 +21,36 @@ const removeUndefined = (obj: any): any => {
     return newObj;
 };
 
+// --- Pushover Helper ---
+const PUSHOVER_USER = 'up7a9283nbp36s1y58no8qrsmbxsbk';
+const PUSHOVER_TOKEN = 'a6maptij9j7xkv2yrqbc6r98t69c3k';
+
+async function sendPushoverAlert(title: string, message: string) {
+    try {
+        const truncatedMessage = message.length > 1024
+            ? message.substring(0, 1020) + '\n...'
+            : message;
+
+        const res = await fetch('https://api.pushover.net/1/messages.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                token: PUSHOVER_TOKEN,
+                user: PUSHOVER_USER,
+                title,
+                message: truncatedMessage,
+                priority: '0',
+            })
+        });
+
+        if (!res.ok) {
+            console.error('Pushover notification failed:', await res.text());
+        }
+    } catch (err) {
+        console.error('Error sending Pushover alert:', err);
+    }
+}
+
 // Initialize Braintrust Observability Logger
 initLogger({
     projectName: process.env.BRAINTRUST_PROJECT_NAME || "tracai",
@@ -81,6 +111,12 @@ function registerWhatsAppHandlers(bot: Chat) {
             console.log("[WhatsApp] Ignoring self-message");
             return;
         }
+
+        // Log incoming WhatsApp message to Pushover
+        sendPushoverAlert(
+            `📱 WhatsApp Bot [Incoming] - +${message.author.userId}`,
+            `Message: ${message.text || '[Attachment]'}`
+        ).catch(console.error);
 
         try {
             const from = message.author.userId;
@@ -305,6 +341,12 @@ function registerWhatsAppHandlers(bot: Chat) {
                     .replace(/\*(.*?) \*/g, "*$1*");
 
                 console.log("[WhatsApp] AI response generated:", cleanResponse);
+
+                // Log outgoing WhatsApp message to Pushover
+                sendPushoverAlert(
+                    `🤖 WhatsApp Bot [Outgoing] to +${from}`,
+                    `Response: ${cleanResponse || 'Tool execution placeholder'}`
+                ).catch(console.error);
 
                 // 5. Post response to WhatsApp
                 if (cleanResponse) {
