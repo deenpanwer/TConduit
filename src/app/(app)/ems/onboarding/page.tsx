@@ -363,7 +363,15 @@ function OnboardingContent() {
     }
   };
 
+  const isAppSumoUser = orgData?.subscription?.plan === "appsumo_lifetime";
+
   const nextStep = async () => {
+    // For AppSumo users, completing step 9 (Reports) finishes onboarding directly and skips Step 10 (Pricing)
+    if (isAppSumoUser && step >= 9) {
+      await handleSubmit();
+      return;
+    }
+
     const targetStep = Math.min(step + 1, 10);
     await saveStepProgress(targetStep);
     setStep(targetStep);
@@ -593,7 +601,8 @@ function OnboardingContent() {
           onboardingCompleted: true,
           inviteCode: Math.floor(100000 + Math.random() * 900000).toString(),
           subscriptionExpiry: trialExpiry,
-          subscriptionStatus: "trialing",
+          subscriptionStatus: isAppSumoUser ? "active" : "trialing",
+          subscription: isAppSumoUser ? (orgData?.subscription || { plan: "appsumo_lifetime", tier: 1 }) : undefined,
           partnerSlug: partnerSlug,
           createdAt: serverTimestamp(),
           settings: orgSettings
@@ -611,12 +620,13 @@ function OnboardingContent() {
           selectedGoals: selectedGoals,
           showDummyData: showDummyData,
           addedReports: addedReports,
-          selectedPlan: selectedPlan,
+          selectedPlan: isAppSumoUser ? "appsumo_lifetime" : selectedPlan,
           onboardingCompleted: true,
           settings: orgSettings,
           updatedAt: serverTimestamp()
         });
       }
+
 
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,

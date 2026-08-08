@@ -154,6 +154,7 @@ function SuperviseFeedItem({
 }: any) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   
   useEffect(() => {
     setMounted(true);
@@ -173,93 +174,98 @@ function SuperviseFeedItem({
   const isHistoricalFallback = screenshot?.isFallback;
 
   if (variant === 'desktop') {
-    return (
-      <div className="group relative bg-card border-2 border-border rounded-[2rem] overflow-hidden isolate transition-all hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 h-full min-h-[385px] flex flex-col justify-between">
-        <div>
-          <div className="aspect-video w-full bg-secondary relative overflow-hidden">
-            {screenshots.length === 0 ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground space-y-2 bg-gradient-to-br from-secondary/80 via-secondary/40 to-background relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-pulse" />
-                <div className="relative size-11 rounded-full bg-secondary/80 border border-border/50 flex items-center justify-center shadow-inner">
-                  <Monitor size={20} className="opacity-40 text-foreground animate-pulse" />
-                  <div className="absolute inset-0 rounded-full border border-primary/20 animate-ping opacity-25" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-center px-4 opacity-70 z-10">
-                  {isTodayView ? "No Activity Today" : "No History Available"}
-                </span>
-              </div>
-            ) : imageUrl ? (
-              <div className="w-full h-full relative bg-black/40">
-                <img
-                  src={imageUrl}
-                  alt={emp.name}
-                  className={cn(
-                    "w-full h-full object-contain transition-all duration-700 cursor-pointer",
-                    "opacity-100 scale-100"
-                  )}
-                  onLoad={() => onSetLoaded(imageUrl)}
-                  onClick={() => onEnlarge(screenshot)}
-                />
-                {/* Desktop Mini-Loop Progress */}
-                {screenshots.length > 1 && (
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-1 z-30">
-                    {screenshots.map((_: any, i: number) => (
-                      <div key={i} className={cn("h-0.5 rounded-full transition-all duration-300", activeIdx === i ? "w-4 bg-white" : "w-1 bg-white/30")} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
 
-            <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
-              {isTodayView && !isHistoricalFallback && (
-                <div className={`size-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`} />
-              )}
-              <span className={cn(
-                'text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1',
-                isHistoricalFallback ? 'bg-orange-500/80' : 'bg-black/50',
-              )}>
-                {isHistoricalFallback && <History size={10} />}
-                {isHistoricalFallback ? 'Last Active' : isTodayView ? (isOnline ? 'Live' : 'Offline') : format(selectedDate, 'MMM d')}
+    return (
+      <div className="group relative bg-card border-2 border-border rounded-[2rem] overflow-hidden isolate transition-all hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 h-fit flex flex-col">
+        <div className="aspect-video w-full bg-secondary relative overflow-hidden shrink-0">
+          {screenshots.length === 0 ? (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground space-y-2 bg-secondary/50">
+              <Monitor size={32} className="opacity-20" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-center px-4 opacity-50">
+                {isTodayView ? "No Activity Today" : "No History Available"}
               </span>
             </div>
-
-            {imageUrl && (
-              <button
+          ) : imageUrl ? (
+            <div className="w-full h-full relative bg-black/40">
+              {!imgLoaded && (
+                <div className="absolute inset-0 z-10 bg-secondary animate-pulse flex items-center justify-center">
+                  <Monitor size={28} className="opacity-20 animate-pulse text-muted-foreground" />
+                </div>
+              )}
+              <img
+                src={imageUrl}
+                alt={emp.name}
+                className={cn(
+                  "w-full h-full object-contain transition-all duration-500 cursor-pointer",
+                  imgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95"
+                )}
+                onLoad={() => {
+                  setImgLoaded(true);
+                  onSetLoaded(imageUrl);
+                }}
                 onClick={() => onEnlarge(screenshot)}
-                className="absolute bottom-4 right-4 size-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
-              >
-                <Maximize2 size={18} />
-              </button>
+              />
+              {/* Desktop Mini-Loop Progress */}
+              {screenshots.length > 1 && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-1 z-30">
+                  {screenshots.map((_: any, i: number) => (
+                    <div key={i} className={cn("h-0.5 rounded-full transition-all duration-300", activeIdx === i ? "w-4 bg-white" : "w-1 bg-white/30")} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-full h-full bg-secondary animate-pulse" />
+          )}
+
+          <div className="absolute top-3 left-3 flex items-center gap-2 z-20">
+            {isTodayView && !isHistoricalFallback && (
+              <div className={`size-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`} />
             )}
+            <span className={cn(
+              'text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1',
+              isHistoricalFallback ? 'bg-orange-500/80' : 'bg-black/50',
+            )}>
+              {isHistoricalFallback && <History size={10} />}
+              {isHistoricalFallback ? 'Last Active' : isTodayView ? (isOnline ? 'Live' : 'Offline') : format(selectedDate, 'MMM d')}
+            </span>
           </div>
 
-          <div className="p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div onClick={onOpenTeam} className="size-10 rounded-full bg-secondary border border-border overflow-hidden cursor-pointer hover:brightness-110 transition-all shrink-0">
-                <img src={getUserAvatar(emp)} alt={emp.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-black tracking-tight truncate">{emp.name}</span>
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter truncate">
-                  {mounted && screenshot ? format(timestamp, 'hh:mm:ss a') : '---'}
-                </span>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="rounded-xl text-[9px] font-black uppercase tracking-widest px-3 h-8 hover:bg-primary/5 shrink-0" onClick={onOpenTeam}>View</Button>
-          </div>
+          {imageUrl && (
+            <button
+              onClick={() => onEnlarge(screenshot)}
+              className="absolute bottom-3 right-3 size-9 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
+            >
+              <Maximize2 size={16} />
+            </button>
+          )}
         </div>
 
-        <div className="px-5 pb-6 flex flex-col gap-1 min-h-[4.8rem] max-h-[4.8rem] relative justify-start overflow-hidden">
-          <div className="relative">
-            <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest mb-1">What he's doing right now?:</p>
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div onClick={onOpenTeam} className="size-9 rounded-full bg-secondary border border-border overflow-hidden cursor-pointer hover:brightness-110 transition-all shrink-0">
+              <img src={getUserAvatar(emp)} alt={emp.name} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-black tracking-tight truncate">{emp.name}</span>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter truncate">
+                {mounted && screenshot ? format(timestamp, 'hh:mm:ss a') : '---'}
+              </span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="rounded-xl text-[9px] font-black uppercase tracking-widest px-3 h-7 hover:bg-primary/5 shrink-0" onClick={onOpenTeam}>View</Button>
+        </div>
+
+        <div className="px-4 pb-4 pt-0 flex flex-col gap-0.5">
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">What he's doing right now?:</p>
+          <div className="relative h-[2.8rem] overflow-hidden">
             {isLoadingIntent && <div className="absolute inset-0 z-10"><ScanningSkeleton /></div>}
             <div className={cn("transition-all duration-500", isLoadingIntent ? "opacity-20 blur-[1px] scale-[0.98]" : "opacity-100 blur-0 scale-100")}>
               {currentError ? (
                 <p className="text-[10px] text-red-400 truncate">{currentError}</p>
               ) : (
-                <p className="text-[10px] text-foreground/80 line-clamp-3 leading-snug">
-                  {currentIntent || (screenshots.length === 0 ? (isTodayView ? "No activity detected today." : "No history available.") : "")}
+                <p className="text-[10px] font-medium text-foreground/80 leading-snug line-clamp-3">
+                  {currentIntent || (screenshots.length === 0 ? (isTodayView ? "He didn't do anything today." : "No history available.") : "")}
                 </p>
               )}
             </div>

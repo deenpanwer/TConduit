@@ -113,59 +113,7 @@ export default function ShiftsPage() {
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
   }, [currentDate, combinedSettings.startOfWeek]);
 
-  // -- DERIVED: USER'S PERSONAL SCHEDULE SUMMARY --
-  const myScheduleSummary = useMemo(() => {
-    if (!userData) return null;
 
-    const timeToAMPM = (timeStr: string | undefined): string => {
-        if (!timeStr) return '';
-        try {
-            const [hour, minute] = timeStr.split(':');
-            let h = parseInt(hour, 10);
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12;
-            h = h ? h : 12; // the hour '0' should be '12'
-            return `${h}:${minute} ${ampm}`;
-        } catch {
-            return timeStr; // fallback if format is not HH:mm
-        }
-    };
-
-    const myId = user?.uid || userData?.id;
-
-    // Get shifts for the currently displayed week, excluding past virtual shifts
-    const weekDates = daysOfWeek.map(d => format(d, 'yyyy-MM-dd'));
-    const myShiftsThisWeek = shifts.filter(s => {
-      if (s.userId !== myId || !weekDates.includes(s.date)) {
-        return false;
-      }
-      const today = startOfToday();
-      const shiftDate = parseISO(s.date);
-      // Don't include past virtual shifts in the summary
-      if (s.isVirtual && isBefore(shiftDate, today)) {
-        return false;
-      }
-      return true;
-    });
-
-    // Today's Summary
-    const currentShift = shifts.find(s => s.userId === myId && s.date === format(new Date(), 'yyyy-MM-dd'));
-    const todaySummary = currentShift 
-        ? `${timeToAMPM(currentShift.startTime)} - ${timeToAMPM(currentShift.endTime)}` 
-        : "No Shift";
-    const todayType = currentShift ? (currentShift.isVirtual ? "Regular" : "Custom Change") : "Off Day";
-
-    // Weekly Summary Counts (from filtered shifts)
-    const manualCount = myShiftsThisWeek.filter(s => !s.isVirtual).length;
-    const virtualCount = myShiftsThisWeek.filter(s => s.isVirtual).length;
-    
-    return {
-      manualCount,
-      virtualCount,
-      today: todaySummary,
-      type: todayType,
-    };
-  }, [shifts, user, userData, daysOfWeek]);
 
   // Derived: Scheduled Time Change Notice Alert text
   const shiftChangeAlert = useMemo(() => {
@@ -366,39 +314,16 @@ export default function ShiftsPage() {
         </header>
 
         {/* USER PERSONAL SCHEDULE SUMMARY BANNER */}
-        {myScheduleSummary && (
-          <div className="bg-primary/5 border-b border-primary/10 px-4 sm:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-sm">
-             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                <div className="flex items-center gap-2">
-                   <div className="size-2 rounded-full bg-primary animate-pulse" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">My Schedule</span>
-                </div>
-                <div className="flex items-center gap-6 sm:gap-8">
-                   <div>
-                      <p className="text-[9px] font-black uppercase text-muted-foreground/60 mb-0.5">Today</p>
-                      <p className="text-sm font-black tracking-tight">{myScheduleSummary.today} <span className={cn("text-[10px] ml-1", myScheduleSummary.type === 'Regular' && 'text-indigo-500', myScheduleSummary.type === 'Custom Change' && 'text-amber-600 font-bold')}>
-                        ({myScheduleSummary.type})
-                      </span></p>
-                   </div>
-                   <div className="h-8 w-px bg-border hidden sm:block" />
-                   <div>
-                      <p className="text-[9px] font-black uppercase text-muted-foreground/60 mb-0.5">This Week</p>
-                      <p className="text-sm font-black tracking-tight">
-                        {myScheduleSummary.virtualCount} Regular <span className="mx-2 opacity-20">/</span> <span className={cn(myScheduleSummary.manualCount > 0 && "text-amber-600 font-bold")}>{myScheduleSummary.manualCount} Changes</span>
-                      </p>
-                   </div>
-                </div>
-             </div>
-             {isManager && (
-               <Button 
-                onClick={() => setIsGlobalDefaultsOpen(true)}
-                variant="ghost" 
-                className="group h-9 px-4 rounded-xl border-2 border-transparent hover:border-indigo-500/20 hover:bg-indigo-500/5 transition-all w-full sm:w-auto justify-center"
-               >
-                  <span className="text-[10px] font-black uppercase tracking-widest mr-2 group-hover:text-indigo-600 transition-colors">Set Regular Hours</span>
-                  <Clock size={16} className="text-muted-foreground group-hover:text-indigo-600 transition-colors" />
-               </Button>
-             )}
+        {isManager && (
+          <div className="bg-primary/5 border-b border-primary/10 px-4 sm:px-8 py-3 flex justify-end gap-4 backdrop-blur-sm">
+             <Button 
+              onClick={() => setIsGlobalDefaultsOpen(true)}
+              variant="ghost" 
+              className="group h-9 px-4 rounded-xl border-2 border-transparent hover:border-indigo-500/20 hover:bg-indigo-500/5 transition-all w-full sm:w-auto justify-center"
+             >
+                <span className="text-[10px] font-black uppercase tracking-widest mr-2 group-hover:text-indigo-600 transition-colors">Set Regular Hours</span>
+                <Clock size={16} className="text-muted-foreground group-hover:text-indigo-600 transition-colors" />
+             </Button>
           </div>
         )}
 
@@ -1381,19 +1306,17 @@ const GlobalDefaultsModal = ({ isOpen, onClose, employees, onSave }: { isOpen: b
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-6 sm:p-8 space-y-4">
-                  {filteredEmployees.map(emp => (
-                    <GlobalEmployeeRow key={emp.id || emp.uid} employee={emp} onSave={onSave} />
-                  ))}
-                  {filteredEmployees.length === 0 && searchTerm && (
-                    <div className="text-center py-12 opacity-40">
-                        <p className="font-black text-sm">No employees found for "{searchTerm}"</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <div className="p-6 sm:p-8 space-y-4">
+                {filteredEmployees.map(emp => (
+                  <GlobalEmployeeRow key={emp.id || emp.uid} employee={emp} onSave={onSave} />
+                ))}
+                {filteredEmployees.length === 0 && searchTerm && (
+                  <div className="text-center py-12 opacity-40">
+                      <p className="font-black text-sm">No employees found for "{searchTerm}"</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-6 sm:p-8 border-t-2 bg-secondary/10 flex justify-end shrink-0">

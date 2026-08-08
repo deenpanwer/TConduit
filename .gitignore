@@ -76,4 +76,9 @@ generate_attendance_dummy_report.mjs
 CRM_Performance_Report_Monthly.xlsx
 CRM_Performance_Report_Monthly.pdf
 Attendance_Report_Dummy.xlsx
-temp_deals_page.txt
+temp_deals_page.txt
+
+# AppSumo local files
+appsumo_codes.csv
+scripts/generate-appsumo-codes.mjs
+

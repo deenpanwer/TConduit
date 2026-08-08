@@ -35,6 +35,10 @@ export function SubscriptionBadge({ orgData, userData }: SubscriptionBadgeProps)
     return orgData.subscriptionExpiry.toDate ? orgData.subscriptionExpiry.toDate() : new Date(orgData.subscriptionExpiry);
   }, [orgData?.subscriptionExpiry]);
 
+  // Don't display trial / payment alert badge for AppSumo lifetime plan holders
+  const isAppSumoUser = orgData?.subscription?.plan === "appsumo_lifetime" || orgData?.selectedPlan === "appsumo_lifetime";
+  if (isAppSumoUser) return null;
+
   useEffect(() => {
     setMounted(true);
     if (!expiryDate) return;

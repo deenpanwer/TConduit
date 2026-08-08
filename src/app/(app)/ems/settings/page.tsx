@@ -67,6 +67,126 @@ const DAYS = [
 ];
 
 
+function AppSumoStackingSection({ orgData, userData, onSuccess }: { orgData: any; userData: any; onSuccess: () => void }) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const stackedCodes: string[] = orgData?.subscription?.stackedCodes || [];
+  const currentTier = orgData?.subscription?.tier || 1;
+  const maxSeats = orgData?.subscription?.maxSeats || 5;
+
+  const handleStackCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/appsumo/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          userId: userData?.uid,
+          orgId: orgData?.id || userData?.ownedOrgId || userData?.orgId
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to stack AppSumo code.");
+      }
+
+      toast({
+        title: "Code Stacked Successfully! 🎉",
+        description: data.message || `Upgraded to Tier ${data.tier} (${data.maxSeats} seats)!`
+      });
+
+      setCode("");
+      onSuccess();
+    } catch (err: any) {
+      toast({
+        title: "Stacking Failed",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-3 bg-amber-500/10 text-amber-600 rounded-2xl border border-amber-500/20">
+          <Ticket className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black uppercase tracking-tighter">AppSumo Lifetime Deal & Code Stacking</h3>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-tight">
+            Add additional AppSumo codes to upgrade your organization's seat tier.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-secondary/40 border border-border/60 rounded-2xl p-5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Current Plan</span>
+          <div className="text-lg font-bold text-amber-500 mt-1 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4" /> AppSumo Lifetime
+          </div>
+        </div>
+        <div className="bg-secondary/40 border border-border/60 rounded-2xl p-5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Active Tier</span>
+          <div className="text-2xl font-black tracking-tight mt-1">Tier {currentTier}</div>
+        </div>
+        <div className="bg-secondary/40 border border-border/60 rounded-2xl p-5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Employee Limit</span>
+          <div className="text-2xl font-black tracking-tight mt-1 text-emerald-500">{maxSeats} Seats</div>
+        </div>
+      </div>
+
+      {/* Code Stacking Form */}
+      <form onSubmit={handleStackCode} className="space-y-4 max-w-xl mb-8">
+        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <KeyRound className="w-3.5 h-3.5 text-amber-500" /> Stack Additional AppSumo Code
+        </Label>
+        <div className="flex gap-3">
+          <Input
+            type="text"
+            required
+            placeholder="AS-TRAC-XXXXX-XXXXX"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            className="bg-secondary/20 h-12 rounded-xl font-mono tracking-widest font-bold border-border"
+          />
+          <Button
+            type="submit"
+            disabled={loading}
+            className="h-12 px-6 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shrink-0"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Stack Code"}
+          </Button>
+        </div>
+      </form>
+
+      {/* Stacked Codes History */}
+      {stackedCodes.length > 0 && (
+        <div className="border-t border-border/60 pt-6">
+          <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">Redeemed Codes ({stackedCodes.length})</h4>
+          <div className="flex flex-wrap gap-2">
+            {stackedCodes.map((c, i) => (
+              <span key={i} className="px-3 py-1.5 bg-secondary border border-border rounded-xl font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SettingsPageContent() {
   const { user, userData, refreshUserData } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -859,12 +979,18 @@ function SettingsPageContent() {
               <TabsTrigger value="intelligence" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Intelligence</TabsTrigger>
               {/* <TabsTrigger value="dispatcher" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Notifications</TabsTrigger> */}
               <TabsTrigger value="operations" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Operations</TabsTrigger>
+              {(orgData?.subscription?.plan === "appsumo_lifetime" || orgData?.selectedPlan === "appsumo_lifetime" || userData?.appsumoRedeemed) && (
+                <TabsTrigger value="appsumo-stack" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px] bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <Ticket className="w-3 h-3 mr-1 inline-block" /> AppSumo Codes
+                </TabsTrigger>
+              )}
               {isAllowedRole && (
                 <>
                   {/* <TabsTrigger value="visibility" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">Visibility</TabsTrigger> */}
                   <TabsTrigger value="client-sharing" className="rounded-xl py-2.5 px-4 font-black uppercase tracking-widest text-[10px]">View Access</TabsTrigger>
                 </>
               )}
+
             </TabsList>
 
             <TabsContent value="identity" className="space-y-8">
@@ -1858,7 +1984,12 @@ function SettingsPageContent() {
                 </section>
               </TabsContent>
             )}
+
+            <TabsContent value="appsumo-stack" className="space-y-8">
+              <AppSumoStackingSection orgData={orgData} userData={userData} onSuccess={refreshUserData} />
+            </TabsContent>
           </Tabs>
+
         </div>
       </main>
       </>
