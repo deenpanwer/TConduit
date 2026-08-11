@@ -1,0 +1,36 @@
+name: Daily Low-Volume SMS Dispatch
+
+on:
+  schedule:
+    # Runs at 19:00 UTC (2:00 PM Central Time) every day
+    - cron: '0 19 * * *'
+  workflow_dispatch: # Allows manual trigger from the GitHub UI
+
+jobs:
+  dispatch_sms:
+    name: Run SMS Dispatch Engine
+    runs-on: ubuntu-latest
+    
+    # Optional timeout to ensure it doesn't run forever, standard limit is 6 hours
+    timeout-minutes: 90 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute SMS Dispatch Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELNYX_API_KEY: ${{ secrets.TELNYX_API_KEY }}
+          TELNYX_PHONE_NUMBER: ${{ secrets.TELNYX_PHONE_NUMBER }}
+        run: npx tsx scripts/dispatch-sms.ts

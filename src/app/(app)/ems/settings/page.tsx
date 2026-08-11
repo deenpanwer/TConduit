@@ -25,7 +25,7 @@ import {
   LogOut, User, Building2, Ticket, 
   Check, Copy, Moon, Sun, Menu, X, ArrowLeft, Lock,
   Clock, Calendar, Save, Fingerprint, Loader2, BrainCircuit, ShieldCheck, Zap, Ban, ArrowRight, Users, Bell, MapPin, Pencil, MessageSquare, ClipboardList, Volume2, VolumeX,
-  Globe, Sparkles, Trash2, Eye, Smartphone, Download
+  Globe, Sparkles, Trash2, Eye, Smartphone, Download, KeyRound
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';

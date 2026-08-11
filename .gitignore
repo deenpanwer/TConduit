@@ -81,4 +81,8 @@ temp_deals_page.txt
 # AppSumo local files
 appsumo_codes.csv
 scripts/generate-appsumo-codes.mjs
-
+
+# Supabase Local SQL Scripts
+supabase-setup.sql
+supabase-delivery-upgrade.sql
+*.sql
