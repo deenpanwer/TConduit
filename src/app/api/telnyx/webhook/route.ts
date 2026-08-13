@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Telnyx from 'telnyx';
 import { createClient } from '@supabase/supabase-js';
+import nacl from 'tweetnacl';
 
 // Initialize Supabase (requires service role to bypass RLS for incoming webhooks if needed)
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -37,6 +37,22 @@ async function sendPushoverAlert(title: string, message: string) {
   }
 }
 
+function verifyTelnyxWebhook(rawBody: string, signatureB64: string, timestamp: string, publicKeyB64: string): boolean {
+  try {
+    const message = `${timestamp}|${rawBody}`;
+    const signature = Buffer.from(signatureB64, 'base64');
+    const publicKey = Buffer.from(publicKeyB64, 'base64');
+
+    return nacl.sign.detached.verify(
+      Buffer.from(message, 'utf8'),
+      signature,
+      publicKey
+    );
+  } catch (err) {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
@@ -48,19 +64,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required headers or public key' }, { status: 400 });
     }
 
-    const t = new Telnyx({ apiKey: process.env.TELNYX_API_KEY! });
-    
-    const headersObj: Record<string, string> = {};
-    req.headers.forEach((value, key) => {
-      headersObj[key.toLowerCase()] = value;
-    });
-
-    let event: any;
-    try {
-      event = t.webhooks.unwrap(rawBody, { headers: headersObj, key: publicKey });
-    } catch (err: any) {
-      console.error('Webhook signature verification failed.', err.message);
+    // Verify signature manually because standard webhooks wrapper isn't fully compatible
+    const isValid = verifyTelnyxWebhook(rawBody, signature, timestamp, publicKey);
+    if (!isValid) {
+      console.error('Webhook signature verification failed. No matching signature found');
       return NextResponse.json({ error: 'Webhook signature verification failed.' }, { status: 400 });
+    }
+
+    let event;
+    try {
+      event = JSON.parse(rawBody);
+    } catch (err: any) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
     if (event.data.event_type === 'message.received') {
