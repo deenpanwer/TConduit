@@ -340,3 +340,29 @@
     }
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-hidden,
+  aside,
+  header,
+  nav {
+    display: none !important;
+  }
+
+  @page {
+    margin: 0;
+    size: A4 portrait;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

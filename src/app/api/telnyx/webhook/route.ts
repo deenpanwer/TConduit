@@ -71,44 +71,64 @@ export async function POST(req: NextRequest) {
       
       console.log('Received inbound message from:', fromPhone);
 
-      // 1. Look up contact in DB
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id, name')
-        .eq('phone', fromPhone)
-        .single();
+      // 1. Look up contact in DB (Safe lookup)
+      let contactName = fromPhone;
+      let contactId = null;
+      try {
+        const { data: contact } = await supabase
+          .from('contacts')
+          .select('id, name')
+          .eq('phone', fromPhone)
+          .single();
+        if (contact) {
+          contactName = contact.name || fromPhone;
+          contactId = contact.id;
+        }
+      } catch (err) {
+        console.error('Failed to lookup contact, proceeding with phone number:', err);
+      }
 
-      const contactName = contact?.name || fromPhone;
-
-      // 2. Save to sms_messages
-      await supabase.from('sms_messages').insert({
-        contact_id: contact?.id || null, // Allow null if unknown sender
-        direction: 'inbound',
-        body: messageText,
-        telnyx_id: telnyxId,
-      });
-
-      // 3. Compliance Check (Opt-out)
+      // 2. Compliance Check (Opt-out string detection)
       const stopWords = ['stop', 'unsubscribe', 'cancel', 'end', 'quit'];
       const isOptOut = stopWords.includes(messageText.trim().toLowerCase());
 
-      if (isOptOut && contact?.id) {
-        await supabase
-          .from('contacts')
-          .update({ 
-            is_opted_out: true, 
-            opt_out_timestamp: new Date().toISOString() 
-          })
-          .eq('id', contact.id);
-          
-        console.log(`Opted out contact: ${contact.id}`);
+      // 3. IMMEDIATE PUSHOVER ALERT (Highest Priority)
+      // We send this immediately so that if the DB goes down, you still get the text notification.
+      try {
+        const alertTitle = isOptOut ? `⚠️ OPT-OUT: ${contactName}` : `💬 SMS from ${contactName}`;
+        const alertMessage = `${messageText}\n\nPhone: ${fromPhone}`;
+        await sendPushoverAlert(alertTitle, alertMessage);
+      } catch (err) {
+        console.error('Failed to send Pushover alert:', err);
       }
 
-      // 4. Send Dual-Pushover Alert
-      const alertTitle = isOptOut ? `⚠️ OPT-OUT: ${contactName}` : `💬 SMS from ${contactName}`;
-      const alertMessage = `${messageText}\n\nPhone: ${fromPhone}`;
-      
-      await sendPushoverAlert(alertTitle, alertMessage);
+      // 4. Save to sms_messages
+      try {
+        await supabase.from('sms_messages').insert({
+          contact_id: contactId, // Allow null if unknown sender
+          direction: 'inbound',
+          body: messageText,
+          telnyx_id: telnyxId,
+        });
+      } catch (err) {
+        console.error('Failed to insert into sms_messages:', err);
+      }
+
+      // 5. Update Opt-Out Status in DB if necessary
+      if (isOptOut && contactId) {
+        try {
+          await supabase
+            .from('contacts')
+            .update({ 
+              is_opted_out: true, 
+              opt_out_timestamp: new Date().toISOString() 
+            })
+            .eq('id', contactId);
+          console.log(`Opted out contact: ${contactId}`);
+        } catch (err) {
+          console.error('Failed to update opt-out status:', err);
+        }
+      }
     } else if (event.data.event_type === 'message.finalized') {
       const payload = event.data.payload;
       const telnyxId = payload.id;

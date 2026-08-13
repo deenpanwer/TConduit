@@ -76,6 +76,10 @@ export async function generateProfessionalPDF(
   await new Promise(resolve => setTimeout(resolve, 600));
 
   try {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
     const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true, // Crucial for loading the logo from Google URL
@@ -83,8 +87,14 @@ export async function generateProfessionalPDF(
         backgroundColor: '#ffffff'
     });
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.98);
-    const pdf = new jsPDF('p', 'pt', 'a4');
+    // High-resolution JPEG compression (0.92)
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'pt',
+      format: 'a4',
+      compress: true
+    });
     
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -94,13 +104,13 @@ export async function generateProfessionalPDF(
     let heightLeft = scaledImgHeight;
     let position = 0;
 
-    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledImgHeight);
+    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledImgHeight, undefined, 'FAST');
     heightLeft -= pdfHeight;
 
     while (heightLeft > 0) {
         position = heightLeft - scaledImgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledImgHeight);
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, scaledImgHeight, undefined, 'FAST');
         heightLeft -= pdfHeight;
     }
 

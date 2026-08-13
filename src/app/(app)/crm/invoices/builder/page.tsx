@@ -39,8 +39,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { exportInvoiceToCompressedPDF, printInvoiceDocument } from '@/lib/invoice-pdf-service';
 
 // --- Types ---
 
@@ -343,89 +342,46 @@ export default function InvoiceBuilder() {
   const handleDownload = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
-    toast.info('Making PDF...');
-
-    const invoicePages = Array.from(invoiceRef.current?.querySelectorAll('.invoice-page') || []);
-    if (invoicePages.length === 0) {
-        toast.error('Failed to find invoice content.');
-        setIsDownloading(false);
-        return;
-    }
-
-    // Store original transforms and temporarily remove them for full resolution rendering
-    const originalTransforms = invoicePages.map(page => (page as HTMLElement).style.transform);
-    invoicePages.forEach(page => {
-        (page as HTMLElement).style.transform = 'none';
-    });
-
-    const pageWrappers = invoicePages.map(page => page.parentElement);
-    const originalWrapperStyles = pageWrappers.map(wrapper => {
-        if (!wrapper) return null;
-        return {
-            width: wrapper.style.width,
-            height: wrapper.style.height,
-            overflow: wrapper.style.overflow,
-        };
-    });
-
-    pageWrappers.forEach(wrapper => {
-        if (!wrapper) return;
-        wrapper.style.width = '800px';
-        wrapper.style.height = '1131px';
-        wrapper.style.overflow = 'visible';
-    });
 
     try {
-        const firstPage = invoicePages[0] as HTMLElement;
-        const firstCanvas = await html2canvas(firstPage, {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: null,
-            width: 800,
-            height: 1131,
-        });
-
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'px',
-            format: [firstCanvas.width, firstCanvas.height]
-        });
-
-        pdf.addImage(firstCanvas.toDataURL('image/png'), 'PNG', 0, 0, firstCanvas.width, firstCanvas.height);
-
-        for (let i = 1; i < invoicePages.length; i++) {
-            const page = invoicePages[i] as HTMLElement;
-            const canvas = await html2canvas(page, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: null,
-                width: 800,
-                height: 1131,
-            });
-            pdf.addPage([canvas.width, canvas.height]);
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
+      let invoicePages = Array.from(document.querySelectorAll('.invoice-page')) as HTMLElement[];
+      
+      // Filter to only include active/visible pages in the viewport (prevents mobile/desktop duplicate capture)
+      invoicePages = invoicePages.filter(el => {
+        if (el.id.startsWith('pdf-export-clone')) return false;
+        let current: HTMLElement | null = el;
+        while (current && current !== document.body) {
+          const style = window.getComputedStyle(current);
+          if (style.display === 'none' || style.visibility === 'hidden') {
+            return false;
+          }
+          current = current.parentElement;
         }
+        return true;
+      });
 
-        pdf.save(`Invoice-${invoice.invoiceNumber}.pdf`);
-        toast.success('PDF downloaded successfully!');
+      if (invoicePages.length === 0) {
+        toast.error('Failed to find invoice content to export.');
+        return;
+      }
 
+      const cleanInvoiceNo = (invoice.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
+      const cleanClient = (invoice.to.name || invoice.to.organization || 'Client').trim().replace(/[^a-zA-Z0-9-_]/g, '_');
+      const fileName = `TConduit_Invoice_${cleanInvoiceNo}_${cleanClient}.pdf`;
+
+      await exportInvoiceToCompressedPDF(invoicePages, fileName);
     } catch (error) {
-        console.error('Error generating PDF:', error);
-        toast.error('Failed to generate PDF.');
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF.');
     } finally {
-        // Restore page transforms back to normal
-        invoicePages.forEach((page, idx) => {
-            (page as HTMLElement).style.transform = originalTransforms[idx];
-        });
-        pageWrappers.forEach((wrapper, idx) => {
-            const style = originalWrapperStyles[idx];
-            if (!wrapper || !style) return;
-            wrapper.style.width = style.width;
-            wrapper.style.height = style.height;
-            wrapper.style.overflow = style.overflow;
-        });
-        setIsDownloading(false);
+      setIsDownloading(false);
     }
+  };
+
+  const handlePrint = () => {
+    const cleanInvoiceNo = (invoice.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
+    const cleanClient = (invoice.to.name || invoice.to.organization || 'Client').trim().replace(/[^a-zA-Z0-9-_]/g, '_');
+    printInvoiceDocument(`TConduit_Invoice_${cleanInvoiceNo}_${cleanClient}`);
   };
 
   const pages = useMemo(() => {
@@ -861,7 +817,7 @@ export default function InvoiceBuilder() {
                     {isDownloading ? <Loader2 className='animate-spin mr-2' size={14} /> : <Download size={14} className='mr-2' />}
                     Save PDF
                 </Button>
-                <Button variant='outline' size='sm' className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60'><Printer size={14} className='mr-2' /> Print</Button>
+                <Button variant='outline' size='sm' onClick={handlePrint} className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60'><Printer size={14} className='mr-2' /> Print</Button>
             </div>
         </div>
 

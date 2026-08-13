@@ -919,8 +919,17 @@ export const generateCRMPDFReport = async (
   await new Promise(resolve => setTimeout(resolve, 800));
 
   try {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
     const pages = container.querySelectorAll(".pdf-page");
-    const pdf = new jsPDF("p", "pt", "a4");
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+      compress: true
+    });
     
     for (let i = 0; i < pages.length; i++) {
       const pageEl = pages[i] as HTMLElement;
@@ -929,10 +938,13 @@ export const generateCRMPDFReport = async (
         scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: 1130
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      // Optimized high-resolution JPEG compression (0.92 quality)
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
@@ -940,7 +952,7 @@ export const generateCRMPDFReport = async (
         pdf.addPage();
       }
       
-      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
       
       // Add clickable hyperlink annotation overlay for heytracai.com (bottom right)
       pdf.link(pdfWidth - 40 - 80, pdfHeight - 40 - 12, 80, 14, { url: "https://www.heytracai.com" });

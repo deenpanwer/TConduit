@@ -383,13 +383,17 @@ function PayslipBuilderComponent() {
 
       if (!payslipRef.current) return;
       
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
       // Calculate layout scroll dimensions to prevent any clipping from viewport overflow
       const element = payslipRef.current;
       const fullWidth = element.scrollWidth;
       const fullHeight = element.scrollHeight;
 
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
@@ -401,19 +405,21 @@ function PayslipBuilderComponent() {
         scrollY: 0
       });
       
-      const imgData = canvas.toDataURL('image/png');
+      // High-resolution JPEG compression (0.92) - reduces file size from 25MB down to ~250KB
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       
       const imgWidthMm = 210;
       const imgHeightMm = (fullHeight * imgWidthMm) / fullWidth;
       
-      // Initialize jsPDF with custom height matching the scrollHeight perfectly!
+      // Initialize jsPDF with compression enabled
       const pdf = new jsPDF({
         orientation: imgWidthMm > imgHeightMm ? 'l' : 'p',
         unit: 'mm',
-        format: [imgWidthMm, imgHeightMm]
+        format: [imgWidthMm, imgHeightMm],
+        compress: true
       });
       
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidthMm, imgHeightMm);
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, imgHeightMm, undefined, 'FAST');
       pdf.save(`Payslip-${employee?.name || "Employee"}-${month}.pdf`);
     } catch (err: any) {
       console.error(err);
