@@ -159,10 +159,22 @@ export async function GET(req: Request) {
     const reports = [];
 
     // 2. Process each organization
+    const now = new Date();
     for (const orgDoc of orgsSnap.docs) {
       const orgId = orgDoc.id;
       const orgData = orgDoc.data();
       const orgName = orgData.name || "the company";
+
+      // Skip org if subscription or trial has expired
+      const expiry = orgData.subscriptionExpiry?.toDate?.() || (orgData.subscriptionExpiry ? new Date(orgData.subscriptionExpiry) : null);
+      if (expiry && expiry.getTime() < now.getTime()) {
+        console.log(`[Cron Log] Skipped Org ${orgId} (${orgName}): Subscription/Trial expired.`);
+        continue;
+      }
+      if (orgData.subscriptionStatus === "expired" || orgData.subscriptionStatus === "cancelled") {
+        console.log(`[Cron Log] Skipped Org ${orgId} (${orgName}): Subscription cancelled/expired.`);
+        continue;
+      }
 
       // A. Find the owner to get their push subscriptions
       const ownerSnap = await adminDb.collection("users").where("ownedOrgId", "==", orgId).limit(1).get();

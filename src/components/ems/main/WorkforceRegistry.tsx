@@ -1,14 +1,13 @@
-'use client';
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight, Clock } from "lucide-react";
+import { ChevronRight, Clock, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { format, parse, isValid, addDays } from "date-fns";
 import { db } from "@/lib/firebase";
 import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { useTeam } from "@/hooks/use-team";
+import { IssueWarningModal } from "@/components/ems/IssueWarningModal";
 
 export const WorkforceRegistry = ({
   employees = [],
@@ -20,6 +19,8 @@ export const WorkforceRegistry = ({
   const [visibleCount, setVisibleCount] = useState(5);
   const [loading, setLoading] = useState(false);
   const [firstTimeEntries, setFirstTimeEntries] = useState<Record<string, any>>({});
+  const [warningEmployee, setWarningEmployee] = useState<any>(null);
+  const [showWarningModal, setShowWarningModal] = useState(false);
   const router = useRouter();
   const { selectedDate } = useTeam();
 
@@ -364,6 +365,20 @@ export const WorkforceRegistry = ({
                         </p>
                       </div>
 
+                      {/* Issue Warning Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWarningEmployee(emp);
+                          setShowWarningModal(true);
+                        }}
+                        title={`Issue Warning to ${emp.name}`}
+                        className="px-3 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 border border-red-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+                      >
+                        <AlertTriangle size={12} className="text-red-500" />
+                        <span className="hidden sm:inline">Issue Warning</span>
+                      </button>
+
                       <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
                         <ChevronRight
                           size={20}
@@ -391,6 +406,13 @@ export const WorkforceRegistry = ({
           </button>
         </div>
       )}
+
+      {/* Warning Issuance Modal */}
+      <IssueWarningModal
+        isOpen={showWarningModal}
+        onOpenChange={setShowWarningModal}
+        employee={warningEmployee}
+      />
     </div>
   );
 };

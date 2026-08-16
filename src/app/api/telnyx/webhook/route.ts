@@ -24,7 +24,9 @@ async function sendPushoverAlert(title: string, message: string) {
           user: user,
           title: title,
           message: message,
-          priority: '1',
+          priority: '2',
+          retry: '60', // Retry every 60 seconds until acknowledged
+          expire: '3600', // Expire after 1 hour
           sound: 'pushover',
         }),
       });

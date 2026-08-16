@@ -45,11 +45,12 @@ import { SubscriptionBadge } from "@/components/ems/SubscriptionBadge";
 import { IntelligenceModal } from "@/components/ems/IntelligenceModal";
 import { AppLockModal } from "@/components/ems/AppLockModal";
 import { ShiftReviewModal } from "@/components/ems/shifts/ShiftReviewModal";
+import { IssueWarningModal } from "@/components/ems/IssueWarningModal";
 import { cn, isEmployeeOnline } from "@/lib/utils";
 import { GlobalDateSelector } from "@/components/ems/shared/GlobalDateSelector";
 import { AIPersonnelPulse } from "@/components/ems/employee/AIPersonnelPulse";
 import { DummyDataTile } from "@/components/ems/DummyDataTile";
-import { Lock } from "lucide-react";
+import { Lock, AlertTriangle } from "lucide-react";
 
 import { generateDummyData, generateDummyScreenshots, generateDummyTimeEntries } from "@/lib/dummy-data";
 
@@ -84,6 +85,7 @@ export default function EmployeeDetailPage() {
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [showAppLockModal, setShowAppLockModal] = useState(false);
   const [showShiftReviewModal, setShowShiftReviewModal] = useState(false);
+  const [showIssueWarningModal, setShowIssueWarningModal] = useState(false);
   const [orgData, setOrgData] = useState<any>(null);
   const { toast } = useToast();
 
@@ -518,10 +520,18 @@ export default function EmployeeDetailPage() {
             <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setShowIntelligenceModal(true)} 
-                className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
+                onClick={() => setShowIssueWarningModal(true)} 
+                className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30"
             >
-                <Ban size={14} className="mr-2" /> Manage Site Blocklist for {employee?.name?.split(' ')[0] || "Member"}
+                <AlertTriangle size={14} className="mr-2 text-red-500" /> Issue Warning
+            </Button>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowIntelligenceModal(true)} 
+                className="hidden lg:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-red-500/20 bg-red-500/5 text-red-600 hover:bg-red-500/15 dark:bg-red-500/10 dark:text-red-400"
+            >
+                <Ban size={14} className="mr-2" /> Manage Site Blocklist
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowAppLockModal(true)} className="hidden md:flex rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
                 <Lock size={14} className="mr-2" /> App Lock
@@ -538,10 +548,13 @@ export default function EmployeeDetailPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Employee Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowIssueWarningModal(true)} className="text-red-600 focus:text-red-600 font-bold">
+                  <AlertTriangle className="size-4 mr-2" /> Issue Warning
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowAppLockModal(true)}>
                   App Lock Controls
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowIntelligenceModal(true)} className="md:hidden">
+                <DropdownMenuItem onClick={() => setShowIntelligenceModal(true)} className="lg:hidden">
                   Manage Blocklist
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowMemberAccessModal(true)} className="md:hidden">
@@ -629,6 +642,13 @@ export default function EmployeeDetailPage() {
           onRemove={() => setShowInviteModal(true)} 
         />
       )}
+
+      {/* Issue Warning Modal */}
+      <IssueWarningModal
+        isOpen={showIssueWarningModal}
+        onOpenChange={setShowIssueWarningModal}
+        employee={employee ? { ...employee, id: id as string } : null}
+      />
 
       {/* Edit Employee Modal */}
       <Dialog open={showEditEmployeeModal} onOpenChange={setShowEditEmployeeModal}>
