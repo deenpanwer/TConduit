@@ -41,6 +41,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn, getUserAvatar } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Task, useTasks } from '@/hooks/useTasks';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { triggerBigConfetti, triggerSmallConfetti } from '@/lib/confetti';
 import { 
@@ -330,6 +331,7 @@ export const TaskRowDesktop = ({
     autoFocusDescription?: boolean
 }) => {
     const { groups } = useTasks();
+    const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(autoFocusDescription);
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
     const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | 'attachments' | 'voiceNotes' | null>(null);
@@ -409,8 +411,25 @@ export const TaskRowDesktop = ({
             <div className='flex h-10 border-b border-border/60 group hover:bg-secondary/[0.02] transition-colors'>
                 <div className={cn('sticky left-0 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60', localTask.flagged ? 'bg-green-500/10' : 'bg-background')}>
                     <div className='cursor-pointer' onClick={() => {
-                        if (!localTask.flagged) triggerBigConfetti();
-                        onUpdate({ flagged: !localTask.flagged });
+                        const newFlagged = !localTask.flagged;
+                        if (newFlagged) {
+                            triggerBigConfetti();
+                            const actorName = user?.displayName || user?.email || 'User';
+                            onUpdate({ 
+                                flagged: true,
+                                status: 'done',
+                                completedBy: user?.uid,
+                                completedByName: actorName,
+                                completedAt: new Date().toISOString()
+                            });
+                        } else {
+                            onUpdate({ 
+                                flagged: false,
+                                completedBy: null,
+                                completedByName: null,
+                                completedAt: null
+                            });
+                        }
                     }}>
                         {localTask.flagged ? <CheckCircle2 size={16} className='text-green-500' /> : <Circle size={16} className='text-muted-foreground/30 hover:text-primary transition-colors' />}
                     </div>
@@ -446,7 +465,14 @@ export const TaskRowDesktop = ({
                 <div className='sticky left-20 z-10 flex flex-[1.5] min-w-[250px] border-r border-border/60 bg-background'>
                     <div className="flex-grow h-full min-w-0 flex flex-col justify-center pt-1">
                         <GridCell isEditable value={localTask.title} onChange={(v) => onUpdate({ title: v })} className={cn('font-bold pr-0 h-auto', localTask.flagged && 'line-through text-muted-foreground decoration-border')} placeholder='Task Title' />
-                        {(() => {
+                        {localTask.flagged ? (
+                            <div className="px-3 -mt-1 pb-1 flex items-center gap-1 text-[9px] font-semibold text-green-600">
+                                <Check size={10} className="text-green-600 shrink-0" />
+                                <span className="truncate">
+                                    Completed by <strong>{localTask.completedByName || personnel.find(p => p.id === localTask.completedBy)?.name || personnel.find(p => (localTask.assignees || []).includes(p.id))?.name || 'Team member'}</strong>
+                                </span>
+                            </div>
+                        ) : (() => {
                             if (!localTask.createdAt) return null;
                             try {
                                 const date = localTask.createdAt.seconds 

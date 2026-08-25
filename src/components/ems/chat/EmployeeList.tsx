@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { cn, getUserAvatar, isEmployeeOnline } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Users, Plus } from "lucide-react";
+import { MessageSquare, Users, Plus, History } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -40,6 +40,7 @@ interface EmployeeListProps {
   onSelectGroup?: (group: GroupChat) => void;
   isLeadership?: boolean;
   onCreateGroupClick?: () => void;
+  onDeletedGroupsClick?: () => void;
   activeTab: "direct" | "group";
   setActiveTab: (tab: "direct" | "group") => void;
   
@@ -59,6 +60,7 @@ export function EmployeeList({
   onSelectGroup,
   isLeadership = false,
   onCreateGroupClick,
+  onDeletedGroupsClick,
   activeTab,
   setActiveTab,
   directChats = [],
@@ -160,13 +162,27 @@ export function EmployeeList({
             Inbox Hub
           </h3>
           {isLeadership && activeTab === "group" && (
-            <Button
-              onClick={onCreateGroupClick}
-              size="icon"
-              className="h-7 w-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow active:scale-95 transition-transform"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {onDeletedGroupsClick && (
+                <Button
+                  onClick={onDeletedGroupsClick}
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground border-border/40"
+                  title="Deleted Groups History (Restore)"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                onClick={onCreateGroupClick}
+                size="icon"
+                className="h-7 w-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow active:scale-95 transition-transform"
+                title="Create Group Chat"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
 

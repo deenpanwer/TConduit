@@ -38,13 +38,13 @@ const SHIFTS = [
 ];
 
 const DAYS = [
-  { id: 1, label: "Mon" },
-  { id: 2, label: "Tue" },
-  { id: 3, label: "Wed" },
-  { id: 4, label: "Thu" },
-  { id: 5, label: "Fri" },
-  { id: 6, label: "Sat" },
-  { id: 0, label: "Sun" },
+  { id: 1, label: "Mon", value: "Monday" },
+  { id: 2, label: "Tue", value: "Tuesday" },
+  { id: 3, label: "Wed", value: "Wednesday" },
+  { id: 4, label: "Thu", value: "Thursday" },
+  { id: 5, label: "Fri", value: "Friday" },
+  { id: 6, label: "Sat", value: "Saturday" },
+  { id: 0, label: "Sun", value: "Sunday" },
 ];
 
 const TRACKING_MODES = [
@@ -287,7 +287,7 @@ function OnboardingContent() {
     try {
       const tzValue = typeof timezone === 'string' ? timezone : (timezone as any)?.value || "America/New_York";
       const defaultShiftSeconds = SHIFTS.find(s => s.id === shiftLength)?.seconds || 28800;
-      const offDays = DAYS.filter(d => !workdays.includes(d.id)).map(d => d.label);
+      const offDays = DAYS.filter(d => !workdays.includes(d.id)).map(d => d.value);
 
       const partnerSlug = document.cookie
         .split('; ')
@@ -560,7 +560,7 @@ function OnboardingContent() {
     setLoading(true);
     try {
       const defaultShiftSeconds = SHIFTS.find(s => s.id === shiftLength)?.seconds || 28800;
-      const offDays = DAYS.filter(d => !workdays.includes(d.id)).map(d => d.label);
+      const offDays = DAYS.filter(d => !workdays.includes(d.id)).map(d => d.value);
       const tzValue = typeof timezone === 'string' ? timezone : (timezone as any)?.value || "America/New_York";
       
       const partnerSlug = document.cookie

@@ -33,11 +33,11 @@ export const CompletedTaskTable = ({
     if (tasks.length === 0) return null;
 
     return (
-        <div className="mt-16 mb-20">
+        <div className="mt-8 mb-4">
             <div 
                 className={cn(
                     "group/completed bg-secondary/10 dark:bg-white/[0.02] border border-border/40 rounded-2xl overflow-hidden transition-all duration-500",
-                    isCollapsed ? "shadow-sm" : "shadow-xl"
+                    isCollapsed ? "shadow-sm" : "shadow-md"
                 )}
             >
                 {/* Section Header */}
@@ -81,39 +81,37 @@ export const CompletedTaskTable = ({
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
                         >
-                            <div className="overflow-x-auto custom-scrollbar-thick bg-background/40">
-                                <div style={{ minWidth: 1400 }}>
-                                    {/* Sub-Header */}
-                                    <div className="flex h-10 bg-green-500/[0.02] border-b border-border/40 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">
-                                        <div className="sticky left-0 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/[0.02]" />
-                                        <div className="sticky left-10 z-20 w-10 shrink-0 border-r border-border/60 bg-green-500/[0.02]" />
-                                        <div className="sticky left-20 z-20 flex-[1.5] min-w-[250px] border-r border-border/60 bg-green-500/[0.02] px-4 flex items-center">Task Name</div>
-                                        <div className="flex-[2] min-w-[400px] border-r border-border/60 px-4 flex items-center">Description</div>
-                                        <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center">Assignees</div>
-                                        <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center">Points</div>
-                                        <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center">Hours</div>
-                                        <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center">Timeline</div>
-                                        <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center">Priority</div>
-                                        <div className="w-16 shrink-0 border-r border-border/60" />
-                                        <div className="w-10 shrink-0" />
-                                    </div>
+                            <div className="bg-background/40">
+                                {/* Sub-Header */}
+                                <div className="sticky top-0 z-20 flex h-10 bg-card border-b border-border/60 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 select-none shadow-sm">
+                                    <div className="sticky left-0 z-30 w-10 shrink-0 border-r border-border/60 bg-card" />
+                                    <div className="sticky left-10 z-30 w-10 shrink-0 border-r border-border/60 bg-card" />
+                                    <div className="sticky left-20 z-30 flex-[1.5] min-w-[250px] border-r border-border/60 bg-card px-4 flex items-center">Task Name</div>
+                                    <div className="flex-[2] min-w-[400px] border-r border-border/60 px-4 flex items-center bg-card">Description</div>
+                                    <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center bg-card">Assignees</div>
+                                    <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Points</div>
+                                    <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Hours</div>
+                                    <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Timeline</div>
+                                    <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Priority</div>
+                                    <div className="w-16 shrink-0 border-r border-border/60 bg-card" />
+                                    <div className="w-10 shrink-0 bg-card" />
+                                </div>
 
-                                    {/* Rows */}
-                                    <div className="flex flex-col opacity-60 grayscale-[0.4] hover:opacity-100 hover:grayscale-0 transition-all duration-500">
-                                        {tasks.map(task => (
-                                            <TaskRowDesktop 
-                                                key={`completed-${task.id}`} 
-                                                task={orderedTasks.find(t => t.id === task.id)!}
-                                                localTask={task}
-                                                onUpdate={(updates) => onUpdateTask(task.id, updates)}
-                                                onDelete={onDeleteTask}
-                                                onTaskClick={onTaskClick}
-                                                personnel={personnel}
-                                                handleEnhanceTask={handleEnhanceWithAI}
-                                                isEnhancing={isEnhancing === task.id}
-                                            />
-                                        ))}
-                                    </div>
+                                {/* Rows */}
+                                <div className="flex flex-col opacity-60 grayscale-[0.4] hover:opacity-100 hover:grayscale-0 transition-all duration-500">
+                                    {tasks.map(task => (
+                                        <TaskRowDesktop 
+                                            key={`completed-${task.id}`} 
+                                            task={orderedTasks.find(t => t.id === task.id)!}
+                                            localTask={task}
+                                            onUpdate={(updates) => onUpdateTask(task.id, updates)}
+                                            onDelete={onDeleteTask}
+                                            onTaskClick={onTaskClick}
+                                            personnel={personnel}
+                                            handleEnhanceTask={handleEnhanceWithAI}
+                                            isEnhancing={isEnhancing === task.id}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         </motion.div>

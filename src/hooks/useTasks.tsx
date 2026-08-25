@@ -34,7 +34,50 @@ import { getISOWeek, getYear, format } from "date-fns";
 // --- 1. Types & Constants ---
 
 export type Priority = "low" | "medium" | "high" | "critical";
-export type Status = "todo" | "in_progress" | "review" | "done";
+export type Status = "todo" | "in_progress" | "review" | "done" | (string & {});
+
+export interface BoardColumn {
+  id: string;
+  title: string;
+  order: number;
+  color?: string;
+  isDoneColumn?: boolean;
+}
+
+export interface BoardColumnHistoryEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  userRole?: string;
+  action: 'create_column' | 'rename_column' | 'reorder_columns' | 'delete_column';
+  details: {
+    columnId?: string;
+    oldTitle?: string;
+    newTitle?: string;
+    columnOrder?: { id: string; title: string }[];
+    targetColumnIdForTasks?: string;
+    tasksReassignedCount?: number;
+    totalColumnsCount?: number;
+    [key: string]: any;
+  };
+  createdAt: any;
+}
+
+export interface TaskBoardConfig {
+  columns: BoardColumn[];
+  history: BoardColumnHistoryEntry[];
+  updatedAt: any;
+  updatedBy?: string;
+  updatedByName?: string;
+}
+
+export const DEFAULT_COLUMNS: BoardColumn[] = [
+  { id: "todo", title: "To Do", order: 0 },
+  { id: "in_progress", title: "In Progress", order: 1 },
+  { id: "review", title: "Review", order: 2 },
+  { id: "done", title: "Done", order: 3, isDoneColumn: true },
+];
 
 export interface Draft {
   id: string; // Temporary ID starting with 'draft_'
@@ -160,6 +203,13 @@ export interface Task {
   flagged?: boolean;
   groupId?: string;
   isDeleted?: boolean;
+  deletedAt?: any;
+  deletedBy?: string;
+  deletedByName?: string;
+  deletedByEmail?: string;
+  restoredAt?: any;
+  restoredBy?: string;
+  restoredByName?: string;
   leaderPoints?: number; // Total points for this task
   deadlineHours?: number; // Estimated hours to complete
   flaggedPointsAwarded?: number; // Points given for final completion
@@ -234,6 +284,12 @@ interface TasksContextType {
   addTaskGroup: (name: string) => Promise<string | null>;
   updateTaskGroup: (groupId: string, updates: Partial<TaskGroup>) => Promise<void>;
   deleteTaskGroup: (groupId: string) => Promise<void>;
+  columns: BoardColumn[];
+  boardHistory: BoardColumnHistoryEntry[];
+  addBoardColumn: (title: string) => Promise<string | null>;
+  renameBoardColumn: (columnId: string, newTitle: string) => Promise<void>;
+  reorderBoardColumns: (newColumns: BoardColumn[]) => Promise<void>;
+  deleteBoardColumn: (columnId: string, targetColumnId?: string) => Promise<void>;
   canManageTasks: boolean;
   isSyncing: boolean;
 }
@@ -242,6 +298,8 @@ const TasksContext = createContext<TasksContextType>({
   tasks: [],
   deletedTasks: [],
   groups: [],
+  columns: DEFAULT_COLUMNS,
+  boardHistory: [],
   loading: true,
   drafts: [],
   hasPending: false,
@@ -258,6 +316,10 @@ const TasksContext = createContext<TasksContextType>({
   addTaskGroup: async () => null,
   updateTaskGroup: async () => {},
   deleteTaskGroup: async () => {},
+  addBoardColumn: async () => null,
+  renameBoardColumn: async () => {},
+  reorderBoardColumns: async () => {},
+  deleteBoardColumn: async () => {},
   canManageTasks: false,
   isSyncing: false,
 });
@@ -270,6 +332,8 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
   const { user, userData, loading: authLoading } = useAuth();
   const [remoteTasks, dispatch] = useReducer(taskReducer, []);
   const [groups, setGroups] = useState<TaskGroup[]>([]);
+  const [columns, setColumns] = useState<BoardColumn[]>(DEFAULT_COLUMNS);
+  const [boardHistory, setBoardHistory] = useState<BoardColumnHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<Task>>>({});
   const [drafts, setDrafts] = useState<Draft[]>([]);
@@ -706,6 +770,35 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
   }, [orgId]);
 
   useEffect(() => {
+    if (!orgId || typeof orgId !== 'string' || orgId.length < 5) return;
+
+    const boardConfigRef = doc(db, "organizations", orgId, "task_board", "config");
+    const unsubscribe = onSnapshot(boardConfigRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (Array.isArray(data.columns) && data.columns.length > 0) {
+          const sorted = [...data.columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+          setColumns(sorted);
+        } else {
+          setColumns(DEFAULT_COLUMNS);
+        }
+        if (Array.isArray(data.history)) {
+          setBoardHistory(data.history);
+        } else {
+          setBoardHistory([]);
+        }
+      } else {
+        setColumns(DEFAULT_COLUMNS);
+        setBoardHistory([]);
+      }
+    }, (error) => {
+      console.error("TaskBoard config snapshot error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [orgId]);
+
+  useEffect(() => {
     if (!orgId || typeof orgId !== 'string' || orgId.length < 5) {
       if (!authLoading) setLoading(false);
       return;
@@ -920,21 +1013,42 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
   );
 
 
+  const getActorInfo = useCallback(() => {
+    const actorId = user?.uid || 'unknown';
+    const actorName = (userData as any)?.name || (userData as any)?.displayName || user?.displayName || user?.email || 'Anonymous User';
+    const actorEmail = user?.email || (userData as any)?.email || '';
+    const actorRole = userRole || (userData as any)?.role || 'member';
+    return { actorId, actorName, actorEmail, actorRole };
+  }, [user, userData, userRole]);
+
   const deleteTask = useCallback(
     async (taskId: string) => {
       if (!orgId || !canManageTasks) return;
-      // Soft delete: keep the doc, but mark it hidden
-      await updateTask(taskId, { isDeleted: true }, 'deleted');
+      const { actorName, actorEmail } = getActorInfo();
+      // Soft delete: keep the doc, but mark it hidden with actor metadata
+      await updateTask(taskId, { 
+        isDeleted: true,
+        deletedAt: serverTimestamp(),
+        deletedBy: user?.uid,
+        deletedByName: actorName,
+        deletedByEmail: actorEmail,
+      }, 'deleted');
     },
-    [orgId, canManageTasks, updateTask]
+    [orgId, canManageTasks, user, getActorInfo, updateTask]
   );
 
   const restoreTask = useCallback(
     async (taskId: string) => {
       if (!orgId || !canManageTasks) return;
-      await updateTask(taskId, { isDeleted: false }, 'restored');
+      const { actorName } = getActorInfo();
+      await updateTask(taskId, { 
+        isDeleted: false,
+        restoredAt: serverTimestamp(),
+        restoredBy: user?.uid,
+        restoredByName: actorName,
+      }, 'restored');
     },
-    [orgId, canManageTasks, updateTask]
+    [orgId, canManageTasks, user, getActorInfo, updateTask]
   );
 
   const permanentlyDeleteTask = useCallback(
@@ -999,9 +1113,241 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
     [orgId, user, tasks, deletedTasks]
   );
 
+  const addBoardColumn = useCallback(async (title: string): Promise<string | null> => {
+    if (!orgId || !user || !title.trim()) return null;
+    try {
+      const newId = `col_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const cleanTitle = title.trim();
+      const currentCols = columns.length > 0 ? columns : DEFAULT_COLUMNS;
+      const newColumn: BoardColumn = {
+        id: newId,
+        title: cleanTitle,
+        order: currentCols.length,
+      };
+      const updatedColumns = [...currentCols, newColumn];
+      setColumns(updatedColumns);
+
+      const { actorId, actorName, actorEmail, actorRole } = getActorInfo();
+      const historyEntry: BoardColumnHistoryEntry = {
+        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        userId: actorId,
+        userName: actorName,
+        userEmail: actorEmail,
+        userRole: actorRole,
+        action: 'create_column',
+        details: {
+          columnId: newId,
+          newTitle: cleanTitle,
+          order: currentCols.length,
+          totalColumnsCount: updatedColumns.length,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      const boardConfigRef = doc(db, "organizations", orgId, "task_board", "config");
+      await setDoc(boardConfigRef, {
+        columns: updatedColumns,
+        history: [historyEntry, ...boardHistory],
+        updatedAt: serverTimestamp(),
+        updatedBy: actorId,
+        updatedByName: actorName,
+      }, { merge: true });
+
+      toast.success(`Column "${cleanTitle}" added`);
+      return newId;
+    } catch (e) {
+      console.error("Error adding board column:", e);
+      toast.error("Failed to add column");
+      return null;
+    }
+  }, [orgId, user, columns, boardHistory, getActorInfo]);
+
+  const renameBoardColumn = useCallback(async (columnId: string, newTitle: string) => {
+    if (!orgId || !user || !newTitle.trim()) return;
+    try {
+      const cleanTitle = newTitle.trim();
+      const currentCols = columns.length > 0 ? columns : DEFAULT_COLUMNS;
+      const targetCol = currentCols.find(c => c.id === columnId);
+      if (!targetCol || targetCol.title === cleanTitle) return;
+
+      const oldTitle = targetCol.title;
+      const updatedColumns = currentCols.map(c => c.id === columnId ? { ...c, title: cleanTitle } : c);
+      setColumns(updatedColumns);
+
+      const { actorId, actorName, actorEmail, actorRole } = getActorInfo();
+      const historyEntry: BoardColumnHistoryEntry = {
+        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        userId: actorId,
+        userName: actorName,
+        userEmail: actorEmail,
+        userRole: actorRole,
+        action: 'rename_column',
+        details: {
+          columnId,
+          oldTitle,
+          newTitle: cleanTitle,
+          totalColumnsCount: updatedColumns.length,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      const boardConfigRef = doc(db, "organizations", orgId, "task_board", "config");
+      await setDoc(boardConfigRef, {
+        columns: updatedColumns,
+        history: [historyEntry, ...boardHistory],
+        updatedAt: serverTimestamp(),
+        updatedBy: actorId,
+        updatedByName: actorName,
+      }, { merge: true });
+
+      toast.success(`Column renamed to "${cleanTitle}"`);
+    } catch (e) {
+      console.error("Error renaming board column:", e);
+      toast.error("Failed to rename column");
+    }
+  }, [orgId, user, columns, boardHistory, getActorInfo]);
+
+  const reorderBoardColumns = useCallback(async (newColumns: BoardColumn[]) => {
+    if (!orgId || !user || newColumns.length === 0) return;
+    try {
+      const normalizedColumns = newColumns.map((c, idx) => ({ ...c, order: idx }));
+      setColumns(normalizedColumns);
+
+      const { actorId, actorName, actorEmail, actorRole } = getActorInfo();
+      const historyEntry: BoardColumnHistoryEntry = {
+        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        userId: actorId,
+        userName: actorName,
+        userEmail: actorEmail,
+        userRole: actorRole,
+        action: 'reorder_columns',
+        details: {
+          columnOrder: normalizedColumns.map(c => ({ id: c.id, title: c.title })),
+          totalColumnsCount: normalizedColumns.length,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      const boardConfigRef = doc(db, "organizations", orgId, "task_board", "config");
+      await setDoc(boardConfigRef, {
+        columns: normalizedColumns,
+        history: [historyEntry, ...boardHistory],
+        updatedAt: serverTimestamp(),
+        updatedBy: actorId,
+        updatedByName: actorName,
+      }, { merge: true });
+
+      toast.success("Columns reordered");
+    } catch (e) {
+      console.error("Error reordering board columns:", e);
+      toast.error("Failed to reorder columns");
+    }
+  }, [orgId, user, boardHistory, getActorInfo]);
+
+  const deleteBoardColumn = useCallback(async (columnId: string, targetColumnId?: string) => {
+    if (!orgId || !user) return;
+    try {
+      const currentCols = columns.length > 0 ? columns : DEFAULT_COLUMNS;
+      if (currentCols.length <= 1) {
+        toast.error("Cannot delete the only column on the board");
+        return;
+      }
+      const deletedCol = currentCols.find(c => c.id === columnId);
+      if (!deletedCol) return;
+
+      const remainingColumns = currentCols.filter(c => c.id !== columnId).map((c, idx) => ({ ...c, order: idx }));
+      setColumns(remainingColumns);
+
+      const fallbackTargetId = targetColumnId || remainingColumns[0]?.id || 'todo';
+      const tasksToMove = tasks.filter(t => t.status === columnId);
+
+      if (tasksToMove.length > 0) {
+        const batch = writeBatch(db);
+        tasksToMove.forEach(t => {
+          const taskRef = doc(db, "organizations", orgId, "tasks", t.id);
+          batch.update(taskRef, {
+            status: fallbackTargetId,
+            updatedAt: serverTimestamp(),
+            history: [
+              ...(t.history || []),
+              {
+                id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                userId: user.uid,
+                action: 'column_deleted_task_moved',
+                details: { fromColumn: columnId, toColumn: fallbackTargetId },
+                createdAt: new Date(),
+              }
+            ]
+          });
+        });
+        await batch.commit();
+      }
+
+      const { actorId, actorName, actorEmail, actorRole } = getActorInfo();
+      const historyEntry: BoardColumnHistoryEntry = {
+        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        userId: actorId,
+        userName: actorName,
+        userEmail: actorEmail,
+        userRole: actorRole,
+        action: 'delete_column',
+        details: {
+          columnId,
+          oldTitle: deletedCol.title,
+          targetColumnIdForTasks: fallbackTargetId,
+          tasksReassignedCount: tasksToMove.length,
+          totalColumnsCount: remainingColumns.length,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      const boardConfigRef = doc(db, "organizations", orgId, "task_board", "config");
+      await setDoc(boardConfigRef, {
+        columns: remainingColumns,
+        history: [historyEntry, ...boardHistory],
+        updatedAt: serverTimestamp(),
+        updatedBy: actorId,
+        updatedByName: actorName,
+      }, { merge: true });
+
+      toast.success(`Column "${deletedCol.title}" deleted${tasksToMove.length > 0 ? ` (${tasksToMove.length} tasks moved)` : ''}`);
+    } catch (e) {
+      console.error("Error deleting board column:", e);
+      toast.error("Failed to delete column");
+    }
+  }, [orgId, user, columns, tasks, boardHistory, getActorInfo]);
+
   return (
     <TasksContext.Provider
-      value={{ tasks, deletedTasks, groups, loading, drafts, hasPending, updateDraft, deleteDraft, finalizeDraft, addTask, updateTask, deleteTask, restoreTask, permanentlyDeleteTask, bulkUpdateTasks, addComment, addTaskGroup, updateTaskGroup, deleteTaskGroup, canManageTasks, isSyncing }}
+      value={{
+        tasks,
+        deletedTasks,
+        groups,
+        columns,
+        boardHistory,
+        loading,
+        drafts,
+        hasPending,
+        updateDraft,
+        deleteDraft,
+        finalizeDraft,
+        addTask,
+        updateTask,
+        deleteTask,
+        restoreTask,
+        permanentlyDeleteTask,
+        bulkUpdateTasks,
+        addComment,
+        addTaskGroup,
+        updateTaskGroup,
+        deleteTaskGroup,
+        addBoardColumn,
+        renameBoardColumn,
+        reorderBoardColumns,
+        deleteBoardColumn,
+        canManageTasks,
+        isSyncing,
+      }}
     >
       {children}
     </TasksContext.Provider>

@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { triggerSmallConfetti } from '@/lib/confetti';
 import { FilePreviewModal } from '@/components/tasks/FilePreviewModal';
 import { useUpload } from '@/hooks/useUploadProgress';
+import { useAuth } from '@/hooks/use-auth';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { Progress } from '@/components/ui/progress';
 import { InlineAudioPlayer } from '@/components/tasks/InlineAudioPlayer';
@@ -65,6 +66,7 @@ export const HierarchicalTable = ({
     itemToAutoEdit, onItemEditDone, shouldFocusQuickAdd, onFocusHandled, 
     onAISuggest, isLoading, onUploadFile, personnel
 }: HierarchicalTableProps) => {
+    const { user } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [quickAddValue, setQuickAddValue] = useState("");
     const [isSuggestingAI, setIsSuggestingAI] = useState(false);
@@ -268,7 +270,16 @@ export const HierarchicalTable = ({
 
                                         <div className='flex-1 flex items-center px-3 gap-3'>
                                             {type === 'subtasks' && (
-                                                <button onClick={() => handleUpdateItem(item.id, { completed: !item.completed })}>
+                                                <button onClick={() => {
+                                                    const isCompleting = !item.completed;
+                                                    const actorName = user?.displayName || user?.email || 'User';
+                                                    handleUpdateItem(item.id, { 
+                                                        completed: isCompleting,
+                                                        completedBy: isCompleting ? user?.uid : null,
+                                                        completedByName: isCompleting ? actorName : null,
+                                                        completedAt: isCompleting ? new Date().toISOString() : null
+                                                    });
+                                                }}>
                                                     {item.completed ? <CheckCircle2 size={16} className='text-blue-500' /> : <Circle size={16} className='text-muted-foreground/30' />}
                                                 </button>
                                             )}
@@ -341,7 +352,13 @@ export const HierarchicalTable = ({
                                                             startInEditMode={item.id === itemToAutoEdit}
                                                             onDidEndEditing={onItemEditDone}
                                                         />
-                                                        {item.createdAt && (
+                                                        {type === 'subtasks' && item.completed && (item.completedByName || item.completedBy) && (
+                                                            <div className="flex items-center gap-1 text-[9px] font-semibold text-blue-600/80 mt-0.5">
+                                                                <Check size={10} className="text-blue-500 shrink-0" />
+                                                                <span>Completed by <strong>{item.completedByName || personnel.find(p => p.id === item.completedBy)?.name || 'Team member'}</strong></span>
+                                                            </div>
+                                                        )}
+                                                        {item.createdAt && !item.completed && (
                                                             <div className="opacity-40 group-hover/item:opacity-70 transition-opacity">
                                                                 <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
                                                                     {safeFormatDate(item.createdAt)}

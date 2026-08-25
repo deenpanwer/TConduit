@@ -15,6 +15,8 @@ import { ChatInput } from "@/components/ems/chat/ChatInput";
 import { Shimmer } from "@/components/ems/main/shared/Shimmer";
 import { InviteModal } from "@/components/ems/InviteModal";
 import { CreateGroupModal } from "@/components/ems/chat/CreateGroupModal";
+import { ManageGroupModal } from "@/components/ems/chat/ManageGroupModal";
+import { DeletedGroupsModal } from "@/components/ems/chat/DeletedGroupsModal";
 import { PaywallScreen } from "@/components/ems/PaywallScreen";
 import { SubscriptionBadge } from "@/components/ems/SubscriptionBadge";
 import { db, storage } from "@/lib/firebase";
@@ -33,6 +35,8 @@ function ChatPage() {
   const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<"direct" | "group">("direct");
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showManageGroupModal, setShowManageGroupModal] = useState(false);
+  const [showDeletedGroupsModal, setShowDeletedGroupsModal] = useState(false);
   
   const [orgData, setOrgData] = useState<any>(null);
   const { setIsMobileOpen } = useSidebar();
@@ -70,14 +74,30 @@ function ChatPage() {
   // 2. Organization Group Chat Hook with Pagination
   const {
     groups,
+    deletedGroups,
     messages: groupMessages,
     isSettingUpChat: isSettingUpGroupChat,
     createGroupChat,
+    updateGroupChat,
+    softDeleteGroupChat,
+    restoreGroupChat,
     sendGroupMessage,
     uploadGroupFile,
     loadMore: loadMoreGroup,
     hasMore: hasMoreGroup
   } = useGroupChat(selectedGroup?.id || null, targetOrgId);
+
+  // Sync selectedGroup with latest groups data
+  useEffect(() => {
+    if (selectedGroup) {
+      const latest = groups.find(g => g.id === selectedGroup.id);
+      if (latest) {
+        setSelectedGroup(latest);
+      } else {
+        setSelectedGroup(null);
+      }
+    }
+  }, [groups]);
   
   const [inputText, setInputText] = useState("");
   const [directChats, setDirectChats] = useState<any[]>([]);
@@ -403,6 +423,49 @@ function ChatPage() {
     }
   };
 
+  const handleUpdateGroup = async (
+    groupId: string,
+    name: string,
+    members: string[],
+    imageFile: File | null,
+    removeImage?: boolean
+  ) => {
+    if (!targetOrgId) return;
+    let photoUrl = selectedGroup?.photoUrl || "";
+    if (imageFile) {
+      const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const storagePath = `organizations/${targetOrgId}/group_avatars/${fileId}_${imageFile.name}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadTask = await uploadBytesResumable(storageRef, imageFile);
+      photoUrl = await getDownloadURL(uploadTask.ref);
+    } else if (removeImage) {
+      photoUrl = "";
+    }
+
+    await updateGroupChat(groupId, {
+      name,
+      members,
+      photoUrl
+    });
+
+    setSelectedGroup((prev: any) => prev ? {
+      ...prev,
+      name,
+      members,
+      photoUrl
+    } : null);
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    await softDeleteGroupChat(groupId);
+    setSelectedGroup(null);
+    setShowManageGroupModal(false);
+  };
+
+  const handleRestoreGroup = async (groupId: string) => {
+    await restoreGroupChat(groupId);
+  };
+
   const handleUpdateGroupImage = async (file: File) => {
     if (!selectedGroup || !targetOrgId) return;
     try {
@@ -488,6 +551,24 @@ function ChatPage() {
         onCreateGroup={handleCreateGroup}
       />
 
+      <ManageGroupModal
+        isOpen={showManageGroupModal}
+        onOpenChange={setShowManageGroupModal}
+        group={selectedGroup}
+        employees={employees}
+        currentUserId={user.uid}
+        isLeadership={isLeadership}
+        onUpdateGroup={handleUpdateGroup}
+        onDeleteGroup={handleDeleteGroup}
+      />
+
+      <DeletedGroupsModal
+        isOpen={showDeletedGroupsModal}
+        onOpenChange={setShowDeletedGroupsModal}
+        deletedGroups={deletedGroups}
+        onRestoreGroup={handleRestoreGroup}
+      />
+
       <main className="flex-1 flex flex-col overflow-hidden bg-background relative h-full">
         <header className="h-16 border-b border-border/40 bg-card/50 backdrop-blur-xl flex items-center justify-between px-6 sticky top-0 z-30 shrink-0">
           <div className="flex items-center gap-4">
@@ -538,6 +619,7 @@ function ChatPage() {
                   onSelectGroup={handleSelectGroup}
                   isLeadership={isLeadership}
                   onCreateGroupClick={() => setShowCreateGroupModal(true)}
+                  onDeletedGroupsClick={() => setShowDeletedGroupsModal(true)}
                   activeTab={activeTab}
                   setActiveTab={handleTabChange}
                   directChats={directChats}
@@ -561,6 +643,7 @@ function ChatPage() {
                       selectedEmployee={selectedEmployee} 
                       selectedGroup={selectedGroup}
                       onUpdateGroupImage={handleUpdateGroupImage}
+                      onManageGroupClick={() => setShowManageGroupModal(true)}
                     />
                     <MessageList
                       key={selectedGroup ? selectedGroup.id : (selectedEmployee ? selectedEmployee.id : 'empty')}

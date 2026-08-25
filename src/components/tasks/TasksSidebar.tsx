@@ -8,7 +8,8 @@ import {
   Bell,
   Search,
   History,
-  Sparkles
+  Sparkles,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -256,6 +257,7 @@ export function TasksSidebar({
                 <NavItem icon={List} label="List View" href="/tasks?view=list" active={pathname === "/tasks" && view === "list"} />
                 <NavItem icon={LayoutGrid} label="Board View" href="/tasks?view=board" active={pathname === "/tasks" && view === "board"} />
                 <NavItem icon={Calendar} label="Timeline View" href="/tasks?view=timeline" active={pathname === "/tasks" && view === "timeline"} />
+                <NavItem icon={Trophy} label="Performance" href="/tasks?view=performance" active={pathname === "/tasks" && view === "performance"} />
             </div>
 
             <div className="pt-4 mt-4 border-t border-border/40">

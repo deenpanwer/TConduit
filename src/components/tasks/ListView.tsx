@@ -415,34 +415,18 @@ const ListViewInner: React.ForwardRefRenderFunction<ListViewHandle, ListViewProp
                   />
               ))}
 
-              {/* Add New Table Button
-              <div className="px-4 py-8">
-                  <Button 
-                      variant="ghost" 
-                      className="group/btn h-12 gap-3 px-6 rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                      onClick={() => addTaskGroup('New Bucket')}
-                  >
-                      <div className="size-6 rounded-lg bg-secondary/50 flex items-center justify-center group-hover/btn:bg-primary/20 transition-colors">
-                        <Plus size={16} className="text-muted-foreground group-hover/btn:text-primary" />
-                      </div>
-                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground group-hover/btn:text-primary">Add New Table Bucket</span>
-                  </Button>
-              </div>
-              */}
+              {/* Completed Tasks Table */}
+              <CompletedTaskTable 
+                  tasks={completedTasks}
+                  orderedTasks={orderedTasks}
+                  personnel={personnel}
+                  onUpdateTask={onUpdateTask!}
+                  onDeleteTask={onDeleteTask || deleteTask}
+                  onTaskClick={onTaskClick}
+                  isEnhancing={isEnhancing}
+                  handleEnhanceWithAI={handleEnhanceWithAI}
+              />
           </div>
-      </div>
-
-      <div className="px-6 pb-20">
-          <CompletedTaskTable 
-              tasks={completedTasks}
-              orderedTasks={orderedTasks}
-              personnel={personnel}
-              onUpdateTask={onUpdateTask!}
-              onDeleteTask={onDeleteTask || deleteTask}
-              onTaskClick={onTaskClick}
-              isEnhancing={isEnhancing}
-              handleEnhanceWithAI={handleEnhanceWithAI}
-          />
       </div>
     </div>
   );

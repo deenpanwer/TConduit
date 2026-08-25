@@ -32,6 +32,13 @@ export interface GroupChat {
   lastMessage?: string;
   lastMessageAt?: any;
   photoUrl?: string;
+  isDeleted?: boolean;
+  deletedAt?: any;
+  deletedBy?: string | null;
+  deletedByName?: string | null;
+  restoredAt?: any;
+  restoredBy?: string | null;
+  restoredByName?: string | null;
 }
 
 export function useGroupChat(selectedGroupId: string | null, orgId: string | undefined) {
@@ -45,7 +52,9 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
   const [messageLimit, setMessageLimit] = useState(20);
   const [hasMore, setHasMore] = useState(true);
 
-  // 1. Sync list of groups where current user is a member (or all groups for leadership)
+  const [deletedGroups, setDeletedGroups] = useState<GroupChat[]>([]);
+
+  // 1. Sync list of active groups (All groups for Owner/Founder/Manager leadership, or member-scoped for staff)
   useEffect(() => {
     if (!user?.uid || !orgId) {
       setGroups([]);
@@ -61,18 +70,82 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
                           userData?.role?.toLowerCase() === 'manager' || 
                           !!userData?.ownedOrgId;
 
-    const q = isLeadership 
-      ? query(groupsRef)
-      : query(groupsRef, where("members", "array-contains", user.uid));
+    let unsubActive: (() => void) | null = null;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const groupList: GroupChat[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as GroupChat[];
-      
-      // Sort by lastMessageAt descending
-      groupList.sort((a, b) => {
+    const subscribeToActive = (leaderQuery: boolean) => {
+      const q = leaderQuery
+        ? query(groupsRef)
+        : query(groupsRef, where("members", "array-contains", user.uid));
+
+      return onSnapshot(q, (snapshot) => {
+        const groupList: GroupChat[] = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((g: any) => !g.isDeleted) as GroupChat[];
+        
+        // Sort by lastMessageAt or createdAt descending
+        groupList.sort((a, b) => {
+          const getMs = (timestamp: any): number => {
+            if (!timestamp) return 0;
+            if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+            if (typeof timestamp.toDate === "function") return timestamp.toDate().getTime();
+            if (typeof timestamp.seconds === "number") return timestamp.seconds * 1000;
+            if (timestamp instanceof Date) return timestamp.getTime();
+            if (typeof timestamp === "string") return new Date(timestamp).getTime();
+            if (typeof timestamp === "number") return timestamp;
+            return 0;
+          };
+          const timeA = getMs(a.lastMessageAt) || getMs(a.createdAt) || 0;
+          const timeB = getMs(b.lastMessageAt) || getMs(b.createdAt) || 0;
+          return timeB - timeA;
+        });
+
+        setGroups(groupList);
+        setLoadingGroups(false);
+      }, (error) => {
+        console.error("Error subscribing to group list:", error);
+        if (leaderQuery) {
+          console.warn("[useGroupChat] Open query denied by rules, falling back to member query");
+          unsubActive = subscribeToActive(false);
+        } else {
+          setLoadingGroups(false);
+        }
+      });
+    };
+
+    unsubActive = subscribeToActive(isLeadership);
+
+    return () => {
+      if (unsubActive) unsubActive();
+    };
+  }, [user?.uid, orgId, userData?.role, userData?.ownedOrgId]);
+
+  // 1b. Sync deleted groups for leadership (History & Restore)
+  useEffect(() => {
+    if (!user?.uid || !orgId) {
+      setDeletedGroups([]);
+      return;
+    }
+
+    const isLeadership = userData?.role?.toLowerCase() === 'owner' || 
+                          userData?.role?.toLowerCase() === 'founder' || 
+                          userData?.role?.toLowerCase() === 'manager' || 
+                          !!userData?.ownedOrgId;
+
+    if (!isLeadership) return;
+
+    const groupsRef = collection(db, "organizations", orgId, "group_chats");
+    const unsubscribe = onSnapshot(groupsRef, (snapshot) => {
+      const delList: GroupChat[] = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((g: any) => g.isDeleted === true) as GroupChat[];
+
+      delList.sort((a, b) => {
         const getMs = (timestamp: any): number => {
           if (!timestamp) return 0;
           if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
@@ -83,20 +156,18 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
           if (typeof timestamp === "number") return timestamp;
           return 0;
         };
-        const timeA = getMs(a.lastMessageAt) || getMs(a.createdAt) || 0;
-        const timeB = getMs(b.lastMessageAt) || getMs(b.createdAt) || 0;
+        const timeA = getMs(a.deletedAt) || getMs(a.updatedAt) || 0;
+        const timeB = getMs(b.deletedAt) || getMs(b.updatedAt) || 0;
         return timeB - timeA;
       });
 
-      setGroups(groupList);
-      setLoadingGroups(false);
+      setDeletedGroups(delList);
     }, (error) => {
-      console.error("Error subscribing to group list:", error);
-      setLoadingGroups(false);
+      console.error("Error subscribing to deleted groups list:", error);
     });
 
     return () => unsubscribe();
-  }, [user?.uid, orgId, userData]);
+  }, [user?.uid, orgId, userData?.role, userData?.ownedOrgId]);
 
   // 2. Sync messages for selected group with pagination
   useEffect(() => {
@@ -262,12 +333,101 @@ export function useGroupChat(selectedGroupId: string | null, orgId: string | und
     });
   }, [orgId]);
 
+  // 6. Update group chat details and members
+  const updateGroupChat = useCallback(async (
+    groupId: string,
+    updates: {
+      name?: string;
+      members?: string[];
+      photoUrl?: string;
+    }
+  ): Promise<void> => {
+    if (!orgId || !user?.uid || !userData) throw new Error("Unauthenticated or missing organization ID");
+
+    const groupDocRef = doc(db, "organizations", orgId, "group_chats", groupId);
+    const dataToUpdate: any = {
+      updatedAt: serverTimestamp(),
+    };
+    if (updates.name !== undefined) dataToUpdate.name = updates.name.trim();
+    if (updates.members !== undefined) dataToUpdate.members = updates.members;
+    if (updates.photoUrl !== undefined) dataToUpdate.photoUrl = updates.photoUrl;
+
+    await setDoc(groupDocRef, dataToUpdate, { merge: true });
+
+    const editorName = userData.name || user.displayName || user.email || "Admin";
+    const messagesRef = collection(db, "organizations", orgId, "group_chats", groupId, "messages");
+    await addDoc(messagesRef, {
+      senderId: "system",
+      senderName: "System",
+      text: `${editorName} updated group details/participants`,
+      timestamp: serverTimestamp(),
+      type: "text"
+    });
+  }, [orgId, user?.uid, userData]);
+
+  // 7. Soft delete group chat
+  const softDeleteGroupChat = useCallback(async (groupId: string): Promise<void> => {
+    if (!orgId || !user?.uid || !userData) throw new Error("Unauthenticated or missing organization ID");
+
+    const groupDocRef = doc(db, "organizations", orgId, "group_chats", groupId);
+    const deleterName = userData.name || user.displayName || user.email || "Admin";
+
+    await setDoc(groupDocRef, {
+      isDeleted: true,
+      deletedBy: user.uid,
+      deletedByName: deleterName,
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    const messagesRef = collection(db, "organizations", orgId, "group_chats", groupId, "messages");
+    await addDoc(messagesRef, {
+      senderId: "system",
+      senderName: "System",
+      text: `${deleterName} deleted this group`,
+      timestamp: serverTimestamp(),
+      type: "text"
+    });
+  }, [orgId, user?.uid, userData]);
+
+  // 8. Restore soft-deleted group chat
+  const restoreGroupChat = useCallback(async (groupId: string): Promise<void> => {
+    if (!orgId || !user?.uid || !userData) throw new Error("Unauthenticated or missing organization ID");
+
+    const groupDocRef = doc(db, "organizations", orgId, "group_chats", groupId);
+    const restorerName = userData.name || user.displayName || user.email || "Admin";
+
+    await setDoc(groupDocRef, {
+      isDeleted: false,
+      deletedBy: null,
+      deletedByName: null,
+      deletedAt: null,
+      restoredBy: user.uid,
+      restoredByName: restorerName,
+      restoredAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    const messagesRef = collection(db, "organizations", orgId, "group_chats", groupId, "messages");
+    await addDoc(messagesRef, {
+      senderId: "system",
+      senderName: "System",
+      text: `${restorerName} restored this group`,
+      timestamp: serverTimestamp(),
+      type: "text"
+    });
+  }, [orgId, user?.uid, userData]);
+
   return {
     groups,
+    deletedGroups,
     messages,
     isSettingUpChat,
     loadingGroups,
     createGroupChat,
+    updateGroupChat,
+    softDeleteGroupChat,
+    restoreGroupChat,
     sendGroupMessage,
     uploadGroupFile,
     loadMore,

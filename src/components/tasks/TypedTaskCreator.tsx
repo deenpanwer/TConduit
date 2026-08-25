@@ -248,6 +248,7 @@ export function TypedTaskCreator({
   }, [onUpdateTask]);
 
   const { uploads, setUpload, removeUpload } = useUpload();
+  const { columns } = useTasks();
   const { user, userData } = useAuth();
   const {
     transcript,
@@ -622,29 +623,30 @@ export function TypedTaskCreator({
                 >
                   <div className="w-2 h-2 rounded-full bg-primary" />
                   Status: {
-                    {
+                    columns.find((c) => c.id === (editingNewTask?.status || "todo"))?.title ||
+                    ({
                       todo: "To Do",
                       in_progress: "In Progress",
                       review: "Review",
                       done: "Done",
-                    }[editingNewTask?.status || "todo"]
+                    } as Record<string, string>)[editingNewTask?.status || "todo"] || editingNewTask?.status || "To Do"
                   }
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {[
-                  { id: "todo", label: "To Do" },
-                  { id: "in_progress", label: "In Progress" },
-                  { id: "review", label: "Review" },
-                  { id: "done", label: "Done" },
-                ].map((s) => (
+                {(columns && columns.length > 0 ? columns : [
+                  { id: "todo", title: "To Do" },
+                  { id: "in_progress", title: "In Progress" },
+                  { id: "review", title: "Review" },
+                  { id: "done", title: "Done" },
+                ]).map((s) => (
                   <DropdownMenuItem
                     key={s.id}
                     onClick={() => {
                       onUpdateTask("new", { status: s.id as any });
                     }}
                   >
-                    {s.label}
+                    {s.title}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

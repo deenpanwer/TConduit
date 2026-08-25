@@ -12,7 +12,10 @@ import {
   User as UserIcon, AtSign, Undo2, Link as LinkIcon, Bold, Italic,
   History, MessageSquare,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Edit2,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +35,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format, isToday, isTomorrow, isYesterday, formatDistanceToNow } from "date-fns";
-import { useTasks, Task, Status, Priority, Subtask, Comment, HistoryEntry } from "@/hooks/useTasks";
+import { useTasks, Task, Status, Priority, Subtask, Comment, HistoryEntry, BoardColumn, DEFAULT_COLUMNS } from "@/hooks/useTasks";
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -430,6 +433,84 @@ export const TaskCard = ({
   );
 };
 
+// --- Add Column Card ---
+
+const AddColumnCard = ({ onAddColumn }: { onAddColumn: (title: string) => void }) => {
+  const [isAdding, setIsAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isAdding) {
+      inputRef.current?.focus();
+    }
+  }, [isAdding]);
+
+  const handleSubmit = () => {
+    if (title.trim()) {
+      onAddColumn(title.trim());
+      setTitle("");
+      setIsAdding(false);
+    }
+  };
+
+  if (!isAdding) {
+    return (
+      <div className="h-full flex items-start pt-1 shrink-0">
+        <button
+          onClick={() => setIsAdding(true)}
+          className="flex items-center justify-center gap-2 h-10 w-44 rounded-xl border border-dashed border-border/60 hover:border-primary/50 hover:bg-secondary/30 text-muted-foreground hover:text-foreground text-xs font-semibold tracking-wide transition-all px-3 group cursor-pointer"
+        >
+          <Plus size={14} className="group-hover:scale-110 transition-transform" />
+          <span>Add Column</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex items-start pt-1 shrink-0">
+      <div className="flex flex-col gap-2 w-52 p-3 rounded-2xl bg-background border border-border/60 shadow-sm">
+        <Input
+          ref={inputRef}
+          placeholder="Column name..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSubmit();
+            if (e.key === 'Escape') {
+              setIsAdding(false);
+              setTitle("");
+            }
+          }}
+          className="h-8 text-xs bg-secondary/30"
+        />
+        <div className="flex items-center gap-1.5 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => {
+              setIsAdding(false);
+              setTitle("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 text-xs px-3 font-medium"
+            onClick={handleSubmit}
+            disabled={!title.trim()}
+          >
+            Add
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Column Component ---
 
 const Column = ({ 
@@ -437,16 +518,21 @@ const Column = ({
   tasks, 
   onTaskClick, 
   onDeleteTask,
-  onDropTask,
+  onDropTask, 
   onQuickAdd,
   onAddClick,
   onQuickEdit,
   canManage,
   personnel,
   onDragStartManual,
-  draggedTaskId
+  draggedTaskId,
+  onRenameColumn,
+  onDeleteColumn,
+  onMoveColumn,
+  canMoveLeft,
+  canMoveRight,
 }: { 
-  column: typeof COLUMNS[0]; 
+  column: BoardColumn; 
   tasks: Task[]; 
   onTaskClick: (id: string) => void;
   onDeleteTask: (id: string) => void;
@@ -458,12 +544,42 @@ const Column = ({
   personnel: any[];
   onDragStartManual?: (e: React.PointerEvent, task: Task) => void;
   draggedTaskId: string | null;
+  onRenameColumn?: (columnId: string, newTitle: string) => void;
+  onDeleteColumn?: (columnId: string) => void;
+  onMoveColumn?: (columnId: string, direction: 'left' | 'right') => void;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [quickAddValue, setQuickAddValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [showBottomFade, setShowBottomFade] = useState(false);
+
+  // Rename state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(column.title);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setRenameValue(column.title);
+  }, [column.title]);
+
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  const handleSaveRename = () => {
+    if (renameValue.trim() && renameValue.trim() !== column.title && onRenameColumn) {
+      onRenameColumn(column.id, renameValue.trim());
+    } else {
+      setRenameValue(column.title);
+    }
+    setIsRenaming(false);
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -487,26 +603,87 @@ const Column = ({
     <div 
       data-column-id={column.id}
       className={cn(
-        "flex flex-col h-full min-w-0 flex-1 rounded-2xl transition-all duration-300 border-2",
-        isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-transparent border-transparent"
+        "flex flex-col h-full min-h-0 min-w-0 flex-1 rounded-2xl transition-all duration-300 border-2",
+        isDragOver ? "bg-primary/5 border-primary/10 ring-1 ring-primary/20" : "bg-secondary/5 border-transparent"
       )}
       onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
     >
       <div className="px-4 py-3 flex items-center justify-between shrink-0 group">
-        <div className="flex items-center gap-2">
-           <h2 className="font-bold text-sm text-foreground/80 tracking-tight">{column.title}</h2>
-           <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
+        <div className="flex items-center gap-2 flex-1 min-w-0 mr-1">
+           {isRenaming ? (
+             <Input
+               ref={renameInputRef}
+               value={renameValue}
+               onChange={(e) => setRenameValue(e.target.value)}
+               onBlur={handleSaveRename}
+               onKeyDown={(e) => {
+                 if (e.key === 'Enter') handleSaveRename();
+                 if (e.key === 'Escape') {
+                   setRenameValue(column.title);
+                   setIsRenaming(false);
+                 }
+               }}
+               className="h-6 text-xs font-bold px-1.5 py-0 bg-background border-primary/50 w-full"
+             />
+           ) : (
+             <h2 
+               className="font-bold text-sm text-foreground/80 tracking-tight truncate cursor-pointer hover:text-foreground"
+               onClick={() => setIsRenaming(true)}
+               title="Click to rename"
+             >
+               {column.title}
+             </h2>
+           )}
+           <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-md min-w-[20px] text-center shrink-0">
              {tasks.length}
            </span>
            {highPriorityCount > 0 && (
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" title={`${highPriorityCount} High Priority items`} />
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" title={`${highPriorityCount} High Priority items`} />
            )}
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 transition-opacity rounded-md" onClick={() => onAddClick(column.id)}>
-           <Plus size={14} />
-        </Button>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity rounded-md text-muted-foreground hover:text-foreground">
+                <MoreHorizontal size={13} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => setIsRenaming(true)} className="text-xs gap-2">
+                <Edit2 size={12} />
+                Rename Column
+              </DropdownMenuItem>
+              {canMoveLeft && onMoveColumn && (
+                <DropdownMenuItem onClick={() => onMoveColumn(column.id, 'left')} className="text-xs gap-2">
+                  <ArrowLeft size={12} />
+                  Move Left
+                </DropdownMenuItem>
+              )}
+              {canMoveRight && onMoveColumn && (
+                <DropdownMenuItem onClick={() => onMoveColumn(column.id, 'right')} className="text-xs gap-2">
+                  <ArrowRight size={12} />
+                  Move Right
+                </DropdownMenuItem>
+              )}
+              {onDeleteColumn && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onDeleteColumn(column.id)} className="text-xs gap-2 text-destructive focus:text-destructive">
+                    <Trash2 size={12} />
+                    Delete Column
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="ghost" size="icon" className="h-6 w-6 transition-opacity rounded-md" onClick={() => onAddClick(column.id)}>
+             <Plus size={14} />
+          </Button>
+        </div>
       </div>
       
       <div className="px-4 mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -515,7 +692,7 @@ const Column = ({
          </div>
       </div>
 
-      <ScrollArea className="flex-1 px-4 pb-4">
+      <ScrollArea className="flex-1 min-h-0 px-4 pb-4">
         <div className="flex flex-col min-h-[150px] gap-1">
           <AnimatePresence mode="popLayout" initial={false}>
             {tasks.length === 0 && (
@@ -582,15 +759,21 @@ const Column = ({
 
 const MobileBoardView = ({
   tasks,
+  columns,
   onTaskClick,
   onDeleteTask,
   onQuickAdd,
   onAddClick,
   onQuickEdit,
   canManage,
-  personnel
+  personnel,
+  onAddColumn,
+  onRenameColumn,
+  onDeleteColumn,
+  onMoveColumn,
 }: {
   tasks: Task[];
+  columns: BoardColumn[];
   onTaskClick: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onQuickAdd: (status: Status, title: string) => void;
@@ -598,15 +781,19 @@ const MobileBoardView = ({
   onQuickEdit: (id: string, title: string) => void;
   canManage: boolean;
   personnel: any[];
+  onAddColumn?: (title: string) => void;
+  onRenameColumn?: (columnId: string, newTitle: string) => void;
+  onDeleteColumn?: (columnId: string) => void;
+  onMoveColumn?: (columnId: string, direction: 'left' | 'right') => void;
 }) => {
   const [expandedColumns, setExpandedColumns] = useState<Record<string, boolean>>({
     todo: true,
     in_progress: true,
-    review: false,
-    done: false
   });
   
   const [quickAddValues, setQuickAddValues] = useState<Record<string, string>>({});
+  const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [isAddingColMobile, setIsAddingColMobile] = useState(false);
 
   const toggleColumn = (id: string) => {
     setExpandedColumns(prev => ({ ...prev, [id]: !prev[id] }));
@@ -624,15 +811,24 @@ const MobileBoardView = ({
     }
   };
 
+  const handleAddColMobile = () => {
+    if (newColumnTitle.trim() && onAddColumn) {
+      onAddColumn(newColumnTitle.trim());
+      setNewColumnTitle("");
+      setIsAddingColMobile(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 pb-20">
-      {COLUMNS.map(column => {
+      {columns.map((column, idx) => {
+        const isDone = column.isDoneColumn || column.id === 'done';
         const columnTasks = tasks.filter(t => 
-          column.id === 'done' 
-            ? (t.status === 'done' || t.flagged)
+          isDone 
+            ? (t.status === column.id || t.status === 'done' || t.flagged)
             : (t.status === column.id && !t.flagged)
         );
-        const isOpen = expandedColumns[column.id];
+        const isOpen = expandedColumns[column.id] ?? false;
         const highPriorityCount = columnTasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
 
         return (
@@ -655,17 +851,49 @@ const MobileBoardView = ({
                   <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 rounded-full hover:bg-background shadow-none"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddClick(column.id);
-                }}
-              >
-                <Plus size={16} />
-              </Button>
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-background">
+                      <MoreHorizontal size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onRenameColumn && (
+                      <DropdownMenuItem onClick={() => {
+                        const newName = prompt("Enter new column name:", column.title);
+                        if (newName && newName.trim()) onRenameColumn(column.id, newName.trim());
+                      }}>
+                        <Edit2 size={12} className="mr-2" /> Rename
+                      </DropdownMenuItem>
+                    )}
+                    {idx > 0 && onMoveColumn && (
+                      <DropdownMenuItem onClick={() => onMoveColumn(column.id, 'left')}>
+                        <ArrowLeft size={12} className="mr-2" /> Move Up
+                      </DropdownMenuItem>
+                    )}
+                    {idx < columns.length - 1 && onMoveColumn && (
+                      <DropdownMenuItem onClick={() => onMoveColumn(column.id, 'right')}>
+                        <ArrowRight size={12} className="mr-2" /> Move Down
+                      </DropdownMenuItem>
+                    )}
+                    {onDeleteColumn && (
+                      <DropdownMenuItem onClick={() => onDeleteColumn(column.id)} className="text-destructive">
+                        <Trash2 size={12} className="mr-2" /> Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-background shadow-none"
+                  onClick={() => onAddClick(column.id)}
+                >
+                  <Plus size={16} />
+                </Button>
+              </div>
             </div>
 
             {/* Content */}
@@ -700,7 +928,6 @@ const MobileBoardView = ({
                         onQuickEdit={onQuickEdit}
                         canManage={canManage}
                         personnel={personnel}
-                        // No manual drag for vertical view, standard click to edit is better
                       />
                     ))}
 
@@ -727,6 +954,35 @@ const MobileBoardView = ({
           </div>
         );
       })}
+
+      {/* Add Column Button on Mobile */}
+      {isAddingColMobile ? (
+        <div className="flex flex-col gap-2 p-4 rounded-2xl bg-secondary/20 border border-border/50">
+          <Input 
+            placeholder="New column name..."
+            value={newColumnTitle}
+            onChange={(e) => setNewColumnTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddColMobile();
+              if (e.key === 'Escape') setIsAddingColMobile(false);
+            }}
+            className="bg-background"
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddingColMobile(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleAddColMobile} disabled={!newColumnTitle.trim()}>Add Column</Button>
+          </div>
+        </div>
+      ) : (
+        <Button 
+          variant="outline" 
+          className="w-full h-11 rounded-2xl border-dashed border-border/60 hover:bg-secondary/30 gap-2 text-xs font-semibold"
+          onClick={() => setIsAddingColMobile(true)}
+        >
+          <Plus size={14} />
+          Add Column
+        </Button>
+      )}
     </div>
   );
 };
@@ -755,11 +1011,29 @@ export function BoardView({
   personnel: any[];
 }) {
   const isMobile = useIsMobile();
+  const { columns, addBoardColumn, renameBoardColumn, reorderBoardColumns, deleteBoardColumn } = useTasks();
+
+  const boardColumns = useMemo(() => {
+    return columns && columns.length > 0 ? columns : DEFAULT_COLUMNS;
+  }, [columns]);
+
+  const handleMoveColumn = useCallback((columnId: string, direction: 'left' | 'right') => {
+    const idx = boardColumns.findIndex(c => c.id === columnId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= boardColumns.length) return;
+
+    const newCols = [...boardColumns];
+    const [moved] = newCols.splice(idx, 1);
+    newCols.splice(targetIdx, 0, moved);
+    reorderBoardColumns(newCols);
+  }, [boardColumns, reorderBoardColumns]);
 
   if (isMobile) {
     return (
       <MobileBoardView 
         tasks={tasks}
+        columns={boardColumns}
         onTaskClick={onTaskClick}
         onDeleteTask={onDeleteTask}
         onQuickAdd={onQuickAdd}
@@ -767,37 +1041,50 @@ export function BoardView({
         onQuickEdit={onQuickEdit}
         canManage={canManage}
         personnel={personnel}
+        onAddColumn={addBoardColumn}
+        onRenameColumn={renameBoardColumn}
+        onDeleteColumn={deleteBoardColumn}
+        onMoveColumn={handleMoveColumn}
       />
     );
   }
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full min-h-0 w-full overflow-x-auto pb-2 custom-scrollbar">
       <div 
-        className="flex h-full w-full gap-4 sm:gap-6"
+        className="flex h-full min-h-0 w-max min-w-full gap-4 sm:gap-6 pr-6"
       >
         <LayoutGroup>
-          {COLUMNS.map(column => (
-            <div key={column.id} className="h-full flex-1 min-w-0">
-              <Column 
-                column={column}
-                tasks={tasks.filter(t => 
-                  column.id === 'done' 
-                    ? t.status === 'done'
-                    : (t.status === column.id && !t.flagged)
-                )}
-                onTaskClick={onTaskClick}
-                onDeleteTask={onDeleteTask}
-                onDropTask={onDropTask}
-                onQuickAdd={onQuickAdd}
-                onAddClick={onAddClick}
-                onQuickEdit={onQuickEdit}
-                canManage={canManage}
-                personnel={personnel}
-                draggedTaskId={null}
-              />
-            </div>
-          ))}
+          {boardColumns.map((column, idx) => {
+            const isDone = column.isDoneColumn || column.id === 'done';
+            return (
+              <div key={column.id} className="h-full min-h-0 w-72 sm:w-80 flex-shrink-0 flex flex-col">
+                <Column 
+                  column={column}
+                  tasks={tasks.filter(t => 
+                    isDone 
+                      ? (t.status === column.id || t.status === 'done' || t.flagged)
+                      : (t.status === column.id && !t.flagged)
+                  )}
+                  onTaskClick={onTaskClick}
+                  onDeleteTask={onDeleteTask}
+                  onDropTask={onDropTask}
+                  onQuickAdd={onQuickAdd}
+                  onAddClick={onAddClick}
+                  onQuickEdit={onQuickEdit}
+                  canManage={canManage}
+                  personnel={personnel}
+                  draggedTaskId={null}
+                  onRenameColumn={renameBoardColumn}
+                  onDeleteColumn={deleteBoardColumn}
+                  onMoveColumn={handleMoveColumn}
+                  canMoveLeft={idx > 0}
+                  canMoveRight={idx < boardColumns.length - 1}
+                />
+              </div>
+            );
+          })}
+          <AddColumnCard onAddColumn={addBoardColumn} />
         </LayoutGroup>
       </div>
     </div>

@@ -107,18 +107,18 @@ export const TaskTableBlock = ({
             {/* Table Grid */}
             <div className="flex flex-col">
                 {/* Column Headers */}
-                <div className='sticky top-0 z-20 flex h-10 bg-secondary/20 dark:bg-card border-y border-border/60 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 select-none'>
-                    <div className='sticky left-0 z-30 w-10 shrink-0 border-r border-border/60 bg-secondary/20 dark:bg-card' />
-                    <div className='sticky left-10 z-30 w-10 shrink-0 border-r border-border/60 bg-secondary/20 dark:bg-card' />
-                    <div className='sticky left-20 z-30 flex-[1.5] min-w-[250px] border-r border-border/60 px-4 flex items-center bg-secondary/20 dark:bg-card'>Task Name</div>
-                    <div className='flex-[2] min-w-[400px] border-r border-border/60 px-4 flex items-center'>Description & Brief</div>
-                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center'>Collaborators</div>
-                    <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Points</div>
-                    <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Est. Hrs</div>
-                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Timeline</div>
-                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center'>Priority</div>
-                    <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center'><MessageSquare size={12} /></div>
-                    <div className='w-10 shrink-0' />
+                <div className='sticky top-0 z-20 flex h-10 bg-card border-y border-border/60 text-[10px] font-black uppercase tracking-widest text-muted-foreground select-none shadow-sm'>
+                    <div className='sticky left-0 z-30 w-10 shrink-0 border-r border-border/60 bg-card' />
+                    <div className='sticky left-10 z-30 w-10 shrink-0 border-r border-border/60 bg-card' />
+                    <div className='sticky left-20 z-30 flex-[1.5] min-w-[250px] border-r border-border/60 px-4 flex items-center bg-card'>Task Name</div>
+                    <div className='flex-[2] min-w-[400px] border-r border-border/60 px-4 flex items-center bg-card'>Description & Brief</div>
+                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center bg-card'>Collaborators</div>
+                    <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Points</div>
+                    <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Est. Hrs</div>
+                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Timeline</div>
+                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Priority</div>
+                    <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center bg-card'><MessageSquare size={12} /></div>
+                    <div className='w-10 shrink-0 bg-card' />
                 </div>
 
                 {/* Rows */}

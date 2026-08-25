@@ -50,9 +50,9 @@ import { TypedTaskCreator } from "@/components/tasks/TypedTaskCreator";
 import { UnifiedHierarchyRoot } from "@/components/tasks/HierarchicalUI";
 import { InlineAudioPlayer } from "@/components/tasks/InlineAudioPlayer";
 import { triggerBigConfetti, triggerSmallConfetti } from "@/lib/confetti";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, Wand2, Layers, FileText, Eraser, LayoutDashboard, Upload } from "lucide-react";
+import { Sparkles, Wand2, Layers, FileText, Eraser, LayoutDashboard, Upload, Trophy } from "lucide-react";
 import { TasksDashboardContent } from "@/components/tasks/TasksDashboardContent";
+import { PerformanceView } from "@/components/tasks/performance/PerformanceView";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { useUpload } from "@/hooks/useUploadProgress";
@@ -65,7 +65,7 @@ import { useSidebar } from '@/hooks/use-sidebar';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function TasksPageContent() {
-  const { tasks, deletedTasks, loading, drafts, updateDraft, deleteDraft, addTask, updateTask, deleteTask, restoreTask, permanentlyDeleteTask, addComment, canManageTasks } = useTasks();
+  const { tasks, deletedTasks, loading, drafts, updateDraft, deleteDraft, addTask, updateTask, deleteTask, restoreTask, permanentlyDeleteTask, addComment, canManageTasks, boardHistory, columns } = useTasks();
   const { setUpload, removeUpload } = useUpload();
   const { employees, owner } = useTeam();
   const { user, userData } = useAuth();
@@ -80,9 +80,9 @@ function TasksPageContent() {
   const [orgData, setOrgData] = useState<any>(null);
   const [showTrashDrawer, setShowTrashDrawer] = useState(false);
   
-  const activeView = (searchParams.get("view") as "board" | "timeline" | "list" | "dashboard") || "dashboard";
+  const activeView = (searchParams.get("view") as "board" | "timeline" | "list" | "dashboard" | "performance") || "dashboard";
 
-  const setActiveView = (view: "board" | "timeline" | "list" | "dashboard") => {
+  const setActiveView = (view: "board" | "timeline" | "list" | "dashboard" | "performance") => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", view);
     router.replace(`${pathname}?${params.toString()}`);
@@ -353,6 +353,11 @@ function TasksPageContent() {
     if (entry.action === 'assignees_updated') return 'updated assignees';
     if (entry.action === 'due_date_updated') return 'updated due date';
     if (entry.action === 'cover_image_updated') return 'updated cover image';
+    if (entry.action === 'create_column') return `added new board column "${entry.details?.newTitle || ''}"`;
+    if (entry.action === 'rename_column') return `renamed column "${entry.details?.oldTitle || ''}" to "${entry.details?.newTitle || ''}"`;
+    if (entry.action === 'reorder_columns') return 'reordered board columns';
+    if (entry.action === 'delete_column') return `deleted board column "${entry.details?.oldTitle || ''}"`;
+    if (entry.action === 'column_deleted_task_moved') return 'moved task due to column deletion';
     
     if (entry.action === 'updated' && entry.details?.status === 'done') {
       return 'moved to Done';
@@ -361,17 +366,23 @@ function TasksPageContent() {
     return entry.action;
   };
 
-  // Aggregated Global History
+  // Aggregated Global History (combining tasks history & board columns customization history)
   const globalHistory = useMemo(() => {
-    const allHistory = tasks.flatMap(task => 
+    const taskEntries = tasks.flatMap(task => 
       (task.history || []).map(entry => ({ ...entry, taskTitle: task.title, taskId: task.id }))
     );
+    const boardEntries = (boardHistory || []).map(entry => ({
+      ...entry,
+      taskTitle: entry.details?.newTitle || entry.details?.oldTitle || 'Task Board',
+      isBoardEvent: true,
+    }));
+    const allHistory = [...taskEntries, ...boardEntries];
     return allHistory.sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt instanceof Date ? a.createdAt : new Date(0));
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt instanceof Date ? b.createdAt : new Date(0));
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt instanceof Date ? a.createdAt : (typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(0)));
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt instanceof Date ? b.createdAt : (typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(0)));
         return dateB.getTime() - dateA.getTime();
     });
-  }, [tasks]);
+  }, [tasks, boardHistory]);
 
   // Reset showHistory when task selection changes
   useEffect(() => {
@@ -519,7 +530,7 @@ function TasksPageContent() {
           onOpenChange={setShowInviteModal}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      <main className="flex-1 flex flex-col min-h-0 h-full overflow-hidden relative">
         <header className="h-14 px-6 flex items-center justify-between shrink-0 bg-background/60 backdrop-blur-xl z-10 border-b border-border/40">
             <div className="flex items-center gap-4">
                 <div className="flex items-center">
@@ -676,7 +687,7 @@ function TasksPageContent() {
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background">
+        <div className={cn("flex-1 min-h-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-secondary/50 via-background to-background flex flex-col overflow-hidden", activeView === "performance" ? "p-1.5 sm:p-2" : "p-2 sm:p-3")}>
             {!isSubscriptionActive ? (
                 <PaywallScreen 
                     orgData={orgData}
@@ -712,6 +723,10 @@ function TasksPageContent() {
                     onAddClick={handleAddNewTaskClick}
                     canManage={canManageTasks}
                     personnel={personnel}
+                />
+            ) : activeView === "performance" ? (
+                <PerformanceView 
+                    onTaskClick={setSelectedTaskId}
                 />
             ) : activeView === "dashboard" ? (
                 <ScrollArea className="h-full">
@@ -947,25 +962,26 @@ function TasksPageContent() {
                               <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider gap-2 border-border/50" disabled={!canManageTasks}>
                                  <div className="w-2 h-2 rounded-full bg-primary" />
                                  Status: {
-                                    {
+                                    columns.find(c => c.id === (selectedTask.status || 'todo'))?.title ||
+                                    ({
                                        'todo': 'To Do',
                                        'in_progress': 'In Progress',
                                        'review': 'Review',
                                        'done': 'Done'
-                                    }[selectedTask.status || 'todo']
+                                    } as Record<string, string>)[selectedTask.status || 'todo'] || selectedTask.status || 'To Do'
                                  }
                               </Button>
                            </DropdownMenuTrigger>
                            { canManageTasks && (
                               <DropdownMenuContent align="start">
-                                 {[
-                                    { id: 'todo', label: 'To Do' },
-                                    { id: 'in_progress', label: 'In Progress' },
-                                    { id: 'review', label: 'Review' },
-                                    { id: 'done', label: 'Done' }
-                                 ].map((s) => (
+                                 {(columns && columns.length > 0 ? columns : [
+                                    { id: 'todo', title: 'To Do' },
+                                    { id: 'in_progress', title: 'In Progress' },
+                                    { id: 'review', title: 'Review' },
+                                    { id: 'done', title: 'Done' }
+                                 ]).map((s) => (
                                     <DropdownMenuItem key={s.id} onClick={() => handleUpdateTaskLocal(selectedTaskId!, { status: s.id as any })}>
-                                       {s.label}
+                                       {s.title}
                                     </DropdownMenuItem>
                                  ))}
                               </DropdownMenuContent>

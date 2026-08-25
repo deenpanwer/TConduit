@@ -503,6 +503,14 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
     };
 
     const renderTimestamp = () => {
+        if (type === 'subtasks' && item.completed && (item.completedByName || item.completedBy)) {
+            return (
+                <div className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-primary/80">
+                    <Check size={10} className="text-primary shrink-0" />
+                    <span>Completed by <strong>{item.completedByName || 'Team member'}</strong></span>
+                </div>
+            );
+        }
         if (!item.createdAt) return null;
         try {
             const date = item.createdAt.seconds ? new Date(item.createdAt.seconds * 1000) : (item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt));
@@ -546,7 +554,13 @@ export function DrawerHierarchyItem({ item, taskId, type, onUpdate, onDelete, de
                             type="button"
                             onClick={() => {
                                 const isCompleting = !item.completed;
-                                onUpdate({ completed: isCompleting, completedBy: isCompleting ? user?.uid : null });
+                                const actorName = (user as any)?.name || (user as any)?.displayName || user?.displayName || user?.email || 'User';
+                                onUpdate({ 
+                                    completed: isCompleting, 
+                                    completedBy: isCompleting ? user?.uid : null,
+                                    completedByName: isCompleting ? actorName : null,
+                                    completedAt: isCompleting ? new Date().toISOString() : null,
+                                });
                                 if (isCompleting) triggerSmallConfetti();
                             }}
                             className={cn(

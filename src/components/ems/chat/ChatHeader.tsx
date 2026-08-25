@@ -4,6 +4,7 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserAvatar, isEmployeeOnline, cn } from "@/lib/utils";
 import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Employee {
   id: string;
@@ -23,9 +24,10 @@ interface ChatHeaderProps {
   selectedEmployee: Employee | null;
   selectedGroup?: GroupChat | null;
   onUpdateGroupImage?: (file: File) => Promise<void>;
+  onManageGroupClick?: () => void;
 }
 
-export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGroupImage }: ChatHeaderProps) {
+export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGroupImage, onManageGroupClick }: ChatHeaderProps) {
   if (!selectedEmployee && !selectedGroup) {
     return (
       <div className="flex items-center gap-4 py-2.5 px-5 border-b border-border/20 bg-background/70 dark:bg-slate-950/70 backdrop-blur-md">
@@ -42,11 +44,11 @@ export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGro
           // GROUP CHAT HEADER LAYOUT
           <>
             <div 
-              onClick={() => onUpdateGroupImage && document.getElementById("group-avatar-upload")?.click()}
+              onClick={onManageGroupClick || (() => onUpdateGroupImage && document.getElementById("group-avatar-upload")?.click())}
               className={cn(
-                "relative shrink-0 w-10 h-10 flex items-center justify-center bg-primary/10 rounded-2xl text-primary font-bold border border-primary/20 shadow-sm overflow-hidden select-none",
-                onUpdateGroupImage ? "cursor-pointer hover:opacity-85 transition-opacity" : ""
+                "relative shrink-0 w-10 h-10 flex items-center justify-center bg-primary/10 rounded-2xl text-primary font-bold border border-primary/20 shadow-sm overflow-hidden select-none cursor-pointer hover:opacity-85 transition-opacity"
               )}
+              title="Manage Group Settings & Avatar"
             >
               {selectedGroup.photoUrl ? (
                 <img src={selectedGroup.photoUrl} alt={selectedGroup.name} className="w-full h-full object-cover" />
@@ -66,7 +68,10 @@ export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGro
                 }}
               />
             )}
-            <div className="flex flex-col text-left">
+            <div 
+              onClick={onManageGroupClick} 
+              className={cn("flex flex-col text-left", onManageGroupClick ? "cursor-pointer hover:opacity-90 transition-opacity" : "")}
+            >
               <h3 className="font-bold text-[15px] leading-none tracking-tight">{selectedGroup.name}</h3>
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1.5 flex items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5">
@@ -100,6 +105,20 @@ export function ChatHeader({ selectedEmployee, selectedGroup = null, onUpdateGro
           )
         )}
       </div>
+
+      {selectedGroup && onManageGroupClick && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onManageGroupClick}
+            className="h-8 px-3 gap-1.5 rounded-xl text-xs font-semibold bg-background/80 hover:bg-secondary/40 border-border/40 shadow-sm"
+          >
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span>Manage Group</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
