@@ -9,7 +9,7 @@ import * as z from 'zod';
 import { 
   Mail, Phone, MapPin, MessageSquare, 
   Send, ChevronLeft, Globe, CheckCircle2, 
-  Loader2, Building2, Smartphone
+  Loader2, Building2, Smartphone, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { PricingNavbar } from '@/components/ui/pricing-navbar';
+import { Footer } from '@/components/home/Footer';
 
 // Simplified schema: Everything is optional, no regex
 const contactSchema = z.object({
@@ -134,6 +135,12 @@ export default function ContactPage() {
                     href: 'tel:+15053772899' 
                   },
                   { 
+                    icon: Calendar, 
+                    label: 'Meeting', 
+                    value: 'Book a meeting on Calendly', 
+                    href: 'https://calendly.com/kaayfkhan/discovery-call' 
+                  },
+                  { 
                     icon: MapPin, 
                     label: 'Office', 
                     value: 'Louisiana Blvd NE, Albuquerque, NM', 
@@ -152,7 +159,18 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{item.label}</p>
-                      <p className="text-base font-semibold">{item.value}</p>
+                      {item.href ? (
+                        <a 
+                          href={item.href} 
+                          target={item.href.startsWith('http') ? '_blank' : undefined}
+                          rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                          className="text-base font-semibold hover:text-primary transition-colors hover:underline"
+                        >
+                          {item.value}
+                        </a>
+                      ) : (
+                        <p className="text-base font-semibold">{item.value}</p>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -318,23 +336,32 @@ export default function ContactPage() {
               </motion.div>
             </div>
           </div>
+
+          {/* Separator and Book a Demo Section */}
+          <div className="mt-24 pt-16 border-t border-border/40">
+            <div className="max-w-3xl mx-auto text-center space-y-6">
+              <h2 className="text-4xl font-black uppercase italic tracking-tight">Book a Demo</h2>
+              <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+                Prefer a live walkthrough? Schedule a 15-minute discovery call directly on Calendly to see TRAC AI in action.
+              </p>
+              <div className="pt-2">
+                <a 
+                  href="https://calendly.com/kaayfkhan/discovery-call"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-12 px-8 items-center justify-center rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold text-sm transition-transform hover:scale-105 shadow-md"
+                >
+                  Schedule Discovery Call &rarr;
+                </a>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* Footer Details */}
-      <div className="container mx-auto px-4 py-12 border-t border-border/40">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 opacity-60 text-[10px] font-bold uppercase tracking-widest">
-          <div className="flex items-center gap-2">
-            <Building2 size={16} />
-            <span>TRAC AI LLC</span>
-          </div>
-          <div className="flex gap-8">
-            <span>New Mexico</span>
-            <span>London</span>
-            <span>New York</span>
-          </div>
-        </div>
-      </div>
+      {/* Main Site Footer */}
+      <Footer />
     </div>
   );
 }

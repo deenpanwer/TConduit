@@ -18,6 +18,12 @@ export default function CRMClientLayout({ children }: { children: React.ReactNod
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
+    if (pathname?.includes("/crm/invoices/builder")) {
+      setIsCollapsed(true);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
     // Only redirect if auth and userData are fully loaded AND we are in the CRM module
     if (!loading && userData && pathname?.startsWith("/crm")) {
         const isClient = userData.role === "client" || userData.isClient === true;

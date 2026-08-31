@@ -156,23 +156,39 @@ export function Navbar() {
           </div>
 
           <div className="hidden lg:flex items-center gap-8">
-            {/* 
-            <Link href="/ems/login" className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity">Login</Link>
+            <a 
+              href="https://calendly.com/kaayfkhan/discovery-call"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-black text-[11px] uppercase tracking-[0.3em] hover:opacity-70 transition-opacity"
+            >
+              Book a Call
+            </a>
             <Link 
               href="/ems/signup" 
               className="bg-black dark:bg-white text-white dark:text-black font-black text-[11px] uppercase tracking-[0.3em] px-12 py-4 rounded-full hover:scale-105 transition-all active:scale-95 shadow-2xl shadow-primary/20"
             >
               Start Now
             </Link>
-            */}
           </div>
 
-          <button 
-            className="xl:hidden p-3 rounded-2xl bg-black/5 dark:bg-white/5 transition-all active:scale-90 z-[110]"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile/Tablet CTA and Hamburger */}
+          <div className="lg:hidden flex items-center gap-4 z-[110]">
+            <a 
+              href="https://calendly.com/kaayfkhan/discovery-call"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-black dark:bg-white text-white dark:text-black font-bold text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all"
+            >
+              Book a Call
+            </a>
+            <button 
+              className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 transition-all active:scale-90"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -184,7 +200,7 @@ export function Navbar() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="xl:hidden fixed inset-0 bg-white dark:bg-black z-[100] flex flex-col p-6 pt-24 overflow-y-auto"
+            className="lg:hidden fixed inset-0 bg-white dark:bg-black z-[100] flex flex-col p-6 pt-24 overflow-y-auto"
           >
             <div className="flex flex-col gap-2 mb-8">
               <Link 

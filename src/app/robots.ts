@@ -24,6 +24,9 @@ export default function robots(): MetadataRoute.Robots {
     '/ownership-statement',
     '/privacy-policy',
     '/terms-of-service',
+    '/tools',
+    '/tools/invoice-maker',
+    '/tools/invoice-maker/builder',
     '/apps/accounting',
     '/apps/ats',
     '/apps/chats',
@@ -44,6 +47,15 @@ export default function robots(): MetadataRoute.Robots {
     '/apps/tasks',
     '/apps/time-tracking',
     '/llms.txt',
+    '/favicon.ico',
+    '/icon.png',
+    '/icon.svg',
+    '/favicon-196.png',
+    '/apple-icon-180.png',
+    '/trac-ai-logo.png',
+    '/logo.png',
+    '/logo.svg',
+    '/special-triangle.svg',
   ];
 
   const privateDisallowPaths = [
@@ -57,7 +69,7 @@ export default function robots(): MetadataRoute.Robots {
     '/reports/',
     '/support/',
     '/subscribe/',
-    '/apps/dashboard/builder', // Example internal apps assets if any
+    '/apps/dashboard/builder',
     '/api/',
     '/login',
     '/signup',
@@ -82,13 +94,19 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        // Googlebot Favicon & Image Crawlers (Must crawl icons and logos without restriction)
+        userAgent: ['Googlebot-Image', 'Googlebot-Favicon'],
+        allow: ['/', '/*.ico', '/*.png', '/*.svg', '/*.jpg', '/*.webp', '/favicon.ico', '/icon.png', '/trac-ai-logo.png'],
+        disallow: privateDisallowPaths,
+      },
+      {
         // Standard Search Crawlers
         userAgent: ['Googlebot', 'Bingbot', 'YandexBot', 'Yandex', 'Applebot'],
         allow: publicAllowPaths,
         disallow: privateDisallowPaths,
       },
       {
-        // AI Chatbots and Scrapers (OpenAI GPTBot, Anthropic's ClaudeBot, Perplexity)
+        // AI Chatbots and Scrapers
         userAgent: ['GPTBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Claude-Web', 'cohere-ai'],
         allow: [...publicAllowPaths, '/llms.txt'],
         disallow: privateDisallowPaths,

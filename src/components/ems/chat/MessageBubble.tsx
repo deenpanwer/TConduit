@@ -6,7 +6,7 @@ import { cn, getUserAvatar } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { WaveformPlayer } from "./WaveformPlayer";
-import { FileText, Download, X, Eye } from "lucide-react";
+import { FileText, Download, X, Eye, ExternalLink } from "lucide-react";
 
 export interface ChatMessage {
   id?: string;
@@ -25,6 +25,47 @@ interface MessageBubbleProps {
   isCurrentUserSender: boolean;
   senderAvatarUrl: string;
   senderName: string;
+}
+
+// Auto-detect and render clickable hyperlinks that open in a new tab on web or native browser on Electron
+export function FormattedMessageText({ text }: { text: string }) {
+  if (!text) return null;
+
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  const parts = text.split(urlRegex);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!part) return null;
+        if (part.match(urlRegex)) {
+          const href = part.startsWith("www.") ? `https://${part}` : part;
+          return (
+            <a
+              key={i}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof window !== "undefined") {
+                  const electronApi = (window as any).api || (window as any).electronAPI || (window as any).electron;
+                  if (electronApi?.openExternal) {
+                    e.preventDefault();
+                    electronApi.openExternal(href);
+                  }
+                }
+              }}
+              className="underline font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 break-all cursor-pointer inline transition-colors"
+            >
+              {part}
+            </a>
+          );
+        }
+        return <React.Fragment key={i}>{part}</React.Fragment>;
+      })}
+    </>
+  );
 }
 
 export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, senderName }: MessageBubbleProps) {
@@ -86,8 +127,8 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
 
   if (isSystemMsg) {
     return (
-      <div className="flex justify-center my-4 animate-in fade-in duration-300">
-        <span className="px-3.5 py-1.5 rounded-full bg-secondary/40 text-[10px] font-bold text-muted-foreground/80 border border-border/10 uppercase tracking-widest text-center shadow-inner">
+      <div className="flex justify-center my-4 animate-in fade-in duration-300 px-2">
+        <span className="px-3.5 py-1.5 rounded-full bg-secondary/40 text-[10px] font-bold text-muted-foreground/80 border border-border/10 uppercase tracking-widest text-center shadow-inner break-words">
           {message.text}
         </span>
       </div>
@@ -98,13 +139,13 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
     <>
       <div
         className={cn(
-          "flex gap-3 mb-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300",
+          "flex gap-2 sm:gap-3 mb-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300 min-w-0 max-w-full",
           isCurrentUserSender ? "flex-row-reverse" : "flex-row"
         )}
       >
         {/* User profile avatar bubble */}
         <div className="flex-shrink-0 self-end mb-1">
-          <Avatar className="h-8 w-8 border border-border/50 shadow-sm transition-all hover:scale-105">
+          <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border/50 shadow-sm transition-all hover:scale-105">
             <AvatarImage src={senderAvatarUrl} alt={senderName} />
             <AvatarFallback className="text-[10px] font-bold">{senderName?.charAt(0) || "?"}</AvatarFallback>
           </Avatar>
@@ -113,13 +154,13 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
         {/* Core message bubble block */}
         <div
           className={cn(
-            "max-w-[75%] flex flex-col group",
+            "max-w-[88%] sm:max-w-[78%] flex flex-col group min-w-0",
             isCurrentUserSender ? "items-end" : "items-start"
           )}
         >
           {/* Display sender's name for group chats if not current user */}
           {!isCurrentUserSender && message.senderName && (
-            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1 ml-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1 ml-1.5 truncate max-w-full">
               {message.senderName}
             </span>
           )}
@@ -127,12 +168,12 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
           {/* DYNAMIC CONTENT RENDERING BY MESSAGE TYPE */}
           <div
             className={cn(
-              "shadow-sm transition-all duration-200 overflow-hidden relative",
+              "shadow-sm transition-all duration-200 overflow-hidden relative max-w-full break-words [overflow-wrap:anywhere]",
               // Style variables depending on type and sender
               msgType === "text"
-                ? "px-4 pt-2.5 pb-5 pr-14 rounded-2xl"
+                ? "px-3.5 sm:px-4 pt-2.5 pb-5 pr-12 sm:pr-14 rounded-2xl"
                 : msgType === "file"
-                  ? "px-4 py-2.5 rounded-2xl"
+                  ? "px-3.5 sm:px-4 py-2.5 rounded-2xl"
                   : "rounded-2xl",
               
               isCurrentUserSender
@@ -147,8 +188,10 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
             {/* 1. TEXT MESSAGE TYPE */}
             {msgType === "text" && (
               <>
-                <p className="text-sm leading-relaxed font-medium whitespace-pre-wrap pr-1">{message.text}</p>
-                <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1 text-[9px] text-muted-foreground/65 dark:text-emerald-300/60 select-none">
+                <p className="text-xs sm:text-sm leading-relaxed font-medium whitespace-pre-wrap break-words [overflow-wrap:anywhere] pr-1">
+                  <FormattedMessageText text={message.text} />
+                </p>
+                <div className="absolute bottom-1.5 right-2 sm:right-2.5 flex items-center gap-1 text-[9px] text-muted-foreground/65 dark:text-emerald-300/60 select-none">
                   <span>{time}</span>
                   {isCurrentUserSender && (
                     <svg className="h-3.5 w-3.5 text-sky-500 fill-current" viewBox="0 0 24 24">
@@ -161,7 +204,7 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
 
             {/* 2. IMAGE MESSAGE TYPE */}
             {msgType === "image" && message.fileUrl && (
-              <div className="relative group/img cursor-pointer overflow-hidden rounded-2xl border border-border/10 aspect-video max-w-[280px] bg-secondary/15 flex items-center justify-center">
+              <div className="relative group/img cursor-pointer overflow-hidden rounded-2xl border border-border/10 aspect-video max-w-[280px] w-full bg-secondary/15 flex items-center justify-center">
                 <img
                   src={message.fileUrl}
                   alt={message.fileName || "Shared image"}
@@ -180,7 +223,7 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
 
             {/* 3. VIDEO MESSAGE TYPE */}
             {msgType === "video" && message.fileUrl && (
-              <div className="max-w-[280px] rounded-2xl overflow-hidden border border-border/10 bg-black/5 shadow-inner">
+              <div className="max-w-[280px] w-full rounded-2xl overflow-hidden border border-border/10 bg-black/5 shadow-inner">
                 <video
                   src={message.fileUrl}
                   controls
@@ -202,7 +245,7 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
             {msgType === "file" && message.fileUrl && (
               <div 
                 onClick={() => setShowLightbox(true)}
-                className="flex items-center gap-3 w-[260px] p-1 cursor-pointer select-none group/file"
+                className="flex items-center gap-3 max-w-[260px] w-full p-1 cursor-pointer select-none group/file"
               >
                 <div className={`p-2.5 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover/file:scale-105 ${
                   isCurrentUserSender ? "bg-primary-foreground/15 text-primary-foreground" : "bg-primary/10 text-primary"
@@ -282,13 +325,13 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
                 </button>
               </div>
 
-              {/* Dynamic Viewer Body */}
-              <div className="max-w-[95%] max-h-[85%] overflow-hidden rounded-2xl shadow-2xl border border-white/10 flex items-center justify-center">
+              {/* Body Content */}
+              <div className="w-full h-full flex items-center justify-center p-4 sm:p-12 overflow-hidden">
                 {msgType === "image" && (
                   <img
                     src={message.fileUrl}
-                    alt={message.fileName || "Lightbox image"}
-                    className="max-w-full max-h-[75vh] object-contain animate-in zoom-in-95 duration-300"
+                    alt={message.fileName || "Preview"}
+                    className="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200"
                   />
                 )}
 
@@ -297,92 +340,46 @@ export function MessageBubble({ message, isCurrentUserSender, senderAvatarUrl, s
                     src={message.fileUrl}
                     controls
                     autoPlay
-                    className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
+                    className="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
                   />
                 )}
 
-                {msgType === "audio" && (
-                  <div className="bg-slate-900/80 p-8 rounded-3xl flex flex-col items-center justify-center gap-4 w-[360px] border border-white/10 shadow-2xl">
-                    <div className="p-3 bg-red-500/10 rounded-2xl text-red-500 animate-pulse">
-                      <FileText className="h-10 w-10" />
+                {msgType === "file" && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl text-slate-100">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-800 shrink-0">
+                      <FileText className="h-6 w-6 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm truncate">{message.fileName}</p>
+                        <p className="text-[10px] text-slate-400">{formatBytes(message.fileSize)}</p>
+                      </div>
                     </div>
-                    <p className="text-xs font-bold text-white">Voice Note Player</p>
-                    <audio src={message.fileUrl} controls autoPlay className="w-full mt-2" />
-                  </div>
-                )}
 
-                {msgType === "file" && (() => {
-                  if (ext === "pdf") {
-                    return (
-                      <iframe
-                        src={message.fileUrl}
-                        className="w-[85vw] max-w-[1000px] h-[70vh] rounded-2xl border border-white/10 shadow-2xl bg-white"
-                      />
-                    );
-                  }
-
-                  if (isTextFile) {
-                    return (
-                      <div className="w-[85vw] max-w-[800px] h-[65vh] rounded-2xl bg-slate-950 text-slate-100 p-6 font-mono text-xs overflow-auto text-left border border-white/10 shadow-2xl scrollbar-thin">
-                        {loadingText ? (
-                          <div className="flex h-full flex-col items-center justify-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-primary animate-ping" />
-                            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] mt-2">Loading preview content...</span>
+                    <div className="flex-1 overflow-y-auto mt-4 custom-scrollbar rounded-xl bg-slate-950 p-4 border border-slate-800/60 font-mono text-xs leading-relaxed select-text">
+                      {isTextFile ? (
+                        loadingText ? (
+                          <div className="flex items-center justify-center h-40 text-slate-400 gap-2 font-sans text-xs">
+                            <span className="animate-spin text-primary">●</span> Loading file content...
                           </div>
                         ) : (
-                          <pre className="whitespace-pre-wrap leading-relaxed select-text">{previewText || "No content available in document."}</pre>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  if (["docx", "doc", "xlsx", "xls", "pptx", "ppt"].includes(ext)) {
-                    return (
-                      <iframe
-                        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(message.fileUrl || "")}`}
-                        className="w-[85vw] max-w-[1100px] h-[75vh] rounded-2xl border border-white/10 shadow-2xl bg-white"
-                        frameBorder="0"
-                      />
-                    );
-                  }
-
-                  // Default Fallback file card
-                  return (
-                    <div className="bg-slate-900/80 p-8 rounded-3xl flex flex-col items-center justify-center gap-4 w-[380px] border border-white/10 shadow-2xl">
-                      <div className="p-4 bg-primary/10 rounded-2xl text-primary animate-bounce">
-                        <FileText className="h-10 w-10" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-white max-w-[280px] truncate leading-normal">{message.fileName || "Document"}</p>
-                        <p className="text-xs text-white/50 font-bold uppercase tracking-wider mt-1">{formatBytes(message.fileSize)}</p>
-                      </div>
-                      <div className="flex flex-col gap-2.5 w-full mt-4">
-                        <a
-                          href={message.fileUrl}
-                          download={message.fileName || "download"}
-                          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs text-center hover:bg-primary/95 active:scale-98 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                        >
-                          <Download className="h-4 w-4" /> Download File
-                        </a>
-                        <a
-                          href={message.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full py-2.5 rounded-xl bg-white/10 text-white font-bold text-xs text-center hover:bg-white/15 active:scale-98 transition-all flex items-center justify-center gap-2"
-                        >
-                          Open in Browser Tab
-                        </a>
-                      </div>
+                          <pre className="whitespace-pre-wrap">{previewText}</pre>
+                        )
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400 gap-3 font-sans">
+                          <FileText className="h-10 w-10 text-slate-600" />
+                          <p className="text-xs max-w-xs">Direct preview is not available for this binary file format.</p>
+                          <a
+                            href={message.fileUrl}
+                            download={message.fileName || "download"}
+                            className="mt-2 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs flex items-center gap-2 hover:opacity-90 transition-opacity"
+                          >
+                            <Download className="h-4 w-4" /> Download to View
+                          </a>
+                        </div>
+                      )}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
-
-              {message.fileName && (
-                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] mt-4 max-w-[80%] truncate">
-                  {message.fileName}
-                </p>
-              )}
             </div>
           );
         })(),

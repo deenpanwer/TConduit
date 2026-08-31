@@ -163,10 +163,7 @@ export function AIOrgPulse({ employees, selectedDate, orgName }: AIOrgPulseProps
 
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Zap className="text-primary" size={16} />
-          </div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Collective {orgName} Report</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">What {orgName} did today - Summary</h3>
         </div>
       </div>
 

@@ -318,7 +318,7 @@ function TasksPageContent() {
       setLocalTask(null);
       setOriginalTask(null);
     }
-  }, [selectedTaskId, tasks]);
+  }, [selectedTaskId]);
 
   // Ensure current user is always in personnel for history lookup
   const personnel = useMemo(() => {
@@ -1029,10 +1029,15 @@ function TasksPageContent() {
                         {"fade-top": showTopFadeTitle, "fade-bottom": showBottomFadeTitle}
                      )}>
                         <AutoResizingTextarea
-                           autoFocus={selectedTaskId === 'new' || !selectedTask.title}
-                           value={selectedTask.title || ""}
-                           onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { title: e.target.value }, 'updated', true)}
-                           onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                           autoFocus={selectedTaskId === 'new' || !(localTask?.title ?? selectedTask.title)}
+                           value={localTask?.title !== undefined ? localTask.title : (selectedTask.title || "")}
+                           onChange={(e) => setLocalTask(prev => prev ? { ...prev, title: e.target.value } : (selectedTask ? { ...selectedTask, title: e.target.value } : null))}
+                           onBlur={() => {
+                              const currentVal = localTask?.title !== undefined ? localTask.title : selectedTask.title;
+                              if (currentVal !== selectedTask.title) {
+                                 handleUpdateTaskLocal(selectedTaskId!, { title: currentVal }, 'updated');
+                              }
+                           }}
                            className="text-3xl font-bold bg-transparent border-none p-0 shadow-none focus-visible:ring-0 leading-tight mb-6 placeholder:text-muted-foreground/30 min-h-[48px] scrollbar-hide focus:ring-2 focus:ring-primary/50 focus:border-transparent rounded-xl"
                            placeholder="Task Title"
                            setShowTopFade={setShowTopFadeTitle}
@@ -1155,9 +1160,14 @@ function TasksPageContent() {
                             {"fade-top": showTopFadeDescription, "fade-bottom": showBottomFadeDescription}
                         )}>
                            <AutoResizingTextarea
-                              value={selectedTask.description || ""}
-                              onChange={(e) => handleUpdateTaskLocal(selectedTaskId!, { description: e.target.value }, 'updated', true)}
-                              onBlur={() => handleUpdateTaskLocal(selectedTaskId!, {}, 'content_updated')}
+                              value={localTask?.description !== undefined ? localTask.description : (selectedTask.description || "")}
+                              onChange={(e) => setLocalTask(prev => prev ? { ...prev, description: e.target.value } : (selectedTask ? { ...selectedTask, description: e.target.value } : null))}
+                              onBlur={() => {
+                                 const currentVal = localTask?.description !== undefined ? localTask.description : selectedTask.description;
+                                 if (currentVal !== selectedTask.description) {
+                                    handleUpdateTaskLocal(selectedTaskId!, { description: currentVal }, 'content_updated');
+                                 }
+                              }}
                               className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
                               placeholder="Add details about this task..."
                               setShowTopFade={setShowTopFadeDescription}

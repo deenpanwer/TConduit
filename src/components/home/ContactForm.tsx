@@ -67,6 +67,16 @@ export function ContactForm() {
               <p>Trac AI shows you exactly what's moving, what's stuck, and who's responsible — in real time, without micromanaging anyone.</p>
               <p>Your best people get recognized. Problems surface in days, not months. You stop running your company on status updates and gut feel.</p>
             </div>
+            <div className="pt-2">
+              <a 
+                href="https://calendly.com/kaayfkhan/discovery-call"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 font-black text-sm uppercase tracking-widest text-primary hover:opacity-70 transition-opacity"
+              >
+                Or book a direct call on Calendly &rarr;
+              </a>
+            </div>
           </div>
 
           {/* Form Card */}

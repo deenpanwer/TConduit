@@ -48,6 +48,7 @@ import {
     GridCell, 
     SkeletonLoader, 
     PriorityPill, 
+    StagePill,
     HoursCell, 
     CountTicker 
 } from './ListViewPrimitives';
@@ -330,11 +331,36 @@ export const TaskRowDesktop = ({
     onUploadFile?: (event: React.ChangeEvent<HTMLInputElement>, taskId: string) => void,
     autoFocusDescription?: boolean
 }) => {
-    const { groups } = useTasks();
+    const { groups, columns } = useTasks();
     const { user } = useAuth();
     const [isExpanded, setIsExpanded] = useState(autoFocusDescription);
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
     const [activeTypeToFocus, setActiveTypeToFocus] = useState<'nestedDescriptions' | 'images' | 'resources' | 'subtasks' | 'attachments' | 'voiceNotes' | null>(null);
+
+    const handleStageChange = (newStage: string) => {
+        const isDone = newStage === 'done' || (columns || []).find(c => c.id === newStage)?.isDoneColumn;
+        if (isDone && !localTask.flagged) {
+            triggerBigConfetti();
+            const actorName = user?.displayName || user?.email || 'User';
+            onUpdate({ 
+                status: newStage,
+                flagged: true,
+                completedBy: user?.uid,
+                completedByName: actorName,
+                completedAt: new Date().toISOString()
+            });
+        } else if (!isDone && localTask.flagged) {
+            onUpdate({ 
+                status: newStage,
+                flagged: false,
+                completedBy: null,
+                completedByName: null,
+                completedAt: null
+            });
+        } else {
+            onUpdate({ status: newStage });
+        }
+    };
 
     const canEnhance = (localTask.title?.length || 0) > 20 || (localTask.description?.length || 0) > 20;
 
@@ -408,8 +434,8 @@ export const TaskRowDesktop = ({
 
     return (
         <div className='flex flex-col'>
-            <div className='flex h-10 border-b border-border/60 group hover:bg-secondary/[0.02] transition-colors'>
-                <div className={cn('sticky left-0 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60', localTask.flagged ? 'bg-green-500/10' : 'bg-background')}>
+            <div className='flex min-h-[44px] h-auto border-b border-border/60 group hover:bg-secondary/[0.02] transition-colors items-stretch'>
+                <div className={cn('sticky left-0 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60 self-stretch', localTask.flagged ? 'bg-green-500/10' : 'bg-background')}>
                     <div className='cursor-pointer' onClick={() => {
                         const newFlagged = !localTask.flagged;
                         if (newFlagged) {
@@ -435,7 +461,7 @@ export const TaskRowDesktop = ({
                     </div>
                 </div>
 
-                <div className='sticky left-10 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60 bg-background'>
+                <div className='sticky left-10 z-10 w-10 shrink-0 flex items-center justify-center border-r border-border/60 bg-background self-stretch'>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button 
@@ -462,11 +488,11 @@ export const TaskRowDesktop = ({
                     </Tooltip>
                 </div>
 
-                <div className='sticky left-20 z-10 flex flex-[1.5] min-w-[250px] border-r border-border/60 bg-background'>
-                    <div className="flex-grow h-full min-w-0 flex flex-col justify-center pt-1">
-                        <GridCell isEditable value={localTask.title} onChange={(v) => onUpdate({ title: v })} className={cn('font-bold pr-0 h-auto', localTask.flagged && 'line-through text-muted-foreground decoration-border')} placeholder='Task Title' />
+                <div className='sticky left-20 z-10 flex flex-[1.5] min-w-[250px] border-r border-border/60 bg-background self-stretch'>
+                    <div className="flex-grow min-w-0 flex flex-col justify-center py-2 px-1">
+                        <GridCell isEditable multiline value={localTask.title} onChange={(v) => onUpdate({ title: v })} className={cn('font-bold pr-0 h-auto break-words whitespace-normal leading-snug', localTask.flagged && 'line-through text-muted-foreground decoration-border')} placeholder='Task Title' />
                         {localTask.flagged ? (
-                            <div className="px-3 -mt-1 pb-1 flex items-center gap-1 text-[9px] font-semibold text-green-600">
+                            <div className="px-3 mt-1 pb-1 flex items-center gap-1 text-[9px] font-semibold text-green-600">
                                 <Check size={10} className="text-green-600 shrink-0" />
                                 <span className="truncate">
                                     Completed by <strong>{localTask.completedByName || personnel.find(p => p.id === localTask.completedBy)?.name || personnel.find(p => (localTask.assignees || []).includes(p.id))?.name || 'Team member'}</strong>
@@ -482,7 +508,7 @@ export const TaskRowDesktop = ({
                                 if (isNaN(date.getTime())) return null;
 
                                 return (
-                                    <div className="px-3 -mt-1.5 pb-1 opacity-30">
+                                    <div className="px-3 mt-1 pb-1 opacity-30">
                                         <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground">
                                             Created {format(date, "MMM d, h:mm a")}
                                         </span>
@@ -493,18 +519,18 @@ export const TaskRowDesktop = ({
                             }
                         })()}
                     </div>
-                    <div className='w-12 flex-shrink-0 h-full flex items-center justify-center border-l border-transparent group-hover:border-border/40 transition-colors'>
+                    <div className='w-12 flex-shrink-0 self-stretch flex items-center justify-center border-l border-transparent group-hover:border-border/40 transition-colors'>
                         <button onClick={() => canEnhance && handleEnhanceTask(task.id)} disabled={!canEnhance} className='p-1 rounded-md transition-colors disabled:text-muted-foreground/20 disabled:cursor-not-allowed text-primary/70 hover:text-primary enabled:hover:bg-primary/10' title={canEnhance ? 'Enhance with AI' : 'Write a longer title or description to enable AI'} >
                             <Sparkles size={18} className={cn(isEnhancing && "animate-pulse")} />
                         </button>
                     </div>
                 </div>
 
-                <div className='flex-[2] min-w-[400px] border-r border-border/60 relative group-hover:bg-secondary/[0.05] transition-colors'>
-                    {isEnhancing ? <SkeletonLoader/> : <GridCell isEditable multiline value={localTask.description} onChange={(v) => onUpdate({ description: v })} className='text-xs text-muted-foreground font-medium leading-relaxed' placeholder='Add brief description...' />}
+                <div className='flex-[2] min-w-[400px] border-r border-border/60 relative group-hover:bg-secondary/[0.05] transition-colors self-stretch flex items-center min-h-[44px]'>
+                    {isEnhancing ? <SkeletonLoader/> : <GridCell isEditable multiline value={localTask.description} onChange={(v) => onUpdate({ description: v })} className='text-xs text-muted-foreground font-medium leading-relaxed w-full h-full py-2' placeholder='Add brief description...' />}
                 </div>
 
-                <div className='w-32 shrink-0 border-r border-border/60 flex items-center px-3'>
+                <div className='w-32 shrink-0 border-r border-border/60 flex items-center px-3 self-stretch'>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <div className='flex -space-x-1.5 cursor-pointer hover:bg-secondary/10 p-1 rounded-md transition-all'>
@@ -542,10 +568,10 @@ export const TaskRowDesktop = ({
                     </DropdownMenu>
                 </div>
                 
-                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <GridCell isEditable type='number' value={localTask.leaderPoints || 0} onChange={(v) => onUpdate({ leaderPoints: Math.max(0, v) })} className='text-center font-mono font-bold text-blue-600' min={0} step={10}/>}</div>
-                <div className='w-24 shrink-0 border-r border-border/60'>{isEnhancing ? <SkeletonLoader/> : <HoursCell value={localTask.deadlineHours || 0} onChange={(v) => onUpdate({ deadlineHours: v })} disabled={isEnhancing} />}</div>
+                <div className='w-24 shrink-0 border-r border-border/60 self-stretch flex items-center justify-center'>{isEnhancing ? <SkeletonLoader/> : <GridCell isEditable type='number' value={localTask.leaderPoints || 0} onChange={(v) => onUpdate({ leaderPoints: Math.max(0, v) })} className='text-center font-mono font-bold text-blue-600 h-full flex items-center justify-center' min={0} step={10}/>}</div>
+                <div className='w-24 shrink-0 border-r border-border/60 self-stretch flex items-center justify-center'>{isEnhancing ? <SkeletonLoader/> : <HoursCell value={localTask.deadlineHours || 0} onChange={(v) => onUpdate({ deadlineHours: v })} disabled={isEnhancing} />}</div>
                 
-                <div className='w-32 shrink-0 border-r border-border/60'>
+                <div className='w-32 shrink-0 border-r border-border/60 self-stretch flex items-center justify-center'>
                      <Popover>
                         <PopoverTrigger asChild>
                             <div className='h-full w-full flex items-center justify-center text-[10px] font-bold uppercase cursor-pointer hover:bg-secondary/10 transition-colors'>
@@ -556,7 +582,15 @@ export const TaskRowDesktop = ({
                     </Popover>
                 </div>
 
-                <div className='w-32 shrink-0 border-r border-border/60'>
+                <div className='w-28 shrink-0 border-r border-border/60 self-stretch flex items-center justify-center'>
+                    {isEnhancing ? (
+                        <div className="h-full w-full flex items-center justify-center p-2">
+                            <div className="w-full h-full bg-secondary/50 rounded-md animate-pulse" />
+                        </div>
+                    ) : <StagePill status={localTask.status || 'todo'} columns={columns} onChange={handleStageChange} />}
+                </div>
+
+                <div className='w-28 shrink-0 border-r border-border/60 self-stretch flex items-center justify-center'>
                     {isEnhancing ? (
                         <div className="h-full w-full flex items-center justify-center p-2">
                             <div className="w-full h-full bg-secondary/50 rounded-md animate-pulse" />
@@ -564,7 +598,7 @@ export const TaskRowDesktop = ({
                     ) : <PriorityPill priority={localTask.priority} onChange={(p) => onUpdate({ priority: p })} />}
                 </div>
 
-                <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center'>
+                <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center self-stretch'>
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button className={cn('p-1.5 rounded-md hover:bg-secondary/20 transition-all relative', (localTask.comments || []).length > 0 && 'text-primary')}>
@@ -580,7 +614,7 @@ export const TaskRowDesktop = ({
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-                <div className='w-10 shrink-0 flex items-center justify-center'>
+                <div className='w-10 shrink-0 flex items-center justify-center self-stretch'>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><button className='p-1 rounded-md hover:bg-secondary/20'><MoreHorizontal size={16} /></button></DropdownMenuTrigger>
                         <DropdownMenuContent align='end' className='w-56' onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -780,6 +814,8 @@ export const TaskRowMobile = ({
     personnel: any[],
     isDraggable?: boolean,
 }) => {
+    const { columns } = useTasks();
+    const { user } = useAuth();
     const [expandedBranches, setExpandedBranches] = useState({ 
         subtasks: false, 
         resources: false,
@@ -792,6 +828,31 @@ export const TaskRowMobile = ({
     const [itemToAutoEdit, setItemToAutoEdit] = useState<string | null>(null);
     
     const dragControls = useDragControls();
+
+    const handleStageChange = (newStage: string) => {
+        const isDone = newStage === 'done' || (columns || []).find(c => c.id === newStage)?.isDoneColumn;
+        if (isDone && !localTask.flagged) {
+            triggerBigConfetti();
+            const actorName = user?.displayName || user?.email || 'User';
+            onUpdate({ 
+                status: newStage,
+                flagged: true,
+                completedBy: user?.uid,
+                completedByName: actorName,
+                completedAt: new Date().toISOString()
+            });
+        } else if (!isDone && localTask.flagged) {
+            onUpdate({ 
+                status: newStage,
+                flagged: false,
+                completedBy: null,
+                completedByName: null,
+                completedAt: null
+            });
+        } else {
+            onUpdate({ status: newStage });
+        }
+    };
 
     const isAnyBranchExpanded = useMemo(() => {
         return Object.values(expandedBranches).some(v => v) || !!activeTypeToFocus;
@@ -915,6 +976,20 @@ export const TaskRowMobile = ({
                         <DropdownMenuItem onClick={() => onDelete(task.id)} className="gap-2 text-destructive"><Trash2 size={14} /> Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-4 pb-2.5 -mt-1 flex-wrap">
+                <div className="h-6 w-24 rounded overflow-hidden">
+                    <StagePill status={localTask.status || 'todo'} columns={columns} onChange={handleStageChange} />
+                </div>
+                <div className="h-6 w-20 rounded overflow-hidden">
+                    <PriorityPill priority={localTask.priority} onChange={(p) => onUpdate({ priority: p })} />
+                </div>
+                {localTask.dueDate && (
+                    <span className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-tight ml-auto">
+                        {format(new Date(localTask.dueDate), 'MMM d')}
+                    </span>
+                )}
             </div>
 
             <AnimatePresence>

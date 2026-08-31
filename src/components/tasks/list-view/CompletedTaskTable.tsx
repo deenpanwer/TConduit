@@ -92,7 +92,8 @@ export const CompletedTaskTable = ({
                                     <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Points</div>
                                     <div className="w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Hours</div>
                                     <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Timeline</div>
-                                    <div className="w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Priority</div>
+                                    <div className="w-28 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Stage</div>
+                                    <div className="w-28 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card">Priority</div>
                                     <div className="w-16 shrink-0 border-r border-border/60 bg-card" />
                                     <div className="w-10 shrink-0 bg-card" />
                                 </div>

@@ -46,6 +46,7 @@ const COMPANY_LINKS = [
   { name: 'Features', href: '/features' },
   { name: 'Contact Us', href: '/contact' },
   { name: 'Partner Program', href: '/partner' },
+  { name: 'Book a Call', href: 'https://calendly.com/kaayfkhan/discovery-call' },
 ];
 
 const COMPARE_LINKS = [
@@ -143,18 +144,22 @@ export function Footer() {
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-zinc-500 dark:text-zinc-400">Company</h3>
               <div className="flex flex-col gap-4">
                 {COMPANY_LINKS.map((link) => (
-                  <Link 
-                    key={link.name} 
-                    href={link.href}
-                    className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
-                      link.name === 'Contact Us' 
-                        ? 'text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300' 
-                        : 'text-zinc-700 dark:text-zinc-300 hover:text-primary'
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
+                   <Link 
+                     key={link.name} 
+                     href={link.href}
+                     target={link.href.startsWith('http') ? '_blank' : undefined}
+                     rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                     className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
+                       link.name === 'Contact Us' 
+                         ? 'text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300' 
+                         : link.name === 'Book a Call'
+                           ? 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+                           : 'text-zinc-700 dark:text-zinc-300 hover:text-primary'
+                     }`}
+                   >
+                     {link.name}
+                   </Link>
+                 ))}
               </div>
             </div>
 

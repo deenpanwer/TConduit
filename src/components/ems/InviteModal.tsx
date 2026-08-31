@@ -106,7 +106,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
             >
               Invite Employee
             </button>
-            <button
+            {/* <button
               onClick={() => setActiveTab("manager")}
               className={cn(
                 "flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300",
@@ -114,7 +114,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
               )}
             >
               Invite Manager
-            </button>
+            </button> */}
             <button
               onClick={() => setActiveTab("manual")}
               className={cn(
@@ -179,7 +179,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
             </div>
           )}
 
-          {activeTab === "manager" && (
+          {/* {activeTab === "manager" && (
             <div className="space-y-8 animate-in fade-in-50 duration-300">
               <div className="relative bg-secondary/20 rounded-[2.5rem] border border-border/50 p-8 sm:p-10 flex flex-col items-center text-center">
                 <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
@@ -204,7 +204,7 @@ export function InviteModal({ isOpen, onOpenChange }: InviteModalProps) {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {activeTab === "manual" && (
             <div className="space-y-8 animate-in fade-in-50 duration-300">

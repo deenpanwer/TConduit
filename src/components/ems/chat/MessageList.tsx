@@ -86,8 +86,8 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea ref={scrollAreaRef} className="flex-1 px-6 py-4 custom-scrollbar bg-transparent">
-      <div className="flex flex-col gap-2">
+    <ScrollArea ref={scrollAreaRef} className="flex-1 px-2.5 sm:px-4 md:px-6 py-4 custom-scrollbar bg-transparent overflow-x-hidden">
+      <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden">
         
         {/* PAGINATION TRIGGER BUTTON */}
         {hasMore && onLoadMore && (

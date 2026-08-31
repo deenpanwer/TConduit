@@ -26,7 +26,7 @@ export async function seedSamplePolicies(orgId: string) {
 export async function seedSamplePacket(orgId: string) {
   if (!orgId) throw new Error("Organization ID is not available.");
   
-  const enterprisePacketDocs = REPUTABLE_POLICY_TEMPLATES.slice(0, 3).map((tpl, i) => ({
+  const enterprisePacketDocs = REPUTABLE_POLICY_TEMPLATES.slice(0, 3).map((tpl: any, i: number) => ({
     id: `doc-${i + 1}`,
     title: tpl.title,
     fileName: tpl.fileName,

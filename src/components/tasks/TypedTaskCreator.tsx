@@ -28,6 +28,7 @@ import {
   ListTodo,
   MessageSquare,
   Upload,
+  ExternalLink,
 } from "lucide-react";
 import {
   getStorage,
@@ -1048,22 +1049,54 @@ export function TypedTaskCreator({
                 {isEnhancing ? (
                   <Skeleton className="h-32 w-full rounded-xl" />
                 ) : (
-                  <AutoResizingTextarea
-                    value={editingNewTask?.description || ""}
-                    onChange={(e) =>
-                      onUpdateTask(
-                        "new",
-                        { description: e.target.value },
-                        "updated",
-                        true,
-                      )
-                    }
-                    className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
-                    placeholder="Add details about this task..."
-                    setShowTopFade={setShowTopFadeDescription}
-                    setShowBottomFade={setShowBottomFadeDescription}
-                    maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
-                  />
+                  <>
+                    <AutoResizingTextarea
+                      value={editingNewTask?.description || ""}
+                      onChange={(e) =>
+                        onUpdateTask(
+                          "new",
+                          { description: e.target.value },
+                          "updated",
+                          true,
+                        )
+                      }
+                      className="min-h-[120px] text-sm bg-secondary/20 border-transparent focus:bg-background focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none rounded-xl leading-relaxed scrollbar-hide p-2"
+                      placeholder="Add details about this task..."
+                      setShowTopFade={setShowTopFadeDescription}
+                      setShowBottomFade={setShowBottomFadeDescription}
+                      maxHeight={MAX_TEXTAREA_HEIGHT_DESCRIPTION}
+                    />
+                    {editingNewTask?.description && (() => {
+                      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+                      const matches = editingNewTask.description.match(urlRegex) || [];
+                      const uniqueUrls = Array.from(new Set(matches.map(u => u.replace(/[.,)\]]+$/, ''))));
+                      if (uniqueUrls.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 p-2 rounded-xl bg-background/80 border border-border/50 animate-in fade-in duration-200">
+                          <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1 mr-1">
+                            <LinkIcon size={11} className="text-primary" /> Links:
+                          </span>
+                          {uniqueUrls.map((url, i) => {
+                            const cleanHref = url.startsWith("www.") ? `https://${url}` : url;
+                            return (
+                              <a
+                                key={i}
+                                href={cleanHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 hover:underline max-w-[280px] truncate transition-colors shadow-xs"
+                                title={url}
+                              >
+                                <ExternalLink size={10} className="shrink-0 opacity-80" />
+                                <span className="truncate">{url.replace(/^https?:\/\//i, "")}</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>

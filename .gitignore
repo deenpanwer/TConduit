@@ -12,8 +12,7 @@
 !.yarn/releases
 !.yarn/versions
 /.idx
-/docs
-docs
+/docs/
 .idx
 /.idx
 node_modules
@@ -85,4 +84,4 @@ scripts/generate-appsumo-codes.mjs
 # Supabase Local SQL Scripts
 supabase-setup.sql
 supabase-delivery-upgrade.sql
-*.sql
+*.sql

@@ -116,7 +116,8 @@ export const TaskTableBlock = ({
                     <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Points</div>
                     <div className='w-24 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Est. Hrs</div>
                     <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Timeline</div>
-                    <div className='w-32 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Priority</div>
+                    <div className='w-28 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Stage</div>
+                    <div className='w-28 shrink-0 border-r border-border/60 px-4 flex items-center justify-center bg-card'>Priority</div>
                     <div className='w-16 shrink-0 border-r border-border/60 flex items-center justify-center bg-card'><MessageSquare size={12} /></div>
                     <div className='w-10 shrink-0 bg-card' />
                 </div>

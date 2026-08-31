@@ -366,12 +366,11 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
   const userRole = userData?.role?.toLowerCase();
   const canManageTasks = overrideOrgId ? false : (!!(userData?.ownedOrgId) || userRole === 'owner' || userRole === 'manager' || userRole === 'founder' || userRole === 'hr' || userRole === 'ops');
 
-  // Load drafts and pending updates from localStorage
+  // Load drafts from localStorage and clear any stale pending sync keys
   useEffect(() => {
-    const savedPending = localStorage.getItem(SYNC_STORAGE_KEY);
-    if (savedPending) {
-        try { setPendingUpdates(JSON.parse(savedPending)); } catch (e) {}
-    }
+    try {
+      localStorage.removeItem(SYNC_STORAGE_KEY);
+    } catch (e) {}
     const savedDrafts = localStorage.getItem(DRAFTS_STORAGE_KEY);
     if (savedDrafts) {
         try { setDrafts(JSON.parse(savedDrafts)); } catch (e) {}
@@ -587,42 +586,39 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
     if (!orgId || !user || Object.keys(updatesToFlush).length === 0) return;
 
     setIsSyncing(true);
-    const batch = writeBatch(db);
     const now = serverTimestamp();
 
-    for (const [taskId, updates] of Object.entries(updatesToFlush)) {
-        const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
-        
-        // We need to handle history and other logic for each task
-        // For simplicity in the batch, we just update the fields and updatedAt.
-        // Complex logic (like points) might need more care if we want it perfect in bulk.
-        
-        const finalUpdates = Object.entries(updates).reduce((acc: any, [key, value]) => {
+    await Promise.allSettled(
+      Object.entries(updatesToFlush).map(async ([taskId, updates]) => {
+        try {
+          const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
+          const finalUpdates = Object.entries(updates).reduce((acc: any, [key, value]) => {
             if (value !== undefined) acc[key] = value;
             return acc;
-        }, {} as any);
+          }, {} as any);
 
-        batch.update(taskDocRef, {
+          await updateDoc(taskDocRef, {
             ...finalUpdates,
             updatedAt: now
-        });
-    }
+          });
 
-    try {
-        await batch.commit();
-        // Remove successfully flushed updates from pending
-        setPendingUpdates(prev => {
+          setPendingUpdates(prev => {
             const next = { ...prev };
-            for (const taskId in updatesToFlush) {
-                delete next[taskId];
-            }
+            delete next[taskId];
             return next;
-        });
-    } catch (error) {
-        console.error("Error flushing task updates:", error);
-    } finally {
-        setIsSyncing(false);
-    }
+          });
+        } catch (err) {
+          console.error(`Error updating task ${taskId}:`, err);
+          setPendingUpdates(prev => {
+            const next = { ...prev };
+            delete next[taskId];
+            return next;
+          });
+        }
+      })
+    );
+
+    setIsSyncing(false);
   }, [orgId, user]);
 
   // Debounced Syncing
@@ -960,14 +956,24 @@ export function TasksProvider({ children, overrideOrgId }: { children: ReactNode
 
       const finalUpdates = deepClean(cleanUpdates);
 
-      // Optimistic Update: Push to pendingUpdates
-      setPendingUpdates(prev => ({
-        ...prev,
-        [taskId]: { ...(prev[taskId] || {}), ...finalUpdates }
-      }));
+      // 1. Optimistically update local reducer state immediately so it never reverts or flashes
+      dispatch({
+        type: "ADD_OR_UPDATE_TASK",
+        task: { ...currentTask, ...finalUpdates }
+      });
 
-      // NOTE: History is omitted for minor "word-by-word" updates to avoid polluting the DB.
-      // We only log history in flushUpdates if we want, or keep it simple.
+      // 2. Directly write to Firestore
+      try {
+        const taskDocRef = doc(db, "organizations", orgId, "tasks", taskId);
+        await updateDoc(taskDocRef, {
+          ...finalUpdates,
+          lastModifiedBy: user.uid,
+          updatedAt: serverTimestamp()
+        });
+      } catch (error: any) {
+        console.error("Error updating task in Firestore:", error);
+        toast.error(`Update failed: ${error?.message || "Permission or network error"}`);
+      }
     },
     [orgId, user, tasks, deletedTasks, awardPointsToUser]
   );

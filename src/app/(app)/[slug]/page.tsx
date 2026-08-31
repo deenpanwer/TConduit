@@ -23,8 +23,20 @@ export default function PartnerLandingPage() {
           const q = query(collection(db, "partners"), where("slug", "==", slugStr), limit(1));
           const snap = await getDocs(q);
   
+          const KNOWN_ROUTES = ['tools', 'docs', 'pricing', 'features', 'apps', 'about', 'contact', 'legal', 'partner'];
+          if (KNOWN_ROUTES.includes(slugStr.toLowerCase())) {
+            router.replace(`/${slugStr}`);
+            return;
+          }
+
           if (snap.empty) {
-            router.replace("/ems/signup");
+            // If logged in, redirect to EMS dashboard, otherwise signup
+            const { auth } = await import("@/lib/firebase");
+            if (auth.currentUser) {
+              router.replace("/ems");
+            } else {
+              router.replace("/ems/signup");
+            }
             return;
           }
   

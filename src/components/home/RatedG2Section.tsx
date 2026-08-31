@@ -2,45 +2,67 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const BADGES_COL_1 = [
-  { title: "AI Products", label: "Leader 2026", color: "from-[#ff4b2b] to-[#ff416c]" },
-  { title: "Best Software", label: "Top 50", color: "from-blue-600 to-indigo-600" },
-  { title: "Project Management", label: "Leader 2026", color: "from-[#ff4b2b] to-[#ff416c]" },
-  { title: "Agentic AI Tools", label: "High Performer", color: "from-emerald-500 to-teal-500" },
-  { title: "Time Tracking", label: "Leader", color: "from-[#ff4b2b] to-[#ff416c]" },
+const ROW_1_IMAGES = [
+  "/g2/g2-best-software-2026-agentic-ai-products.webp",
+  "/g2/g2-best-software-2026-ai-products.webp",
+  "/g2/g2-best-software-2026-content-management-systems.webp",
+  "/g2/g2-best-software-2026-development-products.webp",
+  "/g2/g2-best-software-2026-global-software-companies.webp",
+  "/g2/g2-best-software-2026-hr-software-products.webp",
 ];
 
-const BADGES_COL_2 = [
-  { title: "HR Software", label: "Leader 2026", color: "from-purple-600 to-pink-600" },
-  { title: "Global ERP", label: "Momentum Leader", color: "from-amber-500 to-orange-500" },
-  { title: "CRM Platforms", label: "Leader", color: "from-[#ff4b2b] to-[#ff416c]" },
-  { title: "Development Products", label: "High Performer", color: "from-blue-500 to-cyan-500" },
-  { title: "Operations Suite", label: "Leader 2026", color: "from-[#ff4b2b] to-[#ff416c]" },
+const ROW_2_IMAGES = [
+  "/g2/g2-best-software-2026-it-management-products.webp",
+  "/g2/g2-best-software-2026-project-management-products.webp",
+  "/g2/g2-best-software-2026-software.webp",
+  "/g2/g2-winter-2026-high-performer-enterprise.webp",
+  "/g2/g2-winter-2026-leader.webp",
+  "/g2/g2-winter-2026-momentum-leader.webp",
 ];
+
+const ROW_3_IMAGES = [
+  "/g2/g2-best-software-2026-content-management-systems.webp",
+  "/g2/g2-best-software-2026-development-products.webp",
+  "/g2/g2-best-software-2026-global-software-companies.webp",
+  "/g2/g2-best-software-2026-hr-software-products.webp",
+  "/g2/g2-best-software-2026-agentic-ai-products.webp",
+  "/g2/g2-best-software-2026-ai-products.webp",
+];
+
+const ROW_4_IMAGES = [
+  "/g2/g2-winter-2026-leader.webp",
+  "/g2/g2-winter-2026-momentum-leader.webp",
+  "/g2/g2-best-software-2026-it-management-products.webp",
+  "/g2/g2-best-software-2026-project-management-products.webp",
+  "/g2/g2-best-software-2026-software.webp",
+  "/g2/g2-winter-2026-high-performer-enterprise.webp",
+];
+
 
 export function RatedG2Section() {
   return (
     <section className="py-24 bg-white dark:bg-[#050505] text-zinc-900 dark:text-zinc-100 overflow-hidden relative border-t border-zinc-100 dark:border-zinc-800/80">
       {/* Dynamic encapsulated marquee styles */}
       <style>{`
-        @keyframes marquee-up {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-50%); }
+        @keyframes marquee-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
-        @keyframes marquee-down {
-          0% { transform: translateY(-50%); }
-          100% { transform: translateY(0); }
+        @keyframes marquee-right {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
         }
-        .animate-marquee-up {
-          animation: marquee-up 25s linear infinite;
+        .animate-marquee-left {
+          animation: marquee-left 40s linear infinite;
         }
-        .animate-marquee-down {
-          animation: marquee-down 25s linear infinite;
+        .animate-marquee-right {
+          animation: marquee-right 40s linear infinite;
         }
-        .animate-marquee-up:hover, .animate-marquee-down:hover {
+        .animate-marquee-left:hover, .animate-marquee-right:hover {
           animation-play-state: paused;
         }
       `}</style>
@@ -50,85 +72,87 @@ export function RatedG2Section() {
           
           {/* Left Column: Indigo text and clean modern CTA */}
           <div className="lg:col-span-5 space-y-6 text-left">
-            <div className="flex items-center gap-1.5 text-indigo-600 font-black uppercase tracking-widest text-[11px]">
-              <Star size={12} className="fill-indigo-600 stroke-none" />
-              RATED 4.9/5 FROM 500+ G2 REVIEWS
+            <div className="text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-widest text-[11px]">
+              RATED 4.7/5 BY 10,000+ USERS ON G2
             </div>
-            <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tight leading-none uppercase">
+            <h2 className="text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
               #1 most referenced company on G2 reports
             </h2>
-            <p className="text-base font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide leading-relaxed">
-              Founders, remote teams, and managers rate TRAC AI at the top of G2 reports for workflow consolidation, time logs, and AI efficiency.
-            </p>
             <div className="pt-2">
               <Link href="/reviews">
-                <Button className="h-12 px-6 rounded-xl bg-black hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black font-extrabold uppercase tracking-widest text-xs transition-colors shadow-sm">
+                <Button className="h-12 px-8 rounded-xl bg-black hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black font-semibold text-sm transition-colors shadow-sm">
                   Read customer stories
                 </Button>
               </Link>
             </div>
           </div>
 
-          {/* Right Column: Dynamic vertical marquee of CSS-rendered G2 badges */}
-          <div className="lg:col-span-7 h-[450px] relative overflow-hidden grid grid-cols-2 gap-6 bg-gradient-to-r from-zinc-50/20 to-zinc-50/80 dark:from-zinc-900/10 dark:to-zinc-900/40 p-4 rounded-3xl border border-zinc-100/50 dark:border-zinc-800/50">
-            {/* Overlay mask gradients for smooth fade out at top/bottom */}
-            <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-white to-transparent dark:from-[#050505] z-20 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-white to-transparent dark:from-[#050505] z-20 pointer-events-none" />
+          {/* Right Column: Horizontal marquees of G2 badges */}
+          <div className="lg:col-span-7 h-[480px] relative overflow-hidden flex flex-col justify-center gap-4 py-2">
+            {/* Overlay mask gradients for smooth fade out at all sides */}
+            <div className="absolute inset-0 pointer-events-none z-20">
+              {/* Left fade */}
+              <div className="absolute top-0 left-0 bottom-0 w-24 bg-gradient-to-r from-white via-white/80 to-transparent dark:from-[#050505] dark:via-[#050505]/80" />
+              {/* Right fade */}
+              <div className="absolute top-0 right-0 bottom-0 w-24 bg-gradient-to-l from-white via-white/80 to-transparent dark:from-[#050505] dark:via-[#050505]/80" />
+              {/* Top fade */}
+              <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-white to-transparent dark:from-[#050505]" />
+              {/* Bottom fade */}
+              <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent dark:from-[#050505]" />
+            </div>
 
-            {/* Column 1: Scrolls UP */}
-            <div className="flex flex-col gap-6 h-full relative overflow-hidden">
-              <div className="flex flex-col gap-6 animate-marquee-up py-4">
-                {[...BADGES_COL_1, ...BADGES_COL_1].map((badge, idx) => (
-                  <div 
-                    key={idx} 
-                    className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
-                  >
-                    {/* Top Ribbon */}
-                    <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${badge.color}`} />
-                    
-                    {/* SVG G2-like Logo */}
-                    <div className="size-10 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
-                      <svg viewBox="0 0 24 24" className="size-5 fill-[#ff4b2b]" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
-                      </svg>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-500 block">{badge.label}</span>
-                      <h4 className="text-sm font-black uppercase text-zinc-800 dark:text-zinc-100 tracking-tight leading-snug">{badge.title}</h4>
-                    </div>
-                    
-                    <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-2 block">WINTER 2026</span>
-                  </div>
+            {/* Row 1: Scrolls Left */}
+            <div className="w-full overflow-hidden flex items-center">
+              <div className="flex w-max gap-2 animate-marquee-left">
+                {[...ROW_1_IMAGES, ...ROW_1_IMAGES].map((imgSrc, idx) => (
+                  <img 
+                    key={`row1-${idx}`} 
+                    src={imgSrc} 
+                    alt="G2 Badge"
+                    className="h-24 w-auto object-contain flex-shrink-0 select-none pointer-events-none mx-4"
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Column 2: Scrolls DOWN */}
-            <div className="flex flex-col gap-6 h-full relative overflow-hidden">
-              <div className="flex flex-col gap-6 animate-marquee-down py-4">
-                {[...BADGES_COL_2, ...BADGES_COL_2].map((badge, idx) => (
-                  <div 
-                    key={idx} 
-                    className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between items-center text-center w-full min-h-[160px] relative overflow-hidden group"
-                  >
-                    {/* Top Ribbon */}
-                    <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${badge.color}`} />
-                    
-                    {/* SVG G2-like Logo */}
-                    <div className="size-10 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform duration-300">
-                      <svg viewBox="0 0 24 24" className="size-5 fill-[#ff4b2b]" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
-                      </svg>
-                    </div>
+            {/* Row 2: Scrolls Right */}
+            <div className="w-full overflow-hidden flex items-center">
+              <div className="flex w-max gap-2 animate-marquee-right">
+                {[...ROW_2_IMAGES, ...ROW_2_IMAGES].map((imgSrc, idx) => (
+                  <img 
+                    key={`row2-${idx}`} 
+                    src={imgSrc} 
+                    alt="G2 Badge"
+                    className="h-24 w-auto object-contain flex-shrink-0 select-none pointer-events-none mx-4"
+                  />
+                ))}
+              </div>
+            </div>
 
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-500 block">{badge.label}</span>
-                      <h4 className="text-sm font-black uppercase text-zinc-800 dark:text-zinc-100 tracking-tight leading-snug">{badge.title}</h4>
-                    </div>
-                    
-                    <span className="text-[8px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mt-2 block">WINTER 2026</span>
-                  </div>
+            {/* Row 3: Scrolls Left */}
+            <div className="w-full overflow-hidden flex items-center">
+              <div className="flex w-max gap-2 animate-marquee-left">
+                {[...ROW_3_IMAGES, ...ROW_3_IMAGES].map((imgSrc, idx) => (
+                  <img 
+                    key={`row3-${idx}`} 
+                    src={imgSrc} 
+                    alt="G2 Badge"
+                    className="h-24 w-auto object-contain flex-shrink-0 select-none pointer-events-none mx-4"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Row 4: Scrolls Right */}
+            <div className="w-full overflow-hidden flex items-center">
+              <div className="flex w-max gap-2 animate-marquee-right">
+                {[...ROW_4_IMAGES, ...ROW_4_IMAGES].map((imgSrc, idx) => (
+                  <img 
+                    key={`row4-${idx}`} 
+                    src={imgSrc} 
+                    alt="G2 Badge"
+                    className="h-24 w-auto object-contain flex-shrink-0 select-none pointer-events-none mx-4"
+                  />
                 ))}
               </div>
             </div>

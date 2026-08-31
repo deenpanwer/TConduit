@@ -156,11 +156,6 @@ export default function ReviewsPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#7B61FF]/10 rounded-full blur-[120px] -z-10 opacity-60 dark:opacity-30" />
         
         <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7B61FF]/5 border border-[#7B61FF]/20 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-            <ShieldCheck size={14} className="text-[#7B61FF]" />
-            <span className="text-xs font-black uppercase tracking-widest text-[#7B61FF]">100% Verified Customer Stories</span>
-          </div>
-
           <h1 className="text-5xl md:text-8xl font-black leading-[0.9] tracking-tighter mb-8 uppercase italic animate-in fade-in slide-in-from-top-4 duration-700">
             Loved by Founders. <br />
             <span className="text-[#7B61FF] underline underline-offset-8 decoration-[#7B61FF]/20">Built for scale.</span>

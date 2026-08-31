@@ -51,18 +51,30 @@ export default function LandingPage() {
 
   const reviewSchema = {
     "@context": "https://schema.org",
-    "@type": "Product",
-    "name": "TRAC AI Business Operating System",
+    "@type": "SoftwareApplication",
+    "name": "TRAC AI",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Windows, macOS, Web, Linux, iOS, Android",
+    "url": "https://www.heytracai.com",
     "image": "https://www.heytracai.com/trac-ai-logo.png",
-    "description": "The first truly integrated business operating system. Designed for professionals, powered by AI, combining CRM, POS, ATS, chats, shifts, time tracking, and accounting.",
+    "description": "TRAC AI is the unified business operating system combining CRM, POS, ATS, team chats, shifts, employee time tracking, and accounting in one platform.",
     "brand": {
       "@type": "Brand",
-      "name": "TRAC AI"
+      "name": "TRAC AI",
+      "logo": "https://www.heytracai.com/trac-ai-logo.png"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "priceValidUntil": "2028-12-31"
     },
     "aggregateRating": {
       "@type": "AggregateRating",
       "ratingValue": "4.9",
-      "ratingCount": "500",
+      "reviewCount": "128",
+      "ratingCount": "128",
       "bestRating": "5",
       "worstRating": "1"
     },
@@ -71,10 +83,10 @@ export default function LandingPage() {
         "@type": "Review",
         "author": {
           "@type": "Person",
-          "name": "Elian Vance"
+          "name": "Sarah Chen"
         },
         "datePublished": "2026-05-10",
-        "reviewBody": "Operating a distribution fleet in Karachi while syncing with a remote invoicing team was a nightmare of spreadsheet transfers. With TRAC AI, our POS, Inventory, and Accounts are completely unified. It just works.",
+        "reviewBody": "Switching to Trac was the best decision we made for our sales team. We replaced three different tools and saved thousands a month.",
         "reviewRating": {
           "@type": "Rating",
           "ratingValue": "5",
@@ -83,17 +95,17 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI LLC"
+          "name": "G2 Crowd"
         }
       },
       {
         "@type": "Review",
         "author": {
           "@type": "Person",
-          "name": "Soraya Kincaid"
+          "name": "Marcus Thorne"
         },
         "datePublished": "2026-05-02",
-        "reviewBody": "The integrated ATS coupled with custom contracts cut our hiring onboarding time in half. No more jumping between DocuSign, Slack, and separate CRM software. TRAC AI solved our workflow fragmentation.",
+        "reviewBody": "The hiring tool is like magic. We found two top-tier engineers in less than a week using the AI search.",
         "reviewRating": {
           "@type": "Rating",
           "ratingValue": "5",
@@ -102,17 +114,17 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI LLC"
+          "name": "G2 Crowd"
         }
       },
       {
         "@type": "Review",
         "author": {
           "@type": "Person",
-          "name": "Thane Sterling"
+          "name": "Alex Rivera"
         },
         "datePublished": "2026-04-28",
-        "reviewBody": "We track shifts and machine manufacturing cycles. TRAC AI is the only tool that actually combines manufacturing material bills with standard POS registers and daily accounting. It replaced three separate subscriptions.",
+        "reviewBody": "Everything just works. No more integration headaches. No more manual data entry. Just pure productivity.",
         "reviewRating": {
           "@type": "Rating",
           "ratingValue": "5",
@@ -121,7 +133,7 @@ export default function LandingPage() {
         },
         "publisher": {
           "@type": "Organization",
-          "name": "TRAC AI LLC"
+          "name": "G2 Crowd"
         }
       }
     ]

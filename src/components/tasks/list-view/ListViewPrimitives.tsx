@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { Priority } from '@/hooks/useTasks';
+import { Priority, BoardColumn, DEFAULT_COLUMNS } from '@/hooks/useTasks';
 
 /**
  * A pulsing skeleton loader to indicate that content is being loaded.
@@ -21,6 +21,65 @@ export const SkeletonLoader = ({ className }: { className?: string }) => (
         <div className="w-full h-4 bg-secondary/50 rounded-md animate-pulse" />
     </div>
 );
+
+/**
+ * A colored pill component to display and change task stage/column directly.
+ */
+export const StagePill = ({
+    status,
+    onChange,
+    columns = DEFAULT_COLUMNS,
+    disabled
+}: {
+    status?: string;
+    onChange: (val: string) => void;
+    columns?: BoardColumn[];
+    disabled?: boolean;
+}) => {
+    const stageStyles: Record<string, { bg: string; dot: string }> = {
+        todo: { bg: 'bg-slate-200/90 dark:bg-slate-800 text-slate-800 dark:text-slate-200', dot: 'bg-slate-500' },
+        in_progress: { bg: 'bg-amber-200/90 dark:bg-amber-950 text-amber-900 dark:text-amber-200', dot: 'bg-amber-500' },
+        review: { bg: 'bg-purple-200/90 dark:bg-purple-950 text-purple-900 dark:text-purple-200', dot: 'bg-purple-500' },
+        done: { bg: 'bg-emerald-200/90 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200', dot: 'bg-emerald-500' },
+    };
+
+    const cols = columns && columns.length > 0 ? columns : DEFAULT_COLUMNS;
+    const currentCol = cols.find(c => c.id === status) || cols.find(c => c.title.toLowerCase() === status?.toLowerCase());
+    const title = currentCol ? currentCol.title : (status ? status.replace(/_/g, ' ') : 'To Do');
+    const styleKey = (currentCol?.id || status || 'todo').toLowerCase();
+    const style = stageStyles[styleKey] || { bg: 'bg-blue-200/90 dark:bg-blue-950 text-blue-900 dark:text-blue-200', dot: 'bg-blue-500' };
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={disabled}>
+                <div className={cn(
+                    'w-full h-full min-h-[32px] flex items-center justify-center gap-1.5 px-2 text-[10.5px] font-bold uppercase cursor-pointer transition-all hover:brightness-95 select-none',
+                    style.bg
+                )}>
+                    <span className={cn('size-1.5 rounded-full shrink-0', style.dot)} />
+                    <span className="truncate">{title}</span>
+                </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='center' className='min-w-[150px] p-1 shadow-lg'>
+                {cols.map((col) => {
+                    const colKey = col.id.toLowerCase();
+                    const colStyle = stageStyles[colKey] || { bg: 'bg-blue-200', dot: 'bg-blue-500' };
+                    return (
+                        <DropdownMenuItem
+                            key={col.id}
+                            onClick={() => onChange(col.id)}
+                            className='gap-2 h-8 text-[11px] font-bold uppercase cursor-pointer'
+                        >
+                            <span className={cn('size-2 rounded-full shrink-0', colStyle.dot)} />
+                            <span className="flex-1 truncate">{col.title}</span>
+                            {status === col.id && <Check size={14} className="text-primary ml-auto" />}
+                        </DropdownMenuItem>
+                    );
+                })}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+};
 
 /**
  * A colored pill component to display and change task priority.
@@ -56,6 +115,49 @@ export const PriorityPill = ({ priority, onChange, disabled }: { priority: Prior
     );
 };
 
+export function FormattedTaskText({ text }: { text?: string }) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+    const parts = text.split(urlRegex);
+
+    return (
+        <>
+            {parts.map((part, i) => {
+                if (!part) return null;
+                if (part.match(urlRegex)) {
+                    const cleanUrl = part.replace(/[.,)\]]+$/, '');
+                    const trailing = part.slice(cleanUrl.length);
+                    const href = cleanUrl.startsWith("www.") ? `https://${cleanUrl}` : cleanUrl;
+                    return (
+                        <React.Fragment key={i}>
+                            <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (typeof window !== "undefined") {
+                                        const electronApi = (window as any).api || (window as any).electronAPI;
+                                        if (electronApi?.openExternal) {
+                                            e.preventDefault();
+                                            electronApi.openExternal(href);
+                                        }
+                                    }
+                                }}
+                                className="underline font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 break-all cursor-pointer inline transition-colors"
+                            >
+                                {cleanUrl}
+                            </a>
+                            {trailing}
+                        </React.Fragment>
+                    );
+                }
+                return <React.Fragment key={i}>{part}</React.Fragment>;
+            })}
+        </>
+    );
+}
+
 /**
  * A generic, editable cell for the grid.
  */
@@ -87,11 +189,22 @@ export const GridCell = ({
     step?: number,
 }) => {
     const [isEditing, setIsEditing] = useState(startInEditMode);
+    const [draftValue, setDraftValue] = useState<string | number>(value ?? '');
+    const draftValueRef = useRef<string | number>(value ?? '');
     const inputRef = useRef<HTMLInputElement>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
+        if (!isEditing) {
+            setDraftValue(value ?? '');
+            draftValueRef.current = value ?? '';
+        }
+    }, [value, isEditing]);
+
+    useEffect(() => {
         if (isEditing) {
+            setDraftValue(value ?? '');
+            draftValueRef.current = value ?? '';
             const timer = setTimeout(() => {
                 if (multiline && textAreaRef.current) {
                     textAreaRef.current.focus();
@@ -105,7 +218,20 @@ export const GridCell = ({
         }
     }, [isEditing, multiline]);
 
-    const exitEditing = () => {
+    const saveAndExit = () => {
+        setIsEditing(false);
+        const currentVal = draftValueRef.current;
+        if (onChange && currentVal !== (value ?? '')) {
+            onChange(currentVal);
+        }
+        if (onDidEndEditing) {
+            onDidEndEditing();
+        }
+    };
+
+    const cancelAndExit = () => {
+        setDraftValue(value ?? '');
+        draftValueRef.current = value ?? '';
         setIsEditing(false);
         if (onDidEndEditing) {
             onDidEndEditing();
@@ -114,7 +240,12 @@ export const GridCell = ({
 
     const handleEditorKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
-            exitEditing();
+            e.preventDefault();
+            saveAndExit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            cancelAndExit();
         }
     };
 
@@ -123,7 +254,7 @@ export const GridCell = ({
             tabIndex={isEditable ? 0 : -1}
             data-cell="true"
             className={cn(
-                'relative h-full w-full flex items-center px-3 text-sm transition-colors outline-none focus:bg-primary/5 focus:ring-1 focus:ring-primary/30',
+                'relative min-h-[36px] w-full flex items-center px-3 text-sm transition-colors outline-none focus:bg-primary/5 focus:ring-1 focus:ring-primary/30',
                 isEditable && 'cursor-text hover:bg-secondary/10',
                 className
             )}
@@ -135,9 +266,9 @@ export const GridCell = ({
                 }
             }}
         >
-            <div className={cn('w-full truncate', isEditing && 'invisible')}>
+            <div className={cn('w-full min-w-0', multiline ? 'whitespace-pre-wrap break-words [overflow-wrap:anywhere] py-1.5 leading-relaxed' : 'truncate', isEditing && 'invisible')}>
                 {children || (value !== null && value !== undefined && value !== '') 
-                    ? String(value) 
+                    ? (typeof value === 'string' ? (multiline ? <FormattedTaskText text={value} /> : value) : String(value)) 
                     : (isEditable ? <span className="text-muted-foreground/30 font-normal italic">{placeholder || "Empty"}</span> : value)}
             </div>
 
@@ -146,51 +277,47 @@ export const GridCell = ({
                  <div 
                     data-editing="true"
                     className={cn(
-                        'absolute top-0 left-0 right-0 z-20 bg-background shadow-lg ring-2 ring-primary',
-                        multiline ? 'h-auto' : 'h-full'
+                        'absolute top-0 left-0 right-0 z-30 bg-background shadow-xl ring-2 ring-primary rounded-lg overflow-hidden',
+                        multiline ? 'h-auto min-h-[120px]' : 'h-full'
                     )}
                 >
                     {multiline ? (
-                        <textarea 
-                            ref={textAreaRef}
-                            value={value}
-                            onChange={(e) => onChange?.(e.target.value)}
-                            onBlur={exitEditing}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Escape') {
-                                    exitEditing();
-                                    e.stopPropagation();
-                                } else {
-                                    handleEditorKeyDown(e);
-                                }
-                            }}
-                            className='w-full p-3 text-sm bg-background outline-none font-medium resize-none overflow-y-auto min-h-[120px] max-h-[240px] whitespace-pre-wrap'
-                            placeholder={placeholder}
-                        />
+                        <div className="flex flex-col bg-background">
+                            <textarea 
+                                ref={textAreaRef}
+                                value={draftValue}
+                                onChange={(e) => {
+                                    setDraftValue(e.target.value);
+                                    draftValueRef.current = e.target.value;
+                                }}
+                                onBlur={saveAndExit}
+                                onKeyDown={handleEditorKeyDown}
+                                className='w-full p-3 text-sm bg-background outline-none font-medium resize-none overflow-y-auto min-h-[100px] max-h-[220px] whitespace-pre-wrap leading-relaxed'
+                                placeholder={placeholder}
+                            />
+                            <div className="px-3 py-1 bg-secondary/30 border-t border-border/40 text-[9px] text-muted-foreground font-semibold flex justify-between select-none">
+                                <span>Shift+Enter for newline</span>
+                                <span>Press Enter or click outside to save</span>
+                            </div>
+                        </div>
                     ) : (
                         <input 
                             ref={inputRef}
                             type={type}
-                            value={value}
-                            onChange={(e) => onChange?.(type === 'number' ? Number(e.target.value) : e.target.value)}
-                            onBlur={exitEditing}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Escape') {
-                                    exitEditing();
-                                    e.stopPropagation();
-                                } else {
-                                    handleEditorKeyDown(e);
-                                }
+                            value={draftValue}
+                            onChange={(e) => {
+                                const val = type === 'number' ? Number(e.target.value) : e.target.value;
+                                setDraftValue(val);
+                                draftValueRef.current = val;
                             }}
+                            onBlur={saveAndExit}
+                            onKeyDown={handleEditorKeyDown}
                             className='w-full h-full px-3 text-sm bg-transparent outline-none font-medium'
                             placeholder={placeholder}
                             min={min}
                             step={step}
                         />
                     )}
-                    <div className="absolute -bottom-5 right-0 text-[9px] font-bold text-primary uppercase tracking-tighter bg-background px-1 border border-primary/20 rounded shadow-sm">
-                        Press Enter to finish
-                    </div>
                 </div>
             )}
         </div>
@@ -217,9 +344,9 @@ export const HoursCell = ({ value, onChange, disabled }: { value: number; onChan
     const currentDayOpt = dayOptions.find(o => o.val === days) || { label: `${days}d`, val: days };
 
     return (
-        <div className='flex items-center h-full w-full group/hours'>
+        <div className='flex items-center justify-center h-full w-full group/hours self-stretch'>
             <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={disabled}>
+                <DropdownMenuTrigger asChild disabled={disabled} className="self-stretch">
                     <div className='h-full px-2 flex items-center justify-center border-r border-border/40 text-[10px] font-black cursor-pointer hover:bg-secondary/10 transition-colors uppercase bg-orange-500/5 text-orange-600'>
                         {currentDayOpt.label}
                     </div>
@@ -232,15 +359,16 @@ export const HoursCell = ({ value, onChange, disabled }: { value: number; onChan
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
-            <div className='flex-1 h-full'>
+            <div className='flex-1 h-full flex items-center justify-center self-stretch'>
                 <GridCell 
                     isEditable={!disabled} 
                     type='number' 
                     value={hours} 
                     onChange={(v) => onChange(days * 24 + Math.max(0, v))} 
-                    className='text-center font-mono font-bold text-orange-600 pr-0 pl-1'
+                    className='text-center font-mono font-bold text-orange-600 pr-0 pl-1 h-full flex items-center justify-center'
                     placeholder='h'
                     min={0}
+                    step={1}
                 />
             </div>
         </div>

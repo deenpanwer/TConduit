@@ -35,6 +35,7 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MobileInvoiceCanvas } from '@/components/crm/invoices/MobileInvoiceCanvas';
+import { PCInvoiceCanvas } from '@/components/crm/invoices/PCInvoiceCanvas';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
@@ -114,36 +115,7 @@ export default function InvoiceBuilder() {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    if (!previewContainerRef.current) return;
-    
-    const updateScale = () => {
-      const width = window.innerWidth < 768 ? window.innerWidth : (previewContainerRef.current?.getBoundingClientRect().width || window.innerWidth);
-      if (width > 0) {
-        setScale(Math.max(0.1, Math.min(1, (width - 48) / 800)));
-      }
-    };
-
-    updateScale();
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const width = window.innerWidth < 768 ? window.innerWidth : entry.contentRect.width;
-        if (width > 0) {
-          setScale(Math.max(0.1, Math.min(1, (width - 48) / 800)));
-        }
-      }
-    });
-    resizeObserver.observe(previewContainerRef.current);
-    window.addEventListener('resize', updateScale);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', updateScale);
-    };
-  }, []);
+  const [customFileName, setCustomFileName] = useState('');
 
   const [invoice, setInvoice] = useState<InvoiceData>({
     invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
@@ -365,11 +337,14 @@ export default function InvoiceBuilder() {
         return;
       }
 
-      const cleanInvoiceNo = (invoice.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
-      const cleanClient = (invoice.to.name || invoice.to.organization || 'Client').trim().replace(/[^a-zA-Z0-9-_]/g, '_');
-      const fileName = `TConduit_Invoice_${cleanInvoiceNo}_${cleanClient}.pdf`;
+      const defaultFileName = (invoice.to.name || invoice.to.organization) 
+        ? `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}_${(invoice.to.name || invoice.to.organization || '').trim().replace(/[^a-zA-Z0-9-_]/g, '_')}`
+        : `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}`;
 
-      await exportInvoiceToCompressedPDF(invoicePages, fileName);
+      const activeName = (customFileName.trim() || defaultFileName).replace(/[^a-zA-Z0-9-_ ]/g, '_').trim();
+      const finalPdfName = activeName.endsWith('.pdf') ? activeName : `${activeName}.pdf`;
+
+      await exportInvoiceToCompressedPDF(invoicePages, finalPdfName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast.error('Failed to generate PDF.');
@@ -379,9 +354,12 @@ export default function InvoiceBuilder() {
   };
 
   const handlePrint = () => {
-    const cleanInvoiceNo = (invoice.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
-    const cleanClient = (invoice.to.name || invoice.to.organization || 'Client').trim().replace(/[^a-zA-Z0-9-_]/g, '_');
-    printInvoiceDocument(`TConduit_Invoice_${cleanInvoiceNo}_${cleanClient}`);
+    const defaultFileName = (invoice.to.name || invoice.to.organization) 
+      ? `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}_${(invoice.to.name || invoice.to.organization || '').trim().replace(/[^a-zA-Z0-9-_]/g, '_')}`
+      : `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+
+    const activeName = (customFileName.trim() || defaultFileName).replace(/[^a-zA-Z0-9-_ ]/g, '_').trim();
+    printInvoiceDocument(activeName.replace('.pdf', ''));
   };
 
   const pages = useMemo(() => {
@@ -468,31 +446,31 @@ export default function InvoiceBuilder() {
         </Button>
       </div>
 
-      {/* Left side: Form Steps */}
-      <div className='w-full md:w-[450px] border-r border-border/40 flex flex-col bg-card/50 backdrop-blur-xl shrink-0'>
-        <div className='p-8 border-b border-border/40 hidden md:flex items-center justify-between bg-background/50'>
+      {/* Left side: Form Steps (Compact & Sleek) */}
+      <div className='w-full md:w-[350px] lg:w-[370px] xl:w-[390px] border-r border-border/40 flex flex-col bg-card/50 backdrop-blur-xl shrink-0'>
+        <div className='p-4 px-6 border-b border-border/40 hidden md:flex items-center justify-between bg-background/50'>
           <Button variant='ghost' size='sm' onClick={() => router.back()} className='rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-secondary/50'><ChevronLeft size={14} className='mr-2' /> Back</Button>
           <h2 className='text-sm font-black uppercase tracking-tighter'>Invoice <span className='text-blue-600'>Builder</span></h2>
         </div>
 
         {/* Step Progress */}
-        <div className='p-4 flex gap-1 border-b border-border/40 bg-muted/10 overflow-x-auto no-scrollbar scroll-smooth'>
+        <div className='p-2.5 px-3 flex gap-1.5 border-b border-border/40 bg-muted/10 overflow-x-auto no-scrollbar scroll-smooth'>
           {STEPS.map((step, idx) => (
             <button
               key={step.id}
               onClick={() => setCurrentStep(idx)}
               className={cn(
-                'flex flex-col items-center justify-center min-w-[70px] aspect-square rounded-2xl transition-all gap-1',
+                'flex flex-col items-center justify-center flex-1 min-w-[52px] h-14 rounded-xl transition-all gap-0.5',
                 currentStep === idx ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/20 scale-105' : 'hover:bg-secondary/50 text-muted-foreground'
               )}
             >
-              <step.icon size={18} strokeWidth={2.5} />
+              <step.icon size={16} strokeWidth={2.5} />
               <span className='text-[8px] font-black uppercase tracking-widest'>{step.label}</span>
             </button>
           ))}
         </div>
 
-        <div className='flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10'>
+        <div className='flex-1 overflow-y-auto p-5 md:p-6 custom-scrollbar space-y-8'>
           <AnimatePresence mode='wait'>
             {currentStep === 0 && (
               <motion.div key='step0' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className='space-y-8'>
@@ -798,237 +776,60 @@ export default function InvoiceBuilder() {
         </div>
       </div>
 
-      {/* Right side: Preview Visualization */}
+      {/* Right side: Preview Visualization (Scrollable & Auto-fitting) */}
       <div 
         ref={previewContainerRef}
-        className='w-full flex-1 bg-slate-100 dark:bg-slate-900 md:overflow-y-auto p-4 md:p-12 transition-all flex flex-col items-center border-t md:border-t-0 border-border/40'
+        className='w-full flex-1 bg-slate-100 dark:bg-slate-900 overflow-y-auto overflow-x-auto p-2 sm:p-4 md:px-4 md:py-6 transition-all flex flex-col items-center border-t md:border-t-0 border-border/40 min-w-0 custom-scrollbar'
       >
         {/* PDF Header Controls */}
-        <div className='w-full max-w-[800px] mb-8 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-border/40 shadow-xl flex items-center justify-between shrink-0'>
-            <div className='flex items-center gap-3'>
-                <div className='size-10 rounded-xl bg-blue-600 flex items-center justify-center text-white'><FileText size={20} /></div>
-                <div>
-                    <h3 className='text-[11px] font-black uppercase tracking-widest'>Preview</h3>
-                    <p className='text-[10px] font-bold text-muted-foreground uppercase'>{pages.length} Pages • {invoice.currency} {subtotal.toLocaleString()}</p>
+        <div className='w-full max-w-[800px] mb-6 bg-white dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-border/40 shadow-xl flex items-center justify-between shrink-0 gap-3'>
+            <div className='flex items-center gap-3 min-w-0 flex-1'>
+                <div className='size-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20'><FileText size={20} /></div>
+                <div className='min-w-0 flex-1'>
+                    <div className='flex items-center gap-1.5 flex-wrap'>
+                        <h3 className='text-[11px] font-black uppercase tracking-widest text-foreground shrink-0'>Preview</h3>
+                        <span className='text-muted-foreground/40 font-bold'>•</span>
+                        <div className='relative flex items-center group max-w-[300px] flex-1'>
+                            <input 
+                                type='text'
+                                value={customFileName !== '' ? customFileName : (
+                                    (invoice.to.name || invoice.to.organization) 
+                                      ? `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}_${(invoice.to.name || invoice.to.organization || '').trim().replace(/[^a-zA-Z0-9-_]/g, '_')}`
+                                      : `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9-_]/g, '_')}`
+                                )}
+                                onChange={(e) => setCustomFileName(e.target.value)}
+                                placeholder='Invoice filename'
+                                className='text-[11px] font-bold text-slate-800 dark:text-slate-200 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 focus:bg-black/10 dark:focus:bg-white/15 px-2.5 py-1 rounded-lg border border-transparent hover:border-border/60 focus:border-blue-500 outline-none transition-all w-full pr-12'
+                                title='Click to rename download file'
+                            />
+                            <span className='absolute right-6 text-[10px] text-muted-foreground font-semibold pointer-events-none'>.pdf</span>
+                            <Edit3 size={11} className='absolute right-2 text-muted-foreground/60 group-hover:text-blue-500 transition-colors pointer-events-none' />
+                        </div>
+                    </div>
+                    <p className='text-[10px] font-bold text-muted-foreground uppercase truncate mt-0.5'>{pages.length} Pages • {invoice.currency} {subtotal.toLocaleString()}</p>
                 </div>
             </div>
-            <div className='flex gap-2'>
-                <Button variant='outline' size='sm' onClick={handleDownload} disabled={isDownloading} className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60'>
+            <div className='flex gap-2 shrink-0'>
+                <Button variant='outline' size='sm' onClick={handleDownload} disabled={isDownloading} className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60 hover:bg-secondary/80'>
                     {isDownloading ? <Loader2 className='animate-spin mr-2' size={14} /> : <Download size={14} className='mr-2' />}
                     Save PDF
                 </Button>
-                <Button variant='outline' size='sm' onClick={handlePrint} className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60'><Printer size={14} className='mr-2' /> Print</Button>
+                <Button variant='outline' size='sm' onClick={handlePrint} className='rounded-xl h-10 px-4 text-[10px] font-black uppercase border-border/60 hover:bg-secondary/80'><Printer size={14} className='mr-2' /> Print</Button>
             </div>
         </div>
 
-        <div className='block md:hidden w-full max-w-lg mt-8'>
+        {/* Mobile View Canvas */}
+        <div className='block md:hidden w-full max-w-lg mt-4'>
             <MobileInvoiceCanvas invoice={invoice} subtotal={subtotal} brandingLogo={brandingLogo} />
         </div>
-
-        <div ref={invoiceRef} className='flex-col gap-12 items-center pb-20 w-full max-w-[800px] hidden md:flex'>
-            {pages.map((pageItems, pageIdx) => (
-                <div 
-                    key={pageIdx}
-                    style={{
-                        width: `${800 * scale}px`,
-                        height: `${1131 * scale}px`,
-                    }}
-                    className='relative overflow-hidden shrink-0'
-                >
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: pageIdx * 0.1 }}
-                        className='invoice-page w-[800px] h-[1131px] bg-white dark:bg-slate-950 shadow-[0_40px_100px_rgba(0,0,0,0.1)] rounded-sm p-12 md:p-16 flex flex-col text-slate-800 dark:text-slate-200 absolute top-0 left-0 origin-top-left shrink-0'
-                        style={{
-                            transform: `scale(${scale})`,
-                        }}
-                    >
-                    {/* Watermark/Background decoration */}
-                    <div className='absolute -top-20 -right-20 size-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none' />
-                    
-                    {/* Header - Only on First Page */}
-                    {pageIdx === 0 && (
-                        <>
-                            <div className='flex justify-between items-start mb-10 relative z-10'>
-                                <div className='space-y-4'>
-                                    {!invoice.hiddenFields?.['from.branding'] && (
-                                        brandingLogo ? (
-                                            <img src={brandingLogo} className='h-12 object-contain' alt='Branding Logo' />
-                                        ) : (
-                                            <div className='h-12 w-24 bg-slate-100 dark:bg-slate-900/50 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800'>
-                                                <ImageIcon className='text-slate-300' size={20} />
-                                            </div>
-                                        )
-                                    )}
-                                    <div className='space-y-1'>
-                                        <h1 className='text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white'>INVOICE</h1>
-                                        <p className='text-xs font-bold text-blue-600/60 tracking-[0.2em]'>#{invoice.invoiceNumber}</p>
-                                    </div>
-                                </div>
-                                <div className='text-right space-y-6'>
-                                    <div className='space-y-1'>
-                                        <p className='text-[9px] font-black uppercase tracking-widest text-slate-400'>Amount Outstanding</p>
-                                        <p className='text-3xl font-black text-slate-900 dark:text-white'>{invoice.currency} {subtotal.toLocaleString()}</p>
-                                    </div>
-                                    <div className='flex gap-6 justify-end'>
-                                        {!invoice.hiddenFields?.['issueDate'] && (
-                                            <div className='text-right border-r border-slate-100 dark:border-slate-800 pr-6'>
-                                                <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Issuance Date</p>
-                                                <p className='text-[10px] font-bold text-slate-700 dark:text-slate-300'>{invoice.issueDate ? format(new Date(invoice.issueDate), 'MMM d, yyyy') : '-'}</p>
-                                            </div>
-                                        )}
-                                        {!invoice.hiddenFields?.['dueDate'] && (
-                                            <div className='text-right'>
-                                                <p className='text-[8px] font-black uppercase tracking-widest text-slate-400'>Due Date</p>
-                                                <p className='text-[10px] font-bold text-rose-500'>{invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '-'}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Parties Grid */}
-                            <div className='grid grid-cols-2 gap-8 mb-10 relative z-10 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800'>
-                                <div className='space-y-2'>
-                                    <p className='text-[9px] font-black uppercase tracking-[0.3em] text-blue-600'>FROM</p>
-                                    <div className='space-y-0.5'>
-                                        {!invoice.hiddenFields?.['from.name'] && (
-                                            <p className='text-xs font-black text-slate-900 dark:text-white'>{invoice.from.name || 'Company Name'}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['from.address'] && (
-                                            <p className='text-[10px] font-medium opacity-60 max-w-[200px] leading-tight'>{invoice.from.address || 'Business Address'}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['from.email'] && (
-                                            <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.from.email}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['from.phone'] && (
-                                            <p className='text-[10px] font-bold opacity-80'>{invoice.from.phone}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className='space-y-2 text-right'>
-                                    <p className='text-[9px] font-black uppercase tracking-[0.3em] text-purple-600'>BILL TO</p>
-                                    <div className='space-y-0.5'>
-                                        {!invoice.hiddenFields?.['to.name'] && (
-                                            <p className='text-xs font-black text-slate-900 dark:text-white'>{invoice.to.name || 'Client Name'}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['to.organization'] && (
-                                            <p className='text-[10px] font-black text-blue-600'>{invoice.to.organization}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['to.address'] && (
-                                            <p className='text-[10px] font-medium opacity-60 ml-auto max-w-[200px] leading-tight'>{invoice.to.address || 'Billing Address'}</p>
-                                        )}
-                                        {!invoice.hiddenFields?.['to.email'] && (
-                                            <p className='text-[10px] font-bold opacity-80 mt-2'>{invoice.to.email}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* Continued Page Header */}
-                    {pageIdx > 0 && (
-                        <div className='flex justify-between items-center mb-8 border-b border-slate-100 dark:border-slate-800 pb-4 opacity-60'>
-                            <div>
-                                <p className='text-[10px] font-black uppercase text-slate-400'>Invoice #{invoice.invoiceNumber}</p>
-                                <p className='text-[9px] font-bold text-slate-400 uppercase'>Continued - Page {pageIdx + 1}</p>
-                            </div>
-                            {!invoice.hiddenFields?.['from.name'] && (
-                                <div className='text-right'>
-                                    <p className='text-[10px] font-black text-slate-900 dark:text-white'>{invoice.from.name}</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Table */}
-                    <div className='flex-1 relative z-10'>
-                        {pageItems.length > 0 ? (
-                            <table className='w-full text-left'>
-                                <thead>
-                                    <tr className='border-b-2 border-slate-900 dark:border-white'>
-                                        <th className='py-4 text-[9px] font-black uppercase tracking-[0.2em]'>Service Description</th>
-                                        <th className='py-4 text-center text-[9px] font-black uppercase tracking-[0.2em] w-20'>QTY</th>
-                                        <th className='py-4 text-right text-[9px] font-black uppercase tracking-[0.2em] w-28'>Rate</th>
-                                        <th className='py-4 text-right text-[9px] font-black uppercase tracking-[0.2em] w-28'>Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className='divide-y divide-slate-100 dark:divide-slate-800/50'>
-                                    {pageItems.map((item) => (
-                                        <tr key={item.id} className='group'>
-                                            <td className='py-5 pr-4'>
-                                                <p className='text-[12px] font-black text-slate-900 dark:text-white leading-tight'>{item.description || 'Professional Services'}</p>
-                                            </td>
-                                            <td className='py-5 text-center text-[11px] font-bold text-slate-500'>{item.quantity}</td>
-                                            <td className='py-5 text-right text-[11px] font-bold text-slate-500'>{invoice.currency} {Number(item.rate).toLocaleString()}</td>
-                                            <td className='py-5 text-right text-[12px] font-black text-slate-900 dark:text-white'>{invoice.currency} {(item.quantity * item.rate).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div className='h-20 flex items-center justify-center border-b border-dashed border-slate-100 dark:border-slate-800 opacity-20'>
-                                <p className='text-[10px] font-black uppercase tracking-widest'>Document Continuation</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Summary/Footer - Only on Last Page */}
-                    {pageIdx === pages.length - 1 && (
-                        <div className='mt-8 pt-8 border-t-2 border-slate-900 dark:border-white relative z-10'>
-                            <div className='flex justify-between gap-12'>
-                                <div className='flex-1 space-y-8'>
-                                    {!invoice.hiddenFields?.['paymentInfo'] && (
-                                        <div className='space-y-3'>
-                                            <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-blue-600' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>Payment Instructions</p></div>
-                                            <p className='text-[10px] font-mono font-bold whitespace-pre-wrap leading-relaxed opacity-70 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner'>
-                                                {invoice.paymentInfo || 'Remittance details pending.'}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {!invoice.hiddenFields?.['notes'] && (
-                                        <div className='space-y-3'>
-                                            <div className='flex items-center gap-2'><div className='size-1.5 rounded-full bg-slate-400' /><p className='text-[9px] font-black uppercase tracking-[0.2em] text-slate-400'>General Terms & Conditions</p></div>
-                                            <p className='text-[10px] font-bold italic opacity-50 max-w-[380px] leading-relaxed'>{invoice.notes}</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className='w-56 space-y-8 text-right'>
-                                    <div className='space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800'>
-                                        <div className='flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400'>
-                                            <span>Subtotal</span>
-                                            <span>{invoice.currency} {subtotal.toLocaleString()}</span>
-                                        </div>
-                                        <div className='flex justify-between text-lg font-black uppercase border-t border-slate-200 dark:border-slate-800 pt-3 text-blue-600'>
-                                            <span>Total</span>
-                                            <span>{invoice.currency} {subtotal.toLocaleString()}</span>
-                                        </div>
-                                    </div>
-
-                                    {!invoice.hiddenFields?.['signature'] && (
-                                        <div className='pt-6'>
-                                            <div className='inline-block border-b-2 border-slate-900 dark:border-white min-w-[180px] text-center pb-1'>
-                                                <p className='text-xl font-signature italic tracking-[0.1em] text-slate-900 dark:text-white'>
-                                                    {invoice.signature || ''}
-                                                </p>
-                                            </div>
-                                            <p className='text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2'>Authorized Acceptance</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Page Numbers */}
-                    <div className='mt-16 flex items-center justify-end opacity-30 relative z-10'>
-                        <p className='text-[10px] font-black uppercase tracking-[0.2em]'>PAGE {pageIdx + 1} OF {pages.length}</p>
-                    </div>
-                </motion.div>
-                </div>
-            ))}
+        {/* PC View Canvas (Full preview, auto-scaled, scrollable, non-cropped) */}
+        <div className='hidden md:block w-full max-w-[840px]'>
+            <PCInvoiceCanvas 
+                invoice={invoice} 
+                subtotal={subtotal} 
+                brandingLogo={brandingLogo} 
+                invoiceRef={invoiceRef} 
+            />
         </div>
       </div>
     </div>

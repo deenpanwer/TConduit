@@ -38,6 +38,7 @@ import { format, isToday, isTomorrow, isYesterday, formatDistanceToNow } from "d
 import { useTasks, Task, Status, Priority, Subtask, Comment, HistoryEntry, BoardColumn, DEFAULT_COLUMNS } from "@/hooks/useTasks";
 import { useTeam } from "@/hooks/use-team";
 import { useAuth } from "@/hooks/use-auth";
+import { FormattedTaskText } from "./list-view/ListViewPrimitives";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { InlineAudioPlayer } from "./InlineAudioPlayer";
@@ -411,10 +412,14 @@ export const TaskCard = ({
         )}
 
         {task.description && (
-          <div className="text-xs text-muted-foreground leading-snug mt-2 mb-3">
-            {showFullDescription || task.description.length <= 120
-              ? task.description
-              : `${task.description.substring(0, 120)}...`}
+          <div className="text-xs text-muted-foreground leading-snug mt-2 mb-3 break-words [overflow-wrap:anywhere]">
+            <FormattedTaskText
+              text={
+                showFullDescription || task.description.length <= 120
+                  ? task.description
+                  : `${task.description.substring(0, 120)}...`
+              }
+            />
             {task.description.length > 120 && (
               <Button 
                 variant="link" 
