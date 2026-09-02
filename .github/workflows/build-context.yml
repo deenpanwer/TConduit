@@ -1,0 +1,44 @@
+name: Lead Context Harvesting Engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      table_name:
+        description: 'Target Supabase Table Name'
+        required: false
+        default: 'leads'
+      batch_size:
+        description: 'Number of leads to process'
+        required: false
+        default: '50'
+  schedule:
+    # Runs every 4 hours
+    - cron: '0 */4 * * *'
+
+jobs:
+  build_context:
+    name: Harvest Lead Context (Domain Age + Web Markdown + LinkedIn)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute Context Builder Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+          TABLE_NAME: ${{ github.event.inputs.table_name || 'leads' }}
+          BATCH_SIZE: ${{ github.event.inputs.batch_size || '50' }}
+        run: npx tsx scripts/build-lead-context.ts --table=${{ env.TABLE_NAME }} --batch=${{ env.BATCH_SIZE }}
